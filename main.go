@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -31,7 +32,7 @@ func main() {
 		Name:        "anime-image-viewer",
 		Description: "A demo of using raw HTML & CSS",
 		Services: []application.Service{
-			application.NewService(&GreetService{}),
+			application.NewService(&image.Service{}),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),

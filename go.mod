@@ -1,4 +1,4 @@
-module changeme
+module github.com/michael-freling/anime-image-viewer
 
 go 1.22.4
 

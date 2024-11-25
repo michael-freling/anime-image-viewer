@@ -1,53 +1,44 @@
 import { useState, useEffect } from 'react'
-import {GreetService} from "../bindings/changeme";
-import {Events, WML} from "@wailsio/runtime";
+import {FileInfo, Service} from "../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
 
 function App() {
-  const [name, setName] = useState<string>('');
-  const [result, setResult] = useState<string>('Please enter your name below 👇');
-  const [time, setTime] = useState<string>('Listening for Time event...');
+  const [rootDirectory, setRootDirectory] = useState<string>('');
+  const [files, setFiles] = useState<FileInfo[]>([]);
 
-  const doGreet = () => {
-    let localName = name;
-    if (!localName) {
-      localName = 'anonymous';
-    }
-    GreetService.Greet(localName).then((resultValue: string) => {
-      setResult(resultValue);
-    }).catch((err: any) => {
-      console.log(err);
-    });
+  async function readFiles(path: string) {
+    const files = await Service.ReadDirectory(path)
+    setFiles(files);
   }
 
   useEffect(() => {
-    Events.On('time', (timeValue: any) => {
-      setTime(timeValue.data);
-    });
+    Service.ReadInitialDirectory()
+      .then(async (directory) => {
+        setRootDirectory(directory);
+        await readFiles(directory)
+      });
     // Reload WML so it picks up the wml tags
-    WML.Reload();
+    // WML.Reload();
   }, []);
 
   return (
     <div className="container">
-      <div>
-        <a wml-openURL="https://wails.io">
-          <img src="/wails.png" className="logo" alt="Wails logo"/>
-        </a>
-        <a wml-openURL="https://reactjs.org">
-          <img src="/react.svg" className="logo react" alt="React logo"/>
-        </a>
-      </div>
-      <h1>Wails + React</h1>
-      <div className="result">{result}</div>
+      <h1></h1>
+      <div className="result">Result</div>
       <div className="card">
-        <div className="input-box">
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} type="text" autoComplete="off"/>
-          <button className="btn" onClick={doGreet}>Greet</button>
-        </div>
+        <ul>
+            {rootDirectory}
+            {files.map((file) =>
+                <li>
+                    {file.IsDirectory && <span>📁</span>}
+                    {file.Name}
+                </li>
+            )}
+        </ul>
+        <div></div>
+
       </div>
       <div className="footer">
-        <div><p>Click on the Wails logo to learn more</p></div>
-        <div><p>{time}</p></div>
+        <div><p>Footer</p></div>
       </div>
     </div>
   )
