@@ -1,0 +1,5 @@
+.task
+bin
+build
+frontend/dist
+frontend/node_modules
