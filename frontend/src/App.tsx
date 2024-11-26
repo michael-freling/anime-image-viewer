@@ -1,15 +1,9 @@
-import { useState, useEffect } from "react";
-import { Service } from "../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
+import { useEffect } from "react";
 import Grid from "@mui/material/Grid2";
 import DirectoryExplorer from "./DirectoryExplorer";
 
 function App() {
-  const [rootDirectory, setRootDirectory] = useState<string>("");
-
   useEffect(() => {
-    Service.ReadInitialDirectory().then(async (directory) => {
-      setRootDirectory(directory);
-    });
     // Reload WML so it picks up the wml tags
     // WML.Reload();
   }, []);
@@ -17,7 +11,7 @@ function App() {
   return (
     <Grid container spacing={2}>
       <Grid>
-        <DirectoryExplorer root={rootDirectory} />
+        <DirectoryExplorer />
       </Grid>
       <Grid>
         <h1></h1>
