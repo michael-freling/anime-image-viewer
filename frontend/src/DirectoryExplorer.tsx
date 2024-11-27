@@ -32,12 +32,27 @@ export default function DirectoryExplorer() {
     if (!rootDirectory) {
       return;
     }
-    readFiles(rootDirectory);
+    readDirectories(rootDirectory);
   }, [rootDirectory]);
 
-  async function readFiles(dirPath: string) {
-    const children = await Service.FindChildDirectoriesRecursively(dirPath);
+  async function readDirectories(dirPath: string) {
+    const children = await Service.ReadChildDirectoriesRecursively(dirPath);
     setChildren(children);
+  }
+
+  async function readImages(dirPath: string) {
+    const images = await Service.ReadImageFiles(dirPath);
+    console.log(images);
+  }
+
+  async function handleSelect(
+    event: React.SyntheticEvent,
+    itemId: string | null
+  ) {
+    if (!itemId) {
+      return;
+    }
+    await readImages(itemId);
   }
 
   // todo: SimpleTreeView was hard to add elements dynamically
@@ -49,6 +64,7 @@ export default function DirectoryExplorer() {
         collapseIcon: FolderOpenIcon,
         endIcon: FolderOpenIcon,
       }}
+      onSelectedItemsChange={handleSelect}
     >
       <DirectoryTreeItem
         directory={{
