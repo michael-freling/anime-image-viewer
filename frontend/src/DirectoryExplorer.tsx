@@ -5,20 +5,24 @@ import {
 } from "../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
 import FolderIcon from "@mui/icons-material/Folder";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
-import { useEffect, useState } from "react";
+import React, { FC, useEffect, useState } from "react";
 
-export function DirectoryTreeItem({ directory }: { directory: Directory }) {
-  return (
-    <TreeItem label={directory.Name} itemId={directory.Path}>
-      {directory.Children &&
-        directory.Children.map((child, index) => (
-          <DirectoryTreeItem key={index} directory={child} />
-        ))}
-    </TreeItem>
-  );
+const DirectoryTreeItem: FC<{
+  directory: Directory;
+}> = ({ directory }) => (
+  <TreeItem label={directory.Name} itemId={directory.Path}>
+    {directory.Children &&
+      directory.Children.map((child, index) => (
+        <DirectoryTreeItem key={index} directory={child} />
+      ))}
+  </TreeItem>
+);
+
+interface DirectoryExplorerProps {
+  selectDirectory: (directory: string) => Promise<void>;
 }
 
-export default function DirectoryExplorer() {
+const DirectoryExplorer: FC<DirectoryExplorerProps> = ({ selectDirectory }) => {
   const [rootDirectory, setRootDirectory] = useState<string>("");
   const [children, setChildren] = useState<Directory[]>([]);
 
@@ -40,11 +44,6 @@ export default function DirectoryExplorer() {
     setChildren(children);
   }
 
-  async function readImages(dirPath: string) {
-    const images = await Service.ReadImageFiles(dirPath);
-    console.log(images);
-  }
-
   async function handleSelect(
     event: React.SyntheticEvent,
     itemId: string | null
@@ -52,7 +51,7 @@ export default function DirectoryExplorer() {
     if (!itemId) {
       return;
     }
-    await readImages(itemId);
+    selectDirectory(itemId);
   }
 
   // todo: SimpleTreeView was hard to add elements dynamically
@@ -76,4 +75,5 @@ export default function DirectoryExplorer() {
       />
     </SimpleTreeView>
   );
-}
+};
+export default DirectoryExplorer;

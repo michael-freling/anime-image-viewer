@@ -4,6 +4,8 @@ import (
 	"embed"
 	_ "embed"
 	"log"
+	"log/slog"
+	"os"
 	"time"
 
 	"github.com/michael-freling/anime-image-viewer/internal/image"
@@ -23,6 +25,11 @@ var assets embed.FS
 // logs any error that might occur.
 func main() {
 
+	logLevel := slog.LevelDebug
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: logLevel,
+	}))
+
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
 	// 'Assets' configures the asset server with the 'FS' variable pointing to the frontend files.
@@ -35,7 +42,8 @@ func main() {
 			application.NewService(&image.Service{}),
 		},
 		Assets: application.AssetOptions{
-			Handler: application.AssetFileServerFS(assets),
+			Handler:    application.AssetFileServerFS(assets),
+			Middleware: image.AssetMiddleware(logger),
 		},
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: true,

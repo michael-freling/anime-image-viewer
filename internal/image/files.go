@@ -84,6 +84,20 @@ var (
 	}
 )
 
+func isSupportedImageFile(filePath string) (bool, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return false, fmt.Errorf("os.Open: %w", err)
+	}
+	defer file.Close()
+
+	contentType, err := getContentType(file)
+	if err != nil {
+		return false, err
+	}
+	return slices.Contains(supportedContentTypes, contentType), nil
+}
+
 func getContentType(file *os.File) (string, error) {
 	// https://stackoverflow.com/a/38175140
 	data := make([]byte, 512)
