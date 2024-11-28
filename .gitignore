@@ -1,6 +1,5 @@
 .task
 bin
-build
 frontend/bindings
 frontend/dist
 frontend/node_modules
