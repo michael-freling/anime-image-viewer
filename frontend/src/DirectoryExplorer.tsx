@@ -1,3 +1,4 @@
+// TreeView hasn't been supported by a Joy UI yet: https://github.com/mui/mui-x/issues/14687
 import { SimpleTreeView, TreeItem2 as TreeItem } from "@mui/x-tree-view";
 import {
   Directory,
@@ -54,14 +55,18 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({ selectDirectory }) => {
     selectDirectory(itemId);
   }
 
+  if (rootDirectory === "") {
+    return null;
+  }
+
   // todo: SimpleTreeView was hard to add elements dynamically
   return (
     <SimpleTreeView
       defaultExpandedItems={[rootDirectory]}
       slots={{
-        expandIcon: FolderIcon,
-        collapseIcon: FolderOpenIcon,
-        endIcon: FolderOpenIcon,
+        expandIcon: (props) => <FolderIcon color="primary" {...props} />,
+        collapseIcon: (props) => <FolderOpenIcon color="primary" {...props} />,
+        endIcon: (props) => <FolderOpenIcon color="primary" {...props} />,
       }}
       onSelectedItemsChange={handleSelect}
     >

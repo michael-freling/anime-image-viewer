@@ -4,8 +4,10 @@ import {
   ImageFile,
   Service,
 } from "../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
-import { Box, Container, ImageList, ImageListItem } from "@mui/material";
+import { Box, ImageList, ImageListItem, Toolbar } from "@mui/material";
 import LazyImage from "./components/LazyImage";
+import Header from "./components/Header";
+import Navigation from "./components/Navigation";
 
 // window size
 // https://bobbyhadz.com/blog/react-get-window-width-height
@@ -48,51 +50,81 @@ function App() {
     });
   };
 
-  const directoryExplorerWidth = windowSize.innerWidth * 0.2;
-  const columns = 3;
+  const drawerWidth = 240;
+  const directoryExplorerWidth = (windowSize.innerWidth - drawerWidth) * 0.2;
+  const columns = 4;
   const aspectRatio = 16.0 / 9.0;
   const rowHeight =
-    (windowSize.innerWidth - directoryExplorerWidth) / columns / aspectRatio;
+    (windowSize.innerWidth - drawerWidth - directoryExplorerWidth) /
+    columns /
+    aspectRatio;
 
   return (
-    <Container maxWidth={false} style={{ display: "flex" }}>
-      <Box width={directoryExplorerWidth}>
-        <DirectoryExplorer selectDirectory={handleDirectory} />
-      </Box>
-      <Box>
-        <ImageList
-          sx={{
-            margin: 0,
-            padding: 0,
+    <Box
+      component="div"
+      style={{ display: "flex", minWidth: "100vw", minHeight: "100vh" }}
+    >
+      <Header />
+      <Navigation drawerWidth={drawerWidth} />
+      <Box
+        style={{
+          maxHeight: "100%",
+          margin: 0,
+          padding: 0,
+        }}
+      >
+        {/* Put a toolbar for the space of the AppBar */}
+        <Toolbar />
+
+        <Box
+          style={{
+            maxHeight: "100%",
+            display: "flex",
+            alignItems: "flex-start",
           }}
-          cols={columns}
-          rowHeight={rowHeight}
         >
-          {images.userImages.map((userImage) => (
-            <ImageListItem key={userImage.Path}>
-              <LazyImage
-                src={userImage.Path}
-                width={windowSize.innerWidth / columns}
-                height={rowHeight}
-                style={{
-                  height: "100%",
-                }}
-              />
-            </ImageListItem>
-          ))}
-        </ImageList>
-        <Box>
-          <div className="card">
-            <div></div>
-          </div>
-          <div className="footer">
-            <div>
-              <p>Footer</p>
-            </div>
-          </div>
+          {/* todo: maxHeight: 100% doesn't work with overflowY for some reason */}
+          <Box
+            width={directoryExplorerWidth}
+            style={{ maxHeight: "100vh", overflowY: "scroll" }}
+          >
+            <DirectoryExplorer selectDirectory={handleDirectory} />
+          </Box>
+
+          <Box
+            component="main"
+            minWidth="50vw"
+            style={{
+              height: "100vh",
+              overflowY: "auto",
+              flexGrow: 1,
+            }}
+          >
+            <ImageList
+              sx={{
+                margin: 0,
+                padding: 0,
+              }}
+              cols={columns}
+              rowHeight={rowHeight}
+            >
+              {images.userImages.map((userImage) => (
+                <ImageListItem key={userImage.Path}>
+                  <LazyImage
+                    src={userImage.Path}
+                    width={windowSize.innerWidth / columns}
+                    height={rowHeight}
+                    style={{
+                      height: "100%",
+                    }}
+                  />
+                </ImageListItem>
+              ))}
+            </ImageList>
+          </Box>
         </Box>
       </Box>
-    </Container>
+    </Box>
   );
 }
 
