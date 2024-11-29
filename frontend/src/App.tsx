@@ -1,20 +1,40 @@
 import { useEffect, useState } from "react";
-import Grid from "@mui/material/Grid2";
 import DirectoryExplorer from "./DirectoryExplorer";
 import {
   ImageFile,
   Service,
 } from "../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
-import { ImageList, ImageListItem } from "@mui/material";
+import { Box, Container, ImageList, ImageListItem } from "@mui/material";
+import LazyImage from "./components/LazyImage";
+
+// window size
+// https://bobbyhadz.com/blog/react-get-window-width-height
+function getWindowSize() {
+  const { innerWidth, innerHeight } = window;
+  return { innerWidth, innerHeight };
+}
 
 export interface UserImages {
   userImages: ImageFile[];
 }
 
 function App() {
+  const [windowSize, setWindowSize] = useState(getWindowSize());
   const [images, setImages] = useState<UserImages>({
     userImages: [],
   });
+
+  useEffect(() => {
+    function handleWindowResize() {
+      setWindowSize(getWindowSize());
+    }
+
+    window.addEventListener("resize", handleWindowResize);
+
+    return () => {
+      window.removeEventListener("resize", handleWindowResize);
+    };
+  }, []);
 
   useEffect(() => {
     // Reload WML so it picks up the wml tags
@@ -28,42 +48,51 @@ function App() {
     });
   };
 
+  const directoryExplorerWidth = windowSize.innerWidth * 0.2;
+  const columns = 3;
+  const aspectRatio = 16.0 / 9.0;
+  const rowHeight =
+    (windowSize.innerWidth - directoryExplorerWidth) / columns / aspectRatio;
+
   return (
-    <Grid container spacing={2}>
-      <Grid size={2}>
+    <Container maxWidth={false} style={{ display: "flex" }}>
+      <Box width={directoryExplorerWidth}>
         <DirectoryExplorer selectDirectory={handleDirectory} />
-      </Grid>
-      <Grid size={8}>
-        <h1></h1>
-        <ImageList sx={{ width: "100%" }} cols={5}>
+      </Box>
+      <Box>
+        <ImageList
+          sx={{
+            margin: 0,
+            padding: 0,
+          }}
+          cols={columns}
+          rowHeight={rowHeight}
+        >
           {images.userImages.map((userImage) => (
-            <ImageListItem
-              key={userImage.Path}
-              style={{
-                width: "100%",
-                height: "auto",
-              }}
-            >
-              <img
+            <ImageListItem key={userImage.Path}>
+              <LazyImage
                 src={userImage.Path}
+                width={windowSize.innerWidth / columns}
+                height={rowHeight}
                 style={{
-                  width: "100%",
-                  height: "auto",
+                  height: "100%",
                 }}
               />
             </ImageListItem>
           ))}
         </ImageList>
-        <div className="card">
-          <div></div>
-        </div>
-        <div className="footer">
-          <div>
-            <p>Footer</p>
+        <Box>
+          <div className="card">
+            <div></div>
           </div>
-        </div>
-      </Grid>
-    </Grid>
+          <div className="footer">
+            <div>
+              <p>Footer</p>
+            </div>
+          </div>
+        </Box>
+      </Box>
+    </Container>
   );
 }
 
