@@ -1,17 +1,14 @@
-import "react";
-import Box from "@mui/material/Box";
-import Drawer from "@mui/material/Drawer";
-import Toolbar from "@mui/material/Toolbar";
-import List from "@mui/material/List";
-import Divider from "@mui/material/Divider";
-import ListItem from "@mui/material/ListItem";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemIcon from "@mui/material/ListItemIcon";
-import ListItemText from "@mui/material/ListItemText";
-import * as Icons from "@mui/icons-material";
-import React from "react";
+import * as React from "react";
+import List from "@mui/joy/List";
+import ListSubheader from "@mui/joy/ListSubheader";
+import ListItem from "@mui/joy/ListItem";
+import ListItemButton from "@mui/joy/ListItemButton";
+import ListItemDecorator from "@mui/joy/ListItemDecorator";
+import ListItemContent from "@mui/joy/ListItemContent";
 
-const Navigation: React.FC<{ drawerWidth: number }> = ({ drawerWidth }) => {
+import * as Icons from "@mui/icons-material";
+
+const Navigation: React.FC<{}> = () => {
   const menus = [
     {
       text: "Series",
@@ -24,32 +21,23 @@ const Navigation: React.FC<{ drawerWidth: number }> = ({ drawerWidth }) => {
   ];
 
   return (
-    <Drawer
-      variant="permanent"
-      sx={{
-        width: drawerWidth,
-        flexShrink: 0,
-        [`& .MuiDrawer-paper`]: {
-          width: drawerWidth,
-          boxSizing: "border-box",
-        },
-      }}
-    >
-      <Toolbar />
-      <Box sx={{ overflow: "auto" }}>
-        <List>
+    <List size="sm">
+      <ListItem nested sx={{ mt: 2 }}>
+        <ListSubheader sx={{ letterSpacing: "2px", fontWeight: "800" }}>
+          Anime
+        </ListSubheader>
+        <List aria-labelledby="nav-list-tags" size="sm">
           {menus.map((menu, index) => (
-            <ListItem key={index} disablePadding>
+            <ListItem key={index}>
               <ListItemButton>
-                <ListItemIcon>{menu.icon}</ListItemIcon>
-                <ListItemText primary={menu.text} />
+                <ListItemDecorator>{menu.icon}</ListItemDecorator>
+                <ListItemContent>{menu.text}</ListItemContent>
               </ListItemButton>
             </ListItem>
           ))}
         </List>
-        <Divider />
-      </Box>
-    </Drawer>
+      </ListItem>
+    </List>
   );
 };
 

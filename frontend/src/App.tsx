@@ -4,39 +4,48 @@ import {
   ImageFile,
   Service,
 } from "../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
-import { Box, ImageList, ImageListItem, Toolbar } from "@mui/material";
+import Box from "@mui/joy/Box";
 import LazyImage from "./components/LazyImage";
 import Header from "./components/Header";
 import Navigation from "./components/Navigation";
+import {
+  Card,
+  CardOverflow,
+  CssBaseline,
+  CssVarsProvider,
+  extendTheme as joyExtendTheme,
+} from "@mui/joy";
+import {
+  extendTheme as materialExtendTheme,
+  THEME_ID as MATERIAL_THEME_ID,
+} from "@mui/material/styles";
+import { ThemeProvider as MaterialThemeProvider } from "@mui/material";
+import Layout from "./Layout";
 
-// window size
-// https://bobbyhadz.com/blog/react-get-window-width-height
-function getWindowSize() {
-  const { innerWidth, innerHeight } = window;
-  return { innerWidth, innerHeight };
-}
+const materialTheme = materialExtendTheme({
+  colorSchemes: { light: true, dark: true },
+});
+
+// Set the default properties: https://mui.com/joy-ui/customization/themed-components/
+const joyTheme = joyExtendTheme({
+  components: {
+    JoyChip: {
+      defaultProps: {},
+      styleOverrides: {
+        root: {},
+      },
+    },
+  },
+});
 
 export interface UserImages {
   userImages: ImageFile[];
 }
 
 function App() {
-  const [windowSize, setWindowSize] = useState(getWindowSize());
   const [images, setImages] = useState<UserImages>({
     userImages: [],
   });
-
-  useEffect(() => {
-    function handleWindowResize() {
-      setWindowSize(getWindowSize());
-    }
-
-    window.addEventListener("resize", handleWindowResize);
-
-    return () => {
-      window.removeEventListener("resize", handleWindowResize);
-    };
-  }, []);
 
   useEffect(() => {
     // Reload WML so it picks up the wml tags
@@ -50,81 +59,41 @@ function App() {
     });
   };
 
-  const drawerWidth = 240;
-  const directoryExplorerWidth = (windowSize.innerWidth - drawerWidth) * 0.2;
-  const columns = 4;
-  const aspectRatio = 16.0 / 9.0;
-  const rowHeight =
-    (windowSize.innerWidth - drawerWidth - directoryExplorerWidth) /
-    columns /
-    aspectRatio;
-
+  // Use MUI and JoyUI at the same time for the tree view
+  // https://mui.com/joy-ui/integrations/material-ui/
   return (
-    <Box
-      component="div"
-      style={{ display: "flex", minWidth: "100vw", minHeight: "100vh" }}
-    >
-      <Header />
-      <Navigation drawerWidth={drawerWidth} />
-      <Box
-        style={{
-          maxHeight: "100%",
-          margin: 0,
-          padding: 0,
-        }}
-      >
-        {/* Put a toolbar for the space of the AppBar */}
-        <Toolbar />
-
-        <Box
-          style={{
-            maxHeight: "100%",
-            display: "flex",
-            alignItems: "flex-start",
-          }}
-        >
-          {/* todo: maxHeight: 100% doesn't work with overflowY for some reason */}
-          <Box
-            width={directoryExplorerWidth}
-            style={{ maxHeight: "100vh", overflowY: "scroll" }}
-          >
+    <MaterialThemeProvider theme={{ [MATERIAL_THEME_ID]: materialTheme }}>
+      <CssVarsProvider theme={joyTheme}>
+        <CssBaseline />
+        <Layout.Root>
+          <Layout.Header>
+            <Header />
+          </Layout.Header>
+          <Layout.SideNav>
+            <Navigation />
+          </Layout.SideNav>
+          <Layout.SideNav sx={{ overflowY: "auto", maxHeight: "100%" }}>
             <DirectoryExplorer selectDirectory={handleDirectory} />
-          </Box>
-
-          <Box
-            component="main"
-            minWidth="50vw"
-            style={{
-              height: "100vh",
-              overflowY: "auto",
-              flexGrow: 1,
-            }}
-          >
-            <ImageList
+          </Layout.SideNav>
+          <Layout.Main sx={{ overflowY: "auto", maxHeight: "100%" }}>
+            <Box
               sx={{
-                margin: 0,
-                padding: 0,
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
               }}
-              cols={columns}
-              rowHeight={rowHeight}
             >
               {images.userImages.map((userImage) => (
-                <ImageListItem key={userImage.Path}>
-                  <LazyImage
-                    src={userImage.Path}
-                    width={windowSize.innerWidth / columns}
-                    height={rowHeight}
-                    style={{
-                      height: "100%",
-                    }}
-                  />
-                </ImageListItem>
+                <Card key={userImage.Path} variant="outlined" size="sm">
+                  <CardOverflow>
+                    <LazyImage src={userImage.Path} />
+                  </CardOverflow>
+                </Card>
               ))}
-            </ImageList>
-          </Box>
-        </Box>
-      </Box>
-    </Box>
+            </Box>
+          </Layout.Main>
+        </Layout.Root>
+      </CssVarsProvider>
+    </MaterialThemeProvider>
   );
 }
 

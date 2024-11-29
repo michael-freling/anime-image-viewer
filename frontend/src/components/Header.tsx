@@ -1,20 +1,65 @@
+import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
+import LightModeRoundedIcon from "@mui/icons-material/LightModeRounded";
+import { Box, Tooltip, IconButton, Stack, Button } from "@mui/joy";
+import { useColorScheme } from "@mui/joy/styles";
 import * as React from "react";
-import AppBar from "@mui/material/AppBar";
-import Toolbar from "@mui/material/Toolbar";
-import { Typography } from "@mui/material";
 
-const Header: React.FC = () => {
+function ColorSchemeToggle() {
+  const { mode, setMode } = useColorScheme();
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+  if (!mounted) {
+    return <IconButton size="sm" variant="outlined" color="primary" />;
+  }
   return (
-    <AppBar
-      position="fixed"
-      sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
-    >
-      <Toolbar>
-        <Typography variant="h6" noWrap component="div">
-          Anime Image Viewer
-        </Typography>
-      </Toolbar>
-    </AppBar>
+    <Tooltip title="Change theme" variant="outlined">
+      <IconButton
+        data-screenshot="toggle-mode"
+        size="sm"
+        variant="plain"
+        color="neutral"
+        sx={{ alignSelf: "center" }}
+        onClick={() => {
+          if (mode === "light") {
+            setMode("dark");
+          } else {
+            setMode("light");
+          }
+        }}
+      >
+        {mode === "light" ? <DarkModeRoundedIcon /> : <LightModeRoundedIcon />}
+      </IconButton>
+    </Tooltip>
   );
-};
-export default Header;
+}
+
+export default function Header() {
+  return (
+    <Box sx={{ display: "flex", flexGrow: 1, justifyContent: "space-between" }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        useFlexGap={true}
+        sx={{
+          flexWrap: "wrap",
+        }}
+      >
+        <Button variant="plain" color="neutral" component="a">
+          Anime Image Viewer
+        </Button>
+      </Stack>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "row",
+          gap: 1.5,
+          alignItems: "center",
+        }}
+      >
+        <ColorSchemeToggle />
+      </Box>
+    </Box>
+  );
+}
