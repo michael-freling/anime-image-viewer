@@ -14,6 +14,7 @@ import {
   CssBaseline,
   CssVarsProvider,
   extendTheme as joyExtendTheme,
+  Link,
 } from "@mui/joy";
 import {
   extendTheme as materialExtendTheme,
@@ -83,9 +84,22 @@ function App() {
               }}
             >
               {images.userImages.map((userImage) => (
-                <Card key={userImage.Path} variant="outlined" size="sm">
+                <Card
+                  key={userImage.Path}
+                  size="sm"
+                  sx={{
+                    "&:hover": {
+                      boxShadow: "sm",
+                      borderColor: "neutral.outlinedHoverBorder",
+                      borderWidth: 2,
+                      opacity: 0.8,
+                    },
+                  }}
+                >
                   <CardOverflow>
                     <LazyImage src={userImage.Path} />
+                    {/* Enable to change a whole card actionable: https://mui.com/joy-ui/react-card/#actions */}
+                    <Link overlay />
                   </CardOverflow>
                 </Card>
               ))}
