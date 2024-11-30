@@ -8,10 +8,11 @@ import (
 )
 
 type Table struct {
-	ID        int    `gorm:"primaryKey"`
+	// gorm.Model
+	ID        uint   `gorm:"primarykey"`
 	Name      string `gorm:"unique"`
-	CreatedAt int64  `gorm:"autoCreateTime"`
-	UpdatedAt int64  `gorm:"autoUpdateTime"`
+	CreatedAt int64
+	UpdatedAt int64
 }
 
 func TestORMClient_FindByValue(t *testing.T) {
@@ -111,33 +112,29 @@ func TestORMClient_Create(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			gotErr := NewTransaction(dbClient, func(ormClient *ORMClient[Table]) error {
-				var gotErr error
-				for _, value := range tc.args.values {
-					gotErr = ormClient.Create(&value)
-					if tc.wantErr {
-						assert.Error(t, gotErr)
-						continue
-					} else {
-						assert.NoError(t, gotErr)
-					}
+			Truncate(dbClient, &Table{})
 
-					got, err := ormClient.FindByValue(&Table{
-						ID: value.ID,
-					})
-					assert.Equal(t, value.Name, got.Name)
-					assert.NoError(t, err)
+			var gotErr error
+			for _, value := range tc.args.values {
+				gotErr = Create(dbClient, &value)
+				if tc.wantErr {
+					continue
 				}
-				got, err := ormClient.GetAll()
-				assert.Len(t, got, tc.wantCount)
+				assert.NoError(t, gotErr)
+
+				got, err := FindByValue(dbClient, &Table{
+					ID: value.ID,
+				})
+				assert.Equal(t, value.Name, got.Name)
 				assert.NoError(t, err)
-				return gotErr
-			})
+			}
 			if tc.wantErr {
 				assert.Error(t, gotErr)
-			} else {
-				assert.NoError(t, gotErr)
 			}
+
+			got, err := GetAll[Table](dbClient)
+			assert.Len(t, got, tc.wantCount)
+			assert.NoError(t, err)
 		})
 	}
 }

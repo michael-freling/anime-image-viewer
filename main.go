@@ -26,6 +26,7 @@ var assets embed.FS
 // logs any error that might occur.
 func main() {
 
+	// todo: change a config based on an environment
 	logLevel := slog.LevelDebug
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: logLevel,
@@ -47,6 +48,7 @@ func main() {
 		Description: "A demo of using raw HTML & CSS",
 		Services: []application.Service{
 			application.NewService(&image.Service{}),
+			application.NewService(image.NewTagService(dbClient)),
 		},
 		Assets: application.AssetOptions{
 			Handler:    application.AssetFileServerFS(assets),

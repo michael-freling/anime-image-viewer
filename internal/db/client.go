@@ -64,14 +64,31 @@ func (client *Client) Close() error {
 	return nil
 }
 
+func (client *Client) Migrate(values ...interface{}) error {
+	return client.connection.AutoMigrate(values...)
+}
+
 type ORMClient[Model any] struct {
 	connection *gorm.DB
 }
 
-func NewNoTransaction[Model any](client *Client, f func(*ORMClient[Model]) error) error {
-	return f(&ORMClient[Model]{
-		connection: client.connection,
-	})
+func FindByValue[Model any](client *Client, value *Model) (Model, error) {
+	err := client.connection.Take(&value).Error
+	return *value, err
+}
+
+func GetAll[Model any](client *Client) ([]Model, error) {
+	var values []Model
+	err := client.connection.Find(&values).Error
+	return values, err
+}
+
+func Create[Model any](client *Client, value Model) error {
+	return client.connection.Create(value).Error
+}
+
+func BatchCreate[Model any](client *Client, values []Model) error {
+	return client.connection.Create(values).Error
 }
 
 func NewTransaction[Model any](client *Client, f func(*ORMClient[Model]) error) error {
