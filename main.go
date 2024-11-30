@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -30,6 +31,12 @@ func main() {
 		Level: logLevel,
 	}))
 
+	dbClient, err := db.NewClient(db.DSNMemory)
+	if err != nil {
+		logger.Error("db.NewClient", "error", err)
+		return
+	}
+
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
 	// 'Assets' configures the asset server with the 'FS' variable pointing to the frontend files.
@@ -47,6 +54,9 @@ func main() {
 		},
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
+		},
+		OnShutdown: func() {
+			dbClient.Close()
 		},
 	})
 
@@ -77,10 +87,8 @@ func main() {
 	}()
 
 	// Run the application. This blocks until the application has been exited.
-	err := app.Run()
-
 	// If an error occurred while running the application, log it and exit.
-	if err != nil {
+	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
