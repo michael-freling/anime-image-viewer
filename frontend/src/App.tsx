@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
-import DirectoryExplorer from "./DirectoryExplorer";
+import DirectoryExplorer from "./components/DirectoryExplorer";
 import {
   ImageFile,
   Service,
+  Tag,
 } from "../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
 import Box from "@mui/joy/Box";
 import LazyImage from "./components/LazyImage";
 import Header from "./components/Header";
-import Navigation from "./components/Navigation";
+import Navigation, { Menu } from "./components/Navigation";
 import {
   Card,
   CardOverflow,
@@ -22,6 +23,7 @@ import {
 } from "@mui/material/styles";
 import { ThemeProvider as MaterialThemeProvider } from "@mui/material";
 import Layout from "./Layout";
+import TagExplorer from "./components/TagExplorer";
 
 const materialTheme = materialExtendTheme({
   colorSchemes: { light: true, dark: true },
@@ -47,6 +49,9 @@ function App() {
   const [images, setImages] = useState<UserImages>({
     userImages: [],
   });
+  const [currentSelectedMenu, setCurrentSelectedMenu] = useState<Menu>(
+    Menu.Series
+  );
 
   useEffect(() => {
     // Reload WML so it picks up the wml tags
@@ -58,6 +63,12 @@ function App() {
     setImages({
       userImages: images,
     });
+  };
+  const handleTag = async (tag: Tag) => {
+    // todo
+  };
+  const selectMenu = (mode: Menu) => {
+    setCurrentSelectedMenu(mode);
   };
 
   // Use MUI and JoyUI at the same time for the tree view
@@ -71,11 +82,20 @@ function App() {
             <Header />
           </Layout.Header>
           <Layout.SideNav>
-            <Navigation />
+            <Navigation
+              selectedMenu={currentSelectedMenu}
+              selectMenu={selectMenu}
+            />
           </Layout.SideNav>
           <Layout.SideNav sx={{ overflowY: "auto", maxHeight: "100%" }}>
-            <DirectoryExplorer selectDirectory={handleDirectory} />
+            {currentSelectedMenu === Menu.Series && (
+              <DirectoryExplorer selectDirectory={handleDirectory} />
+            )}
+            {[Menu.Tags, Menu.SeriesByTags].includes(currentSelectedMenu) && (
+              <TagExplorer selectTag={handleTag} />
+            )}
           </Layout.SideNav>
+
           <Layout.Main sx={{ overflowY: "auto", maxHeight: "100%" }}>
             <Box
               sx={{

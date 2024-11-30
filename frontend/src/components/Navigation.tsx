@@ -8,35 +8,73 @@ import ListItemContent from "@mui/joy/ListItemContent";
 
 import * as Icons from "@mui/icons-material";
 
-const Navigation: React.FC<{}> = () => {
+export enum Menu {
+  Series = "Series",
+  SeriesByTags = "Tags",
+  Tags = "List",
+}
+
+export interface NavigationProps {
+  selectedMenu: Menu;
+  selectMenu: (menu: Menu) => void;
+}
+
+const Navigation: React.FC<NavigationProps> = ({
+  selectedMenu,
+  selectMenu,
+}) => {
   const menus = [
     {
-      text: "Series",
-      icon: <Icons.Tv />,
+      text: "Anime",
+      menuItems: [
+        {
+          id: Menu.Series,
+          text: "Series",
+          icon: <Icons.Tv />,
+        },
+        {
+          id: Menu.SeriesByTags,
+          text: "Tags",
+          icon: <Icons.Bookmarks />,
+        },
+      ],
     },
     {
       text: "Tags",
-      icon: <Icons.Bookmarks />,
+      menuItems: [
+        {
+          id: Menu.Tags,
+          text: "List",
+          icon: <Icons.Bookmarks />,
+        },
+      ],
     },
   ];
 
   return (
     <List size="sm">
-      <ListItem nested sx={{ mt: 2 }}>
-        <ListSubheader sx={{ letterSpacing: "2px", fontWeight: "800" }}>
-          Anime
-        </ListSubheader>
-        <List aria-labelledby="nav-list-tags" size="sm">
-          {menus.map((menu, index) => (
-            <ListItem key={index}>
-              <ListItemButton>
-                <ListItemDecorator>{menu.icon}</ListItemDecorator>
-                <ListItemContent>{menu.text}</ListItemContent>
-              </ListItemButton>
-            </ListItem>
-          ))}
-        </List>
-      </ListItem>
+      {menus.map((menu, index) => (
+        <ListItem key={index} nested sx={{ mt: 2 }}>
+          <ListSubheader sx={{ letterSpacing: "2px", fontWeight: "800" }}>
+            {menu.text}
+          </ListSubheader>
+          <List aria-labelledby="nav-list-tags" size="sm">
+            {menu.menuItems.map((menuItem, index) => (
+              <ListItem key={index}>
+                <ListItemButton
+                  selected={selectedMenu === menuItem.id}
+                  onClick={() => {
+                    selectMenu(menuItem.id);
+                  }}
+                >
+                  <ListItemDecorator>{menuItem.icon}</ListItemDecorator>
+                  <ListItemContent>{menuItem.text}</ListItemContent>
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+        </ListItem>
+      ))}
     </List>
   );
 };
