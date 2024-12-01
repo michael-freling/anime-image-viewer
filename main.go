@@ -25,7 +25,6 @@ var assets embed.FS
 // and starts a goroutine that emits a time-based event every second. It subsequently runs the application and
 // logs any error that might occur.
 func main() {
-
 	// todo: change a config based on an environment
 	logLevel := slog.LevelDebug
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -37,6 +36,7 @@ func main() {
 		logger.Error("db.NewClient", "error", err)
 		return
 	}
+	dbClient.Migrate(&db.Tag{})
 
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.

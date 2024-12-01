@@ -104,12 +104,16 @@ func (ormClient *ORMClient[Model]) FindByValue(value *Model) (Model, error) {
 	return *value, err
 }
 
-func (ormClient *ORMClient[Model]) Create(value *Model) error {
-	return ormClient.connection.Create(value).Error
-}
-
 func (ormClient *ORMClient[Model]) GetAll() ([]Model, error) {
 	var values []Model
 	err := ormClient.connection.Find(&values).Error
 	return values, err
+}
+
+func (ormClient *ORMClient[Model]) Create(value *Model) error {
+	return ormClient.connection.Create(value).Error
+}
+
+func (ormClient *ORMClient[Model]) Update(value *Model) error {
+	return ormClient.connection.Save(value).Error
 }

@@ -71,13 +71,15 @@ function App() {
     setCurrentSelectedMenu(mode);
   };
 
+  const columnCount = currentSelectedMenu === Menu.Tags ? 2 : 3;
+
   // Use MUI and JoyUI at the same time for the tree view
   // https://mui.com/joy-ui/integrations/material-ui/
   return (
     <MaterialThemeProvider theme={{ [MATERIAL_THEME_ID]: materialTheme }}>
       <CssVarsProvider theme={joyTheme}>
         <CssBaseline />
-        <Layout.Root>
+        <Layout.Root columnCount={columnCount}>
           <Layout.Header>
             <Header />
           </Layout.Header>
@@ -87,14 +89,17 @@ function App() {
               selectMenu={selectMenu}
             />
           </Layout.SideNav>
-          <Layout.SideNav sx={{ overflowY: "auto", maxHeight: "100%" }}>
-            {currentSelectedMenu === Menu.Series && (
-              <DirectoryExplorer selectDirectory={handleDirectory} />
-            )}
-            {[Menu.Tags, Menu.SeriesByTags].includes(currentSelectedMenu) && (
-              <TagExplorer selectTag={handleTag} />
-            )}
-          </Layout.SideNav>
+
+          {[Menu.Series, Menu.SeriesByTags].includes(currentSelectedMenu) && (
+            <Layout.SideNav sx={{ overflowY: "auto", maxHeight: "100%" }}>
+              {currentSelectedMenu === Menu.Series && (
+                <DirectoryExplorer selectDirectory={handleDirectory} />
+              )}
+              {currentSelectedMenu === Menu.SeriesByTags && (
+                <TagExplorer selectTag={handleTag} />
+              )}
+            </Layout.SideNav>
+          )}
 
           <Layout.Main sx={{ overflowY: "auto", maxHeight: "100%" }}>
             <Box
@@ -103,6 +108,10 @@ function App() {
                 gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
               }}
             >
+              {currentSelectedMenu === Menu.Tags && (
+                <TagExplorer selectTag={handleTag} />
+              )}
+
               {images.userImages.map((userImage) => (
                 <Card
                   key={userImage.Path}

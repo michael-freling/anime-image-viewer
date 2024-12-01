@@ -25,29 +25,79 @@ func (service *TagService) OnStartup(ctx context.Context, options application.Se
 	return nil
 }
 
-func (service *TagService) Create(tag string, parentID uint) error {
+func (service *TagService) CreateTopTag(name string) (Tag, error) {
+	tag := db.Tag{
+		Name: name,
+	}
+	err := db.Create(service.dbClient, &tag)
+	if err != nil {
+		return Tag{}, fmt.Errorf("db.Create: %w", err)
+	}
+
+	return Tag{
+		ID:   tag.ID,
+		Name: tag.Name,
+	}, nil
+}
+
+type TagInput struct {
+	Name     string
+	ParentID uint
+}
+
+func (service *TagService) Create(input TagInput) (Tag, error) {
+	tag := db.Tag{
+		Name:     input.Name,
+		ParentID: input.ParentID,
+	}
 	err := db.NewTransaction(service.dbClient, func(ormClient *db.ORMClient[db.Tag]) error {
 		_, err := ormClient.FindByValue(&db.Tag{
-			ID: parentID,
+			ID: input.ParentID,
 		})
 		if err != nil {
 			return fmt.Errorf("ormClient.FindByValue: %w", err)
 		}
 
-		tag := db.Tag{
-			Name:     tag,
-			ParentID: parentID,
-		}
 		if err := ormClient.Create(&tag); err != nil {
 			return fmt.Errorf("ormClient.Create: %w", err)
 		}
 		return nil
 	})
 	if err != nil {
-		return err
+		return Tag{}, err
 	}
 
-	return nil
+	return Tag{
+		ID:   tag.ID,
+		Name: tag.Name,
+	}, nil
+}
+
+func (service *TagService) UpdateName(id uint, name string) (Tag, error) {
+	var newTag db.Tag
+	err := db.NewTransaction(service.dbClient, func(ormClient *db.ORMClient[db.Tag]) error {
+		var err error
+		newTag, err = ormClient.FindByValue(&db.Tag{
+			ID: id,
+		})
+		if err != nil {
+			return fmt.Errorf("ormClient.FindByValue: %w", err)
+		}
+
+		newTag.Name = name
+		if err := ormClient.Update(&newTag); err != nil {
+			return fmt.Errorf("ormClient.Update: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return Tag{}, err
+	}
+
+	return Tag{
+		ID:   newTag.ID,
+		Name: newTag.Name,
+	}, nil
 }
 
 type Tag struct {

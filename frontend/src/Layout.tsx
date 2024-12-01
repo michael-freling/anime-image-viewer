@@ -3,18 +3,31 @@ import * as React from "react";
 import Box, { BoxProps } from "@mui/joy/Box";
 import Sheet from "@mui/joy/Sheet";
 
-function Root(props: BoxProps) {
+interface RootProps extends BoxProps {
+  columnCount: number;
+}
+
+function Root(props: RootProps) {
+  const gridTemplateColumns = {
+    2: {
+      xs: "1fr",
+      sm: "minmax(64px, 200px) minmax(450px, 1fr)",
+      md: "minmax(100px, 160px) minmax(500px, 1fr)",
+    },
+    3: {
+      xs: "1fr",
+      sm: "minmax(64px, 200px) minmax(450px, 1fr)",
+      md: "minmax(100px, 160px) minmax(240px, 320px) minmax(500px, 1fr)",
+    },
+  };
+
   return (
     <Box
       {...props}
       sx={[
         {
           display: "grid",
-          gridTemplateColumns: {
-            xs: "1fr",
-            sm: "minmax(64px, 200px) minmax(450px, 1fr)",
-            md: "minmax(100px, 160px) minmax(240px, 320px) minmax(500px, 1fr)",
-          },
+          gridTemplateColumns: gridTemplateColumns[props.columnCount],
           gridTemplateRows: "64px 1fr",
           minWidth: "100vw",
           minHeight: "100vh",
