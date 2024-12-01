@@ -11,6 +11,7 @@ import * as Icons from "@mui/icons-material";
 export enum Menu {
   Series = "Series",
   SeriesByTags = "Tags",
+  Directories = "Directories",
   Tags = "List",
 }
 
@@ -34,17 +35,22 @@ const Navigation: React.FC<NavigationProps> = ({
         },
         {
           id: Menu.SeriesByTags,
-          text: "Tags",
+          text: "Search by tags",
           icon: <Icons.Bookmarks />,
         },
       ],
     },
     {
-      text: "Tags",
+      text: "Manage images",
       menuItems: [
         {
+          id: Menu.Directories,
+          text: "Images",
+          icon: <Icons.Folder color="primary" />,
+        },
+        {
           id: Menu.Tags,
-          text: "List",
+          text: "Tags",
           icon: <Icons.Bookmarks />,
         },
       ],

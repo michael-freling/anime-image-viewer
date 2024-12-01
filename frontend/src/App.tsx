@@ -71,7 +71,11 @@ function App() {
     setCurrentSelectedMenu(mode);
   };
 
-  const columnCount = currentSelectedMenu === Menu.Tags ? 2 : 3;
+  const columnCount = [Menu.Tags, Menu.Directories].includes(
+    currentSelectedMenu
+  )
+    ? 2
+    : 3;
 
   // Use MUI and JoyUI at the same time for the tree view
   // https://mui.com/joy-ui/integrations/material-ui/
@@ -93,10 +97,13 @@ function App() {
           {[Menu.Series, Menu.SeriesByTags].includes(currentSelectedMenu) && (
             <Layout.SideNav sx={{ overflowY: "auto", maxHeight: "100%" }}>
               {currentSelectedMenu === Menu.Series && (
-                <DirectoryExplorer selectDirectory={handleDirectory} />
+                <DirectoryExplorer
+                  editable={false}
+                  selectDirectory={handleDirectory}
+                />
               )}
               {currentSelectedMenu === Menu.SeriesByTags && (
-                <TagExplorer selectTag={handleTag} />
+                <TagExplorer editable={false} selectTag={handleTag} />
               )}
             </Layout.SideNav>
           )}
@@ -108,8 +115,12 @@ function App() {
                 gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
               }}
             >
+              {currentSelectedMenu === Menu.Directories && (
+                <DirectoryExplorer editable={true} />
+              )}
+
               {currentSelectedMenu === Menu.Tags && (
-                <TagExplorer selectTag={handleTag} />
+                <TagExplorer editable={true} selectTag={handleTag} />
               )}
 
               {images.userImages.map((userImage) => (
