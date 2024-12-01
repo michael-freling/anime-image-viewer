@@ -12,6 +12,8 @@ import {
   ExplorerTreeItemLabel,
   ExplorerTreeItemProps,
 } from "./ExplorerTreeItem";
+import { IconButton, Stack, Typography } from "@mui/joy";
+import { Add } from "@mui/icons-material";
 
 interface DirectoryExplorerProps {
   editable: boolean;
@@ -47,12 +49,13 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
     if (!rootDirectory) {
       return;
     }
-    readDirectories(rootDirectory);
+    refresh();
   }, [rootDirectory]);
 
-  async function readDirectories(dirPath: string) {
-    const children = await Service.ReadChildDirectoriesRecursively(dirPath);
-    setChildren(children);
+  async function refresh() {
+    // todo: stop hardcoding root directory ID 0
+    const children = await Service.ReadChildDirectoriesRecursively(0);
+    await setChildren(children);
   }
 
   let otherProps = {};
@@ -77,26 +80,61 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
   }
 
   return (
-    <RichTreeView
-      expansionTrigger="content"
-      defaultExpandedItems={[rootDirectory]}
-      slots={{
-        // todo: RichTreeView doesn't allow to pass a type other than TreeItem2Props
-        item: ExplorerTreeItem as any,
-        expandIcon: (props) => <FolderIcon color="primary" {...props} />,
-        collapseIcon: (props) => <FolderOpenIcon color="primary" {...props} />,
-        endIcon: (props) => <FolderOpenIcon color="primary" {...props} />,
-      }}
-      slotProps={{
-        item: {
-          addNewChild: async (parentID: string) => {},
-          importImages: async () => {},
-          labelComponent: ExplorerTreeItemLabel,
-        } as ExplorerTreeItemProps,
-      }}
-      items={directoriesToTreeViewBaseItems(children)}
-      {...otherProps}
-    />
+    <Stack spacing={2}>
+      <Stack
+        spacing={2}
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <Typography>{rootDirectory}</Typography>
+        {!editable ? null : (
+          <Stack
+            direction="row"
+            sx={{
+              justifyContent: "flex-end",
+            }}
+          >
+            <IconButton
+              variant="outlined"
+              color="primary"
+              onClick={async () => {
+                await Service.CreateTopDirectory("New Directory");
+                // todo: don't reload all directories
+                await refresh();
+              }}
+            >
+              <Add />
+            </IconButton>
+          </Stack>
+        )}
+      </Stack>
+
+      <RichTreeView
+        expansionTrigger="content"
+        defaultExpandedItems={[rootDirectory]}
+        slots={{
+          // todo: RichTreeView doesn't allow to pass a type other than TreeItem2Props
+          item: ExplorerTreeItem as any,
+          expandIcon: (props) => <FolderIcon color="primary" {...props} />,
+          collapseIcon: (props) => (
+            <FolderOpenIcon color="primary" {...props} />
+          ),
+          endIcon: (props) => <FolderOpenIcon color="primary" {...props} />,
+        }}
+        slotProps={{
+          item: {
+            addNewChild: async (parentID: string) => {},
+            importImages: async () => {},
+            labelComponent: ExplorerTreeItemLabel,
+          } as ExplorerTreeItemProps,
+        }}
+        items={directoriesToTreeViewBaseItems(children)}
+        {...otherProps}
+      />
+    </Stack>
   );
 };
 export default DirectoryExplorer;

@@ -37,13 +37,18 @@ func main() {
 		logger.Error("config.NewReader", "error", err)
 		return
 	}
+	configService, err := config.NewService(conf)
+	if err != nil {
+		logger.Error("config.NewService", "error", err)
+		return
+	}
 
 	dbClient, err := db.NewClient(db.DSNMemory)
 	if err != nil {
 		logger.Error("db.NewClient", "error", err)
 		return
 	}
-	dbClient.Migrate(&db.Tag{})
+	dbClient.Migrate(&db.Tag{}, &db.Directory{})
 
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
@@ -54,8 +59,9 @@ func main() {
 		Name:        "anime-image-viewer",
 		Description: "A demo of using raw HTML & CSS",
 		Services: []application.Service{
-			application.NewService(image.NewService(conf)),
+			application.NewService(image.NewService(conf, dbClient)),
 			application.NewService(image.NewTagService(dbClient)),
+			application.NewService(configService),
 		},
 		Assets: application.AssetOptions{
 			Handler:    application.AssetFileServerFS(assets),

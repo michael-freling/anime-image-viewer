@@ -28,7 +28,7 @@ func ReadConfig() (Config, error) {
 	configFile := path.Join(configDir, "default.toml")
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 		return Config{
-			DefaultDirectory: homeDir + "/Downloads",
+			DefaultDirectory: homeDir + "/Pictures/anime-image-viewer",
 		}, nil
 	}
 
