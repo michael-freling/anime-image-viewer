@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -31,6 +32,12 @@ func main() {
 		Level: logLevel,
 	}))
 
+	conf, err := config.ReadConfig()
+	if err != nil {
+		logger.Error("config.NewReader", "error", err)
+		return
+	}
+
 	dbClient, err := db.NewClient(db.DSNMemory)
 	if err != nil {
 		logger.Error("db.NewClient", "error", err)
@@ -47,7 +54,7 @@ func main() {
 		Name:        "anime-image-viewer",
 		Description: "A demo of using raw HTML & CSS",
 		Services: []application.Service{
-			application.NewService(&image.Service{}),
+			application.NewService(image.NewService(conf)),
 			application.NewService(image.NewTagService(dbClient)),
 		},
 		Assets: application.AssetOptions{

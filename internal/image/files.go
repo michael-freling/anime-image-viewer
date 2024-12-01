@@ -9,11 +9,13 @@ import (
 	"path/filepath"
 	"slices"
 
+	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 type Service struct {
-	ctx context.Context
+	ctx    context.Context
+	config config.Config
 }
 
 type Directory struct {
@@ -23,19 +25,19 @@ type Directory struct {
 	Children    []Directory
 }
 
+func NewService(conf config.Config) *Service {
+	return &Service{
+		config: conf,
+	}
+}
+
 func (service *Service) OnStartup(ctx context.Context, options application.ServiceOptions) error {
 	service.ctx = ctx
 	return nil
 }
 
-func (service *Service) ReadInitialDirectory() (string, error) {
-	return "/mnt/d/private/anime/images", nil
-	// TODO: load an initial directroy from the past result
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("os.UserHomeDir: %w", err)
-	}
-	return home + "/Downloads", nil
+func (service *Service) ReadInitialDirectory() string {
+	return service.config.DefaultDirectory
 }
 
 func (service *Service) ReadChildDirectoriesRecursively(directoryPath string) ([]Directory, error) {

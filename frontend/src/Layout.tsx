@@ -7,7 +7,7 @@ interface RootProps extends BoxProps {
   columnCount: number;
 }
 
-function Root(props: RootProps) {
+function Root({ columnCount, ...props }: RootProps) {
   const gridTemplateColumns = {
     2: {
       xs: "1fr",
@@ -27,7 +27,7 @@ function Root(props: RootProps) {
       sx={[
         {
           display: "grid",
-          gridTemplateColumns: gridTemplateColumns[props.columnCount],
+          gridTemplateColumns: gridTemplateColumns[columnCount],
           gridTemplateRows: "64px 1fr",
           minWidth: "100vw",
           minHeight: "100vh",
