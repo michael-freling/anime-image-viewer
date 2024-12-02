@@ -19,7 +19,7 @@ func TestService_ReadDirectory(t *testing.T) {
 	service := DirectoryService{
 		dbClient: dbClient,
 		config: config.Config{
-			DefaultDirectory: rootDirectory,
+			ImageRootDirectory: rootDirectory,
 		},
 	}
 
@@ -87,7 +87,7 @@ func TestService_ReadDirectory(t *testing.T) {
 				}()
 			}
 
-			got, gotErr := service.ReadDirectory(tc.directoryID)
+			got, gotErr := service.readDirectory(tc.directoryID)
 			assert.ErrorIs(t, gotErr, tc.wantErr)
 			if tc.wantErr != nil {
 				return

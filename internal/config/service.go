@@ -2,7 +2,9 @@ package config
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -15,9 +17,9 @@ type Service struct {
 
 func NewService(config Config) (*Service, error) {
 	// Ensure the default directory exists.
-	_, err := os.Stat(config.DefaultDirectory)
-	if os.IsNotExist(err) {
-		if err := os.MkdirAll(config.DefaultDirectory, 0755); err != nil {
+	_, err := os.Stat(config.ImageRootDirectory)
+	if errors.Is(err, fs.ErrNotExist) {
+		if err := os.MkdirAll(config.ImageRootDirectory, 0755); err != nil {
 			return nil, fmt.Errorf("os.MkdirAll: %w", err)
 		}
 	}

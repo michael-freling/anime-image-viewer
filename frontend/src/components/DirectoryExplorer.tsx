@@ -78,6 +78,16 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
     otherProps = {
       isItemEditable: () => true,
       experimentalFeatures: { labelEditing: true },
+      onItemLabelChange: async (itemId, newLabel) => {
+        const directoryID = parseInt(itemId, 10);
+        console.debug("DirectoryExplorer.onItemLabelChange", {
+          directoryID,
+          newLabel,
+        });
+        await DirectoryService.UpdateName(directoryID, newLabel);
+        await refresh();
+        // The label doesn't add a child tag correctly
+      },
     };
   } else {
     otherProps = {
