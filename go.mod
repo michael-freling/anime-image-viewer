@@ -61,3 +61,5 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/wailsapp/wails/v3 v3.0.0-alpha.7 => github.com/michael-freling/wails/v3 v3.0.0-20241201214724-abb229915a0c

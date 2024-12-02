@@ -32,6 +32,10 @@ func WithGormLogger(l logger.Interface) ClientOption {
 
 type DSN string
 
+func DSNFromFilePath(directory string, filename string) DSN {
+	return DSN(fmt.Sprintf("file://%s/%s?cache=shared", directory, filename))
+}
+
 func (dsn DSN) String() string {
 	return string(dsn)
 }
@@ -64,8 +68,11 @@ func (client *Client) Close() error {
 	return nil
 }
 
-func (client *Client) Migrate(values ...interface{}) error {
-	return client.connection.AutoMigrate(values...)
+func (client *Client) Migrate() error {
+	return client.connection.AutoMigrate(
+		&Tag{},
+		&Directory{},
+	)
 }
 
 type ORMClient[Model any] struct {

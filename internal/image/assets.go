@@ -1,6 +1,7 @@
 package image
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -24,8 +25,11 @@ func AssetMiddleware(logger *slog.Logger) application.Middleware {
 				"path", request.URL.Path,
 				"scheme", request.URL.Scheme)
 
-			ok, err := isSupportedImageFile(request.URL.Path)
-			if !ok || err != nil {
+			if err := isSupportedImageFile(request.URL.Path); err != nil {
+				if !errors.Is(err, ErrUnsupportedImageFile) {
+					// output log
+					logger.ErrorContext(ctx, "unexpected error", "error", err)
+				}
 				next.ServeHTTP(response, request)
 				return
 			}

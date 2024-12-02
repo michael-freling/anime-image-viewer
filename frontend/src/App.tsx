@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import DirectoryExplorer from "./components/DirectoryExplorer";
 import {
   ImageFile,
-  Service,
+  DirectoryService,
   Tag,
 } from "../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
 import Box from "@mui/joy/Box";
@@ -59,7 +59,7 @@ function App() {
   }, []);
 
   const handleDirectory = async (directory) => {
-    const images = await Service.ReadImageFiles(directory);
+    const images = await DirectoryService.ReadImageFiles(directory);
     setImages({
       userImages: images,
     });

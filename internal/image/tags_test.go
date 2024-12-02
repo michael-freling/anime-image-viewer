@@ -39,7 +39,7 @@ func TestTagsService_GetAll(t *testing.T) {
 	}
 	dbClient, err := db.NewClient(db.DSNMemory, db.WithNopLogger())
 	require.NoError(t, err)
-	dbClient.Migrate(&db.Tag{})
+	dbClient.Migrate()
 	defer func() {
 		require.NoError(t, db.Truncate(dbClient, &db.Tag{}))
 	}()

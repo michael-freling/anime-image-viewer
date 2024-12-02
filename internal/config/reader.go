@@ -11,6 +11,7 @@ import (
 
 type Config struct {
 	DefaultDirectory string `toml:"default_directory"`
+	ConfigDirectory  string `toml:"config_directory"`
 }
 
 func ReadConfig() (Config, error) {
@@ -29,6 +30,7 @@ func ReadConfig() (Config, error) {
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 		return Config{
 			DefaultDirectory: homeDir + "/Pictures/anime-image-viewer",
+			ConfigDirectory:  configDir,
 		}, nil
 	}
 

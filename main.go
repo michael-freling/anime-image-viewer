@@ -31,6 +31,7 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: logLevel,
 	}))
+	slog.SetDefault(logger)
 
 	conf, err := config.ReadConfig()
 	if err != nil {
@@ -43,12 +44,12 @@ func main() {
 		return
 	}
 
-	dbClient, err := db.NewClient(db.DSNMemory)
+	dbClient, err := db.NewClient(db.DSNFromFilePath(conf.ConfigDirectory, "db_v1.sqlite"))
 	if err != nil {
 		logger.Error("db.NewClient", "error", err)
 		return
 	}
-	dbClient.Migrate(&db.Tag{}, &db.Directory{})
+	dbClient.Migrate()
 
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
@@ -59,7 +60,7 @@ func main() {
 		Name:        "anime-image-viewer",
 		Description: "A demo of using raw HTML & CSS",
 		Services: []application.Service{
-			application.NewService(image.NewService(conf, dbClient)),
+			application.NewService(image.NewDirectoryService(conf, dbClient)),
 			application.NewService(image.NewTagService(dbClient)),
 			application.NewService(configService),
 		},

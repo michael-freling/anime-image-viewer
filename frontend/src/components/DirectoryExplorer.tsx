@@ -5,7 +5,7 @@ import { RichTreeView, TreeViewBaseItem } from "@mui/x-tree-view";
 import React, { FC, useEffect, useState } from "react";
 import {
   Directory,
-  Service,
+  DirectoryService,
 } from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
 import {
   ExplorerTreeItem,
@@ -25,12 +25,23 @@ function directoriesToTreeViewBaseItems(
 ): TreeViewBaseItem<{}>[] {
   return directories.map((directory) => {
     return {
-      id: directory.Path,
+      id: directory.ID,
       label: directory.Name,
       children: directoriesToTreeViewBaseItems(directory.Children),
     };
   });
 }
+
+const getDirectoryMap = (
+  directories: Directory[]
+): { [id: number]: Directory } => {
+  const map: { [id: number]: Directory } = {};
+  directories.forEach((directory) => {
+    map[directory.ID] = directory;
+    Object.assign(map, getDirectoryMap(directory.Children));
+  });
+  return map;
+};
 
 const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
   editable,
@@ -38,9 +49,12 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
 }) => {
   const [rootDirectory, setRootDirectory] = useState<string>("");
   const [children, setChildren] = useState<Directory[]>([]);
+  const [directoryMap, setDirectoryMap] = useState<{
+    [id: number]: Directory;
+  }>({});
 
   useEffect(() => {
-    Service.ReadInitialDirectory().then(async (directory) => {
+    DirectoryService.ReadInitialDirectory().then(async (directory) => {
       setRootDirectory(directory);
     });
   }, []);
@@ -54,8 +68,9 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
 
   async function refresh() {
     // todo: stop hardcoding root directory ID 0
-    const children = await Service.ReadChildDirectoriesRecursively(0);
+    const children = await DirectoryService.ReadChildDirectoriesRecursively(0);
     await setChildren(children);
+    setDirectoryMap(getDirectoryMap(children));
   }
 
   let otherProps = {};
@@ -63,14 +78,20 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
     otherProps = {
       isItemEditable: () => true,
       experimentalFeatures: { labelEditing: true },
-      handleSelect: async (
+    };
+  } else {
+    otherProps = {
+      onSelectedItemsChange: async (
         event: React.SyntheticEvent,
         itemId: string | null
       ) => {
         if (!itemId) {
           return;
         }
-        selectDirectory!(itemId);
+        const directoryId = parseInt(itemId, 10);
+        const directory = directoryMap[directoryId];
+        // TODO: Look up a directory by ID later
+        selectDirectory!(directory.Path);
       },
     };
   }
@@ -101,7 +122,7 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
               variant="outlined"
               color="primary"
               onClick={async () => {
-                await Service.CreateTopDirectory("New Directory");
+                await DirectoryService.CreateTopDirectory("New Directory");
                 // todo: don't reload all directories
                 await refresh();
               }}
@@ -127,7 +148,10 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
         slotProps={{
           item: {
             addNewChild: async (parentID: string) => {},
-            importImages: async () => {},
+            importImages: async (parentID: string) => {
+              await DirectoryService.ImportImages(parseInt(parentID, 10));
+              await refresh();
+            },
             labelComponent: ExplorerTreeItemLabel,
           } as ExplorerTreeItemProps,
         }}

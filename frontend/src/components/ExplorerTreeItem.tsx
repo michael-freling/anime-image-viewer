@@ -15,7 +15,7 @@ export interface ExplorerTreeItemLabelProps
   editable: boolean;
   addNewChild: () => Promise<void>;
   toggleItemEditing: () => void;
-  importImages?: () => Promise<void>;
+  importImages: () => Promise<void> | null;
 }
 
 export function ExplorerTreeItemLabel({
@@ -72,7 +72,8 @@ export function ExplorerTreeItemLabel({
 export interface ExplorerTreeItemProps extends TreeItem2Props {
   labelComponent: React.ElementType<ExplorerTreeItemLabelProps>;
   addNewChild: (parentID: string) => Promise<void>;
-  importImages?: () => Promise<void>;
+  importImages?: (parentID: string) => Promise<void>;
+  selectItem?: (id: string) => Promise<void>;
 }
 
 export const ExplorerTreeItem = React.forwardRef(function CustomTreeItem(
@@ -99,6 +100,7 @@ export const ExplorerTreeItem = React.forwardRef(function CustomTreeItem(
       ref={ref}
       slots={{
         label: labelComponent,
+
       }}
       slotProps={{
         label: {
@@ -108,7 +110,12 @@ export const ExplorerTreeItem = React.forwardRef(function CustomTreeItem(
             addNewChild(itemId);
           },
           toggleItemEditing: interactions.toggleItemEditing,
-          importImages,
+          importImages:
+            importImages == null
+              ? null
+              : () => {
+                  importImages(itemId);
+                },
         } as ExplorerTreeItemLabelProps,
       }}
     />
