@@ -18,7 +18,9 @@ import (
 )
 
 var (
-	ErrDirectoryNotFound = errors.New("directory not found")
+	ErrDirectoryNotFound      = errors.New("directory not found")
+	ErrDirectoryAlreadyExists = errors.New("directory already exists")
+	ErrInvalidArgument        = errors.New("invalid argument")
 )
 
 type Directory struct {
@@ -158,10 +160,22 @@ func (service *DirectoryService) ReadImageFiles(directoryPath string) ([]ImageFi
 	return result, nil
 }
 
-func (service *DirectoryService) CreateTopDirectory(name string) (Directory, error) {
-	directoryPath := path.Join(service.config.ImageRootDirectory, name)
+func (service *DirectoryService) CreateDirectory(name string, parentID uint) (Directory, error) {
+	rootDirectory := service.ReadInitialDirectory()
+	if parentID != 0 {
+		currentDirectory, err := service.readDirectory(parentID)
+		if err != nil {
+			return Directory{}, fmt.Errorf("service.readDirectory: %w", err)
+		}
+		if currentDirectory.ID == 0 {
+			return Directory{}, fmt.Errorf("%w: parent id %d", ErrDirectoryNotFound, parentID)
+		}
+		rootDirectory = currentDirectory.Path
+	}
+
+	directoryPath := path.Join(rootDirectory, name)
 	if _, err := os.Stat(directoryPath); err == nil {
-		return Directory{}, fmt.Errorf("directory already exists: %s", name)
+		return Directory{}, fmt.Errorf("%w: %s", ErrDirectoryAlreadyExists, name)
 	} else if !errors.Is(err, fs.ErrNotExist) {
 		return Directory{}, fmt.Errorf("os.Stat: %w", err)
 	}
@@ -170,17 +184,18 @@ func (service *DirectoryService) CreateTopDirectory(name string) (Directory, err
 	err := db.NewTransaction(service.dbClient, func(ormClient *db.ORMClient[db.Directory]) error {
 		record, err := ormClient.FindByValue(&db.Directory{
 			Name:     name,
-			ParentID: 0,
+			ParentID: parentID,
 		})
 		if err != nil && err != db.ErrRecordNotFound {
 			return fmt.Errorf("ormClient.FindByValue: %w", err)
 		}
-		if record.ID != 0 && record.ParentID == 0 {
-			return fmt.Errorf("directory already exists: %s", name)
+		if record.ID != 0 && record.ParentID == parentID {
+			return fmt.Errorf("%w: %s", ErrDirectoryAlreadyExists, record.Name)
 		}
 
 		directory = db.Directory{
-			Name: name,
+			Name:     name,
+			ParentID: parentID,
 		}
 		if err := ormClient.Create(&directory); err != nil {
 			return fmt.Errorf("ormClient.Create: %w", err)
@@ -197,31 +212,48 @@ func (service *DirectoryService) CreateTopDirectory(name string) (Directory, err
 	}
 
 	return Directory{
-		ID:   directory.ID,
-		Name: directory.Name,
-		Path: directoryPath,
+		ID:       directory.ID,
+		Name:     directory.Name,
+		Path:     directoryPath,
+		ParentID: directory.ParentID,
 	}, nil
+}
+
+func (service *DirectoryService) CreateTopDirectory(name string) (Directory, error) {
+	return service.CreateDirectory(name, db.RootDirectoryID)
 }
 
 func (service *DirectoryService) UpdateName(id uint, name string) (Directory, error) {
 	directory, err := service.readDirectory(id)
 	if err != nil {
-		return Directory{}, fmt.Errorf("db.FindByValue: %w", err)
+		return Directory{}, fmt.Errorf("service.readDirectory: %w", err)
 	}
-	_, err = db.FindByValue(service.dbClient, &db.Directory{
+	if directory.ID == 0 {
+		return Directory{}, fmt.Errorf("%w for id: %d", ErrDirectoryNotFound, id)
+	}
+	if directory.Name == name {
+		return directory, fmt.Errorf("%w: directory name hasn't been changed: %s", ErrInvalidArgument, name)
+	}
+	if _, err := os.Stat(directory.Path); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return Directory{}, fmt.Errorf("%w in %s", ErrDirectoryNotFound, directory.Path)
+		}
+		return Directory{}, fmt.Errorf("os.Stat: %w", err)
+	}
+
+	_, err = db.FindByValue(service.dbClient, db.Directory{
 		Name:     name,
 		ParentID: directory.ParentID,
 	})
-	if err != nil {
-		if errors.Is(err, db.ErrRecordNotFound) {
-			return Directory{}, fmt.Errorf("directory already exists: %s", name)
-		}
-		return Directory{}, fmt.Errorf("db.FindByValue: %w", err)
+	if err == nil && directory.ID != 0 {
+		return Directory{}, fmt.Errorf("%w for %s under parent directory id %d", ErrDirectoryAlreadyExists, name, directory.ParentID)
+	} else if !errors.Is(err, db.ErrRecordNotFound) {
+		return Directory{}, fmt.Errorf("db.FindValue: (%w)", err)
 	}
 
 	newDirectoryPath := path.Join(filepath.Dir(directory.Path), name)
 	if _, err := os.Stat(newDirectoryPath); err == nil {
-		return Directory{}, fmt.Errorf("directory already exists in a path: %s", newDirectoryPath)
+		return Directory{}, fmt.Errorf("%w for a path: %s", ErrDirectoryAlreadyExists, newDirectoryPath)
 	} else if !errors.Is(err, fs.ErrNotExist) {
 		return Directory{}, fmt.Errorf("os.Stat: %w", err)
 	}
@@ -230,7 +262,7 @@ func (service *DirectoryService) UpdateName(id uint, name string) (Directory, er
 		record, err := ormClient.FindByValue(&db.Directory{
 			ID: id,
 		})
-		if err != nil && err != db.ErrRecordNotFound {
+		if err != nil {
 			return fmt.Errorf("ormClient.FindByValue: %w", err)
 		}
 

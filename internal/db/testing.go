@@ -4,7 +4,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func Truncate(client *Client, models ...interface{}) error {
+func (client *Client) Truncate(models ...interface{}) error {
 	for _, model := range models {
 		client.connection.Session(&gorm.Session{
 			AllowGlobalUpdate: true,

@@ -110,6 +110,7 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
     return null;
   }
 
+  const newDirectoryName = "New Directory";
   return (
     <Stack spacing={2}>
       <Stack
@@ -131,8 +132,8 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
             <IconButton
               variant="outlined"
               color="primary"
-              onClick={async () => {
-                await DirectoryService.CreateTopDirectory("New Directory");
+              onClick={async (event) => {
+                await DirectoryService.CreateTopDirectory(newDirectoryName);
                 // todo: don't reload all directories
                 await refresh();
               }}
@@ -157,7 +158,13 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
         }}
         slotProps={{
           item: {
-            addNewChild: async (parentID: string) => {},
+            addNewChild: async (parentID: string) => {
+              await DirectoryService.CreateDirectory(
+                newDirectoryName,
+                parseInt(parentID, 10)
+              );
+              await refresh();
+            },
             importImages: async (parentID: string) => {
               await DirectoryService.ImportImages(parseInt(parentID, 10));
               await refresh();

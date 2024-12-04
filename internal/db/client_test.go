@@ -60,7 +60,7 @@ func TestORMClient_FindByValue(t *testing.T) {
 			ormClient := &ORMClient[Table]{
 				connection: dbClient.connection,
 			}
-			got, gotErr := ormClient.FindByValue(&Table{
+			got, gotErr := ormClient.FindByID(&Table{
 				ID: tc.args.value.ID,
 			})
 			if tc.wantErr != nil {
@@ -112,7 +112,7 @@ func TestORMClient_Create(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			Truncate(dbClient, &Table{})
+			dbClient.Truncate(&Table{})
 
 			var gotErr error
 			for _, value := range tc.args.values {

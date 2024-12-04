@@ -79,9 +79,10 @@ type ORMClient[Model any] struct {
 	connection *gorm.DB
 }
 
-func FindByValue[Model any](client *Client, value *Model) (Model, error) {
-	err := client.connection.Take(&value).Error
-	return *value, err
+func FindByValue[Model any](client *Client, value Model) (Model, error) {
+	var result Model
+	err := client.connection.Take(&result, value).Error
+	return result, err
 }
 
 func GetAll[Model any](client *Client) ([]Model, error) {
@@ -107,8 +108,9 @@ func NewTransaction[Model any](client *Client, f func(*ORMClient[Model]) error) 
 }
 
 func (ormClient *ORMClient[Model]) FindByValue(value *Model) (Model, error) {
-	err := ormClient.connection.Take(&value).Error
-	return *value, err
+	var result Model
+	err := ormClient.connection.Take(&result, *value).Error
+	return result, err
 }
 
 func (ormClient *ORMClient[Model]) GetAll() ([]Model, error) {

@@ -40,13 +40,10 @@ func TestTagsService_GetAll(t *testing.T) {
 	dbClient, err := db.NewClient(db.DSNMemory, db.WithNopLogger())
 	require.NoError(t, err)
 	dbClient.Migrate()
-	defer func() {
-		require.NoError(t, db.Truncate(dbClient, &db.Tag{}))
-	}()
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			db.Truncate(dbClient, &db.Tag{})
+			dbClient.Truncate(&db.Tag{})
 			if len(tc.tagsInDB) > 0 {
 				require.NoError(t, db.BatchCreate(dbClient, tc.tagsInDB))
 			}
