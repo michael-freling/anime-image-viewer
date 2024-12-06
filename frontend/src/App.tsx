@@ -12,16 +12,21 @@ import Navigation, { Menu } from "./components/Navigation";
 import {
   Card,
   CardOverflow,
+  Checkbox,
   CssBaseline,
   CssVarsProvider,
   extendTheme as joyExtendTheme,
   Link,
+  Typography,
 } from "@mui/joy";
 import {
   extendTheme as materialExtendTheme,
   THEME_ID as MATERIAL_THEME_ID,
 } from "@mui/material/styles";
-import { ThemeProvider as MaterialThemeProvider } from "@mui/material";
+import {
+  CardActions,
+  ThemeProvider as MaterialThemeProvider,
+} from "@mui/material";
 import Layout from "./Layout";
 import TagExplorer from "./components/TagExplorer";
 
@@ -42,7 +47,11 @@ const joyTheme = joyExtendTheme({
 });
 
 export interface UserImages {
-  userImages: ImageFile[];
+  userImages: Array<
+    ImageFile & {
+      selected: boolean;
+    }
+  >;
 }
 
 function App() {
@@ -61,7 +70,10 @@ function App() {
   const handleDirectory = async (directory) => {
     const images = await DirectoryService.ReadImageFiles(directory);
     setImages({
-      userImages: images,
+      userImages: images.map((image) => ({
+        ...image,
+        selected: false,
+      })),
     });
   };
   const handleTag = async (tag: Tag) => {
@@ -123,23 +135,36 @@ function App() {
                 <TagExplorer editable={true} selectTag={handleTag} />
               )}
 
-              {images.userImages.map((userImage) => (
+              {images.userImages.map((userImage, imageIndex) => (
                 <Card
                   key={userImage.Path}
                   size="sm"
+                  color={userImage.selected ? "primary" : "neutral"}
+                  variant={userImage.selected ? "solid" : "outlined"}
+                  invertedColors={userImage.selected}
                   sx={{
                     "&:hover": {
-                      boxShadow: "sm",
                       borderColor: "neutral.outlinedHoverBorder",
                       borderWidth: 2,
                       opacity: 0.8,
                     },
                   }}
                 >
+                  <CardActions>
+                    <Checkbox
+                      overlay
+                      onChange={() => {
+                        images.userImages[imageIndex].selected =
+                          !userImage.selected;
+                        setImages({
+                          ...images,
+                        });
+                      }}
+                    />
+                    <Typography level="title-sm">{userImage.Name}</Typography>
+                  </CardActions>
                   <CardOverflow>
                     <LazyImage src={userImage.Path} />
-                    {/* Enable to change a whole card actionable: https://mui.com/joy-ui/react-card/#actions */}
-                    <Link overlay />
                   </CardOverflow>
                 </Card>
               ))}
