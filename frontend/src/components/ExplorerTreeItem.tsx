@@ -8,7 +8,7 @@ import {
   UseTreeItem2LabelSlotOwnProps,
   useTreeItem2Utils,
 } from "@mui/x-tree-view";
-import React from "react";
+import React, { SyntheticEvent } from "react";
 
 export interface ExplorerTreeItemLabelProps
   extends UseTreeItem2LabelSlotOwnProps {
@@ -44,19 +44,32 @@ export function ExplorerTreeItemLabel({
             <IconButton
               variant="outlined"
               color="primary"
-              onClick={importImages}
+              onClick={(event: SyntheticEvent) => {
+                event.stopPropagation();
+                importImages();
+              }}
             >
               <Upload />
             </IconButton>
           )}
 
-          <IconButton variant="outlined" color="primary" onClick={addNewChild}>
+          <IconButton
+            variant="outlined"
+            color="primary"
+            onClick={(event: SyntheticEvent) => {
+              event.stopPropagation();
+              addNewChild();
+            }}
+          >
             <Add />
           </IconButton>
           <IconButton
             variant="outlined"
             color="primary"
-            onClick={toggleItemEditing}
+            onClick={(event: SyntheticEvent) => {
+              event.stopPropagation();
+              toggleItemEditing();
+            }}
           >
             <EditOutlined fontSize="small" />
           </IconButton>
@@ -100,7 +113,6 @@ export const ExplorerTreeItem = React.forwardRef(function CustomTreeItem(
       ref={ref}
       slots={{
         label: labelComponent,
-
       }}
       slotProps={{
         label: {
