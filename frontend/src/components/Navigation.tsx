@@ -7,7 +7,7 @@ import ListItemDecorator from "@mui/joy/ListItemDecorator";
 import ListItemContent from "@mui/joy/ListItemContent";
 
 import * as Icons from "@mui/icons-material";
-import { Link } from "react-router";
+import { NavLink } from "react-router";
 
 export enum Menu {
   Series = "Series",
@@ -66,7 +66,11 @@ const Navigation: React.FC = () => {
           <List aria-labelledby="nav-list-tags" size="sm">
             {menu.menuItems.map((menuItem, index) => (
               <ListItem key={index}>
-                <Link to={menuItem.url} style={{ textDecoration: "none" }}>
+                <NavLink
+                  to={menuItem.url}
+                  style={{ textDecoration: "none" }}
+                  viewTransition
+                >
                   <ListItemButton
                     selected={selectedMenu === menuItem.id}
                     onClick={() => {
@@ -76,7 +80,7 @@ const Navigation: React.FC = () => {
                     <ListItemDecorator>{menuItem.icon}</ListItemDecorator>
                     <ListItemContent>{menuItem.text}</ListItemContent>
                   </ListItemButton>
-                </Link>
+                </NavLink>
               </ListItem>
             ))}
           </List>

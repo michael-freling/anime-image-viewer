@@ -38,7 +38,7 @@ export function ExplorerTreeItemLabel({
     >
       {children}
       {editable == false ? null : (
-        <Stack direction="row">
+        <Stack direction="row" spacing={2}>
           {/* Only DirectoryExplorer */}
           {importImages == null ? null : (
             <IconButton

@@ -1,5 +1,6 @@
 import {
   Box,
+  Button,
   Card,
   CardOverflow,
   Checkbox,
@@ -8,7 +9,7 @@ import {
 } from "@mui/joy";
 import { CardActions } from "@mui/material";
 import { FC, useEffect, useState } from "react";
-import { useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import {
   DirectoryService,
   ImageFile,
@@ -25,6 +26,9 @@ export interface UserImages {
 
 const ImageListPage: FC = () => {
   const { directoryId, tagId } = useParams();
+  const [, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
   const [images, setImages] = useState<UserImages>({
     userImages: [],
   });
@@ -63,44 +67,64 @@ const ImageListPage: FC = () => {
   }, [directoryId]);
 
   return (
-    <Box
-      sx={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-      }}
-    >
-      {images.userImages.map((userImage, imageIndex) => (
-        <Card
-          key={userImage.Path}
-          size="sm"
-          color={userImage.selected ? "primary" : "neutral"}
-          variant={userImage.selected ? "solid" : "outlined"}
-          invertedColors={userImage.selected}
-          sx={{
-            "&:hover": {
-              borderColor: "neutral.outlinedHoverBorder",
-              borderWidth: 2,
-              opacity: 0.8,
-            },
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <Box>
+        <Button
+          variant="outlined"
+          color="primary"
+          onClick={() => {
+            const imageIds = images.userImages.map((image) => String(image.ID));
+            setSearchParams({
+              imageIds: imageIds,
+            });
+            navigate(
+              "/images/edit/tags?imageIds=" +
+                encodeURIComponent(imageIds.join(","))
+            );
           }}
         >
-          <CardActions>
-            <Checkbox
-              overlay
-              onChange={() => {
-                images.userImages[imageIndex].selected = !userImage.selected;
-                setImages({
-                  ...images,
-                });
-              }}
-            />
-            <Typography level="title-sm">{userImage.Name}</Typography>
-          </CardActions>
-          <CardOverflow>
-            <LazyImage src={userImage.Path} />
-          </CardOverflow>
-        </Card>
-      ))}
+          Edit tags
+        </Button>
+      </Box>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+        }}
+      >
+        {images.userImages.map((userImage, imageIndex) => (
+          <Card
+            key={userImage.Path}
+            size="sm"
+            color={userImage.selected ? "primary" : "neutral"}
+            variant={userImage.selected ? "solid" : "outlined"}
+            invertedColors={userImage.selected}
+            sx={{
+              "&:hover": {
+                borderColor: "neutral.outlinedHoverBorder",
+                borderWidth: 2,
+                opacity: 0.8,
+              },
+            }}
+          >
+            <CardActions>
+              <Checkbox
+                overlay
+                onChange={() => {
+                  images.userImages[imageIndex].selected = !userImage.selected;
+                  setImages({
+                    ...images,
+                  });
+                }}
+              />
+              <Typography level="title-sm">{userImage.Name}</Typography>
+            </CardActions>
+            <CardOverflow>
+              <LazyImage src={userImage.Path} />
+            </CardOverflow>
+          </Card>
+        ))}
+      </Box>
     </Box>
   );
 };

@@ -1,8 +1,10 @@
+import { Redo, Undo } from "@mui/icons-material";
 import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
 import LightModeRoundedIcon from "@mui/icons-material/LightModeRounded";
-import { Box, Tooltip, IconButton, Stack, Button } from "@mui/joy";
+import { Box, Tooltip, IconButton, Stack } from "@mui/joy";
 import { useColorScheme } from "@mui/joy/styles";
 import * as React from "react";
+import { useNavigate } from "react-router";
 
 function ColorSchemeToggle() {
   const { mode, setMode } = useColorScheme();
@@ -36,6 +38,8 @@ function ColorSchemeToggle() {
 }
 
 export default function Header() {
+  const navigate = useNavigate();
+
   return (
     <Box sx={{ display: "flex", flexGrow: 1, justifyContent: "space-between" }}>
       <Stack
@@ -46,9 +50,12 @@ export default function Header() {
           flexWrap: "wrap",
         }}
       >
-        <Button variant="plain" color="neutral" component="a">
-          Anime Image Viewer
-        </Button>
+        <IconButton onClick={() => navigate(-1)} variant="outlined">
+          <Undo />
+        </IconButton>
+        <IconButton variant="outlined" onClick={() => navigate(1)}>
+          <Redo />
+        </IconButton>
       </Stack>
       <Box
         sx={{

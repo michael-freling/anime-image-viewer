@@ -11,6 +11,7 @@ import (
 )
 
 type ImageFile struct {
+	ID          uint
 	Name        string
 	Path        string
 	ContentType string

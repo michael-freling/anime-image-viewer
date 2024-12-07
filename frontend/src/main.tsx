@@ -7,6 +7,8 @@ import ImageListPage from "./pages/ImageListPage";
 import DirectoryExplorer from "./components/DirectoryExplorer";
 import TagExplorer from "./components/TagExplorer";
 import Layout from "./Layout";
+import ImageTagEditPage from "./pages/ImageTagEditPage";
+import TagsListPage from "./pages/tags/TagsListPage";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
@@ -45,15 +47,22 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
               </Route>
             </Route>
 
+            {/* Image edit */}
+            <Route path="images" element={<Layout.TwoColumnLayout />}>
+              <Route path="edit/tags" element={<ImageTagEditPage />} />
+            </Route>
+
             {/* Tags */}
             <Route path="tags">
               <Route element={<Layout.TwoColumnLayout />}>
-                <Route path="edit" element={<TagExplorer editable={true} />} />
+                <Route path="edit" element={<TagsListPage />} />
               </Route>
               <Route
                 element={
                   <Layout.ThreeColumnLayout
-                    sideNavigation={<TagExplorer editable={false} />}
+                    sideNavigation={
+                      <TagExplorer title="Search by tags" editable={false} />
+                    }
                   />
                 }
               >
