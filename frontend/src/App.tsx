@@ -1,34 +1,22 @@
-import { useEffect, useState } from "react";
-import DirectoryExplorer from "./components/DirectoryExplorer";
 import {
-  ImageFile,
-  DirectoryService,
-  Tag,
-} from "../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
-import Box from "@mui/joy/Box";
-import LazyImage from "./components/LazyImage";
-import Header from "./components/Header";
-import Navigation, { Menu } from "./components/Navigation";
-import {
-  Card,
-  CardOverflow,
-  Checkbox,
   CssBaseline,
   CssVarsProvider,
   extendTheme as joyExtendTheme,
-  //  Link,
-  Typography,
 } from "@mui/joy";
+import Box from "@mui/joy/Box";
+import { ThemeProvider as MaterialThemeProvider } from "@mui/material";
 import {
-  extendTheme as materialExtendTheme,
   THEME_ID as MATERIAL_THEME_ID,
+  extendTheme as materialExtendTheme,
 } from "@mui/material/styles";
-import {
-  CardActions,
-  ThemeProvider as MaterialThemeProvider,
-} from "@mui/material";
+import { useEffect, useState } from "react";
+import { Tag } from "../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
 import Layout from "./Layout";
+import DirectoryExplorer from "./components/DirectoryExplorer";
+import Header from "./components/Header";
+import Navigation, { Menu } from "./components/Navigation";
 import TagExplorer from "./components/TagExplorer";
+import { Outlet, useLocation } from "react-router";
 
 const materialTheme = materialExtendTheme({
   colorSchemes: { light: true, dark: true },
@@ -46,18 +34,12 @@ const joyTheme = joyExtendTheme({
   },
 });
 
-export interface UserImages {
-  userImages: Array<
-    ImageFile & {
-      selected: boolean;
-    }
-  >;
-}
-
-function App() {
-  const [images, setImages] = useState<UserImages>({
-    userImages: [],
+export function App() {
+  const location = useLocation();
+  console.debug("current url", {
+    location: location,
   });
+
   const [currentSelectedMenu, setCurrentSelectedMenu] = useState<Menu>(
     Menu.Series
   );
@@ -67,15 +49,6 @@ function App() {
     // WML.Reload();
   }, []);
 
-  const handleDirectory = async (directory) => {
-    const images = await DirectoryService.ReadImageFiles(directory);
-    setImages({
-      userImages: images.map((image) => ({
-        ...image,
-        selected: false,
-      })),
-    });
-  };
   const handleTag = async (tag: Tag) => {
     // todo
   };
@@ -109,10 +82,7 @@ function App() {
           {[Menu.Series, Menu.SeriesByTags].includes(currentSelectedMenu) && (
             <Layout.SideNav sx={{ overflowY: "auto", maxHeight: "100%" }}>
               {currentSelectedMenu === Menu.Series && (
-                <DirectoryExplorer
-                  editable={false}
-                  selectDirectory={handleDirectory}
-                />
+                <DirectoryExplorer editable={false} />
               )}
               {currentSelectedMenu === Menu.SeriesByTags && (
                 <TagExplorer editable={false} selectTag={handleTag} />
@@ -121,12 +91,7 @@ function App() {
           )}
 
           <Layout.Main sx={{ overflowY: "auto", maxHeight: "100%" }}>
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-              }}
-            >
+            <Box>
               {currentSelectedMenu === Menu.Directories && (
                 <DirectoryExplorer editable={true} />
               )}
@@ -135,39 +100,7 @@ function App() {
                 <TagExplorer editable={true} selectTag={handleTag} />
               )}
 
-              {images.userImages.map((userImage, imageIndex) => (
-                <Card
-                  key={userImage.Path}
-                  size="sm"
-                  color={userImage.selected ? "primary" : "neutral"}
-                  variant={userImage.selected ? "solid" : "outlined"}
-                  invertedColors={userImage.selected}
-                  sx={{
-                    "&:hover": {
-                      borderColor: "neutral.outlinedHoverBorder",
-                      borderWidth: 2,
-                      opacity: 0.8,
-                    },
-                  }}
-                >
-                  <CardActions>
-                    <Checkbox
-                      overlay
-                      onChange={() => {
-                        images.userImages[imageIndex].selected =
-                          !userImage.selected;
-                        setImages({
-                          ...images,
-                        });
-                      }}
-                    />
-                    <Typography level="title-sm">{userImage.Name}</Typography>
-                  </CardActions>
-                  <CardOverflow>
-                    <LazyImage src={userImage.Path} />
-                  </CardOverflow>
-                </Card>
-              ))}
+              <Outlet />
             </Box>
           </Layout.Main>
         </Layout.Root>

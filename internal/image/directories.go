@@ -113,7 +113,17 @@ func (service *DirectoryService) ImportImages(directoryID uint) error {
 	return nil
 }
 
-func (service *DirectoryService) ReadImageFiles(directoryPath string) ([]ImageFile, error) {
+func (service *DirectoryService) ReadImageFiles(directoryId uint) ([]ImageFile, error) {
+	directory, err := service.readDirectory(directoryId)
+	if err != nil {
+		if errors.Is(err, ErrDirectoryNotFound) {
+			return nil, err
+		}
+
+		return nil, fmt.Errorf("service.readDirectory: %w", err)
+	}
+
+	directoryPath := directory.Path
 	entries, err := os.ReadDir(directoryPath)
 	if err != nil {
 		return nil, fmt.Errorf("os.ReadDir: %w", err)

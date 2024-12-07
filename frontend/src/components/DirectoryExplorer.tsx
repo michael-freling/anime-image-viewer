@@ -14,6 +14,7 @@ import {
 } from "./ExplorerTreeItem";
 import { IconButton, Stack, Typography } from "@mui/joy";
 import { Add } from "@mui/icons-material";
+import { useNavigate } from "react-router";
 
 interface DirectoryExplorerProps {
   editable: boolean;
@@ -43,16 +44,14 @@ const getDirectoryMap = (
   return map;
 };
 
-const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
-  editable,
-  selectDirectory,
-}) => {
+const DirectoryExplorer: FC<DirectoryExplorerProps> = ({ editable }) => {
   const [rootDirectory, setRootDirectory] = useState<string>("");
   const [children, setChildren] = useState<Directory[]>([]);
-  const [directoryMap, setDirectoryMap] = useState<{
+  const [, setDirectoryMap] = useState<{
     [id: number]: Directory;
   }>({});
 
+  const navigate = useNavigate();
   useEffect(() => {
     DirectoryService.ReadInitialDirectory().then(async (directory) => {
       setRootDirectory(directory);
@@ -98,10 +97,15 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
         if (!itemId) {
           return;
         }
-        const directoryId = parseInt(itemId, 10);
-        const directory = directoryMap[directoryId];
+
+        console.debug("DirectoryExplorer.onSelectedItemsChange", {
+          directoryId: itemId,
+        });
+        navigate(`/directories/${itemId}`);
+        // const directoryId = parseInt(itemId, 10);
+        // const directory = directoryMap[directoryId];
         // TODO: Look up a directory by ID later
-        selectDirectory!(directory.Path);
+        // selectDirectory!(directory.Path);
       },
     };
   }
