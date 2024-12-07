@@ -16,15 +16,9 @@ export enum Menu {
   Tags = "List",
 }
 
-export interface NavigationProps {
-  selectedMenu: Menu;
-  selectMenu: (menu: Menu) => void;
-}
+const Navigation: React.FC = () => {
+  const [selectedMenu, selectMenu] = React.useState<Menu>(Menu.Series);
 
-const Navigation: React.FC<NavigationProps> = ({
-  selectedMenu,
-  selectMenu,
-}) => {
   const menus = [
     {
       text: "Anime",

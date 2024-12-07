@@ -6,6 +6,7 @@ import { BrowserRouter, Route, Routes } from "react-router";
 import ImageListPage from "./pages/ImageListPage";
 import DirectoryExplorer from "./components/DirectoryExplorer";
 import TagExplorer from "./components/TagExplorer";
+import Layout from "./Layout";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
@@ -13,20 +14,53 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
       <BrowserRouter>
         <Routes>
           <Route element={<App />}>
-            <Route index element={<ImageListPage />} />
-
+            {/* Home. Currently same as /directories */}
             <Route
-              path="directories/edit"
-              element={<DirectoryExplorer editable={true} />}
-            />
-            <Route path="tags/edit" element={<TagExplorer editable={true} />} />
+              element={
+                <Layout.ThreeColumnLayout
+                  sideNavigation={<DirectoryExplorer editable={false} />}
+                />
+              }
+            >
+              <Route index element={<ImageListPage />} />
+            </Route>
 
-            <Route
-              path="directories/:directoryId"
-              element={<ImageListPage />}
-            />
-            <Route path="/tags" element={<TagExplorer editable={false} />} />
-            <Route path="tags/:tagId" element={<ImageListPage />} />
+            {/* Directory */}
+            <Route path="directories">
+              <Route element={<Layout.TwoColumnLayout />}>
+                <Route
+                  path="edit"
+                  element={<DirectoryExplorer editable={true} />}
+                />
+              </Route>
+              <Route
+                element={
+                  <Layout.ThreeColumnLayout
+                    sideNavigation={<DirectoryExplorer editable={false} />}
+                  />
+                }
+              >
+                <Route index element={<ImageListPage />} />
+                <Route path=":directoryId" element={<ImageListPage />} />
+              </Route>
+            </Route>
+
+            {/* Tags */}
+            <Route path="tags">
+              <Route element={<Layout.TwoColumnLayout />}>
+                <Route path="edit" element={<TagExplorer editable={true} />} />
+              </Route>
+              <Route
+                element={
+                  <Layout.ThreeColumnLayout
+                    sideNavigation={<TagExplorer editable={false} />}
+                  />
+                }
+              >
+                <Route index element={<ImageListPage />} />
+                <Route path=":tagId" element={<ImageListPage />} />
+              </Route>
+            </Route>
           </Route>
         </Routes>
       </BrowserRouter>

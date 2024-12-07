@@ -2,42 +2,9 @@
 import * as React from "react";
 import Box, { BoxProps } from "@mui/joy/Box";
 import Sheet from "@mui/joy/Sheet";
-
-interface RootProps extends BoxProps {
-  columnCount: number;
-}
-
-function Root({ columnCount, ...props }: RootProps) {
-  const gridTemplateColumns = {
-    2: {
-      xs: "1fr",
-      sm: "minmax(64px, 200px) minmax(450px, 1fr)",
-      md: "minmax(100px, 160px) minmax(500px, 1fr)",
-    },
-    3: {
-      xs: "1fr",
-      sm: "minmax(64px, 200px) minmax(450px, 1fr)",
-      md: "minmax(100px, 160px) minmax(240px, 320px) minmax(500px, 1fr)",
-    },
-  };
-
-  return (
-    <Box
-      {...props}
-      sx={[
-        {
-          display: "grid",
-          gridTemplateColumns: gridTemplateColumns[columnCount],
-          gridTemplateRows: "64px 1fr",
-          minWidth: "100vw",
-          minHeight: "100vh",
-          maxHeight: "100vh",
-        },
-        ...(Array.isArray(props.sx) ? props.sx : [props.sx]),
-      ]}
-    />
-  );
-}
+import HeaderComponent from "./components/Header";
+import Navigation from "./components/Navigation";
+import { Outlet } from "react-router";
 
 function Header(props: BoxProps) {
   return (
@@ -97,7 +64,10 @@ function Main(props: BoxProps) {
       component="main"
       className="Main"
       {...props}
-      sx={[{ p: 2 }, ...(Array.isArray(props.sx) ? props.sx : [props.sx])]}
+      sx={[
+        { p: 2, overflowY: "auto", maxHeight: "100%" },
+        ...(Array.isArray(props.sx) ? props.sx : [props.sx]),
+      ]}
     />
   );
 }
@@ -138,10 +108,76 @@ function SideDrawer(
   );
 }
 
+interface ThreeColumnLayoutProps {
+  sideNavigation: React.ReactNode;
+}
+
+const ThreeColumnLayout: React.FC<ThreeColumnLayoutProps> = ({
+  sideNavigation,
+}) => (
+  <Box
+    sx={{
+      display: "grid",
+      gridTemplateColumns: {
+        xs: "1fr",
+        sm: "minmax(64px, 200px) minmax(450px, 1fr)",
+        md: "minmax(100px, 160px) minmax(240px, 320px) minmax(500px, 1fr)",
+      },
+      gridTemplateRows: "64px 1fr",
+      minWidth: "100vw",
+      minHeight: "100vh",
+      maxHeight: "100vh",
+    }}
+  >
+    <Header>
+      <HeaderComponent />
+    </Header>
+    <SideNav>
+      <Navigation />
+    </SideNav>
+    <SideNav sx={{ overflowY: "auto", maxHeight: "100%" }}>
+      {sideNavigation}
+    </SideNav>
+
+    <Main>
+      <Outlet />
+    </Main>
+  </Box>
+);
+
+const TwoColumnLayout: React.FC = () => (
+  <Box
+    sx={{
+      display: "grid",
+      gridTemplateColumns: {
+        xs: "1fr",
+        sm: "minmax(64px, 200px) minmax(450px, 1fr)",
+        md: "minmax(100px, 160px) minmax(500px, 1fr)",
+      },
+      gridTemplateRows: "64px 1fr",
+      minWidth: "100vw",
+      minHeight: "100vh",
+      maxHeight: "100vh",
+    }}
+  >
+    <Header>
+      <HeaderComponent />
+    </Header>
+    <SideNav>
+      <Navigation />
+    </SideNav>
+
+    <Main>
+      <Outlet />
+    </Main>
+  </Box>
+);
+
 export default {
-  Root,
   Header,
   SideNav,
   SideDrawer,
   Main,
+  TwoColumnLayout,
+  ThreeColumnLayout,
 };
