@@ -11,22 +11,11 @@ import {
   ExplorerTreeItemLabel,
   ExplorerTreeItemProps,
 } from "./ExplorerTreeItem";
+import { useNavigate } from "react-router";
 
 export interface TagExplorerProps {
   editable: boolean;
-  selectTag: (tag: Tag) => Promise<void>;
 }
-
-const getTagMap = (tags: Tag[]): { [id: number]: Tag } => {
-  const map: { [id: number]: Tag } = {};
-  tags.forEach((tag) => {
-    map[tag.ID] = tag;
-    if (tag.Children) {
-      Object.assign(map, getTagMap(tag.Children));
-    }
-  });
-  return map;
-};
 
 const tagsToTreeViewBaseItems = (tags: Tag[]): TreeViewBaseItem<{}>[] => {
   return tags.map((child) => {
@@ -38,11 +27,9 @@ const tagsToTreeViewBaseItems = (tags: Tag[]): TreeViewBaseItem<{}>[] => {
   });
 };
 
-const TagExplorer: FC<TagExplorerProps> = ({ editable, selectTag }) => {
+const TagExplorer: FC<TagExplorerProps> = ({ editable }) => {
+  const navigate = useNavigate();
   const [children, setChildren] = useState<Tag[]>([]);
-  const [map, setMap] = useState<{
-    [id: number]: Tag;
-  }>({});
 
   useEffect(() => {
     if (children.length > 0) {
@@ -55,18 +42,17 @@ const TagExplorer: FC<TagExplorerProps> = ({ editable, selectTag }) => {
   async function refresh() {
     const tags = await TagService.GetAll();
     setChildren(tags);
-    setMap(getTagMap(tags));
+    // setMap(getTagMap(tags));
   }
 
   async function handleSelect(
     event: React.SyntheticEvent,
-    itemId: string | null
+    tagId: string | null
   ) {
-    if (!itemId) {
+    if (!tagId) {
       return;
     }
-
-    selectTag(map[itemId]);
+    navigate(`/tags/${tagId}`);
   }
 
   const addNewChild = async (parentID: string) => {
@@ -74,30 +60,13 @@ const TagExplorer: FC<TagExplorerProps> = ({ editable, selectTag }) => {
       Name: "New Tag",
       ParentID: parseInt(parentID, 10),
     });
+    // todo: Update only added tag
     await refresh();
-    // todo: This doesn't add a child tag correctly
-    // const newChildren = children.map((child) => {
-    //   if (child.ID === parentID) {
-    //     child.Children.push(newTag);
-    //   }
-    //   return child;
-    // });
-    // setChildren(newChildren);
-    // setMap(getTagMap(newChildren));
   };
   const onItemLabelChange = async (itemId, newLabel) => {
     await TagService.UpdateName(parseInt(itemId, 10), newLabel);
+    // todo: Update only changed tag
     await refresh();
-    // The label doesn't add a child tag correctly
-    // const newChildren = children.map((child) => {
-    //   if (child.ID !== newTag.ID) {
-    //     return child;
-    //   }
-    //   newTag.Children = child.Children;
-    //   return newTag;
-    // });
-    // setChildren(newChildren);
-    // setMap(getTagMap(newChildren));
   };
 
   const rootID = "0";
@@ -122,11 +91,8 @@ const TagExplorer: FC<TagExplorerProps> = ({ editable, selectTag }) => {
             variant="outlined"
             onClick={async () => {
               await TagService.CreateTopTag("New Tag");
+              // todo: Update only added tag
               await refresh();
-              // This doesn't sort the tags
-              // children.push(tag);
-              // setChildren(children);
-              // setMap(getTagMap(children));
             }}
           >
             Add

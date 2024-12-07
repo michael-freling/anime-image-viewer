@@ -24,11 +24,14 @@ export interface UserImages {
 }
 
 const ImageListPage: FC = () => {
-  const { directoryId } = useParams();
+  const { directoryId, tagId } = useParams();
   const [images, setImages] = useState<UserImages>({
     userImages: [],
   });
-  console.debug("image list page", directoryId);
+  console.debug("image list page", {
+    directoryId,
+    tagId,
+  });
 
   const readDirectory = async (directoryId: string) => {
     if (!directoryId) {
@@ -44,12 +47,19 @@ const ImageListPage: FC = () => {
       })),
     });
   };
-  useEffect(() => {
-    if (!directoryId) {
-      return;
-    }
 
-    readDirectory(directoryId);
+  const readTag = async (tagId: string) => {
+    // todo
+  };
+
+  useEffect(() => {
+    if (directoryId) {
+      readDirectory(directoryId);
+    }
+    if (tagId) {
+      // todo
+      readTag(tagId);
+    }
   }, [directoryId]);
 
   return (

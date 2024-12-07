@@ -7,6 +7,7 @@ import ListItemDecorator from "@mui/joy/ListItemDecorator";
 import ListItemContent from "@mui/joy/ListItemContent";
 
 import * as Icons from "@mui/icons-material";
+import { Link } from "react-router";
 
 export enum Menu {
   Series = "Series",
@@ -32,11 +33,13 @@ const Navigation: React.FC<NavigationProps> = ({
           id: Menu.Series,
           text: "Series",
           icon: <Icons.Tv />,
+          url: "/",
         },
         {
           id: Menu.SeriesByTags,
           text: "Search by tags",
           icon: <Icons.Bookmarks />,
+          url: "/tags",
         },
       ],
     },
@@ -47,11 +50,13 @@ const Navigation: React.FC<NavigationProps> = ({
           id: Menu.Directories,
           text: "Images",
           icon: <Icons.Folder color="primary" />,
+          url: "/directories/edit",
         },
         {
           id: Menu.Tags,
           text: "Tags",
           icon: <Icons.Bookmarks />,
+          url: "/tags/edit",
         },
       ],
     },
@@ -67,15 +72,17 @@ const Navigation: React.FC<NavigationProps> = ({
           <List aria-labelledby="nav-list-tags" size="sm">
             {menu.menuItems.map((menuItem, index) => (
               <ListItem key={index}>
-                <ListItemButton
-                  selected={selectedMenu === menuItem.id}
-                  onClick={() => {
-                    selectMenu(menuItem.id);
-                  }}
-                >
-                  <ListItemDecorator>{menuItem.icon}</ListItemDecorator>
-                  <ListItemContent>{menuItem.text}</ListItemContent>
-                </ListItemButton>
+                <Link to={menuItem.url} style={{ textDecoration: "none" }}>
+                  <ListItemButton
+                    selected={selectedMenu === menuItem.id}
+                    onClick={() => {
+                      selectMenu(menuItem.id);
+                    }}
+                  >
+                    <ListItemDecorator>{menuItem.icon}</ListItemDecorator>
+                    <ListItemContent>{menuItem.text}</ListItemContent>
+                  </ListItemButton>
+                </Link>
               </ListItem>
             ))}
           </List>

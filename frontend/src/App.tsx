@@ -10,7 +10,6 @@ import {
   extendTheme as materialExtendTheme,
 } from "@mui/material/styles";
 import { useEffect, useState } from "react";
-import { Tag } from "../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
 import Layout from "./Layout";
 import DirectoryExplorer from "./components/DirectoryExplorer";
 import Header from "./components/Header";
@@ -49,9 +48,6 @@ export function App() {
     // WML.Reload();
   }, []);
 
-  const handleTag = async (tag: Tag) => {
-    // todo
-  };
   const selectMenu = (mode: Menu) => {
     setCurrentSelectedMenu(mode);
   };
@@ -85,21 +81,13 @@ export function App() {
                 <DirectoryExplorer editable={false} />
               )}
               {currentSelectedMenu === Menu.SeriesByTags && (
-                <TagExplorer editable={false} selectTag={handleTag} />
+                <TagExplorer editable={false} />
               )}
             </Layout.SideNav>
           )}
 
           <Layout.Main sx={{ overflowY: "auto", maxHeight: "100%" }}>
             <Box>
-              {currentSelectedMenu === Menu.Directories && (
-                <DirectoryExplorer editable={true} />
-              )}
-
-              {currentSelectedMenu === Menu.Tags && (
-                <TagExplorer editable={true} selectTag={handleTag} />
-              )}
-
               <Outlet />
             </Box>
           </Layout.Main>
