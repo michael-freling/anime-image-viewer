@@ -46,7 +46,7 @@ func main() {
 
 	dbFile := db.DSNFromFilePath(conf.ConfigDirectory, "db_v1.sqlite")
 	logger.Info("Connecting to a DB", "dbFile", dbFile)
-	dbClient, err := db.NewClient(dbFile)
+	dbClient, err := db.NewClient(dbFile, db.WithGormLogger(logger))
 	if err != nil {
 		logger.Error("db.NewClient", "error", err)
 		return

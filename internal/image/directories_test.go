@@ -10,13 +10,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type Tester struct {
+	dbClient *db.Client
+}
+
+func createTester(t *testing.T) Tester {
+	dbClient, err := db.NewClient(db.DSNMemory, db.WithNopLogger())
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		dbClient.Close()
+	})
+	dbClient.Migrate()
+
+	return Tester{
+		dbClient: dbClient,
+	}
+}
+
 func TestService_CreateDirectory(t *testing.T) {
 	rootDirectory := t.TempDir()
 
-	dbClient, err := db.NewClient(db.DSNMemory)
-	require.NoError(t, err)
-	defer dbClient.Close()
-	dbClient.Migrate()
+	tester := createTester(t)
+	dbClient := tester.dbClient
 	require.NoError(t, dbClient.Truncate(&db.File{}))
 
 	service := DirectoryService{
@@ -131,11 +146,12 @@ func TestService_CreateDirectory(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Cleanup(func() {
+				require.NoError(t, dbClient.Truncate(&db.File{}))
+			})
+
 			if len(tc.createDirectoriesInDB) > 0 {
 				require.NoError(t, db.BatchCreate(dbClient, tc.createDirectoriesInDB))
-				t.Cleanup(func() {
-					require.NoError(t, dbClient.Truncate(&db.File{}))
-				})
 			}
 			if len(tc.createDirectoriesInFS) > 0 {
 				for _, dir := range tc.createDirectoriesInFS {

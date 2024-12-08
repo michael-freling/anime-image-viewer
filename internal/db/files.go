@@ -11,9 +11,29 @@ const (
 
 type File struct {
 	ID        uint
-	ParentID  uint   `gorm:"unique,composite:parent_id_name"`
-	Name      string `gorm:"unique,composite:parent_id_name"`
+	ParentID  uint   `gorm:"uniqueIndex:parent_id_name,index:parent_id_created_at"`
+	Name      string `gorm:"uniqueIndex:parent_id_name"`
 	Type      FileType
-	CreatedAt uint
+	CreatedAt uint `gorm:"autoCreateTime,index:parent_id_created_at"`
 	UpdatedAt uint
+}
+
+type FileClient ORMClient[File]
+
+func NewFileClient(client *Client) *FileClient {
+	return &FileClient{
+		connection: client.connection,
+	}
+}
+
+func (client *FileClient) FindImageFilesByParentID(parentID uint) ([]File, error) {
+	var images []File
+	err := client.connection.
+		Order("created_at asc").
+		Find(&images, File{
+			ParentID: parentID,
+			Type:     FileTypeImage,
+		}).
+		Error
+	return images, err
 }

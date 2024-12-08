@@ -6,7 +6,8 @@ toolchain go1.23.2
 
 require (
 	github.com/BurntSushi/toml v1.3.2
-	github.com/stretchr/testify v1.8.4
+	github.com/orandin/slog-gorm v1.4.0
+	github.com/stretchr/testify v1.9.0
 	github.com/wailsapp/wails/v3 v3.0.0-alpha.7
 	gorm.io/driver/sqlite v1.5.6
 	gorm.io/gorm v1.25.12

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
@@ -91,8 +90,8 @@ func (service *DirectoryService) ImportImages(directoryID uint) error {
 	return service.imageFileService.importImageFiles(directory, paths)
 }
 
-func (service *DirectoryService) ReadImageFiles(directoryId uint) ([]ImageFile, error) {
-	directory, err := service.readDirectory(directoryId)
+func (service *DirectoryService) ReadImageFiles(parentDirectoryID uint) ([]ImageFile, error) {
+	parentDirectory, err := service.readDirectory(parentDirectoryID)
 	if err != nil {
 		if errors.Is(err, ErrDirectoryNotFound) {
 			return nil, err
@@ -101,49 +100,45 @@ func (service *DirectoryService) ReadImageFiles(directoryId uint) ([]ImageFile, 
 		return nil, fmt.Errorf("service.readDirectory: %w", err)
 	}
 
-	directoryPath := directory.Path
-	entries, err := os.ReadDir(directoryPath)
+	imageFiles, err := db.NewFileClient(service.dbClient).
+		FindImageFilesByParentID(parentDirectory.ID)
 	if err != nil {
-		return nil, fmt.Errorf("os.ReadDir: %w", err)
+		return nil, fmt.Errorf("db.FindByValue: %w", err)
 	}
 
-	errors := make([]error, 0)
-	result := make([]ImageFile, 0, len(entries))
-	for _, entry := range entries {
-		filename := entry.Name()
-		if entry.IsDir() {
+	imageFileErrors := make([]error, 0)
+	result := make([]ImageFile, 0)
+	for _, imageFile := range imageFiles {
+		imageFilePath := filepath.Join(parentDirectory.Path, imageFile.Name)
+		if _, err := os.Stat(imageFilePath); err != nil {
+			imageFileErrors = append(imageFileErrors, fmt.Errorf("os.Stat: %w", err))
 			continue
 		}
-		filePath := filepath.Join(directoryPath, filename)
-		file, err := os.Open(filePath)
+		file, err := os.Open(imageFilePath)
 		if err != nil {
-			errors = append(errors, fmt.Errorf("os.Open: %w", err))
+			imageFileErrors = append(imageFileErrors, fmt.Errorf("os.Open: %w", err))
 			continue
 		}
 		defer file.Close()
-
 		contentType, err := getContentType(file)
 		if err != nil {
-			errors = append(errors, err)
+			imageFileErrors = append(imageFileErrors, err)
 			continue
 		}
-		slog.DebugContext(service.ctx,
-			"the content type of a file",
-			"contentType", contentType,
-			"filePath", filePath,
-		)
 		if !slices.Contains(supportedContentTypes, contentType) {
+			imageFileErrors = append(imageFileErrors, fmt.Errorf("%w: %s", ErrUnsupportedImageFile, imageFilePath))
 			continue
 		}
 
 		result = append(result, ImageFile{
-			Name:        filename,
-			Path:        filePath,
+			ID:          imageFile.ID,
+			Name:        imageFile.Name,
+			Path:        imageFilePath,
 			ContentType: contentType,
 		})
 	}
-	if len(errors) > 0 {
-		return result, fmt.Errorf("failed to read some image files: %v", errors)
+	if len(imageFileErrors) > 0 {
+		return result, errors.Join(imageFileErrors...)
 	}
 	return result, nil
 }

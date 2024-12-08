@@ -2,7 +2,9 @@ package db
 
 import (
 	"fmt"
+	"log/slog"
 
+	slogGorm "github.com/orandin/slog-gorm"
 	"gorm.io/driver/sqlite" // Sqlite driver based on CGO
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -24,9 +26,12 @@ func WithNopLogger() ClientOption {
 	}
 }
 
-func WithGormLogger(l logger.Interface) ClientOption {
+func WithGormLogger(l *slog.Logger) ClientOption {
 	return func(c *clientOptions) {
-		c.gormLogger = l
+		c.gormLogger = slogGorm.New(
+			slogGorm.WithHandler(l.Handler()),
+			slogGorm.WithTraceAll(), // trace all messages
+		)
 	}
 }
 
