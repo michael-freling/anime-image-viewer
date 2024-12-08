@@ -14,7 +14,7 @@ type Tester struct {
 	dbClient *db.Client
 }
 
-func createTester(t *testing.T) Tester {
+func newTester(t *testing.T) Tester {
 	dbClient, err := db.NewClient(db.DSNMemory, db.WithNopLogger())
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -30,7 +30,7 @@ func createTester(t *testing.T) Tester {
 func TestService_CreateDirectory(t *testing.T) {
 	rootDirectory := t.TempDir()
 
-	tester := createTester(t)
+	tester := newTester(t)
 	dbClient := tester.dbClient
 	require.NoError(t, dbClient.Truncate(&db.File{}))
 

@@ -77,6 +77,7 @@ func (client *Client) Migrate() error {
 	return client.connection.AutoMigrate(
 		&Tag{},
 		&File{},
+		&FileTag{},
 	)
 }
 
@@ -87,6 +88,12 @@ type ORMClient[Model any] struct {
 func FindByValue[Model any](client *Client, value Model) (Model, error) {
 	var result Model
 	err := client.connection.Take(&result, value).Error
+	return result, err
+}
+
+func FindAllByValue[Model any](client *Client, value Model) ([]Model, error) {
+	var result []Model
+	err := client.connection.Find(&result, value).Error
 	return result, err
 }
 

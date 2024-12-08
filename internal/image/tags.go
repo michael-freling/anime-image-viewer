@@ -150,3 +150,31 @@ func buildTagTree(tagMap map[uint]Tag, childMap map[uint][]Tag, parentID uint) T
 	})
 	return t
 }
+
+// ReplaceFileTags replaces the tags of the files with the specified tag IDs.
+// It deletes the existing tags of the files
+func (service *TagService) ReplaceFileTags(fileIDs []uint, tagIDs []uint) error {
+	createdFileTags := make([]db.FileTag, 0)
+	for _, fileID := range fileIDs {
+		for _, tagID := range tagIDs {
+			createdFileTags = append(createdFileTags, db.FileTag{
+				TagID:  tagID,
+				FileID: fileID,
+			})
+		}
+	}
+
+	err := db.WithFileTagTransaction(service.dbClient, func(ormClient *db.FileTagClient) error {
+		if err := ormClient.DeleteByFileIDs(fileIDs); err != nil {
+			return fmt.Errorf("ormClient.DeleteByFileIDs: %w", err)
+		}
+		if err := ormClient.BatchCreate(createdFileTags); err != nil {
+			return fmt.Errorf("ormClient.BatchCreate: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("db.NewTransaction: %w", err)
+	}
+	return nil
+}
