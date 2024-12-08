@@ -14,6 +14,7 @@ import (
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
+	"github.com/michael-freling/anime-image-viewer/internal/xslices"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -190,9 +191,9 @@ func (service *DirectoryService) CreateDirectory(name string, parentID uint) (Di
 		return Directory{}, fmt.Errorf("os.Stat: %w", err)
 	}
 
-	var directory db.Directory
-	err := db.NewTransaction(service.dbClient, func(ormClient *db.ORMClient[db.Directory]) error {
-		record, err := ormClient.FindByValue(&db.Directory{
+	var directory db.File
+	err := db.NewTransaction(service.dbClient, func(ormClient *db.ORMClient[db.File]) error {
+		record, err := ormClient.FindByValue(&db.File{
 			Name:     name,
 			ParentID: parentID,
 		})
@@ -203,9 +204,10 @@ func (service *DirectoryService) CreateDirectory(name string, parentID uint) (Di
 			return fmt.Errorf("%w: %s", ErrDirectoryAlreadyExists, record.Name)
 		}
 
-		directory = db.Directory{
+		directory = db.File{
 			Name:     name,
 			ParentID: parentID,
+			Type:     db.FileTypeDirectory,
 		}
 		if err := ormClient.Create(&directory); err != nil {
 			return fmt.Errorf("ormClient.Create: %w", err)
@@ -251,7 +253,7 @@ func (service *DirectoryService) UpdateName(id uint, name string) (Directory, er
 		return Directory{}, fmt.Errorf("os.Stat: %w", err)
 	}
 
-	_, err = db.FindByValue(service.dbClient, db.Directory{
+	_, err = db.FindByValue(service.dbClient, db.File{
 		Name:     name,
 		ParentID: directory.ParentID,
 	})
@@ -268,8 +270,8 @@ func (service *DirectoryService) UpdateName(id uint, name string) (Directory, er
 		return Directory{}, fmt.Errorf("os.Stat: %w", err)
 	}
 
-	err = db.NewTransaction(service.dbClient, func(ormClient *db.ORMClient[db.Directory]) error {
-		record, err := ormClient.FindByValue(&db.Directory{
+	err = db.NewTransaction(service.dbClient, func(ormClient *db.ORMClient[db.File]) error {
+		record, err := ormClient.FindByValue(&db.File{
 			ID: id,
 		})
 		if err != nil {
@@ -308,12 +310,16 @@ func (service *DirectoryService) readDirectory(directoryID uint) (Directory, err
 	// todo: cache the result of the list of directories
 	result := Directory{}
 
-	allDirectories, err := db.GetAll[db.Directory](service.dbClient)
+	// todo: this query fetches both of directories and images
+	allDirectories, err := db.GetAll[db.File](service.dbClient)
 	if err != nil {
-		return result, fmt.Errorf("ormClient.GetAll: %w", err)
+		return result, fmt.Errorf("db.GetAll: %w", err)
 	}
+	allDirectories = xslices.Filter(allDirectories, func(directory db.File) bool {
+		return directory.Type == db.FileTypeDirectory
+	})
 	if len(allDirectories) == 0 {
-		return result, nil
+		return result, ErrDirectoryNotFound
 	}
 
 	childMap := make(map[uint][]Directory)
@@ -324,8 +330,8 @@ func (service *DirectoryService) readDirectory(directoryID uint) (Directory, err
 		childMap[t.ParentID] = make([]Directory, 0)
 	}
 	directoryMap := make(map[uint]Directory)
-	directoryMap[0] = Directory{
-		ID:   0,
+	directoryMap[db.RootDirectoryID] = Directory{
+		ID:   db.RootDirectoryID,
 		Name: service.ReadInitialDirectory(),
 		Path: service.ReadInitialDirectory(),
 	}
@@ -340,11 +346,15 @@ func (service *DirectoryService) readDirectory(directoryID uint) (Directory, err
 	}
 
 	rootDirectory := service.ReadInitialDirectory()
-	directoryTree := createDirectoryTree(directoryMap, childMap, 0, rootDirectory)
-	if directoryID == 0 {
+	directoryTree := createDirectoryTree(directoryMap, childMap, db.RootDirectoryID, rootDirectory)
+	if directoryID == db.RootDirectoryID {
 		return directoryTree, nil
 	}
-	return directoryTree.findChildByID(directoryID), nil
+	dir := directoryTree.findChildByID(directoryID)
+	if dir.ID == 0 {
+		return Directory{}, ErrDirectoryNotFound
+	}
+	return dir, nil
 }
 
 func createDirectoryTree(

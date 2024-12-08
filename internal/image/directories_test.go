@@ -17,7 +17,7 @@ func TestService_CreateDirectory(t *testing.T) {
 	require.NoError(t, err)
 	defer dbClient.Close()
 	dbClient.Migrate()
-	require.NoError(t, dbClient.Truncate(&db.Directory{}))
+	require.NoError(t, dbClient.Truncate(&db.File{}))
 
 	service := DirectoryService{
 		dbClient: dbClient,
@@ -28,13 +28,13 @@ func TestService_CreateDirectory(t *testing.T) {
 
 	testCases := []struct {
 		name                  string
-		createDirectoriesInDB []db.Directory
+		createDirectoriesInDB []db.File
 		createDirectoriesInFS []string
 
 		directoryName string
 		parentID      uint
 		want          Directory
-		wantInsert    db.Directory
+		wantInsert    db.File
 		wantErr       error
 	}{
 		// top root directory cases
@@ -46,14 +46,15 @@ func TestService_CreateDirectory(t *testing.T) {
 				Path:     rootDirectory + "/directory1",
 				ParentID: db.RootDirectoryID,
 			},
-			wantInsert: db.Directory{
+			wantInsert: db.File{
 				Name: "directory1",
+				Type: db.FileTypeDirectory,
 			},
 		},
 		{
 			name: "create a directory exists in a db",
-			createDirectoriesInDB: []db.Directory{
-				{Name: "directory1"},
+			createDirectoriesInDB: []db.File{
+				{Name: "directory1", Type: db.FileTypeDirectory},
 			},
 			directoryName: "directory1",
 			wantErr:       ErrDirectoryAlreadyExists,
@@ -66,8 +67,8 @@ func TestService_CreateDirectory(t *testing.T) {
 		},
 		{
 			name: "create a directory exists in a db but not as a file",
-			createDirectoriesInDB: []db.Directory{
-				{Name: "directory1"},
+			createDirectoriesInDB: []db.File{
+				{Name: "directory1", Type: db.FileTypeDirectory},
 			},
 			directoryName: "directory1",
 			wantErr:       ErrDirectoryAlreadyExists,
@@ -76,8 +77,8 @@ func TestService_CreateDirectory(t *testing.T) {
 		// directory under a parent
 		{
 			name: "create a directory under a directory",
-			createDirectoriesInDB: []db.Directory{
-				{ID: 1, Name: "directory1"},
+			createDirectoriesInDB: []db.File{
+				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
 			},
 			createDirectoriesInFS: []string{"directory1"},
 			directoryName:         "child directory1",
@@ -88,16 +89,17 @@ func TestService_CreateDirectory(t *testing.T) {
 				Path:     rootDirectory + "/directory1/child directory1",
 				ParentID: 1,
 			},
-			wantInsert: db.Directory{
+			wantInsert: db.File{
 				Name:     "child directory1",
 				ParentID: 1,
+				Type:     db.FileTypeDirectory,
 			},
 		},
 		{
 			name: "create a directory exists in a db under a parent directory",
-			createDirectoriesInDB: []db.Directory{
-				{ID: 1, Name: "directory1"},
-				{ID: 2, Name: "child directory1", ParentID: 1},
+			createDirectoriesInDB: []db.File{
+				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
+				{ID: 2, Name: "child directory1", ParentID: 1, Type: db.FileTypeDirectory},
 			},
 			createDirectoriesInFS: []string{"directory1"},
 			directoryName:         "child directory1",
@@ -106,8 +108,8 @@ func TestService_CreateDirectory(t *testing.T) {
 		},
 		{
 			name: "create a directory under a parent not exists in a db but as a file",
-			createDirectoriesInDB: []db.Directory{
-				{ID: 1, Name: "directory1"},
+			createDirectoriesInDB: []db.File{
+				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
 			},
 			createDirectoriesInFS: []string{"directory1", "directory1/child directory1"},
 			directoryName:         "child directory1",
@@ -116,9 +118,9 @@ func TestService_CreateDirectory(t *testing.T) {
 		},
 		{
 			name: "create a directory under a parent exists in a db but not as a file",
-			createDirectoriesInDB: []db.Directory{
-				{ID: 1, Name: "directory1"},
-				{ID: 2, Name: "child directory1", ParentID: 1},
+			createDirectoriesInDB: []db.File{
+				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
+				{ID: 2, Name: "child directory1", ParentID: 1, Type: db.FileTypeDirectory},
 			},
 			createDirectoriesInFS: []string{"directory1"},
 			directoryName:         "child directory1",
@@ -132,7 +134,7 @@ func TestService_CreateDirectory(t *testing.T) {
 			if len(tc.createDirectoriesInDB) > 0 {
 				require.NoError(t, db.BatchCreate(dbClient, tc.createDirectoriesInDB))
 				t.Cleanup(func() {
-					require.NoError(t, dbClient.Truncate(&db.Directory{}))
+					require.NoError(t, dbClient.Truncate(&db.File{}))
 				})
 			}
 			if len(tc.createDirectoriesInFS) > 0 {
@@ -161,7 +163,7 @@ func TestService_CreateDirectory(t *testing.T) {
 			tc.want.ID = got.ID
 			assert.Equal(t, tc.want, got)
 
-			gotInsert, err := db.FindByValue(service.dbClient, db.Directory{
+			gotInsert, err := db.FindByValue(service.dbClient, db.File{
 				Name: tc.directoryName,
 			})
 			require.NoError(t, err)
@@ -178,7 +180,7 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 	require.NoError(t, err)
 	defer dbClient.Close()
 	dbClient.Migrate()
-	require.NoError(t, dbClient.Truncate(&db.Directory{}))
+	require.NoError(t, dbClient.Truncate(&db.File{}))
 
 	rootDirectory := t.TempDir()
 	service := DirectoryService{
@@ -190,7 +192,7 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 
 	testCases := []struct {
 		name              string
-		insertDirectories []db.Directory
+		insertDirectories []db.File
 		makeDirectories   []string
 		directoryID       uint
 		newName           string
@@ -199,8 +201,8 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 	}{
 		{
 			name: "update a directory name",
-			insertDirectories: []db.Directory{
-				{ID: 1, Name: "directory1"},
+			insertDirectories: []db.File{
+				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
 			},
 			makeDirectories: []string{
 				"directory1",
@@ -215,11 +217,11 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 		},
 		{
 			name: "update a directory name to the same name under different directory",
-			insertDirectories: []db.Directory{
-				{ID: 1, Name: "directory1"},
-				{ID: 2, Name: "directory2"},
-				{ID: 11, Name: "same_name_under_different_directory", ParentID: 1},
-				{ID: 12, Name: "directory21", ParentID: 2},
+			insertDirectories: []db.File{
+				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
+				{ID: 2, Name: "directory2", Type: db.FileTypeDirectory},
+				{ID: 11, Name: "same_name_under_different_directory", ParentID: 1, Type: db.FileTypeDirectory},
+				{ID: 12, Name: "directory21", ParentID: 2, Type: db.FileTypeDirectory},
 			},
 			makeDirectories: []string{
 				"directory1",
@@ -238,8 +240,8 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 		},
 		{
 			name: "update a directory name to the same name with different cases",
-			insertDirectories: []db.Directory{
-				{ID: 1, Name: "directory1"},
+			insertDirectories: []db.File{
+				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
 			},
 			makeDirectories: []string{"directory1"},
 			directoryID:     1,
@@ -252,8 +254,8 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 		},
 		{
 			name: "parent directory doesn't exist in the DB",
-			insertDirectories: []db.Directory{
-				{ID: 1, Name: "directory1", ParentID: 2},
+			insertDirectories: []db.File{
+				{ID: 1, Name: "directory1", ParentID: 2, Type: db.FileTypeDirectory},
 			},
 			makeDirectories: []string{"directory1"},
 			directoryID:     1,
@@ -262,8 +264,8 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 		},
 		{
 			name: "A directory doesn't exist in the DB",
-			insertDirectories: []db.Directory{
-				{ID: 1, Name: "directory1"},
+			insertDirectories: []db.File{
+				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
 			},
 			makeDirectories: []string{"directory1"},
 			directoryID:     999,
@@ -272,8 +274,8 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 		},
 		{
 			name: "A directory doesn't exist in the FS",
-			insertDirectories: []db.Directory{
-				{ID: 1, Name: "directory1"},
+			insertDirectories: []db.File{
+				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
 			},
 			makeDirectories: []string{"directory2"},
 			directoryID:     1,
@@ -282,9 +284,9 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 		},
 		{
 			name: "update a directory name to the same name with other directory in the DB",
-			insertDirectories: []db.Directory{
-				{ID: 1, Name: "directory1"},
-				{ID: 2, Name: "new_directory"},
+			insertDirectories: []db.File{
+				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
+				{ID: 2, Name: "new_directory", Type: db.FileTypeDirectory},
 			},
 			makeDirectories: []string{"directory1"},
 			directoryID:     1,
@@ -293,8 +295,8 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 		},
 		{
 			name: "update a directory name to the same name with other directory in the FS",
-			insertDirectories: []db.Directory{
-				{ID: 1, Name: "directory1"},
+			insertDirectories: []db.File{
+				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
 			},
 			makeDirectories: []string{"directory1", "new_directory"},
 			directoryID:     1,
@@ -302,12 +304,14 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 			wantErr:         ErrDirectoryAlreadyExists,
 		},
 		{
-			name:              "Updates a directory with the same directory name",
-			insertDirectories: []db.Directory{{ID: 1, Name: "directory1"}},
-			makeDirectories:   []string{"directory1"},
-			directoryID:       1,
-			newName:           "directory1",
-			wantErr:           ErrInvalidArgument,
+			name: "Updates a directory with the same directory name",
+			insertDirectories: []db.File{
+				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
+			},
+			makeDirectories: []string{"directory1"},
+			directoryID:     1,
+			newName:         "directory1",
+			wantErr:         ErrInvalidArgument,
 		},
 	}
 
@@ -316,7 +320,7 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 			if len(tc.insertDirectories) > 0 {
 				require.NoError(t, db.BatchCreate(dbClient, tc.insertDirectories))
 				t.Cleanup(func() {
-					require.NoError(t, dbClient.Truncate(&db.Directory{}))
+					require.NoError(t, dbClient.Truncate(&db.File{}))
 				})
 			}
 			if len(tc.makeDirectories) > 0 {
@@ -357,15 +361,15 @@ func TestService_ReadDirectory(t *testing.T) {
 
 	testCases := []struct {
 		name              string
-		insertDirectories []db.Directory
+		insertDirectories []db.File
 		directoryID       uint
 		want              Directory
 		wantErr           error
 	}{
 		{
 			name: "directory exists",
-			insertDirectories: []db.Directory{
-				{ID: 1, Name: "directory1"},
+			insertDirectories: []db.File{
+				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
 			},
 			directoryID: 1,
 			want: Directory{
@@ -376,15 +380,16 @@ func TestService_ReadDirectory(t *testing.T) {
 		},
 		{
 			name: "sub directory exists",
-			insertDirectories: []db.Directory{
-				{ID: 1, Name: "directory1"},
-				{ID: 2, Name: "sub directory1", ParentID: 1},
+			insertDirectories: []db.File{
+				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
+				{ID: 2, Name: "sub directory1", ParentID: 1, Type: db.FileTypeDirectory},
 			},
 			directoryID: 2,
 			want: Directory{
-				ID:   2,
-				Name: "sub directory1",
-				Path: rootDirectory + "/directory1/sub directory1",
+				ID:       2,
+				Name:     "sub directory1",
+				ParentID: 1,
+				Path:     rootDirectory + "/directory1/sub directory1",
 			},
 		},
 		{
@@ -394,16 +399,16 @@ func TestService_ReadDirectory(t *testing.T) {
 		},
 		{
 			name: "a directory doesn't exist",
-			insertDirectories: []db.Directory{
-				{ID: 1, Name: "directory1"},
+			insertDirectories: []db.File{
+				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
 			},
 			directoryID: 999,
 			wantErr:     ErrDirectoryNotFound,
 		},
 		{
 			name: "a parent directory doesn't exist",
-			insertDirectories: []db.Directory{
-				{ID: 1, Name: "directory1", ParentID: 999},
+			insertDirectories: []db.File{
+				{ID: 1, Name: "directory1", ParentID: 999, Type: db.FileTypeDirectory},
 			},
 			directoryID: 1,
 			wantErr:     ErrDirectoryNotFound,
@@ -415,13 +420,14 @@ func TestService_ReadDirectory(t *testing.T) {
 			if len(tc.insertDirectories) > 0 {
 				require.NoError(t, db.BatchCreate(dbClient, tc.insertDirectories))
 				defer func() {
-					require.NoError(t, dbClient.Truncate(&db.Directory{}))
+					require.NoError(t, dbClient.Truncate(&db.File{}))
 				}()
 			}
 
 			got, gotErr := service.readDirectory(tc.directoryID)
 			assert.ErrorIs(t, gotErr, tc.wantErr)
 			if tc.wantErr != nil {
+				assert.Zero(t, got)
 				return
 			}
 			assert.Equal(t, tc.want, got)

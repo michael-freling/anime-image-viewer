@@ -60,7 +60,7 @@ func TestORMClient_FindByValue(t *testing.T) {
 			ormClient := &ORMClient[Table]{
 				connection: dbClient.connection,
 			}
-			got, gotErr := ormClient.FindByID(&Table{
+			got, gotErr := ormClient.FindByValue(&Table{
 				ID: tc.args.value.ID,
 			})
 			if tc.wantErr != nil {

@@ -71,7 +71,7 @@ func (client *Client) Close() error {
 func (client *Client) Migrate() error {
 	return client.connection.AutoMigrate(
 		&Tag{},
-		&Directory{},
+		&File{},
 	)
 }
 
