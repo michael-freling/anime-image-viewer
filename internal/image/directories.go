@@ -46,15 +46,17 @@ func (parent Directory) findChildByID(ID uint) Directory {
 }
 
 type DirectoryService struct {
-	ctx      context.Context
-	config   config.Config
-	dbClient *db.Client
+	ctx              context.Context
+	config           config.Config
+	dbClient         *db.Client
+	imageFileService *ImageFileService
 }
 
-func NewDirectoryService(conf config.Config, dbClient *db.Client) *DirectoryService {
+func NewDirectoryService(conf config.Config, dbClient *db.Client, imageFileService *ImageFileService) *DirectoryService {
 	return &DirectoryService{
-		config:   conf,
-		dbClient: dbClient,
+		config:           conf,
+		dbClient:         dbClient,
+		imageFileService: imageFileService,
 	}
 }
 
@@ -86,32 +88,7 @@ func (service *DirectoryService) ImportImages(directoryID uint) error {
 		return nil
 	}
 
-	unsupportedFiles := make([]string, 0)
-	existedFiles := make([]string, 0)
-	for _, sourceFilePath := range paths {
-		fileName := filepath.Base(sourceFilePath)
-		destinationFilePath := path.Join(directory.Path, fileName)
-		if err := copyImage(sourceFilePath, destinationFilePath); err != nil {
-			if errors.Is(err, ErrUnsupportedImageFile) {
-				unsupportedFiles = append(unsupportedFiles, sourceFilePath)
-				continue
-			}
-			if errors.Is(err, ErrFileAlreadyExists) {
-				existedFiles = append(existedFiles, destinationFilePath)
-				continue
-			}
-			return fmt.Errorf("copyImage: %w", err)
-		}
-	}
-	logger := application.Get().Logger
-	logger.InfoContext(service.ctx, "copy complete",
-		"directory", directory,
-		"unsupportedFiles", unsupportedFiles,
-		"existedFiles", existedFiles,
-		"paths", paths,
-	)
-
-	return nil
+	return service.imageFileService.importImageFiles(directory, paths)
 }
 
 func (service *DirectoryService) ReadImageFiles(directoryId uint) ([]ImageFile, error) {

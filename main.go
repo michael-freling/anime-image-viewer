@@ -53,6 +53,8 @@ func main() {
 	}
 	dbClient.Migrate()
 
+	imageFileService := image.NewFileService(dbClient)
+
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
 	// 'Assets' configures the asset server with the 'FS' variable pointing to the frontend files.
@@ -62,7 +64,8 @@ func main() {
 		Name:        "anime-image-viewer",
 		Description: "A demo of using raw HTML & CSS",
 		Services: []application.Service{
-			application.NewService(image.NewDirectoryService(conf, dbClient)),
+			application.NewService(imageFileService),
+			application.NewService(image.NewDirectoryService(conf, dbClient, imageFileService)),
 			application.NewService(image.NewTagService(dbClient)),
 			application.NewService(configService),
 		},
@@ -72,6 +75,9 @@ func main() {
 		},
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
+		},
+		PanicHandler: func(v any) {
+			logger.Error("panic happens", "v", v)
 		},
 		OnShutdown: func() {
 			dbClient.Close()

@@ -11,8 +11,8 @@ const (
 
 type File struct {
 	ID        uint
-	Name      string `gorm:"unique,composite:name_parent_id"`
-	ParentID  uint   `gorm:"unique,composite:name_parent_id"`
+	ParentID  uint   `gorm:"unique,composite:parent_id_name"`
+	Name      string `gorm:"unique,composite:parent_id_name"`
 	Type      FileType
 	CreatedAt uint
 	UpdatedAt uint
