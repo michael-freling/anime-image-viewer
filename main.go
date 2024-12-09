@@ -54,6 +54,7 @@ func main() {
 	dbClient.Migrate()
 
 	imageFileService := image.NewFileService(dbClient)
+	directoryServie := image.NewDirectoryService(conf, dbClient, imageFileService)
 
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
@@ -65,8 +66,8 @@ func main() {
 		Description: "A demo of using raw HTML & CSS",
 		Services: []application.Service{
 			application.NewService(imageFileService),
-			application.NewService(image.NewDirectoryService(conf, dbClient, imageFileService)),
-			application.NewService(image.NewTagService(dbClient)),
+			application.NewService(directoryServie),
+			application.NewService(image.NewTagService(dbClient, directoryServie)),
 			application.NewService(configService),
 		},
 		Assets: application.AssetOptions{

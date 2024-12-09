@@ -3,7 +3,9 @@ package image
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/michael-freling/anime-image-viewer/frontend/src/xassert"
+	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -67,6 +69,91 @@ func TestTagsService_GetAll(t *testing.T) {
 	}
 }
 
+func TestTagService_ReadTagsByFileIDs(t *testing.T) {
+	tester := newTester(t)
+	dbClient := tester.dbClient
+
+	testCases := []struct {
+		name           string
+		fileIDs        []uint
+		insertFiles    []db.File
+		insertFileTags []db.FileTag
+		want           ReadTagsByFileIDsResponse
+		wantErr        error
+	}{
+		{
+			name:    "No file tags",
+			fileIDs: []uint{1, 2},
+			insertFiles: []db.File{
+				{ID: 1, Type: db.FileTypeDirectory, Name: "File 1"},
+				{ID: 2, Type: db.FileTypeDirectory, Name: "File 2"},
+			},
+			want: ReadTagsByFileIDsResponse{},
+		},
+		{
+			name:    "Some file tags",
+			fileIDs: []uint{2, 100},
+			insertFiles: []db.File{
+				{ID: 1, Type: db.FileTypeDirectory, Name: "Directory 1"},
+				{ID: 2, Type: db.FileTypeImage, ParentID: 1, Name: "image file 2"},
+				{ID: 3, Type: db.FileTypeImage, ParentID: 1, Name: "image file 3"},
+				{ID: 10, Type: db.FileTypeDirectory, ParentID: 1, Name: "Directory 10"},
+				{ID: 100, Type: db.FileTypeImage, ParentID: 10, Name: "image file 100"},
+			},
+			insertFileTags: []db.FileTag{
+				{FileID: 1, TagID: 1},     // a tag for a top directory
+				{FileID: 2, TagID: 2},     // tag in directory 1 and 2
+				{FileID: 3, TagID: 1},     // a file isn't included in a query
+				{FileID: 10, TagID: 11},   // a tag for a parent directory
+				{FileID: 100, TagID: 111}, // a tag for a direct file
+			},
+			want: ReadTagsByFileIDsResponse{
+				FilesMap: map[uint][]File{
+					1:   {{ID: 2}, {ID: 100}},
+					2:   {{ID: 2}},
+					11:  {{ID: 100}}, // a tag from a parent directory
+					111: {{ID: 100}}, // a tag from a top directory
+				},
+				TagCounts: map[uint]uint{
+					1:   2,
+					2:   1,
+					11:  1,
+					111: 1,
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.NoError(t, dbClient.Truncate(&db.FileTag{}, &db.File{}))
+			if len(tc.insertFiles) > 0 {
+				require.NoError(t, db.BatchCreate(dbClient, tc.insertFiles))
+			}
+			if len(tc.insertFileTags) > 0 {
+				require.NoError(t, db.BatchCreate(dbClient, tc.insertFileTags))
+			}
+
+			service := &TagService{
+				dbClient: dbClient,
+				directoryService: &DirectoryService{
+					dbClient: dbClient,
+					config: config.Config{
+						ImageRootDirectory: t.TempDir(),
+					},
+				},
+			}
+			got, gotErr := service.ReadTagsByFileIDs(tc.fileIDs)
+			if tc.wantErr != nil {
+				assert.ErrorIs(t, gotErr, tc.wantErr)
+				return
+			}
+			assert.NoError(t, gotErr)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestTagService_ReplaceFileTags(t *testing.T) {
 	tester := newTester(t)
 	dbClient := tester.dbClient
@@ -117,16 +204,16 @@ func TestTagService_ReplaceFileTags(t *testing.T) {
 
 			gotFileTags, err := db.GetAll[db.FileTag](dbClient)
 			require.NoError(t, err)
-			xassert.ElementsMatchIgnoringFields(t,
+			xassert.ElementsMatch(t,
 				tc.wantFileTags,
 				gotFileTags,
-				func(a, b db.FileTag) bool {
+				cmpopts.SortSlices(func(a, b db.FileTag) bool {
 					if a.FileID == b.FileID {
 						return a.TagID < b.TagID
 					}
 					return a.FileID < b.FileID
-				},
-				"CreatedAt",
+				}),
+				cmpopts.IgnoreFields(db.FileTag{}, "CreatedAt"),
 			)
 		})
 	}

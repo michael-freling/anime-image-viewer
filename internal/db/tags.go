@@ -19,12 +19,28 @@ type FileTag struct {
 
 type FileTagClient ORMClient[FileTag]
 
+func NewFileTagClient(client *Client) *FileTagClient {
+	return &FileTagClient{
+		connection: client.connection,
+	}
+}
+
 func WithFileTagTransaction(client *Client, f func(*FileTagClient) error) error {
 	return client.connection.Transaction(func(tx *gorm.DB) error {
 		return f(&FileTagClient{
 			connection: tx,
 		})
 	})
+}
+
+func (client *FileTagClient) FindAllByFileID(fileIDs []uint) ([]FileTag, error) {
+	var values []FileTag
+	err := client.connection.Where(map[string]interface{}{
+		"file_id": fileIDs,
+	}).
+		Find(&values).
+		Error
+	return values, err
 }
 
 func (client *FileTagClient) BatchCreate(values []FileTag) error {

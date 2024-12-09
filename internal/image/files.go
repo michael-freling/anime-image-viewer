@@ -21,7 +21,16 @@ type ImageFile struct {
 	ID          uint
 	Name        string
 	Path        string
+	ParentID    uint
 	ContentType string
+}
+
+func (imageFile ImageFile) toFile() File {
+	return File{
+		ID:       imageFile.ID,
+		Name:     imageFile.Name,
+		ParentID: imageFile.ParentID,
+	}
 }
 
 var (

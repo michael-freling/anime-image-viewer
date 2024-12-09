@@ -13,7 +13,6 @@ import (
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
-	"github.com/michael-freling/anime-image-viewer/internal/xslices"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -24,11 +23,39 @@ var (
 )
 
 type Directory struct {
-	ID       uint
-	Name     string
-	Path     string
-	ParentID uint
-	Children []Directory
+	ID              uint
+	Name            string
+	Path            string
+	ParentID        uint
+	Children        []Directory
+	ChildImageFiles []ImageFile
+}
+
+func (directory Directory) toFile() File {
+	return File{
+		ID:       directory.ID,
+		Name:     directory.Name,
+		ParentID: directory.ParentID,
+	}
+}
+
+func (directory Directory) findAncestors(fileID uint) []Directory {
+	for _, child := range directory.Children {
+		if child.ID == fileID {
+			return []Directory{directory}
+		}
+
+		ancestors := child.findAncestors(fileID)
+		if len(ancestors) > 0 {
+			return append([]Directory{directory}, ancestors...)
+		}
+	}
+	for _, child := range directory.ChildImageFiles {
+		if child.ID == fileID {
+			return []Directory{directory}
+		}
+	}
+	return nil
 }
 
 func (parent Directory) findChildByID(ID uint) Directory {
@@ -278,47 +305,87 @@ func (service *DirectoryService) ReadChildDirectoriesRecursively(directoryID uin
 	return directory.Children, nil
 }
 
-func (service *DirectoryService) readDirectory(directoryID uint) (Directory, error) {
+// readAncestors reads the ancestors of the given file IDs, including the file itself.
+func (service *DirectoryService) readAncestors(fileIDs []uint) (map[uint][]Directory, error) {
+	rootDirectory, err := service.readDirectoryTree()
+	if err != nil {
+		return nil, fmt.Errorf("service.readDirectoryTree: %w", err)
+	}
+
+	result := make(map[uint][]Directory, 0)
+	for _, fileID := range fileIDs {
+		ancestors := rootDirectory.findAncestors(fileID)
+		if len(ancestors) <= 1 {
+			// if a file id is for a top directory, it doesn't have any ancestors
+			continue
+		}
+		result[fileID] = ancestors[1:]
+	}
+	return result, nil
+}
+
+func (service *DirectoryService) readDirectoryTree() (Directory, error) {
 	// todo: cache the result of the list of directories
 	result := Directory{}
 
 	// todo: this query fetches both of directories and images
-	allDirectories, err := db.GetAll[db.File](service.dbClient)
+	allFiles, err := db.GetAll[db.File](service.dbClient)
 	if err != nil {
 		return result, fmt.Errorf("db.GetAll: %w", err)
 	}
-	allDirectories = xslices.Filter(allDirectories, func(directory db.File) bool {
-		return directory.Type == db.FileTypeDirectory
-	})
-	if len(allDirectories) == 0 {
+	if len(allFiles) == 0 {
 		return result, ErrDirectoryNotFound
 	}
 
-	childMap := make(map[uint][]Directory)
-	for _, t := range allDirectories {
-		if _, ok := childMap[t.ParentID]; ok {
+	childDirectoryMap := make(map[uint][]Directory)
+	childImageFileMap := make(map[uint][]ImageFile)
+	for _, file := range allFiles {
+		if _, ok := childDirectoryMap[file.ParentID]; ok {
 			continue
 		}
-		childMap[t.ParentID] = make([]Directory, 0)
+		if file.Type == db.FileTypeDirectory {
+			childDirectoryMap[file.ParentID] = make([]Directory, 0)
+		}
+		if file.Type == db.FileTypeImage {
+			if _, ok := childImageFileMap[file.ParentID]; !ok {
+				childImageFileMap[file.ParentID] = make([]ImageFile, 0)
+			}
+		}
 	}
 	directoryMap := make(map[uint]Directory)
 	directoryMap[db.RootDirectoryID] = Directory{
-		ID:   db.RootDirectoryID,
-		Name: service.ReadInitialDirectory(),
-		Path: service.ReadInitialDirectory(),
+		ID:       db.RootDirectoryID,
+		Name:     service.ReadInitialDirectory(),
+		Path:     service.ReadInitialDirectory(),
+		ParentID: 0,
 	}
-	for _, dbDirectory := range allDirectories {
-		directoryMap[dbDirectory.ID] = Directory{
-			ID:       dbDirectory.ID,
-			Name:     dbDirectory.Name,
-			ParentID: dbDirectory.ParentID,
+	for _, dbFile := range allFiles {
+		if dbFile.Type == db.FileTypeDirectory {
+			directoryMap[dbFile.ID] = Directory{
+				ID:       dbFile.ID,
+				Name:     dbFile.Name,
+				ParentID: dbFile.ParentID,
+			}
+			childDirectoryMap[dbFile.ParentID] = append(childDirectoryMap[dbFile.ParentID], directoryMap[dbFile.ID])
 		}
-
-		childMap[dbDirectory.ParentID] = append(childMap[dbDirectory.ParentID], directoryMap[dbDirectory.ID])
+		if dbFile.Type == db.FileTypeImage {
+			childImageFileMap[dbFile.ParentID] = append(childImageFileMap[dbFile.ParentID], ImageFile{
+				ID:       dbFile.ID,
+				Name:     dbFile.Name,
+				ParentID: dbFile.ParentID,
+			})
+		}
 	}
 
 	rootDirectory := service.ReadInitialDirectory()
-	directoryTree := createDirectoryTree(directoryMap, childMap, db.RootDirectoryID, rootDirectory)
+	return createDirectoryTree(directoryMap, childDirectoryMap, childImageFileMap, db.RootDirectoryID, rootDirectory), nil
+}
+
+func (service *DirectoryService) readDirectory(directoryID uint) (Directory, error) {
+	directoryTree, err := service.readDirectoryTree()
+	if err != nil {
+		return Directory{}, fmt.Errorf("service.readDirectoryTree: %w", err)
+	}
 	if directoryID == db.RootDirectoryID {
 		return directoryTree, nil
 	}
@@ -331,19 +398,29 @@ func (service *DirectoryService) readDirectory(directoryID uint) (Directory, err
 
 func createDirectoryTree(
 	directoryMap map[uint]Directory,
-	childMap map[uint][]Directory,
+	childDirectoryMap map[uint][]Directory,
+	childImageFileMap map[uint][]ImageFile,
 	directoryID uint,
 	directoryPath string,
 ) Directory {
 	currentDirectory := directoryMap[directoryID]
 	currentDirectory.Path = directoryPath
-	if _, ok := childMap[directoryID]; !ok {
-		return currentDirectory
+	if _, ok := childImageFileMap[directoryID]; ok {
+		currentDirectory.ChildImageFiles = childImageFileMap[directoryID]
 	}
 
-	currentDirectory.Children = make([]Directory, len(childMap[directoryID]))
-	for i, child := range childMap[directoryID] {
-		currentDirectory.Children[i] = createDirectoryTree(directoryMap, childMap, child.ID, path.Join(directoryPath, child.Name))
+	if _, ok := childDirectoryMap[directoryID]; !ok {
+		return currentDirectory
+	}
+	currentDirectory.Children = make([]Directory, len(childDirectoryMap[directoryID]))
+	for i, child := range childDirectoryMap[directoryID] {
+		currentDirectory.Children[i] = createDirectoryTree(
+			directoryMap,
+			childDirectoryMap,
+			childImageFileMap,
+			child.ID,
+			path.Join(directoryPath, child.Name),
+		)
 	}
 	sort.Slice(currentDirectory.Children, func(i, j int) bool {
 		return currentDirectory.Children[i].Name < currentDirectory.Children[j].Name

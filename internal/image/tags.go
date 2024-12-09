@@ -10,13 +10,15 @@ import (
 )
 
 type TagService struct {
-	ctx      context.Context
-	dbClient *db.Client
+	ctx              context.Context
+	dbClient         *db.Client
+	directoryService *DirectoryService
 }
 
-func NewTagService(dbClient *db.Client) *TagService {
+func NewTagService(dbClient *db.Client, directoryService *DirectoryService) *TagService {
 	return &TagService{
-		dbClient: dbClient,
+		dbClient:         dbClient,
+		directoryService: directoryService,
 	}
 }
 
@@ -149,6 +151,77 @@ func buildTagTree(tagMap map[uint]Tag, childMap map[uint][]Tag, parentID uint) T
 		return t.Children[i].Name < t.Children[j].Name
 	})
 	return t
+}
+
+type File struct {
+	ID       uint
+	Name     string
+	ParentID uint
+}
+
+type ReadTagsByFileIDsResponse struct {
+	// FilesMap maps tag IDs to the files that have the tag
+	FilesMap map[uint][]File
+
+	// TagCounts maps tag IDs to the number of files that have the tag
+	TagCounts map[uint]uint
+}
+
+func (service *TagService) ReadTagsByFileIDs(fileIDs []uint) (ReadTagsByFileIDsResponse, error) {
+	fileIDToAncestors, err := service.directoryService.readAncestors(fileIDs)
+	if err != nil {
+		return ReadTagsByFileIDsResponse{}, fmt.Errorf("directoryService.readAncestors: %w", err)
+	}
+	allFileIDs := make([]uint, 0)
+	for _, fileID := range fileIDs {
+		ancestors, ok := fileIDToAncestors[fileID]
+		if ok {
+			for _, ancestor := range ancestors {
+				allFileIDs = append(allFileIDs, ancestor.ID)
+			}
+		}
+		allFileIDs = append(allFileIDs, fileID)
+	}
+
+	fileTags, err := db.NewFileTagClient(service.dbClient).
+		FindAllByFileID(allFileIDs)
+	if err != nil {
+		return ReadTagsByFileIDsResponse{}, fmt.Errorf("db.FindAllByValue: %w", err)
+	}
+	if len(fileTags) == 0 {
+		return ReadTagsByFileIDsResponse{}, nil
+	}
+
+	tagsPerFiles := make(map[uint][]File)
+	for _, fileTag := range fileTags {
+		for _, fileID := range fileIDs {
+			if fileID == fileTag.FileID {
+				tagsPerFiles[fileTag.TagID] = append(tagsPerFiles[fileTag.TagID], File{
+					ID: fileID,
+				})
+				continue
+			}
+
+			// if a tag is applied to an ancestor, apply it to the file
+			ancestors := fileIDToAncestors[fileID]
+			for _, ancestor := range ancestors {
+				if ancestor.ID == fileTag.FileID {
+					tagsPerFiles[fileTag.TagID] = append(tagsPerFiles[fileTag.TagID], File{
+						ID: fileID,
+					})
+					break
+				}
+			}
+		}
+	}
+	response := ReadTagsByFileIDsResponse{
+		FilesMap:  tagsPerFiles,
+		TagCounts: make(map[uint]uint),
+	}
+	for tagID, files := range tagsPerFiles {
+		response.TagCounts[tagID] = uint(len(files))
+	}
+	return response, nil
 }
 
 // ReplaceFileTags replaces the tags of the files with the specified tag IDs.
