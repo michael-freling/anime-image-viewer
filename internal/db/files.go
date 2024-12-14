@@ -20,7 +20,7 @@ type File struct {
 
 type FileClient ORMClient[File]
 
-func NewFileClient(client *Client) *FileClient {
+func (client *Client) File() *FileClient {
 	return &FileClient{
 		connection: client.connection,
 	}
@@ -34,6 +34,39 @@ func (client *FileClient) FindImageFilesByParentID(parentID uint) ([]File, error
 			ParentID: parentID,
 			Type:     FileTypeImage,
 		}).
+		Error
+	return images, err
+}
+
+func (client *FileClient) FindImageFilesByParentIDs(parentIDs []uint) ([]File, error) {
+	var images []File
+	err := client.connection.
+		Order("created_at asc").
+		Where("parent_id IN ?", parentIDs).
+		Where("type = ?", FileTypeImage).
+		Find(&images).
+		Error
+	return images, err
+}
+
+func (client *FileClient) FindImageFilesByIDs(ids []uint) ([]File, error) {
+	var images []File
+	err := client.connection.
+		Order("created_at asc").
+		Where("id IN ?", ids).
+		Where("type = ?", FileTypeImage).
+		Find(&images).
+		Error
+	return images, err
+}
+
+func (client *FileClient) FindDirectoriesByIDs(ids []uint) ([]File, error) {
+	var images []File
+	err := client.connection.
+		Order("created_at asc").
+		Where("id IN ?", ids).
+		Where("type = ?", FileTypeDirectory).
+		Find(&images).
 		Error
 	return images, err
 }

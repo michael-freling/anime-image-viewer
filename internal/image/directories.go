@@ -39,6 +39,24 @@ func (directory Directory) toFile() File {
 	}
 }
 
+func (directory Directory) toFlatIDMap() map[uint][]uint {
+	result := make(map[uint][]uint, 0)
+
+	ids := make([]uint, 0)
+	for _, child := range directory.Children {
+		for id, childIDs := range child.toFlatIDMap() {
+			result[id] = childIDs
+			ids = append(ids, childIDs...)
+		}
+	}
+	for _, child := range directory.ChildImageFiles {
+		ids = append(ids, child.ID)
+	}
+	ids = append(ids, directory.ID)
+	result[directory.ID] = ids
+	return result
+}
+
 func (directory Directory) findAncestors(fileID uint) []Directory {
 	for _, child := range directory.Children {
 		if child.ID == fileID {
@@ -69,6 +87,15 @@ func (parent Directory) findChildByID(ID uint) Directory {
 		}
 	}
 	return Directory{}
+}
+
+func (parent Directory) getDescendants() []Directory {
+	result := make([]Directory, 0)
+	for _, child := range parent.Children {
+		result = append(result, child)
+		result = append(result, child.getDescendants()...)
+	}
+	return result
 }
 
 type DirectoryService struct {
@@ -127,7 +154,7 @@ func (service *DirectoryService) ReadImageFiles(parentDirectoryID uint) ([]Image
 		return nil, fmt.Errorf("service.readDirectory: %w", err)
 	}
 
-	imageFiles, err := db.NewFileClient(service.dbClient).
+	imageFiles, err := service.dbClient.File().
 		FindImageFilesByParentID(parentDirectory.ID)
 	if err != nil {
 		return nil, fmt.Errorf("db.FindByValue: %w", err)
@@ -136,38 +163,44 @@ func (service *DirectoryService) ReadImageFiles(parentDirectoryID uint) ([]Image
 	imageFileErrors := make([]error, 0)
 	result := make([]ImageFile, 0)
 	for _, imageFile := range imageFiles {
-		imageFilePath := filepath.Join(parentDirectory.Path, imageFile.Name)
-		if _, err := os.Stat(imageFilePath); err != nil {
-			imageFileErrors = append(imageFileErrors, fmt.Errorf("os.Stat: %w", err))
-			continue
-		}
-		file, err := os.Open(imageFilePath)
-		if err != nil {
-			imageFileErrors = append(imageFileErrors, fmt.Errorf("os.Open: %w", err))
-			continue
-		}
-		defer file.Close()
-		contentType, err := getContentType(file)
+		imageFile, err := service.convertImageFile(parentDirectory, imageFile)
 		if err != nil {
 			imageFileErrors = append(imageFileErrors, err)
 			continue
 		}
-		if !slices.Contains(supportedContentTypes, contentType) {
-			imageFileErrors = append(imageFileErrors, fmt.Errorf("%w: %s", ErrUnsupportedImageFile, imageFilePath))
-			continue
-		}
 
-		result = append(result, ImageFile{
-			ID:          imageFile.ID,
-			Name:        imageFile.Name,
-			Path:        imageFilePath,
-			ContentType: contentType,
-		})
+		result = append(result, imageFile)
 	}
 	if len(imageFileErrors) > 0 {
 		return result, errors.Join(imageFileErrors...)
 	}
 	return result, nil
+}
+
+func (service *DirectoryService) convertImageFile(parentDirectory Directory, imageFile db.File) (ImageFile, error) {
+	imageFilePath := filepath.Join(parentDirectory.Path, imageFile.Name)
+	if _, err := os.Stat(imageFilePath); err != nil {
+		return ImageFile{}, fmt.Errorf("os.Stat: %w", err)
+	}
+	file, err := os.Open(imageFilePath)
+	if err != nil {
+		return ImageFile{}, fmt.Errorf("os.Open: %w", err)
+	}
+	defer file.Close()
+	contentType, err := getContentType(file)
+	if err != nil {
+		return ImageFile{}, err
+	}
+	if !slices.Contains(supportedContentTypes, contentType) {
+		return ImageFile{}, fmt.Errorf("%w: %s", ErrUnsupportedImageFile, imageFilePath)
+	}
+
+	return ImageFile{
+		ID:          imageFile.ID,
+		Name:        imageFile.Name,
+		Path:        imageFilePath,
+		ContentType: contentType,
+	}, nil
 }
 
 func (service *DirectoryService) CreateDirectory(name string, parentID uint) (Directory, error) {
@@ -379,6 +412,27 @@ func (service *DirectoryService) readDirectoryTree() (Directory, error) {
 
 	rootDirectory := service.ReadInitialDirectory()
 	return createDirectoryTree(directoryMap, childDirectoryMap, childImageFileMap, db.RootDirectoryID, rootDirectory), nil
+}
+
+func (service *DirectoryService) readDirectories(directoryIDs []uint) (map[uint]Directory, error) {
+	directoryTree, err := service.readDirectoryTree()
+	if err != nil {
+		return nil, fmt.Errorf("service.readDirectoryTree: %w", err)
+	}
+
+	dirErrors := make([]error, 0)
+	result := make(map[uint]Directory, 0)
+	for _, directoryID := range directoryIDs {
+		directory := directoryTree.findChildByID(directoryID)
+		if directory.ID == 0 {
+			dirErrors = append(dirErrors, fmt.Errorf("%w: %d", ErrDirectoryNotFound, directoryID))
+		}
+		result[directoryID] = directory
+	}
+	if len(dirErrors) > 0 {
+		return result, errors.Join(dirErrors...)
+	}
+	return result, nil
 }
 
 func (service *DirectoryService) readDirectory(directoryID uint) (Directory, error) {
