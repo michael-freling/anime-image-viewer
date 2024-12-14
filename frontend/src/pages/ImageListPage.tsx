@@ -73,7 +73,9 @@ const ImageListPage: FC = () => {
           variant="outlined"
           color="primary"
           onClick={() => {
-            const imageIds = images.userImages.map((image) => String(image.ID));
+            const imageIds = images.userImages
+              .filter((image) => image.selected)
+              .map((image) => String(image.ID));
             setSearchParams({
               imageIds: imageIds,
             });

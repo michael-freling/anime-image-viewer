@@ -25,7 +25,11 @@ func NewFileTagClient(client *Client) *FileTagClient {
 	}
 }
 
-func WithFileTagTransaction(client *Client, f func(*FileTagClient) error) error {
+func (client Client) FileTagClient() *FileTagClient {
+	return NewFileTagClient(&client)
+}
+
+func (client FileTagClient) WithTransaction(f func(*FileTagClient) error) error {
 	return client.connection.Transaction(func(tx *gorm.DB) error {
 		return f(&FileTagClient{
 			connection: tx,
@@ -33,7 +37,20 @@ func WithFileTagTransaction(client *Client, f func(*FileTagClient) error) error 
 	})
 }
 
-func (client *FileTagClient) FindAllByFileID(fileIDs []uint) ([]FileTag, error) {
+type FileTagList []FileTag
+
+func (tags FileTagList) ToMap() map[uint]map[uint]FileTag {
+	result := make(map[uint]map[uint]FileTag, len(tags))
+	for _, tag := range tags {
+		if _, ok := result[tag.TagID]; !ok {
+			result[tag.TagID] = make(map[uint]FileTag)
+		}
+		result[tag.TagID][tag.FileID] = tag
+	}
+	return result
+}
+
+func (client *FileTagClient) FindAllByFileID(fileIDs []uint) (FileTagList, error) {
 	var values []FileTag
 	err := client.connection.Where(map[string]interface{}{
 		"file_id": fileIDs,
@@ -47,6 +64,16 @@ func (client *FileTagClient) BatchCreate(values []FileTag) error {
 	return client.connection.Create(values).Error
 }
 
-func (client *FileTagClient) DeleteByFileIDs(fileIDs []uint) error {
-	return client.connection.Where("file_id IN ?", fileIDs).Delete(&FileTag{}).Error
+func (client *FileTagClient) BatchDelete(tagIDs []uint, fileIDs []uint) error {
+	fileTags := make([]FileTag, 0, len(tagIDs)*len(fileIDs))
+	for _, tagID := range tagIDs {
+		for _, fileID := range fileIDs {
+			fileTags = append(fileTags, FileTag{
+				TagID:  tagID,
+				FileID: fileID,
+			})
+		}
+	}
+
+	return client.connection.Delete(fileTags).Error
 }

@@ -154,35 +154,105 @@ func TestTagService_ReadTagsByFileIDs(t *testing.T) {
 	}
 }
 
-func TestTagService_ReplaceFileTags(t *testing.T) {
+func TestTagService_BatchUpdateTagsForFiles(t *testing.T) {
 	tester := newTester(t)
 	dbClient := tester.dbClient
 
 	testCases := []struct {
 		name           string
 		fileIDs        []uint
-		tagIDs         []uint
+		addedTagIDs    []uint
+		deletedTagIDs  []uint
 		insertFileTags []db.FileTag
 		wantFileTags   []db.FileTag
 		wantErr        error
 	}{
 		{
-			name:    "Create new tags and delete old tags for files",
-			fileIDs: []uint{1, 2},
-			tagIDs:  []uint{1, 3},
+			name:          "Create new tags and delete old tags for files",
+			fileIDs:       []uint{1, 2, 3},
+			addedTagIDs:   []uint{1, 2},
+			deletedTagIDs: []uint{10, 11},
 			insertFileTags: []db.FileTag{
 				{FileID: 1, TagID: 1},
-				{FileID: 2, TagID: 2}, // deleted
-				{FileID: 9, TagID: 1}, // different file with the same tag
-				{FileID: 9, TagID: 9}, // different file with the different tag
+
+				{FileID: 1, TagID: 10}, // deleted
+				{FileID: 2, TagID: 10}, // deleted
+				{FileID: 2, TagID: 11}, // deleted
+
+				{FileID: 1, TagID: 100}, // Same file with the different tag
+				{FileID: 9, TagID: 100}, // different file with the different tag
 			},
 			wantFileTags: []db.FileTag{
 				{FileID: 1, TagID: 1}, // keep
-				{FileID: 1, TagID: 3}, // inserted
+				{FileID: 1, TagID: 2}, // inserted
+				{FileID: 1, TagID: 100},
+
 				{FileID: 2, TagID: 1}, // inserted
-				{FileID: 2, TagID: 3}, // inserted
-				{FileID: 9, TagID: 1},
-				{FileID: 9, TagID: 9},
+				{FileID: 2, TagID: 2}, // inserted
+
+				{FileID: 3, TagID: 1}, // inserted
+				{FileID: 3, TagID: 2}, // inserted
+
+				{FileID: 9, TagID: 100},
+			},
+		},
+		{
+			name:        "no delete tag",
+			fileIDs:     []uint{1, 2},
+			addedTagIDs: []uint{1, 2},
+			insertFileTags: []db.FileTag{
+				{FileID: 1, TagID: 1},
+
+				{FileID: 1, TagID: 100}, // Same file with the different tag
+				{FileID: 9, TagID: 100}, // different file with the different tag
+			},
+			wantFileTags: []db.FileTag{
+				{FileID: 1, TagID: 1}, // keep
+				{FileID: 1, TagID: 2}, // inserted
+				{FileID: 1, TagID: 100},
+
+				{FileID: 2, TagID: 1}, // inserted
+				{FileID: 2, TagID: 2}, // inserted
+
+				{FileID: 9, TagID: 100},
+			},
+		},
+		{
+			name:        "no delete tag",
+			fileIDs:     []uint{1, 2},
+			addedTagIDs: []uint{1, 2},
+			insertFileTags: []db.FileTag{
+				{FileID: 1, TagID: 1},
+
+				{FileID: 1, TagID: 100}, // Same file with the different tag
+				{FileID: 9, TagID: 100}, // different file with the different tag
+			},
+			wantFileTags: []db.FileTag{
+				{FileID: 1, TagID: 1}, // keep
+				{FileID: 1, TagID: 2}, // inserted
+				{FileID: 1, TagID: 100},
+
+				{FileID: 2, TagID: 1}, // inserted
+				{FileID: 2, TagID: 2}, // inserted
+
+				{FileID: 9, TagID: 100},
+			},
+		},
+		{
+			name:          "no added tag",
+			fileIDs:       []uint{1, 2, 3},
+			deletedTagIDs: []uint{1, 2},
+			insertFileTags: []db.FileTag{
+				{FileID: 1, TagID: 1},
+				{FileID: 1, TagID: 2},
+				{FileID: 2, TagID: 2},
+
+				{FileID: 1, TagID: 100}, // Same file with the different tag
+				{FileID: 9, TagID: 100}, // different file with the different tag
+			},
+			wantFileTags: []db.FileTag{
+				{FileID: 1, TagID: 100},
+				{FileID: 9, TagID: 100},
 			},
 		},
 	}
@@ -195,7 +265,7 @@ func TestTagService_ReplaceFileTags(t *testing.T) {
 			service := &TagService{
 				dbClient: dbClient,
 			}
-			gotErr := service.ReplaceFileTags(tc.fileIDs, tc.tagIDs)
+			gotErr := service.BatchUpdateTagsForFiles(tc.fileIDs, tc.addedTagIDs, tc.deletedTagIDs)
 			if tc.wantErr != nil {
 				assert.ErrorIs(t, gotErr, tc.wantErr)
 				return

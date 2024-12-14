@@ -1,23 +1,25 @@
 import { Box, Button, Stack, Typography } from "@mui/joy";
-import { useSearchParams } from "react-router";
-import TagExplorer from "../components/TagExplorer";
 import { useState } from "react";
+import { useNavigate, useSearchParams } from "react-router";
+import { TagService } from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
+import TagExplorer from "../components/TagExplorer";
 
 const ImageTagEditPage = () => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const imageIdsStr = searchParams.get("imageIds") || "";
-  const imageIds = imageIdsStr.split(",");
+  const imageIds = imageIdsStr.split(",").map((id) => parseInt(id));
 
-  const [tagIds, setTagIds] = useState<number[]>([]);
-
-  console.debug("ImageTagEditPage", {
-    imageIdsStr,
-    imageIds,
-    searchParams: searchParams.toString(),
-  });
+  const [addedTagIds, setAddedTagIds] = useState<number[]>([]);
+  const [deletedTagIds, setDeletedTagIds] = useState<number[]>([]);
 
   const updateImageTags = async () => {
-    console.debug("updateImageTags", { imageIds, tagIds });
+    await TagService.BatchUpdateTagsForFiles(
+      imageIds,
+      addedTagIds,
+      deletedTagIds
+    );
+    navigate(-1);
   };
 
   return (
@@ -29,11 +31,13 @@ const ImageTagEditPage = () => {
         minHeight: "100%",
       }}
     >
-      <Typography>Select tags</Typography>
+      <Typography>Select tags for {imageIds.length} images</Typography>
       <TagExplorer
         selectable={true}
-        onSelect={(tagIds) => {
-          setTagIds({ ...tagIds });
+        fileIds={imageIds}
+        onSelect={(addedTagIds, deletedTagIds) => {
+          setAddedTagIds(addedTagIds);
+          setDeletedTagIds(deletedTagIds);
         }}
       />
 

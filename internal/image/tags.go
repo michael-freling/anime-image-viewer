@@ -224,25 +224,41 @@ func (service *TagService) ReadTagsByFileIDs(fileIDs []uint) (ReadTagsByFileIDsR
 	return response, nil
 }
 
-// ReplaceFileTags replaces the tags of the files with the specified tag IDs.
-// It deletes the existing tags of the files
-func (service *TagService) ReplaceFileTags(fileIDs []uint, tagIDs []uint) error {
+func (service *TagService) BatchUpdateTagsForFiles(fileIDs []uint, addedTagIDs []uint, deletedTagIDs []uint) error {
+	fileTagClient := service.dbClient.FileTagClient()
+	fileTags, err := fileTagClient.FindAllByFileID(fileIDs)
+	if err != nil {
+		return fmt.Errorf("fileTagClient.FindAllByFileID: %w", err)
+	}
+
 	createdFileTags := make([]db.FileTag, 0)
-	for _, fileID := range fileIDs {
-		for _, tagID := range tagIDs {
+	for _, tagID := range addedTagIDs {
+		filesForTag := fileTags.ToMap()[tagID]
+		for _, fileID := range fileIDs {
+			if _, ok := filesForTag[fileID]; ok {
+				continue
+			}
+
 			createdFileTags = append(createdFileTags, db.FileTag{
 				TagID:  tagID,
 				FileID: fileID,
 			})
 		}
 	}
+	if len(deletedTagIDs) == 0 && len(createdFileTags) == 0 {
+		return nil
+	}
 
-	err := db.WithFileTagTransaction(service.dbClient, func(ormClient *db.FileTagClient) error {
-		if err := ormClient.DeleteByFileIDs(fileIDs); err != nil {
-			return fmt.Errorf("ormClient.DeleteByFileIDs: %w", err)
+	err = fileTagClient.WithTransaction(func(ormClient *db.FileTagClient) error {
+		if len(deletedTagIDs) > 0 {
+			if err := ormClient.BatchDelete(deletedTagIDs, fileIDs); err != nil {
+				return fmt.Errorf("ormClient.DeleteByFileIDs: %w", err)
+			}
 		}
-		if err := ormClient.BatchCreate(createdFileTags); err != nil {
-			return fmt.Errorf("ormClient.BatchCreate: %w", err)
+		if len(createdFileTags) > 0 {
+			if err := ormClient.BatchCreate(createdFileTags); err != nil {
+				return fmt.Errorf("ormClient.BatchCreate: %w", err)
+			}
 		}
 		return nil
 	})

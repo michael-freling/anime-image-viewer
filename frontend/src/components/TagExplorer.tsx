@@ -3,6 +3,7 @@ import { Button, Stack, Typography } from "@mui/joy";
 import { RichTreeView, TreeViewBaseItem } from "@mui/x-tree-view";
 import React, { FC, useEffect, useState } from "react";
 import {
+  ReadTagsByFileIDsResponse,
   Tag,
   TagService,
 } from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
@@ -20,20 +21,49 @@ export type TagExplorerProps =
     }
   | {
       selectable: boolean;
-      onSelect: (tagIds: number[]) => void;
+      onSelect: (addedTagIds: number[], deletedTagIds: number[]) => void;
+      fileIds: number[];
     };
 
 const tagsToTreeViewBaseItems = (
-  tags: Tag[]
+  tags: Tag[],
+  fileCount: number,
+  addedTagIds: { [key: number]: boolean },
+  deletedTagIds: { [key: number]: boolean },
+  tagStats?: ReadTagsByFileIDsResponse
 ): TreeViewBaseItem<{
   id: string;
   label: string;
+  count: number;
+  indeterminate: boolean;
+  checked: boolean;
 }>[] => {
   return tags.map((child) => {
+    let count = 0;
+    if (tagStats != undefined && tagStats.TagCounts[child.ID] > 0) {
+      count = tagStats.TagCounts[child.ID];
+    }
+
+    const isAdded = addedTagIds[child.ID];
+    const isDeleted = deletedTagIds[child.ID];
+
     return {
       id: String(child.ID),
       label: child.Name,
-      children: tagsToTreeViewBaseItems(child.Children),
+      children: tagsToTreeViewBaseItems(
+        child.Children,
+        fileCount,
+        addedTagIds,
+        deletedTagIds,
+        tagStats
+      ),
+      count: count,
+      indeterminate:
+        isAdded == undefined &&
+        isDeleted == undefined &&
+        count > 0 &&
+        count < fileCount,
+      checked: isAdded || count == fileCount,
     };
   });
 };
@@ -41,7 +71,16 @@ const tagsToTreeViewBaseItems = (
 const TagExplorer: FC<TagExplorerProps> = (props) => {
   const navigate = useNavigate();
   const [children, setChildren] = useState<Tag[]>([]);
+  const [tagStats, setTagStats] = useState<ReadTagsByFileIDsResponse>();
+  const [tagStatsLoaded, setTagStatsLoaded] = useState(false);
+  const [addedTagIds, setAddedTagIds] = useState<{ [key: number]: boolean }>(
+    {}
+  );
+  const [deletedTagIds, setDeletedTagIds] = useState<{
+    [key: number]: boolean;
+  }>({});
 
+  const selectable = "selectable" in props;
   useEffect(() => {
     if (children.length > 0) {
       return;
@@ -54,15 +93,35 @@ const TagExplorer: FC<TagExplorerProps> = (props) => {
     const tags = await TagService.GetAll();
     setChildren(tags);
     // setMap(getTagMap(tags));
+    if (tagStatsLoaded) {
+      return;
+    }
+
+    if (selectable) {
+      const fileIds = props.fileIds;
+      const response = await TagService.ReadTagsByFileIDs(fileIds);
+      setTagStats(response);
+      setTagStatsLoaded(true);
+    }
   }
 
   if (children.length === 0) {
     return <Typography>Loading...</Typography>;
   }
 
-  const treeItems = tagsToTreeViewBaseItems(children);
+  const treeItems = tagsToTreeViewBaseItems(
+    children,
+    "fileIds" in props ? props.fileIds.length : 0,
+    addedTagIds,
+    deletedTagIds,
+    tagStats
+  );
 
-  if ("selectable" in props) {
+  if (selectable) {
+    if (!tagStatsLoaded) {
+      return <Typography>Loading...</Typography>;
+    }
+
     const { onSelect } = props;
     const getAllTreeItemIds = (
       items: TreeViewBaseItem<{
@@ -82,6 +141,11 @@ const TagExplorer: FC<TagExplorerProps> = (props) => {
     };
 
     const defaultExpandedItems = getAllTreeItemIds(treeItems);
+    const defaultSelectedItems = Object.keys(tagStats!.TagCounts).filter(
+      (tagId) => {
+        return tagStats?.TagCounts[tagId] == props.fileIds.length;
+      }
+    );
     return (
       <RichTreeView
         sx={{
@@ -89,6 +153,7 @@ const TagExplorer: FC<TagExplorerProps> = (props) => {
         }}
         expansionTrigger="content"
         defaultExpandedItems={defaultExpandedItems}
+        defaultSelectedItems={defaultSelectedItems}
         slots={{
           // todo: RichTreeView doesn't allow to pass a type other than TreeItem2Props
           item: ExplorerTreeItem as any,
@@ -96,6 +161,7 @@ const TagExplorer: FC<TagExplorerProps> = (props) => {
         slotProps={{
           item: {
             labelComponent: ExplorerTreeItemLabel,
+            selectable: true,
           } as ExplorerTreeItemProps,
         }}
         onSelectedItemsChange={(
@@ -105,7 +171,36 @@ const TagExplorer: FC<TagExplorerProps> = (props) => {
           if (!tagIds) {
             return;
           }
-          onSelect(tagIds.map((tagId) => parseInt(tagId, 10)));
+          let initialSelectedTagIds: string[] = [];
+          let initialAllTagIds: string[] = [];
+          if (tagStats) {
+            for (let [tagId, count] of Object.entries(tagStats.TagCounts)) {
+              if (count == props.fileIds.length) {
+                initialSelectedTagIds.push(tagId);
+              }
+              initialAllTagIds.push(tagId);
+            }
+          }
+
+          const addedTagIds = tagIds
+            .filter((tagId) => !initialSelectedTagIds.includes(tagId))
+            .map((tagId) => parseInt(tagId, 10));
+          const deletedTagIds = initialAllTagIds
+            .filter((tagId) => !tagIds.includes(tagId))
+            .map((tagId) => parseInt(tagId, 10));
+          setAddedTagIds(
+            addedTagIds.reduce((acc, tagId) => {
+              acc[tagId] = true;
+              return acc;
+            }, {} as { [key: number]: boolean })
+          );
+          setDeletedTagIds(
+            deletedTagIds.reduce((acc, tagId) => {
+              acc[tagId] = true;
+              return acc;
+            }, {} as { [key: number]: boolean })
+          );
+          onSelect(addedTagIds, deletedTagIds);
         }}
         items={treeItems}
         multiSelect={true}
@@ -169,6 +264,7 @@ const TagExplorer: FC<TagExplorerProps> = (props) => {
             item: {
               addNewChild,
               labelComponent: ExplorerTreeItemLabel,
+              selectable: false,
             } as ExplorerTreeItemProps,
           }}
           isItemEditable={() => true}
@@ -208,6 +304,7 @@ const TagExplorer: FC<TagExplorerProps> = (props) => {
         slotProps={{
           item: {
             labelComponent: ExplorerTreeItemLabel,
+            selectable: false,
           } as ExplorerTreeItemProps,
         }}
         onSelectedItemsChange={(
