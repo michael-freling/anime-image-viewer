@@ -163,6 +163,9 @@ type ReadTagsByFileIDsResponse struct {
 	// FilesMap maps tag IDs to the files that have the tag
 	FilesMap map[uint][]File
 
+	// AncestorMap maps tag IDs to their ancestors
+	AncestorMap map[uint][]File
+
 	// TagCounts maps tag IDs to the number of files that have the tag
 	TagCounts map[uint]uint
 }
@@ -193,6 +196,7 @@ func (service *TagService) ReadTagsByFileIDs(fileIDs []uint) (ReadTagsByFileIDsR
 	}
 
 	tagsPerFiles := make(map[uint][]File)
+	tagsForAncestors := make(map[uint][]File)
 	for _, fileTag := range fileTags {
 		for _, fileID := range fileIDs {
 			if fileID == fileTag.FileID {
@@ -202,11 +206,10 @@ func (service *TagService) ReadTagsByFileIDs(fileIDs []uint) (ReadTagsByFileIDsR
 				continue
 			}
 
-			// if a tag is applied to an ancestor, apply it to the file
 			ancestors := fileIDToAncestors[fileID]
 			for _, ancestor := range ancestors {
 				if ancestor.ID == fileTag.FileID {
-					tagsPerFiles[fileTag.TagID] = append(tagsPerFiles[fileTag.TagID], File{
+					tagsForAncestors[fileTag.TagID] = append(tagsForAncestors[fileTag.TagID], File{
 						ID: fileID,
 					})
 					break
@@ -215,10 +218,17 @@ func (service *TagService) ReadTagsByFileIDs(fileIDs []uint) (ReadTagsByFileIDsR
 		}
 	}
 	response := ReadTagsByFileIDsResponse{
-		FilesMap:  tagsPerFiles,
-		TagCounts: make(map[uint]uint),
+		FilesMap:    tagsPerFiles,
+		AncestorMap: tagsForAncestors,
+		TagCounts:   make(map[uint]uint),
 	}
 	for tagID, files := range tagsPerFiles {
+		response.TagCounts[tagID] = uint(len(files) + len(tagsForAncestors[tagID]))
+	}
+	for tagID, files := range tagsForAncestors {
+		if _, ok := response.TagCounts[tagID]; ok {
+			continue
+		}
 		response.TagCounts[tagID] = uint(len(files))
 	}
 	return response, nil

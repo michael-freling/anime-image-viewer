@@ -12,12 +12,13 @@ import {
   ExplorerTreeItemLabel,
   ExplorerTreeItemProps,
 } from "./ExplorerTreeItem";
-import { IconButton, Stack, Typography } from "@mui/joy";
+import { Button, IconButton, Stack, Typography } from "@mui/joy";
 import { Add } from "@mui/icons-material";
 import { useNavigate } from "react-router";
 
 interface DirectoryExplorerProps {
-  editable: boolean;
+  editable?: boolean;
+  selectable?: boolean;
   selectDirectory?: (directory: string) => Promise<void>;
 }
 
@@ -44,12 +45,16 @@ const getDirectoryMap = (
   return map;
 };
 
-const DirectoryExplorer: FC<DirectoryExplorerProps> = ({ editable }) => {
+const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
+  editable,
+  selectable,
+}) => {
   const [rootDirectory, setRootDirectory] = useState<string>("");
   const [children, setChildren] = useState<Directory[]>([]);
   const [, setDirectoryMap] = useState<{
     [id: number]: Directory;
   }>({});
+  const [directoriesIds, setDirectoriesIds] = useState<string[]>([]);
 
   const navigate = useNavigate();
   useEffect(() => {
@@ -70,6 +75,81 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({ editable }) => {
     const children = await DirectoryService.ReadChildDirectoriesRecursively(0);
     await setChildren(children);
     setDirectoryMap(getDirectoryMap(children));
+  }
+
+  if (selectable) {
+    return (
+      <Stack spacing={2}>
+        <Stack
+          spacing={2}
+          direction="row"
+          sx={{
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <Typography>Select directories to update tags</Typography>
+          <Button
+            variant="outlined"
+            onClick={() => {
+              navigate(
+                `/directories/tags/edit?directoryIds=${directoriesIds.join(
+                  ","
+                )}`
+              );
+            }}
+          >
+            Edit tags
+          </Button>
+        </Stack>
+
+        <RichTreeView
+          expansionTrigger="content"
+          defaultExpandedItems={[rootDirectory]}
+          slots={{
+            // todo: RichTreeView doesn't allow to pass a type other than TreeItem2Props
+            item: ExplorerTreeItem as any,
+            expandIcon: (props) => <FolderIcon color="primary" {...props} />,
+            collapseIcon: (props) => (
+              <FolderOpenIcon color="primary" {...props} />
+            ),
+            endIcon: (props) => <FolderOpenIcon color="primary" {...props} />,
+          }}
+          slotProps={{
+            item: {
+              addNewChild: async (parentID: string) => {
+                await DirectoryService.CreateDirectory(
+                  newDirectoryName,
+                  parseInt(parentID, 10)
+                );
+                await refresh();
+              },
+              importImages: async (parentID: string) => {
+                await DirectoryService.ImportImages(parseInt(parentID, 10));
+                await refresh();
+              },
+              labelComponent: ExplorerTreeItemLabel,
+
+              // selectable
+              selectable,
+            } as ExplorerTreeItemProps,
+          }}
+          items={directoriesToTreeViewBaseItems(children)}
+          onSelectedItemsChange={(
+            event: React.SyntheticEvent,
+            directoryIds: string[]
+          ) => {
+            if (!directoryIds) {
+              return;
+            }
+
+            setDirectoriesIds(directoryIds);
+          }}
+          multiSelect={true}
+          checkboxSelection={true}
+        />
+      </Stack>
+    );
   }
 
   let otherProps = {};
@@ -132,6 +212,7 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({ editable }) => {
             sx={{
               justifyContent: "flex-end",
             }}
+            spacing={2}
           >
             <IconButton
               variant="outlined"
@@ -174,6 +255,9 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({ editable }) => {
               await refresh();
             },
             labelComponent: ExplorerTreeItemLabel,
+
+            // selectable
+            selectable,
           } as ExplorerTreeItemProps,
         }}
         items={directoriesToTreeViewBaseItems(children)}

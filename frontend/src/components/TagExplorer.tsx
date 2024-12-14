@@ -43,6 +43,10 @@ const tagsToTreeViewBaseItems = (
     if (tagStats != undefined && tagStats.TagCounts[child.ID] > 0) {
       count = tagStats.TagCounts[child.ID];
     }
+    let disabled = false;
+    if (tagStats != undefined && tagStats.AncestorMap[child.ID] != undefined) {
+      disabled = true;
+    }
 
     const isAdded = addedTagIds[child.ID];
     const isDeleted = deletedTagIds[child.ID];
@@ -57,13 +61,14 @@ const tagsToTreeViewBaseItems = (
         deletedTagIds,
         tagStats
       ),
-      count: count,
+      count,
       indeterminate:
         isAdded == undefined &&
         isDeleted == undefined &&
         count > 0 &&
         count < fileCount,
       checked: isAdded || count == fileCount,
+      disabled,
     };
   });
 };

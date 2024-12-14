@@ -13,6 +13,7 @@ export enum Menu {
   Series = "Series",
   SeriesByTags = "Tags",
   Directories = "Directories",
+  TagsForDirectories = "TagsForDirectories",
   Tags = "List",
 }
 
@@ -46,6 +47,13 @@ const Navigation: React.FC = () => {
           icon: <Icons.Folder color="primary" />,
           url: "/directories/edit",
         },
+        {
+          id: Menu.TagsForDirectories,
+          text: "Tags for directories",
+          icon: <Icons.SnippetFolder color="primary" />,
+          url: "/directories/tags/select",
+        },
+
         {
           id: Menu.Tags,
           text: "Tags",

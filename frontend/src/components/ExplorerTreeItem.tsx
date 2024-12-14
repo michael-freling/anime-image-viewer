@@ -109,6 +109,7 @@ interface ExplorerCheckboxProps {
   selectable: boolean;
   checked: boolean;
   indeterminate: boolean;
+  disabled: boolean;
   onChange: () => void;
 }
 
@@ -174,6 +175,7 @@ export const ExplorerTreeItem = React.forwardRef(function CustomTreeItem(
           selectable,
           indeterminate: item.indeterminate,
           checked: status.selected,
+          disabled: item.disabled,
           onChange: interactions.handleCheckboxSelection,
         } as ExplorerCheckboxProps,
       }}

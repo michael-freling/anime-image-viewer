@@ -9,6 +9,7 @@ import TagExplorer from "./components/TagExplorer";
 import Layout from "./Layout";
 import ImageTagEditPage from "./pages/ImageTagEditPage";
 import TagsListPage from "./pages/tags/TagsListPage";
+import DirectoryTagsEditPage from "./pages/DirectoryTagEditPage";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
@@ -34,6 +35,13 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
                   path="edit"
                   element={<DirectoryExplorer editable={true} />}
                 />
+              </Route>
+              <Route element={<Layout.TwoColumnLayout />}>
+                <Route
+                  path="tags/select"
+                  element={<DirectoryExplorer selectable={true} />}
+                />
+                <Route path="tags/edit" element={<DirectoryTagsEditPage />} />
               </Route>
               <Route
                 element={

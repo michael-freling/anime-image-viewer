@@ -109,10 +109,12 @@ func TestTagService_ReadTagsByFileIDs(t *testing.T) {
 			},
 			want: ReadTagsByFileIDsResponse{
 				FilesMap: map[uint][]File{
-					1:   {{ID: 2}, {ID: 100}},
 					2:   {{ID: 2}},
-					11:  {{ID: 100}}, // a tag from a parent directory
 					111: {{ID: 100}}, // a tag from a top directory
+				},
+				AncestorMap: map[uint][]File{
+					1:  {{ID: 2}, {ID: 100}},
+					11: {{ID: 100}}, // a tag from a parent directory
 				},
 				TagCounts: map[uint]uint{
 					1:   2,
