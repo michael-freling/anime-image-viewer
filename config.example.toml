@@ -1,0 +1,3 @@
+config_directory = "/home/user/.config/anime-image-viewer"
+image_root_directory = "/home/user/Pictures/anime-image-viewer"
+log_directory = "/tmp/anime-image-viewer/logs"

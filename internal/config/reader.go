@@ -5,13 +5,23 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/BurntSushi/toml"
 )
 
+type env string
+
+const (
+	EnvironmentProduction  = "production"
+	EnvironmentDevelopment = "development"
+)
+
 type Config struct {
-	ImageRootDirectory string `toml:"imaeg_root_directory"`
+	ImageRootDirectory string `toml:"image_root_directory"`
 	ConfigDirectory    string `toml:"config_directory"`
+	LogDirectory       string `toml:"log_directory"`
+	Environment        env
 }
 
 func ReadConfig() (Config, error) {
@@ -26,11 +36,14 @@ func ReadConfig() (Config, error) {
 		return conf, fmt.Errorf("os.MkdirAll: %w", err)
 	}
 
+	tempDir := os.TempDir()
 	configFile := path.Join(configDir, "default.toml")
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 		return Config{
 			ImageRootDirectory: homeDir + "/Pictures/anime-image-viewer",
 			ConfigDirectory:    configDir,
+			LogDirectory:       filepath.Join(tempDir, "/anime-image-viewer/logs"),
+			Environment:        runtimeEnv,
 		}, nil
 	}
 
@@ -49,5 +62,6 @@ func ReadConfig() (Config, error) {
 		return conf, fmt.Errorf("toml.Decode: %w", err)
 	}
 
+	conf.Environment = runtimeEnv
 	return conf, nil
 }
