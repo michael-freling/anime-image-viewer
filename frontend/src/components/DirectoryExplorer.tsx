@@ -14,7 +14,7 @@ import {
 } from "./ExplorerTreeItem";
 import { Button, IconButton, Stack, Typography } from "@mui/joy";
 import { Add } from "@mui/icons-material";
-import { useNavigate } from "react-router";
+import { createSearchParams, useNavigate } from "react-router";
 
 interface DirectoryExplorerProps {
   editable?: boolean;
@@ -91,12 +91,15 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
           <Typography>Select directories to update tags</Typography>
           <Button
             variant="outlined"
+            disabled={directoriesIds.length === 0}
             onClick={() => {
-              navigate(
-                `/directories/tags/edit?directoryIds=${directoriesIds.join(
-                  ","
-                )}`
-              );
+              const searchParams = createSearchParams({
+                directoryIds: directoriesIds.join(","),
+              }).toString();
+              navigate({
+                pathname: "/directories/tags/edit",
+                search: `?${searchParams}`,
+              });
             }}
           >
             Edit tags
@@ -117,20 +120,7 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
           }}
           slotProps={{
             item: {
-              addNewChild: async (parentID: string) => {
-                await DirectoryService.CreateDirectory(
-                  newDirectoryName,
-                  parseInt(parentID, 10)
-                );
-                await refresh();
-              },
-              importImages: async (parentID: string) => {
-                await DirectoryService.ImportImages(parseInt(parentID, 10));
-                await refresh();
-              },
               labelComponent: ExplorerTreeItemLabel,
-
-              // selectable
               selectable,
             } as ExplorerTreeItemProps,
           }}
