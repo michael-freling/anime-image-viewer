@@ -106,7 +106,16 @@ func (service *TagService) UpdateName(id uint, name string) (Tag, error) {
 type Tag struct {
 	ID       uint
 	Name     string
+	FullName string
+	parent   *Tag
 	Children []Tag
+}
+
+func (tag Tag) fullName() string {
+	if tag.parent == nil {
+		return tag.Name
+	}
+	return fmt.Sprintf("%s > %s", tag.parent.fullName(), tag.Name)
 }
 
 func (tag Tag) findChildByID(ID uint) Tag {
@@ -157,18 +166,22 @@ func (service *TagService) GetAll() ([]Tag, error) {
 		childMap[t.ParentID] = append(childMap[t.ParentID], tagMap[t.ID])
 	}
 
-	return buildTagTree(tagMap, childMap, 0).Children, nil
+	return buildTagTree(tagMap, childMap, 0, nil).Children, nil
 }
 
-func buildTagTree(tagMap map[uint]Tag, childMap map[uint][]Tag, parentID uint) Tag {
+func buildTagTree(tagMap map[uint]Tag, childMap map[uint][]Tag, parentID uint, parent *Tag) Tag {
 	t := tagMap[parentID]
+	if parent != nil && parent.ID != 0 {
+		t.parent = parent
+	}
+
 	if _, ok := childMap[parentID]; !ok {
 		return t
 	}
 
 	t.Children = make([]Tag, len(childMap[parentID]))
 	for i, child := range childMap[parentID] {
-		t.Children[i] = buildTagTree(tagMap, childMap, child.ID)
+		t.Children[i] = buildTagTree(tagMap, childMap, child.ID, &t)
 	}
 	sort.Slice(t.Children, func(i, j int) bool {
 		return t.Children[i].Name < t.Children[j].Name
@@ -338,8 +351,8 @@ func (service *TagService) ReadImageFiles(tagID uint) (ReadImageFilesResponse, e
 				}
 				result[tag.ID] = make([]ImageFile, 0)
 				resultTags = append(resultTags, Tag{
-					ID:   tag.ID,
-					Name: tag.Name,
+					ID:       tag.ID,
+					FullName: tag.fullName(),
 				})
 			}
 		OUTER:

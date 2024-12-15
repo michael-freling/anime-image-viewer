@@ -13,14 +13,24 @@ import (
 )
 
 func TestTagsService_GetAll(t *testing.T) {
+	want := []Tag{
+		{ID: 1, Name: "tag1", Children: []Tag{
+			{ID: 11, Name: "child1 tag under tag1", Children: []Tag{
+				{ID: 111, Name: "child tag under child1"},
+			}},
+			{ID: 12, Name: "child2 tag under tag1"},
+		}},
+		{ID: 2, Name: "tag2"},
+	}
+	want[0].Children[0].parent = &want[0]
+	want[0].Children[1].parent = &want[0]
+	want[0].Children[0].Children[0].parent = &want[0].Children[0]
+
 	testCases := []struct {
 		name     string
 		tagsInDB []db.Tag
 		want     []Tag
 	}{
-		{
-			name: "No tag exists",
-		},
 		{
 			name: "Some tags exist",
 			tagsInDB: []db.Tag{
@@ -30,17 +40,13 @@ func TestTagsService_GetAll(t *testing.T) {
 				{ID: 12, Name: "child2 tag under tag1", ParentID: 1},
 				{ID: 111, Name: "child tag under child1", ParentID: 11},
 			},
-			want: []Tag{
-				{ID: 1, Name: "tag1", Children: []Tag{
-					{ID: 11, Name: "child1 tag under tag1", Children: []Tag{
-						{ID: 111, Name: "child tag under child1"},
-					}},
-					{ID: 12, Name: "child2 tag under tag1"},
-				}},
-				{ID: 2, Name: "tag2"},
-			},
+			want: want,
+		},
+		{
+			name: "No tag exists",
 		},
 	}
+
 	dbClient, err := db.NewClient(db.DSNMemory, db.WithNopLogger())
 	require.NoError(t, err)
 	dbClient.Migrate()
@@ -202,9 +208,9 @@ func TestTagService_ReadImageFiles(t *testing.T) {
 			},
 			want: ReadImageFilesResponse{
 				Tags: []Tag{
-					{ID: 1, Name: "tag 1"},
-					{ID: 10, Name: "tag 10"},
-					{ID: 100, Name: "tag 100"},
+					{ID: 1, FullName: "tag 1"},
+					{ID: 10, FullName: "tag 1 > tag 10"},
+					{ID: 100, FullName: "tag 1 > tag 10 > tag 100"},
 				},
 				ImageFiles: map[uint][]ImageFile{
 					1: {

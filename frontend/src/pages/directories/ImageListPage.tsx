@@ -13,8 +13,8 @@ import { useNavigate, useParams, useSearchParams } from "react-router";
 import {
   DirectoryService,
   ImageFile,
-} from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
-import LazyImage from "../components/LazyImage";
+} from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
+import LazyImage from "../../components/LazyImage";
 
 export interface UserImages {
   userImages: Array<
@@ -24,17 +24,13 @@ export interface UserImages {
   >;
 }
 
-const ImageListPage: FC = () => {
-  const { directoryId, tagId } = useParams();
+const DirectoryImageListPage: FC = () => {
+  const { directoryId } = useParams();
   const [, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const [images, setImages] = useState<UserImages>({
     userImages: [],
-  });
-  console.debug("image list page", {
-    directoryId,
-    tagId,
   });
 
   const readDirectory = async (directoryId: string) => {
@@ -52,17 +48,9 @@ const ImageListPage: FC = () => {
     });
   };
 
-  const readTag = async (tagId: string) => {
-    // todo
-  };
-
   useEffect(() => {
     if (directoryId) {
       readDirectory(directoryId);
-    }
-    if (tagId) {
-      // todo
-      readTag(tagId);
     }
   }, [directoryId]);
 
@@ -130,4 +118,4 @@ const ImageListPage: FC = () => {
     </Box>
   );
 };
-export default ImageListPage;
+export default DirectoryImageListPage;

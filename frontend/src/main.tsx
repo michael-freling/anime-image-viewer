@@ -3,13 +3,14 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import { StyledEngineProvider } from "@mui/joy";
 import { BrowserRouter, Route, Routes } from "react-router";
-import ImageListPage from "./pages/ImageListPage";
+import DirectoryImageListPage from "./pages/directories/ImageListPage";
 import DirectoryExplorer from "./components/DirectoryExplorer";
 import TagExplorer from "./components/TagExplorer";
 import Layout from "./Layout";
 import ImageTagEditPage from "./pages/ImageTagEditPage";
 import TagsListPage from "./pages/tags/TagsListPage";
 import DirectoryTagsEditPage from "./pages/DirectoryTagEditPage";
+import TagImageListPage from "./pages/tags/TagImageListPage";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
@@ -25,7 +26,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
                 />
               }
             >
-              <Route index element={<ImageListPage />} />
+              <Route index element={<DirectoryImageListPage />} />
             </Route>
 
             {/* Directory */}
@@ -50,8 +51,11 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
                   />
                 }
               >
-                <Route index element={<ImageListPage />} />
-                <Route path=":directoryId" element={<ImageListPage />} />
+                <Route index element={<DirectoryImageListPage />} />
+                <Route
+                  path=":directoryId"
+                  element={<DirectoryImageListPage />}
+                />
               </Route>
             </Route>
 
@@ -74,8 +78,8 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
                   />
                 }
               >
-                <Route index element={<ImageListPage />} />
-                <Route path=":tagId" element={<ImageListPage />} />
+                <Route index element={<TagImageListPage />} />
+                <Route path=":tagId" element={<TagImageListPage />} />
               </Route>
             </Route>
           </Route>
