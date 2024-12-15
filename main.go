@@ -124,7 +124,11 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 		Services: []application.Service{
 			application.NewService(imageFileService),
 			application.NewService(directoryService),
-			application.NewService(image.NewTagService(dbClient, directoryService)),
+			application.NewService(image.NewTagService(
+				logger,
+				dbClient,
+				directoryService,
+			)),
 			application.NewService(configService),
 			application.NewService(
 				image.NewStaticFileService(logger, conf),

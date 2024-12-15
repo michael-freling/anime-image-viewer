@@ -36,6 +36,7 @@ func withGormLogger(logger *slog.Logger) newTesterOption {
 func newTester(t *testing.T, opts ...newTesterOption) Tester {
 	t.Helper()
 
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	defaultOption := &testerOption{
 		gormLoggerOption: db.WithNopLogger(),
 	}
@@ -55,7 +56,7 @@ func newTester(t *testing.T, opts ...newTesterOption) Tester {
 	}
 
 	directoryService := NewDirectoryService(
-		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		logger,
 		cfg,
 		dbClient,
 		nil,
@@ -64,7 +65,7 @@ func newTester(t *testing.T, opts ...newTesterOption) Tester {
 		config:           cfg,
 		dbClient:         dbClient,
 		directoryService: directoryService,
-		tagService:       NewTagService(dbClient, directoryService),
+		tagService:       NewTagService(logger, dbClient, directoryService),
 
 		staticFilePath: "/files",
 	}

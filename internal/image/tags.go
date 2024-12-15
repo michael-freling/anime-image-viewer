@@ -4,28 +4,28 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sort"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
-	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 type TagService struct {
-	ctx              context.Context
+	logger           *slog.Logger
 	dbClient         *db.Client
 	directoryService *DirectoryService
 }
 
-func NewTagService(dbClient *db.Client, directoryService *DirectoryService) *TagService {
+func NewTagService(
+	logger *slog.Logger,
+	dbClient *db.Client,
+	directoryService *DirectoryService,
+) *TagService {
 	return &TagService{
+		logger:           logger,
 		dbClient:         dbClient,
 		directoryService: directoryService,
 	}
-}
-
-func (service *TagService) OnStartup(ctx context.Context, options application.ServiceOptions) error {
-	service.ctx = ctx
-	return nil
 }
 
 func (service *TagService) CreateTopTag(name string) (Tag, error) {
@@ -84,12 +84,19 @@ func (service *TagService) Create(input TagInput) (Tag, error) {
 
 		// create some tags automatically
 		if parentTag.Type == db.TagTypeSeries && parentTag.ParentID == 0 {
-			err = ormClient.BatchCreate([]db.Tag{
+			seriesTags := []db.Tag{
 				{Name: "Characters", ParentID: tag.ID},
-				{Name: "Scenes", ParentID: tag.ID},
-			})
-			if err != nil {
+				{Name: "Seasons", ParentID: tag.ID},
+			}
+			if err := ormClient.BatchCreate(seriesTags); err != nil {
 				return fmt.Errorf("ormClient.BatchCreate: %w", err)
+			}
+			if err := ormClient.Create(&db.Tag{
+				Name:     "Season 1",
+				Type:     db.TagTypeSeason,
+				ParentID: seriesTags[1].ID,
+			}); err != nil {
+				return fmt.Errorf("ormClient.Create: %w", err)
 			}
 		}
 		if parentTag.Type == db.TagTypeSeason && parentTag.ParentID == 0 {
@@ -467,7 +474,10 @@ type ReadTagsByFileIDsResponse struct {
 	TagCounts map[uint]uint
 }
 
-func (service *TagService) ReadTagsByFileIDs(fileIDs []uint) (ReadTagsByFileIDsResponse, error) {
+func (service *TagService) ReadTagsByFileIDs(
+	ctx context.Context,
+	fileIDs []uint,
+) (ReadTagsByFileIDsResponse, error) {
 	fileIDToAncestors, err := service.directoryService.readAncestors(fileIDs)
 	if err != nil {
 		return ReadTagsByFileIDsResponse{}, fmt.Errorf("directoryService.readAncestors: %w", err)

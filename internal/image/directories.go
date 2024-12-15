@@ -59,6 +59,20 @@ func (directory Directory) toFlatIDMap() map[uint][]uint {
 	return result
 }
 
+func (source Directory) dropChildImageFiles() Directory {
+	destination := Directory{
+		ID:       source.ID,
+		Name:     source.Name,
+		Path:     source.Path,
+		ParentID: source.ParentID,
+		Children: make([]Directory, len(source.Children)),
+	}
+	for i, child := range source.Children {
+		destination.Children[i] = child.dropChildImageFiles()
+	}
+	return destination
+}
+
 func (directory Directory) findAncestors(fileID uint) []Directory {
 	for _, child := range directory.Children {
 		if child.ID == fileID {
@@ -345,7 +359,7 @@ func (service *DirectoryService) ReadChildDirectoriesRecursively(directoryID uin
 	if err != nil {
 		return nil, fmt.Errorf("service.ReadDirectory: %w", err)
 	}
-	return directory.Children, nil
+	return directory.dropChildImageFiles().Children, nil
 }
 
 // readAncestors reads the ancestors of the given file IDs, including the file itself.
