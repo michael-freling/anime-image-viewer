@@ -129,7 +129,10 @@ const TagImageListPage: FC = () => {
                       });
                     }}
                   />
-                  <Typography level="title-sm">{userImage.Name}</Typography>
+                  <Typography level="title-sm">
+                    {userImage.Name.substring(0, 10)}...
+                    {userImage.Name.substring(userImage.Name.length - 10)}
+                  </Typography>
                 </CardActions>
                 <CardOverflow>
                   <LazyImage src={userImage.Path} />

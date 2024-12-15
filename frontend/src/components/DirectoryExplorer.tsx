@@ -54,7 +54,6 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
   const [, setDirectoryMap] = useState<{
     [id: number]: Directory;
   }>({});
-  const [directoriesIds, setDirectoriesIds] = useState<string[]>([]);
 
   const navigate = useNavigate();
   useEffect(() => {
@@ -78,6 +77,8 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
   }
 
   if (selectable) {
+    const [directoriesIds, setDirectoriesIds] = useState<string[]>([]);
+
     return (
       <Stack spacing={2}>
         <Stack
