@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
@@ -31,18 +30,18 @@ func ReadConfig() (Config, error) {
 	if err != nil {
 		return conf, fmt.Errorf("os.UserHomeDir: %w", err)
 	}
-	configDir := path.Join(homeDir, ".config", "anime-image-viewer")
+	configDir := filepath.Join(homeDir, ".config", "anime-image-viewer")
 	if err = os.MkdirAll(configDir, 0755); err != nil {
 		return conf, fmt.Errorf("os.MkdirAll: %w", err)
 	}
 
 	tempDir := os.TempDir()
-	configFile := path.Join(configDir, "default.toml")
+	configFile := filepath.Join(configDir, "default.toml")
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 		return Config{
-			ImageRootDirectory: homeDir + "/Pictures/anime-image-viewer",
+			ImageRootDirectory: filepath.Join(homeDir, "Pictures", "anime-image-viewer"),
 			ConfigDirectory:    configDir,
-			LogDirectory:       filepath.Join(tempDir, "/anime-image-viewer/logs"),
+			LogDirectory:       filepath.Join(tempDir, "anime-image-viewer", "logs"),
 			Environment:        runtimeEnv,
 		}, nil
 	}

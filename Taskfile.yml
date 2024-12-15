@@ -22,6 +22,30 @@ tasks:
 
 
   ## ------> Windows <-------
+  build:wsl:
+    summary: Builds the application for Windows
+    deps:
+      - task: go:mod:tidy
+      - task: build:frontend
+        vars:
+          BUILD_FLAGS: '{{.BUILD_FLAGS}}'
+      - task: generate:icons
+      - task: generate:syso
+        vars:
+          ARCH: '{{.ARCH}}'
+    cmds:
+      - go build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/anime-image-viewer.exe
+    vars:
+      BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags production -trimpath -ldflags="-w -s -H windowsgui"{{else}}-gcflags=all="-l"{{end}}'
+    env:
+      # Enable to build for Window on Linux
+      # https://stackoverflow.com/questions/41566495/golang-how-to-cross-compile-on-linux-for-windows
+      GOOS: windows
+      CGO_ENABLED: 1
+      CXX: "x86_64-w64-mingw32-g++"
+      CC: "x86_64-w64-mingw32-gcc"
+      GOARCH: '{{.ARCH | default ARCH}}'
+      PRODUCTION: '{{.PRODUCTION | default "false"}}'
 
   build:windows:
     summary: Builds the application for Windows
@@ -417,6 +441,11 @@ tasks:
     summary: Runs the application
     cmds:
       - task: run:{{OS}}
+
+  run:wsl:
+    summary: Runs the application
+    cmds:
+      - '{{.BIN_DIR}}/{{.APP_NAME}}.exe'
 
   run:windows:
     cmds:

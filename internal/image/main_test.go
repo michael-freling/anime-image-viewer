@@ -16,6 +16,8 @@ type Tester struct {
 
 	directoryService *DirectoryService
 	tagService       *TagService
+
+	staticFilePath string
 }
 
 type testerOption struct {
@@ -55,6 +57,8 @@ func newTester(t *testing.T, opts ...newTesterOption) Tester {
 		dbClient:         dbClient,
 		directoryService: directoryService,
 		tagService:       NewTagService(dbClient, directoryService),
+
+		staticFilePath: "/files",
 	}
 }
 

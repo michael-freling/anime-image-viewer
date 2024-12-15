@@ -28,8 +28,10 @@ func newLogger(conf config.Config) (*slog.Logger, error) {
 		return nil, fmt.Errorf("os.MkdirAll: %w", err)
 	}
 
+	logDirectory := filepath.Join(conf.LogDirectory, string(conf.Environment)+".log")
+	fmt.Printf("log is output in a directory: %s\n", logDirectory)
 	file, err := os.OpenFile(
-		filepath.Join(conf.LogDirectory, string(conf.Environment)+".log"),
+		logDirectory,
 		os.O_RDWR|os.O_CREATE|os.O_TRUNC,
 		0644,
 	)
@@ -119,10 +121,15 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 			application.NewService(directoryService),
 			application.NewService(image.NewTagService(dbClient, directoryService)),
 			application.NewService(configService),
+			application.NewService(
+				image.NewStaticFileService(conf),
+				application.ServiceOptions{
+					Route: "/files/",
+				},
+			),
 		},
 		Assets: application.AssetOptions{
-			Handler:    application.AssetFileServerFS(assets),
-			Middleware: image.AssetMiddleware(logger),
+			Handler: application.AssetFileServerFS(assets),
 		},
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: true,

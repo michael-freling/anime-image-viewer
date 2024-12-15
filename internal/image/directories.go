@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strings"
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
@@ -195,6 +196,8 @@ func (service *DirectoryService) convertImageFile(parentDirectory Directory, ima
 		return ImageFile{}, fmt.Errorf("%w: %s", ErrUnsupportedImageFile, imageFilePath)
 	}
 
+	// from the frontend, use a path only under an image root directory for a wails
+	imageFilePath = "/files" + strings.TrimPrefix(imageFilePath, service.ReadInitialDirectory())
 	return ImageFile{
 		ID:          imageFile.ID,
 		Name:        imageFile.Name,
@@ -216,7 +219,7 @@ func (service *DirectoryService) CreateDirectory(name string, parentID uint) (Di
 		rootDirectory = currentDirectory.Path
 	}
 
-	directoryPath := path.Join(rootDirectory, name)
+	directoryPath := filepath.Join(rootDirectory, name)
 	if _, err := os.Stat(directoryPath); err == nil {
 		return Directory{}, fmt.Errorf("%w: %s", ErrDirectoryAlreadyExists, name)
 	} else if !errors.Is(err, fs.ErrNotExist) {
@@ -473,7 +476,7 @@ func createDirectoryTree(
 			childDirectoryMap,
 			childImageFileMap,
 			child.ID,
-			path.Join(directoryPath, child.Name),
+			filepath.Join(directoryPath, child.Name),
 		)
 	}
 	sort.Slice(currentDirectory.Children, func(i, j int) bool {

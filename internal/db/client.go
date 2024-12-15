@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 
 	slogGorm "github.com/orandin/slog-gorm"
 	"gorm.io/driver/sqlite" // Sqlite driver based on CGO
@@ -39,7 +40,11 @@ func WithGormLogger(l *slog.Logger) ClientOption {
 type DSN string
 
 func DSNFromFilePath(directory string, filename string) DSN {
-	return DSN(fmt.Sprintf("file://%s/%s?cache=shared", directory, filename))
+	return DSN(
+		fmt.Sprintf("file:%s?cache=shared",
+			filepath.Join(directory, filename),
+		),
+	)
 }
 
 func (dsn DSN) String() string {

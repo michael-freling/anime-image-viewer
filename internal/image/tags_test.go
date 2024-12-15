@@ -167,13 +167,12 @@ func TestTagService_ReadImageFiles(t *testing.T) {
 	tester := newTester(t, withGormLogger(slog.Default()))
 	dbClient := tester.dbClient
 
-	rootDirectory := tester.config.ImageRootDirectory
-
 	tester.createDirectoryInFS(t, "Directory 1/Directory 10")
 	tester.copyImageFile(t, "image.jpg", "Directory 1/image file 2")
 	tester.copyImageFile(t, "image.jpg", "Directory 1/image file 3")
 	tester.copyImageFile(t, "image.jpg", "Directory 1/Directory 10/image file 100")
 
+	staticFilePrefix := tester.staticFilePath
 	testCases := []struct {
 		name           string
 		tagID          uint
@@ -214,15 +213,15 @@ func TestTagService_ReadImageFiles(t *testing.T) {
 				},
 				ImageFiles: map[uint][]ImageFile{
 					1: {
-						{ID: 2, Name: "image file 2", Path: rootDirectory + "/Directory 1/image file 2", ContentType: "image/jpeg"},
-						{ID: 3, Name: "image file 3", Path: rootDirectory + "/Directory 1/image file 3", ContentType: "image/jpeg"},
-						{ID: 100, Name: "image file 100", Path: rootDirectory + "/Directory 1/Directory 10/image file 100", ContentType: "image/jpeg"},
+						{ID: 2, Name: "image file 2", Path: staticFilePrefix + "/Directory 1/image file 2", ContentType: "image/jpeg"},
+						{ID: 3, Name: "image file 3", Path: staticFilePrefix + "/Directory 1/image file 3", ContentType: "image/jpeg"},
+						{ID: 100, Name: "image file 100", Path: staticFilePrefix + "/Directory 1/Directory 10/image file 100", ContentType: "image/jpeg"},
 					},
 					10: {
-						{ID: 100, Name: "image file 100", Path: rootDirectory + "/Directory 1/Directory 10/image file 100", ContentType: "image/jpeg"},
+						{ID: 100, Name: "image file 100", Path: staticFilePrefix + "/Directory 1/Directory 10/image file 100", ContentType: "image/jpeg"},
 					},
 					100: {
-						{ID: 100, Name: "image file 100", Path: rootDirectory + "/Directory 1/Directory 10/image file 100", ContentType: "image/jpeg"},
+						{ID: 100, Name: "image file 100", Path: staticFilePrefix + "/Directory 1/Directory 10/image file 100", ContentType: "image/jpeg"},
 					},
 				},
 			},

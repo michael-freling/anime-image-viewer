@@ -9,10 +9,10 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"slices"
 
+	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -106,7 +106,7 @@ func (service *ImageFileService) OnStartup(ctx context.Context, options applicat
 
 func (service *ImageFileService) validateImportImageFile(sourceFilePath string, destinationDirectory Directory) error {
 	fileName := filepath.Base(sourceFilePath)
-	destinationFilePath := path.Join(destinationDirectory.Path, fileName)
+	destinationFilePath := filepath.Join(destinationDirectory.Path, fileName)
 
 	if err := isSupportedImageFile(sourceFilePath); err != nil {
 		return fmt.Errorf("%w: %s", ErrUnsupportedImageFile, sourceFilePath)
@@ -175,7 +175,7 @@ func (service *ImageFileService) importImageFiles(destinationParentDirectory Dir
 	}
 	for index, image := range newImages {
 		sourceFilePath := newImagePaths[index]
-		destinationFilePath := path.Join(destinationParentDirectory.Path, image.Name)
+		destinationFilePath := filepath.Join(destinationParentDirectory.Path, image.Name)
 		if _, err := copy(sourceFilePath, destinationFilePath); err != nil {
 			imageErrors = append(imageErrors, fmt.Errorf("copy: %w", err))
 		}
@@ -185,4 +185,24 @@ func (service *ImageFileService) importImageFiles(destinationParentDirectory Dir
 	}
 
 	return nil
+}
+
+type StaticFileService struct {
+	rootDirectory string
+	fileServer    http.Handler
+}
+
+func NewStaticFileService(conf config.Config) *StaticFileService {
+	return &StaticFileService{
+		rootDirectory: conf.ImageRootDirectory,
+		fileServer:    http.FileServer(http.Dir(conf.ImageRootDirectory)),
+	}
+}
+
+func (s *StaticFileService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	logger := slog.Default()
+	logger.Debug("StaticFileService.ServeHTTP",
+		"r.URL.Path", r.URL.Path,
+	)
+	s.fileServer.ServeHTTP(w, r)
 }
