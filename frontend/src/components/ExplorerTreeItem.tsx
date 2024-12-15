@@ -1,5 +1,5 @@
 // TreeView hasn't been supported by a Joy UI yet: https://github.com/mui/mui-x/issues/14687
-import { Add, Delete, EditOutlined, Upload } from "@mui/icons-material";
+import { Add, EditOutlined, Upload } from "@mui/icons-material";
 import { Checkbox, Chip, IconButton, Stack } from "@mui/joy";
 import {
   TreeItem2,
@@ -79,9 +79,11 @@ export function ExplorerTreeItemLabel({
           >
             <EditOutlined fontSize="small" />
           </IconButton>
+          {/*}
           <IconButton variant="outlined" color="danger">
             <Delete />
           </IconButton>
+          */}
         </Stack>
       )}
       {selectable == false ? null : (

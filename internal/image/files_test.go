@@ -1,26 +1,18 @@
 package image
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/xlog"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func copyTestImage(t *testing.T, source string, destination string) {
-	_, err := copy(source, destination)
-	require.NoError(t, err)
-}
-
 func TestImageFileService_importImageFiles(t *testing.T) {
-	tempDir := t.TempDir()
-	dbClient, err := db.NewClient(db.DSNMemory, db.WithNopLogger())
-	assert.NoError(t, err)
-	require.NoError(t, dbClient.Migrate())
+	tester := newTester(t)
+	tempDir := tester.config.ImageRootDirectory
+	dbClient := tester.dbClient
 
 	imageFileService := ImageFileService{
 		dbClient: dbClient,
@@ -28,11 +20,11 @@ func TestImageFileService_importImageFiles(t *testing.T) {
 	}
 
 	duplicatedFileInFS := "other_image.jpg"
-	copyTestImage(t, "testdata/image.jpg", filepath.Join(tempDir, duplicatedFileInFS))
+	tester.copyImageFile(t, "image.jpg", duplicatedFileInFS)
 	duplicatedFileInDB := "other_image_in_db.jpg"
-	copyTestImage(t, "testdata/image.jpg", filepath.Join(tempDir, duplicatedFileInDB))
-	require.NoError(t, os.Mkdir(filepath.Join(tempDir, "testdata"), 0755))
-	copyTestImage(t, "testdata/image.jpg", filepath.Join(tempDir, "testdata", "image2.jpg"))
+	tester.copyImageFile(t, "image.jpg", duplicatedFileInDB)
+	tester.createDirectoryInFS(t, "testdata")
+	tester.copyImageFile(t, "image.jpg", filepath.Join("testdata", "image2.jpg"))
 
 	testCases := []struct {
 		name                 string

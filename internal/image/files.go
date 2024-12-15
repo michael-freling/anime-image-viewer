@@ -61,30 +61,6 @@ var (
 	ErrFileAlreadyExists    = errors.New("file already exists")
 )
 
-func copyImage(sourceFilePath string, destinationFilePath string) error {
-	pathStat, _ := os.Stat(sourceFilePath)
-	if pathStat.IsDir() {
-		// if it's a directory, import it recursively
-		// todo
-		return nil
-	}
-	if err := isSupportedImageFile(sourceFilePath); err != nil {
-		return err
-	}
-
-	if _, err := os.Stat(destinationFilePath); err == nil {
-		return ErrFileAlreadyExists
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("os.Stat: %w", err)
-	}
-
-	if _, err := copy(sourceFilePath, destinationFilePath); err != nil {
-		return fmt.Errorf("copy: %w", err)
-	}
-
-	return nil
-}
-
 func isSupportedImageFile(filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {

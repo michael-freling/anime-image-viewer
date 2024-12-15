@@ -14,13 +14,13 @@ import (
 
 func TestTagsService_GetAll(t *testing.T) {
 	want := []Tag{
-		{ID: 1, Name: "tag1", Children: []Tag{
-			{ID: 11, Name: "child1 tag under tag1", Children: []Tag{
+		{ID: 1, Name: "tag1", tagType: db.TagTypeSeries, Children: []Tag{
+			{ID: 11, Name: "child1 tag under tag1", tagType: db.TagTypeSeries, Children: []Tag{
 				{ID: 111, Name: "child tag under child1"},
 			}},
-			{ID: 12, Name: "child2 tag under tag1"},
+			{ID: 12, Name: "child2 tag under tag1", tagType: db.TagTypeSeries},
 		}},
-		{ID: 2, Name: "tag2"},
+		{ID: 2, Name: "tag2", tagType: db.TagTypeSeason},
 	}
 	want[0].Children[0].parent = &want[0]
 	want[0].Children[1].parent = &want[0]
@@ -34,10 +34,10 @@ func TestTagsService_GetAll(t *testing.T) {
 		{
 			name: "Some tags exist",
 			tagsInDB: []db.Tag{
-				{ID: 1, Name: "tag1"},
-				{ID: 2, Name: "tag2"},
-				{ID: 11, Name: "child1 tag under tag1", ParentID: 1},
-				{ID: 12, Name: "child2 tag under tag1", ParentID: 1},
+				{ID: 1, Name: "tag1", Type: db.TagTypeSeries},
+				{ID: 2, Name: "tag2", Type: db.TagTypeSeason},
+				{ID: 11, Name: "child1 tag under tag1", ParentID: 1, Type: db.TagTypeSeries},
+				{ID: 12, Name: "child2 tag under tag1", ParentID: 1, Type: db.TagTypeSeries},
 				{ID: 111, Name: "child tag under child1", ParentID: 11},
 			},
 			want: want,

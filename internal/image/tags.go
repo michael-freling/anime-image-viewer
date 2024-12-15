@@ -49,11 +49,28 @@ type TagInput struct {
 }
 
 func (service *TagService) Create(input TagInput) (Tag, error) {
+	parentTag, err := db.FindByValue(service.dbClient, &db.Tag{
+		ID: input.ParentID,
+	})
+	if err != nil {
+		return Tag{}, fmt.Errorf("db.FindByValue: %w", err)
+	}
+
 	tag := db.Tag{
 		Name:     input.Name,
 		ParentID: input.ParentID,
 	}
-	err := db.NewTransaction(service.dbClient, func(ormClient *db.ORMClient[db.Tag]) error {
+	if parentTag.Type == db.TagTypeSeason {
+		tag.Type = db.TagTypeSeason
+	}
+	if parentTag.Type == db.TagTypeSeries && parentTag.ParentID == 0 {
+		// series tags are only the first level, for example
+		// Series > Attack on Titan, but not
+		// Series > Attack on Titan > Season 1
+		tag.Type = db.TagTypeSeries
+	}
+
+	err = db.NewTransaction(service.dbClient, func(ormClient *db.ORMClient[db.Tag]) error {
 		_, err := ormClient.FindByValue(&db.Tag{
 			ID: input.ParentID,
 		})
@@ -64,6 +81,29 @@ func (service *TagService) Create(input TagInput) (Tag, error) {
 		if err := ormClient.Create(&tag); err != nil {
 			return fmt.Errorf("ormClient.Create: %w", err)
 		}
+
+		// create some tags automatically
+		if parentTag.Type == db.TagTypeSeries && parentTag.ParentID == 0 {
+			err = ormClient.BatchCreate([]db.Tag{
+				{Name: "Characters", ParentID: tag.ID},
+				{Name: "Scenes", ParentID: tag.ID},
+			})
+			if err != nil {
+				return fmt.Errorf("ormClient.BatchCreate: %w", err)
+			}
+		}
+		if parentTag.Type == db.TagTypeSeason && parentTag.ParentID == 0 {
+			err = ormClient.BatchCreate([]db.Tag{
+				{Name: "Winter", ParentID: tag.ID},
+				{Name: "Spring", ParentID: tag.ID},
+				{Name: "Summer", ParentID: tag.ID},
+				{Name: "Fall", ParentID: tag.ID},
+			})
+			if err != nil {
+				return fmt.Errorf("ormClient.BatchCreate: %w", err)
+			}
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -108,6 +148,7 @@ type Tag struct {
 	Name     string
 	FullName string
 	parent   *Tag
+	tagType  db.TagType
 	Children []Tag
 }
 
@@ -141,6 +182,35 @@ func (tag Tag) findDescendants() []Tag {
 }
 
 func (service *TagService) GetAll() ([]Tag, error) {
+	tags, err := service.readAllTags()
+	if err != nil {
+		return nil, fmt.Errorf("readAllTags: %w", err)
+	}
+
+	result := make([]Tag, 0)
+	seriesTags := make([]Tag, 0)
+	seasonTags := make([]Tag, 0)
+	otherTags := make([]Tag, 0)
+	for _, tag := range tags {
+		switch tag.tagType {
+		case db.TagTypeSeries:
+			seriesTags = append(seriesTags, tag)
+		case db.TagTypeSeason:
+			seasonTags = append(seasonTags, tag)
+		default:
+			otherTags = append(otherTags, tag)
+		}
+	}
+	result = append(result, seriesTags...)
+	result = append(result, seasonTags...)
+	result = append(result, otherTags...)
+	if len(result) == 0 {
+		return nil, nil
+	}
+	return result, nil
+}
+
+func (service *TagService) readAllTags() ([]Tag, error) {
 	allTags, err := db.GetAll[db.Tag](service.dbClient)
 	if err != nil {
 		return nil, fmt.Errorf("ormClient.GetAll: %w", err)
@@ -159,8 +229,9 @@ func (service *TagService) GetAll() ([]Tag, error) {
 	tagMap := make(map[uint]Tag)
 	for _, t := range allTags {
 		tagMap[t.ID] = Tag{
-			ID:   t.ID,
-			Name: t.Name,
+			ID:      t.ID,
+			Name:    t.Name,
+			tagType: t.Type,
 		}
 
 		childMap[t.ParentID] = append(childMap[t.ParentID], tagMap[t.ID])
@@ -209,7 +280,7 @@ func createDirectoryFileMaps(files []db.File, root Directory) map[uint][]db.File
 }
 
 func (service *TagService) readDBTagRecursively(tagID uint) (db.FileTagList, error) {
-	allTags, err := service.GetAll()
+	allTags, err := service.readAllTags()
 	if err != nil {
 		return nil, fmt.Errorf("service.GetAll: %w", err)
 	}
@@ -284,7 +355,7 @@ func (service *TagService) ReadImageFiles(tagID uint) (ReadImageFilesResponse, e
 	}
 
 	// to find a tag and
-	allTags, err := service.GetAll()
+	allTags, err := service.readAllTags()
 	if err != nil {
 		return ReadImageFilesResponse{}, fmt.Errorf("service.GetAll: %w", err)
 	}

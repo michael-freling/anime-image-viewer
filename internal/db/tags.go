@@ -2,11 +2,19 @@ package db
 
 import "gorm.io/gorm"
 
+type TagType string
+
+const (
+	TagTypeSeries TagType = "series"
+	TagTypeSeason TagType = "seasons"
+)
+
 type Tag struct {
 	// gorm.Model
 	ID        uint `gorm:"primarykey"`
 	Name      string
 	ParentID  uint
+	Type      TagType
 	CreatedAt uint
 	UpdatedAt uint
 }
