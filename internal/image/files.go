@@ -14,7 +14,6 @@ import (
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
-	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 type ImageFile struct {
@@ -89,19 +88,15 @@ func getContentType(file *os.File) (string, error) {
 }
 
 type ImageFileService struct {
-	ctx      context.Context
 	logger   *slog.Logger
 	dbClient *db.Client
 }
 
-func NewFileService(dbClient *db.Client) *ImageFileService {
-	return &ImageFileService{dbClient: dbClient}
-}
-
-func (service *ImageFileService) OnStartup(ctx context.Context, options application.ServiceOptions) error {
-	service.ctx = ctx
-	service.logger = application.Get().Logger
-	return nil
+func NewFileService(logger *slog.Logger, dbClient *db.Client) *ImageFileService {
+	return &ImageFileService{
+		logger:   logger,
+		dbClient: dbClient,
+	}
 }
 
 func (service *ImageFileService) validateImportImageFile(sourceFilePath string, destinationDirectory Directory) error {
@@ -132,7 +127,7 @@ func (service *ImageFileService) validateImportImageFile(sourceFilePath string, 
 	return nil
 }
 
-func (service *ImageFileService) importImageFiles(destinationParentDirectory Directory, paths []string) error {
+func (service *ImageFileService) importImageFiles(ctx context.Context, destinationParentDirectory Directory, paths []string) error {
 	imageErrors := make([]error, 0)
 	newImages := make([]db.File, 0)
 	newImagePaths := make([]string, 0)
@@ -159,7 +154,7 @@ func (service *ImageFileService) importImageFiles(destinationParentDirectory Dir
 		})
 		newImagePaths = append(newImagePaths, sourceFilePath)
 	}
-	service.logger.InfoContext(service.ctx, "importImageFiles",
+	service.logger.DebugContext(ctx, "importImageFiles",
 		"directory", destinationParentDirectory,
 		"paths", paths,
 		"newImages", newImages,
@@ -190,19 +185,23 @@ func (service *ImageFileService) importImageFiles(destinationParentDirectory Dir
 type StaticFileService struct {
 	rootDirectory string
 	fileServer    http.Handler
+	logger        *slog.Logger
 }
 
-func NewStaticFileService(conf config.Config) *StaticFileService {
+func NewStaticFileService(
+	logger *slog.Logger,
+	conf config.Config,
+) *StaticFileService {
 	return &StaticFileService{
 		rootDirectory: conf.ImageRootDirectory,
 		fileServer:    http.FileServer(http.Dir(conf.ImageRootDirectory)),
+		logger:        logger,
 	}
 }
 
-func (s *StaticFileService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	logger := slog.Default()
-	logger.Debug("StaticFileService.ServeHTTP",
+func (service *StaticFileService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	service.logger.Debug("StaticFileService.ServeHTTP",
 		"r.URL.Path", r.URL.Path,
 	)
-	s.fileServer.ServeHTTP(w, r)
+	service.fileServer.ServeHTTP(w, r)
 }

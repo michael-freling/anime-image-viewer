@@ -39,7 +39,7 @@ func ReadConfig() (Config, error) {
 	configFile := filepath.Join(configDir, "default.toml")
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 		return Config{
-			ImageRootDirectory: filepath.Join(homeDir, "Pictures", "anime-image-viewer"),
+			ImageRootDirectory: filepath.Join(homeDir, "Pictures", "anime-image-viewer", string(runtimeEnv)),
 			ConfigDirectory:    configDir,
 			LogDirectory:       filepath.Join(tempDir, "anime-image-viewer", "logs"),
 			Environment:        runtimeEnv,

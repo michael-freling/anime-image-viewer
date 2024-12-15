@@ -32,26 +32,25 @@ func newLogger(conf config.Config) (*slog.Logger, error) {
 	fmt.Printf("log is output in a directory: %s\n", logDirectory)
 	file, err := os.OpenFile(
 		logDirectory,
-		os.O_RDWR|os.O_CREATE|os.O_TRUNC,
+		os.O_RDWR|os.O_APPEND|os.O_CREATE,
 		0644,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("os.OpenFile: %w", err)
 	}
-	writer := io.MultiWriter(os.Stdout, file)
-
 	var slogHandler slog.Handler
 	if conf.Environment == config.EnvironmentDevelopment {
 		slogHandler = slog.NewJSONHandler(
-			writer,
+			io.MultiWriter(os.Stdout, file),
 			&slog.HandlerOptions{
 				Level: slog.LevelDebug,
 			},
 		)
 	}
 	if conf.Environment == config.EnvironmentProduction {
+		// -H windowgui disables an output on stdout
 		slogHandler = slog.NewJSONHandler(
-			writer,
+			file,
 			&slog.HandlerOptions{
 				Level: slog.LevelInfo,
 			},
@@ -104,8 +103,13 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 	}
 	dbClient.Migrate()
 
-	imageFileService := image.NewFileService(dbClient)
-	directoryService := image.NewDirectoryService(conf, dbClient, imageFileService)
+	imageFileService := image.NewFileService(logger, dbClient)
+	directoryService := image.NewDirectoryService(
+		logger,
+		conf,
+		dbClient,
+		imageFileService,
+	)
 
 	title := "anime-image-viewer"
 	// Create a new Wails application by providing the necessary options.
@@ -116,20 +120,22 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 	app := application.New(application.Options{
 		Name:        title,
 		Description: "A simple image collection for anime images",
+		Logger:      logger,
 		Services: []application.Service{
 			application.NewService(imageFileService),
 			application.NewService(directoryService),
 			application.NewService(image.NewTagService(dbClient, directoryService)),
 			application.NewService(configService),
 			application.NewService(
-				image.NewStaticFileService(conf),
+				image.NewStaticFileService(logger, conf),
 				application.ServiceOptions{
 					Route: "/files/",
 				},
 			),
 		},
 		Assets: application.AssetOptions{
-			Handler: application.AssetFileServerFS(assets),
+			Handler:        application.AssetFileServerFS(assets),
+			DisableLogging: conf.Environment == config.EnvironmentProduction,
 		},
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
@@ -158,6 +164,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 		URL:              "/",
 	})
 
+	logger.Info("Starting an application")
 	// Run the application. This blocks until the application has been exited.
 	// If an error occurred while running the application, log it and exit.
 	if err := app.Run(); err != nil {

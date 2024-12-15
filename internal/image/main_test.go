@@ -1,6 +1,7 @@
 package image
 
 import (
+	"io"
 	"log/slog"
 	"os"
 	"testing"
@@ -34,6 +35,7 @@ func withGormLogger(logger *slog.Logger) newTesterOption {
 
 func newTester(t *testing.T, opts ...newTesterOption) Tester {
 	t.Helper()
+
 	defaultOption := &testerOption{
 		gormLoggerOption: db.WithNopLogger(),
 	}
@@ -51,7 +53,13 @@ func newTester(t *testing.T, opts ...newTesterOption) Tester {
 	cfg := config.Config{
 		ImageRootDirectory: t.TempDir(),
 	}
-	directoryService := NewDirectoryService(cfg, dbClient, nil)
+
+	directoryService := NewDirectoryService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		cfg,
+		dbClient,
+		nil,
+	)
 	return Tester{
 		config:           cfg,
 		dbClient:         dbClient,

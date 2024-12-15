@@ -1,6 +1,7 @@
 package image
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -71,7 +72,7 @@ func TestImageFileService_importImageFiles(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			gotErrs := imageFileService.importImageFiles(tc.destinationDirectory, tc.sourceFilePaths)
+			gotErrs := imageFileService.importImageFiles(context.Background(), tc.destinationDirectory, tc.sourceFilePaths)
 			if len(tc.wantErrors) > 0 {
 				uw, ok := gotErrs.(interface{ Unwrap() []error })
 				assert.True(t, ok)

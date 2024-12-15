@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
@@ -100,30 +101,31 @@ func (parent Directory) getDescendants() []Directory {
 }
 
 type DirectoryService struct {
-	ctx              context.Context
+	logger           *slog.Logger
 	config           config.Config
 	dbClient         *db.Client
 	imageFileService *ImageFileService
 }
 
-func NewDirectoryService(conf config.Config, dbClient *db.Client, imageFileService *ImageFileService) *DirectoryService {
+func NewDirectoryService(
+	logger *slog.Logger,
+	conf config.Config,
+	dbClient *db.Client,
+	imageFileService *ImageFileService,
+) *DirectoryService {
 	return &DirectoryService{
+		logger:           logger,
 		config:           conf,
 		dbClient:         dbClient,
 		imageFileService: imageFileService,
 	}
 }
 
-func (service *DirectoryService) OnStartup(ctx context.Context, options application.ServiceOptions) error {
-	service.ctx = ctx
-	return nil
-}
-
 func (service *DirectoryService) ReadInitialDirectory() string {
 	return service.config.ImageRootDirectory
 }
 
-func (service *DirectoryService) ImportImages(directoryID uint) error {
+func (service *DirectoryService) ImportImages(ctx context.Context, directoryID uint) error {
 	directory, err := service.readDirectory(directoryID)
 	if err != nil {
 		return fmt.Errorf("service.ReadDirectory: %w", err)
@@ -132,7 +134,7 @@ func (service *DirectoryService) ImportImages(directoryID uint) error {
 	paths, err := application.OpenFileDialog().
 		// CanChooseFiles(true).
 		// CanChooseDirectories(true).
-		// AddFilter("Images", "*.jpg;*.jpeg;*.png").
+		AddFilter("Images", "*.jpg;*.jpeg;*.png").
 		AttachToWindow(application.Get().CurrentWindow()).
 		PromptForMultipleSelection()
 	if err != nil {
@@ -142,7 +144,12 @@ func (service *DirectoryService) ImportImages(directoryID uint) error {
 		return nil
 	}
 
-	return service.imageFileService.importImageFiles(directory, paths)
+	service.logger.DebugContext(ctx, "ImportImages",
+		"directory", directory.Path,
+		"selectedPaths", paths,
+	)
+
+	return service.imageFileService.importImageFiles(ctx, directory, paths)
 }
 
 func (service *DirectoryService) ReadImageFiles(parentDirectoryID uint) ([]ImageFile, error) {
