@@ -1,6 +1,7 @@
 package image
 
 import (
+	"context"
 	"log/slog"
 	"testing"
 
@@ -152,7 +153,7 @@ func TestTagService_ReadTagsByFileIDs(t *testing.T) {
 					},
 				},
 			}
-			got, gotErr := service.ReadTagsByFileIDs(tc.fileIDs)
+			got, gotErr := service.ReadTagsByFileIDs(context.Background(), tc.fileIDs)
 			if tc.wantErr != nil {
 				assert.ErrorIs(t, gotErr, tc.wantErr)
 				return
