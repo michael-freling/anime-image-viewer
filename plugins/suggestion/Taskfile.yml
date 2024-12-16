@@ -1,0 +1,7 @@
+version: "3"
+
+tasks:
+  setup:
+    cmds:
+      - python -m venv .venv
+      - bash -c ". .venv/bin/activate && pip install -r requirements.txt"
