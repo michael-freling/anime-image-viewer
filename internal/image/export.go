@@ -71,7 +71,8 @@ func (service ExportService) ExportAll(ctx context.Context, exportDirectory stri
 }
 
 func (service ExportService) ExportImages(ctx context.Context, rootExportDirectory string, allTags []Tag) error {
-	splits := []string{"train", "validation"}
+	// splits := []string{"train", "validation"}
+	splits := []string{"train"}
 	for _, split := range splits {
 		exportDirectory := filepath.Join(rootExportDirectory, split)
 		if err := os.MkdirAll(exportDirectory, 0755); err != nil {
@@ -169,13 +170,14 @@ func (service ExportService) ExportImages(ctx context.Context, rootExportDirecto
 			defer metadataFile.Close()
 
 			buffer := bufio.NewWriter(metadataFile)
-			defer buffer.Flush()
-
 			metadataJsonEncoder := json.NewEncoder(buffer)
 			for _, metadata := range allMetadata {
 				if err := metadataJsonEncoder.Encode(metadata); err != nil {
 					return fmt.Errorf("json.Encode: %w", err)
 				}
+			}
+			if err := buffer.Flush(); err != nil {
+				return fmt.Errorf("buffer.Flush: %w", err)
 			}
 			return nil
 		})

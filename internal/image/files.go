@@ -54,8 +54,15 @@ func copy(sourceFilePath, destinationFilePath string) (int64, error) {
 	}
 	defer destination.Close()
 
-	nBytes, err := io.Copy(bufio.NewWriter(destination), bufio.NewReader(source))
-	return nBytes, err
+	bufferWriter := bufio.NewWriter(destination)
+	nBytes, err := io.Copy(bufferWriter, bufio.NewReader(source))
+	if err != nil {
+		return nBytes, fmt.Errorf("io.Copy: %w", err)
+	}
+	if err = bufferWriter.Flush(); err != nil {
+		return nBytes, fmt.Errorf("bufferWriter.Flush: %w", err)
+	}
+	return nBytes, nil
 }
 
 var (

@@ -1,44 +1,61 @@
+import sys
+import PIL.PngImagePlugin
 import transformers
 import datasets
 import multiprocessing as mp
 import evaluate
 import numpy as np
 import torch
-import json
+from tag import TagReader
 
-tags = [
-    "cat",
-    "dog",
-    "cat 2"
-]
+import logging
+# logging.basicConfig(level=logging.INFO)
 
 
 class Trainer:
-    model_name = 'google/vit-base-patch16-224-in21k'
+    model_name = 'google/vit-base-patch16-224'
 
     def __init__(self):
         self.processor = transformers.ViTImageProcessor.from_pretrained(
-            self.model_name)
+            self.model_name,
+            device='cuda' if torch.cuda.is_available() else 'cpu'
+        )
+
+    def set_logger(self, training_args: transformers.TrainingArguments):
+        # https://huggingface.co/docs/transformers/v4.47.1/en/trainer#logging
+        logger = logging.getLogger(__name__)
+
+        logging.basicConfig(
+            format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+            datefmt="%m/%d/%Y %H:%M:%S",
+            handlers=[logging.StreamHandler(sys.stdout)],
+        )
+
+        log_level = training_args.get_process_log_level()
+        logger.setLevel(log_level)
+        datasets.utils.logging.set_verbosity(log_level)
+        transformers.utils.logging.set_verbosity(log_level)
+        return logger
 
     def train(self, data_dir: str, model_dir: str):
-        # with open(f'{data_dir}/tags.json', 'r') as f:
-        #     tags = json.loads(f.read())
+        tag_reader = TagReader(f'{data_dir}/tags.json')
+        tags = tag_reader.read_flatten_tags()
 
         def transform(batch):
-            # The ViTImageProcessor struggles with RGBA images since it typically expects RGB images
-            inputs = self.processor([x.convert("RGB")
-                                     for x in batch['image']], return_tensors='pt')
-            inputs['tags'] = batch['tags']
+            processed_images = [image for image in batch['image']]
+            inputs = self.processor(processed_images, return_tensors='pt')
+            inputs['tags'] = [
+                [float(int_val) for int_val in tag_flags] for tag_flags in batch['tags']
+            ]
             return inputs
 
         ds = datasets.load_dataset('imagefolder',
                                    data_dir=data_dir,
                                    num_proc=mp.cpu_count())
-        # ds = datasets.load_dataset('beans')
+        # The ViTImageProcessor struggles with RGBA images since it typically expects RGB images
+        ds = ds.cast_column("image", datasets.Image(mode="RGB"))
         prepared_ds = ds.with_transform(transform)
 
-        # load_metric is deprecated https://discuss.huggingface.co/t/unable-to-import-load-metric/110268/3
-        # metrics = evaluate.load("accuracy")
         # https://huggingface.co/blog/Valerii-Knowledgator/multi-label-classification
         metrics = evaluate.combine(["accuracy", "f1", "precision", "recall"])
 
@@ -46,8 +63,6 @@ class Trainer:
             return 1/(1 + np.exp(-x))
 
         def compute_metrics(p: transformers.EvalPrediction):
-            # return metrics.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
-
             predictions, labels = p
             predictions = sigmoid(predictions)
             predictions = (predictions > 0.5).astype(int).reshape(-1)
@@ -55,6 +70,7 @@ class Trainer:
             return metrics.compute(predictions=predictions, references=references)
 
         def collate_fn(batch):
+            batch = list(filter(lambda x: x is not None, batch))
             return {
                 'pixel_values': torch.stack([x['pixel_values'] for x in batch]),
                 'labels': torch.tensor([x['tags'] for x in batch]),
@@ -67,10 +83,16 @@ class Trainer:
             num_labels=len(tags),
             id2label={str(i): c for i, c in enumerate(tags)},
             label2id={c: str(i) for i, c in enumerate(tags)},
+
+            # Avoid size mismatch errors
+            ignore_mismatched_sizes=True,
         )
 
+        has_validation_dataset = 'validation' in prepared_ds
         training_args = transformers.TrainingArguments(
             output_dir=model_dir,
+            # logging_dir='./logs',
+            # log_level='debug',
             fp16=True,
 
             # For testing
@@ -88,6 +110,7 @@ class Trainer:
             # Data Preloading parameters: https://huggingface.co/docs/transformers/perf_train_gpu_one
             dataloader_num_workers=4,
         )
+        self.set_logger(training_args)
 
         trainer = transformers.Trainer(
             model=model,
@@ -95,7 +118,7 @@ class Trainer:
             data_collator=collate_fn,
             compute_metrics=compute_metrics,
             train_dataset=prepared_ds["train"],
-            eval_dataset=prepared_ds["validation"],
+            eval_dataset=prepared_ds['validation'] if has_validation_dataset else prepared_ds["train"],
             tokenizer=self.processor,
         )
         train_results = trainer.train()
@@ -104,6 +127,7 @@ class Trainer:
         trainer.save_metrics("train", train_results.metrics)
         trainer.save_state()
 
-        metrics_result = trainer.evaluate(prepared_ds['validation'])
+        metrics_result = trainer.evaluate(
+            prepared_ds['validation' if has_validation_dataset else 'train'])
         trainer.log_metrics("eval", metrics_result)
         trainer.save_metrics("eval", metrics_result)

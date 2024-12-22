@@ -1,7 +1,22 @@
 version: "3"
 
+vars:
+  DATA_DIR: ./source
+  PREPROCESSED_DIR: ./datasets
+  MODEL_DIR: ./models
+
 tasks:
   setup:
     cmds:
       - python -m venv .venv
       - bash -c ". .venv/bin/activate && pip install -r requirements.txt"
+
+  preprocess:
+    cmds:
+      - mv {{ .PREPROCESSED_DIR }} {{ .PREPROCESSED_DIR }}.bak
+      - python src/main.py preprocess {{ .DATA_DIR }} {{ .PREPROCESSED_DIR }}
+      - zip -rq {{ .PREPROCESSED_DIR }}.zip {{ .PREPROCESSED_DIR }}
+
+  train:
+    cmds:
+      - python src/main.py train {{ .PREPROCESSED_DIR }} {{ .MODEL_DIR }}
