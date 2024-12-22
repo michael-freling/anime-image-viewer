@@ -1,13 +1,15 @@
 package image
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync/atomic"
+	"time"
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
@@ -15,6 +17,7 @@ import (
 )
 
 type ExportService struct {
+	logger           *slog.Logger
 	dbClient         *db.Client
 	directoryService *DirectoryService
 	tagService       *TagService
@@ -25,6 +28,7 @@ func NewExportService(logger *slog.Logger, conf config.Config, dbClient *db.Clie
 	directoryService := NewDirectoryService(logger, conf, dbClient, imageFileService)
 	tagService := NewTagService(logger, dbClient, directoryService)
 	return &ExportService{
+		logger:           logger,
 		dbClient:         dbClient,
 		directoryService: directoryService,
 		tagService:       tagService,
@@ -50,18 +54,8 @@ func (service ExportService) ExportAll(ctx context.Context, exportDirectory stri
 		return fmt.Errorf("json.Marshal: %w", err)
 	}
 
-	eg, childCtx := errgroup.WithContext(ctx)
-	for _, split := range []string{"train", "validation"} {
-		eg.Go(func() error {
-			exportDirectory := filepath.Join(exportDirectory, split)
-			if err := service.ExportImages(childCtx, exportDirectory, allTags); err != nil {
-				return fmt.Errorf("service.ExportAll: %w", err)
-			}
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		return fmt.Errorf("eg.Wait: %w", err)
+	if err := service.ExportImages(ctx, exportDirectory, allTags); err != nil {
+		return fmt.Errorf("service.ExportImages: %w", err)
 	}
 
 	file, err := os.Create(exportDirectory + "/tags.json")
@@ -76,20 +70,14 @@ func (service ExportService) ExportAll(ctx context.Context, exportDirectory stri
 	return nil
 }
 
-func (service ExportService) ExportImages(ctx context.Context, exportDirectory string, allTags []Tag) error {
-	if err := os.MkdirAll(exportDirectory, 0755); err != nil {
-		return fmt.Errorf("os.MkdirAll: %w", err)
+func (service ExportService) ExportImages(ctx context.Context, rootExportDirectory string, allTags []Tag) error {
+	splits := []string{"train", "validation"}
+	for _, split := range splits {
+		exportDirectory := filepath.Join(rootExportDirectory, split)
+		if err := os.MkdirAll(exportDirectory, 0755); err != nil {
+			return fmt.Errorf("os.MkdirAll: %w", err)
+		}
 	}
-	metadataFile, err := os.OpenFile(
-		filepath.Join(exportDirectory, "metadata.jsonl"),
-		os.O_RDWR|os.O_CREATE|os.O_TRUNC,
-		0644,
-	)
-	if err != nil {
-		return fmt.Errorf("os.Open: %w", err)
-	}
-	defer metadataFile.Close()
-	metadataJsonEncoder := json.NewEncoder(metadataFile)
 
 	maxTagID := getMaxTagID(allTags)
 	rootDirectory, err := service.directoryService.readDirectoryTree()
@@ -97,63 +85,123 @@ func (service ExportService) ExportImages(ctx context.Context, exportDirectory s
 		return fmt.Errorf("readDirectoryTree: %w", err)
 	}
 
-	validationErrors := make([]error, 0)
-	for _, directory := range rootDirectory.Children {
-		imageFiles, err := service.directoryService.readImageFilesRecursively(directory)
-		if err != nil {
-			validationErrors = append(validationErrors, fmt.Errorf("readImageFilesRecursively: %w", err))
-		}
+	eg, _ := errgroup.WithContext(ctx)
+	allImageFiles := make(map[int][]ImageFile, len(rootDirectory.Children))
+	for index, directory := range rootDirectory.Children {
+		eg.Go(func() error {
+			imageFiles, err := service.directoryService.readImageFilesRecursively(directory)
+			if err != nil {
+				return fmt.Errorf("readImageFilesRecursively: %w", err)
+			}
+			allImageFiles[index] = imageFiles
 
+			for _, imageFile := range imageFiles {
+				if _, err := os.Stat(imageFile.localFilePath); err != nil {
+					return fmt.Errorf("os.Stat: %w for %s", err, imageFile.localFilePath)
+				}
+				for _, split := range splits {
+					destinationFilePath := filepath.Join(rootExportDirectory, split, imageFile.Name)
+					if _, err := os.Stat(destinationFilePath); err == nil {
+						return fmt.Errorf("file already exists: %s", destinationFilePath)
+					}
+				}
+			}
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return fmt.Errorf("validation errors: %w", err)
+	}
+	service.logger.Info("Validation completed successfully. Start exporting images",
+		"exportDirectory", rootExportDirectory)
+
+	allImageFileIDs := make([]uint, 0)
+	for _, imageFiles := range allImageFiles {
 		for _, imageFile := range imageFiles {
-			if _, err := os.Stat(imageFile.localFilePath); err != nil {
-				validationErrors = append(validationErrors, fmt.Errorf("os.Stat: %w for %s", err, imageFile.localFilePath))
-			}
-			destinationFilePath := fmt.Sprintf("%s/%s", exportDirectory, imageFile.Name)
-			if _, err := os.Stat(destinationFilePath); err == nil {
-				validationErrors = append(validationErrors, fmt.Errorf("file already exists: %s", destinationFilePath))
-			}
+			allImageFileIDs = append(allImageFileIDs, imageFile.ID)
 		}
 	}
-	if len(validationErrors) > 0 {
-		return fmt.Errorf("validation errors: %w", errors.Join(validationErrors...))
+
+	tagsPerFileIDResponse, err := service.tagService.ReadTagsByFileIDs(ctx, allImageFileIDs)
+	if err != nil {
+		return fmt.Errorf("ReadTagsByFileIDs: %w", err)
 	}
 
-	exportErrors := make([]error, 0)
-	for _, directory := range rootDirectory.Children {
-		imageFiles, err := service.directoryService.readImageFilesRecursively(directory)
-		if err != nil {
-			exportErrors = append(exportErrors, fmt.Errorf("readImageFilesRecursively: %w", err))
-		}
-
-		imageFileIDs := make([]uint, 0)
+	var copiedImageCount int64
+	eg, _ = errgroup.WithContext(ctx)
+	allMetadata := make([]Metadata, 0)
+	for directoryIndex := range rootDirectory.Children {
+		imageFiles := allImageFiles[directoryIndex]
 		for _, imageFile := range imageFiles {
-			imageFileIDs = append(imageFileIDs, imageFile.ID)
-		}
-		response, err := service.tagService.ReadTagsByFileIDs(ctx, imageFileIDs)
-		if err != nil {
-			exportErrors = append(exportErrors, fmt.Errorf("ReadTagsByFileIDs: %w", err))
-		}
-
-		for _, imageFile := range imageFiles {
-			if err := service.exportImageFile(imageFile, exportDirectory); err != nil {
-				exportErrors = append(exportErrors, err)
-			}
-
-			tags := response.tagsMap[imageFile.ID]
 			metadata := Metadata{
 				FileName: imageFile.Name,
 				Tags:     make([]float64, maxTagID+1),
 			}
+			tags := tagsPerFileIDResponse.tagsMap[imageFile.ID]
 			for _, tag := range tags {
 				metadata.Tags[tag.ID] = 1.0
 			}
-			if err := metadataJsonEncoder.Encode(metadata); err != nil {
-				exportErrors = append(exportErrors, fmt.Errorf("json.Encode: %w", err))
+			allMetadata = append(allMetadata, metadata)
+
+			for _, split := range splits {
+				eg.Go(func() error {
+					err := service.exportImageFile(imageFile, filepath.Join(rootExportDirectory, split))
+					atomic.AddInt64(&copiedImageCount, 1)
+					if err != nil {
+						return fmt.Errorf("exportImageFile: %w", err)
+					}
+					return nil
+				})
 			}
 		}
 	}
-	if len(exportErrors) > 0 {
-		return fmt.Errorf("export errors: %w", errors.Join(exportErrors...))
+	for _, split := range splits {
+		exportDirectory := filepath.Join(rootExportDirectory, split)
+		eg.Go(func() error {
+			metadataFile, err := os.OpenFile(
+				filepath.Join(exportDirectory, "metadata.jsonl"),
+				os.O_RDWR|os.O_CREATE|os.O_TRUNC,
+				0644,
+			)
+			if err != nil {
+				return fmt.Errorf("os.Open: %w", err)
+			}
+			defer metadataFile.Close()
+
+			buffer := bufio.NewWriter(metadataFile)
+			defer buffer.Flush()
+
+			metadataJsonEncoder := json.NewEncoder(buffer)
+			for _, metadata := range allMetadata {
+				if err := metadataJsonEncoder.Encode(metadata); err != nil {
+					return fmt.Errorf("json.Encode: %w", err)
+				}
+			}
+			return nil
+		})
+	}
+	eg.Go(func() error {
+		totalCopyImageCount := len(allImageFileIDs) * len(splits)
+		for {
+			if atomic.LoadInt64(&copiedImageCount) == int64(totalCopyImageCount) {
+				break
+			}
+
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(10 * time.Second):
+				service.logger.Info("Copying images is in progress",
+					"completed", atomic.LoadInt64(&copiedImageCount),
+					"total", totalCopyImageCount,
+					"percentage", float64(atomic.LoadInt64(&copiedImageCount))/float64(totalCopyImageCount)*100,
+				)
+			}
+		}
+		return nil
+	})
+	if err := eg.Wait(); err != nil {
+		return fmt.Errorf("export errors: %w", err)
 	}
 
 	return nil

@@ -1,6 +1,7 @@
 package image
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -52,7 +53,8 @@ func copy(sourceFilePath, destinationFilePath string) (int64, error) {
 		return 0, err
 	}
 	defer destination.Close()
-	nBytes, err := io.Copy(destination, source)
+
+	nBytes, err := io.Copy(bufio.NewWriter(destination), bufio.NewReader(source))
 	return nBytes, err
 }
 
