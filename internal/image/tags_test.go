@@ -116,6 +116,10 @@ func TestTagService_ReadTagsByFileIDs(t *testing.T) {
 				{FileID: 100, TagID: 111}, // a tag for a direct file
 			},
 			want: ReadTagsByFileIDsResponse{
+				tagsMap: map[uint][]Tag{
+					2:   {{ID: 1}, {ID: 2}},
+					100: {{ID: 1}, {ID: 11}, {ID: 111}},
+				},
 				FilesMap: map[uint][]File{
 					2:   {{ID: 2}},
 					111: {{ID: 100}}, // a tag from a top directory
@@ -168,6 +172,7 @@ func TestTagService_ReadImageFiles(t *testing.T) {
 	tester := newTester(t, withGormLogger(slog.Default()))
 	dbClient := tester.dbClient
 
+	localRootDirectory := tester.config.ImageRootDirectory
 	tester.createDirectoryInFS(t, "Directory 1/Directory 10")
 	tester.copyImageFile(t, "image.jpg", "Directory 1/image file 2")
 	tester.copyImageFile(t, "image.jpg", "Directory 1/image file 3")
@@ -214,15 +219,15 @@ func TestTagService_ReadImageFiles(t *testing.T) {
 				},
 				ImageFiles: map[uint][]ImageFile{
 					1: {
-						{ID: 2, Name: "image file 2", Path: staticFilePrefix + "/Directory 1/image file 2", ContentType: "image/jpeg"},
-						{ID: 3, Name: "image file 3", Path: staticFilePrefix + "/Directory 1/image file 3", ContentType: "image/jpeg"},
-						{ID: 100, Name: "image file 100", Path: staticFilePrefix + "/Directory 1/Directory 10/image file 100", ContentType: "image/jpeg"},
+						{ID: 2, Name: "image file 2", Path: staticFilePrefix + "/Directory 1/image file 2", localFilePath: localRootDirectory + "/Directory 1/image file 2", ContentType: "image/jpeg"},
+						{ID: 3, Name: "image file 3", Path: staticFilePrefix + "/Directory 1/image file 3", localFilePath: localRootDirectory + "/Directory 1/image file 3", ContentType: "image/jpeg"},
+						{ID: 100, Name: "image file 100", Path: staticFilePrefix + "/Directory 1/Directory 10/image file 100", localFilePath: localRootDirectory + "/Directory 1/Directory 10/image file 100", ContentType: "image/jpeg"},
 					},
 					10: {
-						{ID: 100, Name: "image file 100", Path: staticFilePrefix + "/Directory 1/Directory 10/image file 100", ContentType: "image/jpeg"},
+						{ID: 100, Name: "image file 100", Path: staticFilePrefix + "/Directory 1/Directory 10/image file 100", localFilePath: localRootDirectory + "/Directory 1/Directory 10/image file 100", ContentType: "image/jpeg"},
 					},
 					100: {
-						{ID: 100, Name: "image file 100", Path: staticFilePrefix + "/Directory 1/Directory 10/image file 100", ContentType: "image/jpeg"},
+						{ID: 100, Name: "image file 100", Path: staticFilePrefix + "/Directory 1/Directory 10/image file 100", localFilePath: localRootDirectory + "/Directory 1/Directory 10/image file 100", ContentType: "image/jpeg"},
 					},
 				},
 			},

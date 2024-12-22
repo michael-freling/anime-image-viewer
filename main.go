@@ -65,7 +65,7 @@ func newLogger(conf config.Config) (*slog.Logger, error) {
 // and starts a goroutine that emits a time-based event every second. It subsequently runs the application and
 // logs any error that might occur.
 func main() {
-	conf, err := config.ReadConfig()
+	conf, err := config.ReadConfig("")
 	if err != nil {
 		log.Fatalf("config.ReadConfig: %v", err)
 	}
@@ -87,17 +87,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 		return fmt.Errorf("config.NewService: %w", err)
 	}
 
-	dbFile := db.DSNFromFilePath(conf.ConfigDirectory,
-		fmt.Sprintf("%s_v1.sqlite", conf.Environment),
-	)
-	logger.Info("Connecting to a DB", "dbFile", dbFile)
-
-	var dbClient *db.Client
-	if conf.Environment == config.EnvironmentDevelopment {
-		dbClient, err = db.NewClient(dbFile, db.WithGormLogger(logger))
-	} else {
-		dbClient, err = db.NewClient(dbFile, db.WithNopLogger())
-	}
+	dbClient, err := db.FromConfig(conf, logger)
 	if err != nil {
 		return fmt.Errorf("db.NewClient: %w", err)
 	}

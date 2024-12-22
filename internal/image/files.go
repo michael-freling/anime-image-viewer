@@ -17,11 +17,12 @@ import (
 )
 
 type ImageFile struct {
-	ID          uint
-	Name        string
-	Path        string
-	ParentID    uint
-	ContentType string
+	ID            uint
+	Name          string
+	Path          string
+	localFilePath string
+	ParentID      uint
+	ContentType   string
 }
 
 func (imageFile ImageFile) toFile() File {

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"path/filepath"
 
+	"github.com/michael-freling/anime-image-viewer/internal/config"
 	slogGorm "github.com/orandin/slog-gorm"
 	"gorm.io/driver/sqlite" // Sqlite driver based on CGO
 	"gorm.io/gorm"
@@ -54,6 +55,18 @@ func (dsn DSN) String() string {
 const (
 	DSNMemory DSN = "file::memory:?cache=shared"
 )
+
+func FromConfig(conf config.Config, logger *slog.Logger) (*Client, error) {
+	dbFile := DSNFromFilePath(conf.ConfigDirectory,
+		fmt.Sprintf("%s_v1.sqlite", conf.Environment),
+	)
+	logger.Info("Connecting to a DB", "dbFile", dbFile)
+
+	if conf.Environment == config.EnvironmentDevelopment {
+		return NewClient(dbFile, WithGormLogger(logger))
+	}
+	return NewClient(dbFile, WithNopLogger())
+}
 
 func NewClient(dsn DSN, options ...ClientOption) (*Client, error) {
 	opts := clientOptions{}

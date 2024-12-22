@@ -217,13 +217,13 @@ func (service *DirectoryService) convertImageFile(parentDirectory Directory, ima
 		return ImageFile{}, fmt.Errorf("%w: %s", ErrUnsupportedImageFile, imageFilePath)
 	}
 
-	// from the frontend, use a path only under an image root directory for a wails
-	imageFilePath = "/files" + strings.TrimPrefix(imageFilePath, service.ReadInitialDirectory())
 	return ImageFile{
-		ID:          imageFile.ID,
-		Name:        imageFile.Name,
-		Path:        imageFilePath,
-		ContentType: contentType,
+		ID:   imageFile.ID,
+		Name: imageFile.Name,
+		// from the frontend, use a path only under an image root directory for a wails
+		Path:          "/files" + strings.TrimPrefix(imageFilePath, service.ReadInitialDirectory()),
+		localFilePath: imageFilePath,
+		ContentType:   contentType,
 	}, nil
 }
 
@@ -352,6 +352,21 @@ func (service *DirectoryService) UpdateName(id uint, name string) (Directory, er
 	directory.Name = name
 	directory.Path = newDirectoryPath
 	return directory, nil
+}
+
+func (service *DirectoryService) readImageFilesRecursively(directory Directory) ([]ImageFile, error) {
+	imageFiles, err := service.ReadImageFiles(directory.ID)
+	if err != nil {
+		return nil, fmt.Errorf("service.ReadImageFiles: %w", err)
+	}
+	for _, childDirectory := range directory.Children {
+		childImageFiles, err := service.readImageFilesRecursively(childDirectory)
+		if err != nil {
+			return nil, fmt.Errorf("service.readImageFilesRecursively: %w", err)
+		}
+		imageFiles = append(imageFiles, childImageFiles...)
+	}
+	return imageFiles, nil
 }
 
 func (service *DirectoryService) ReadChildDirectoriesRecursively(directoryID uint) ([]Directory, error) {

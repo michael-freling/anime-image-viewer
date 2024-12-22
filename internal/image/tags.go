@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sort"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
+	"github.com/michael-freling/anime-image-viewer/internal/xslices"
 )
 
 type TagService struct {
@@ -151,12 +153,12 @@ func (service *TagService) UpdateName(id uint, name string) (Tag, error) {
 }
 
 type Tag struct {
-	ID       uint
-	Name     string
-	FullName string
-	parent   *Tag
+	ID       uint   `json:"id"`
+	Name     string `json:"name"`
+	FullName string `json:"full_name,omitempty"`
+	parent   *Tag   `json:"-"`
 	tagType  db.TagType
-	Children []Tag
+	Children []Tag `json:"children,omitempty"`
 }
 
 func (tag Tag) fullName() string {
@@ -185,7 +187,27 @@ func (tag Tag) findDescendants() []Tag {
 		descendants = append(descendants, tag.Children[i].findDescendants()...)
 	}
 	return descendants
+}
 
+func getMaxTagID(tags []Tag) uint {
+	maxID := uint(0)
+	for _, tag := range tags {
+		if tag.ID > maxID {
+			maxID = tag.ID
+		}
+
+		children := tag.findDescendants()
+		if len(children) == 0 {
+			continue
+		}
+		childMaxID := slices.Max(xslices.Map(children, func(tag Tag) uint {
+			return tag.ID
+		}))
+		if childMaxID > maxID {
+			maxID = childMaxID
+		}
+	}
+	return maxID
 }
 
 func (service *TagService) GetAll() ([]Tag, error) {
@@ -472,6 +494,9 @@ type ReadTagsByFileIDsResponse struct {
 
 	// TagCounts maps tag IDs to the number of files that have the tag
 	TagCounts map[uint]uint
+
+	// tagsMap maps file IDs to tags
+	tagsMap map[uint][]Tag
 }
 
 func (service *TagService) ReadTagsByFileIDs(
@@ -502,12 +527,16 @@ func (service *TagService) ReadTagsByFileIDs(
 		return ReadTagsByFileIDsResponse{}, nil
 	}
 
-	tagsPerFiles := make(map[uint][]File)
+	tagsPerFile := make(map[uint][]Tag)
+	filesPerTag := make(map[uint][]File)
 	tagsForAncestors := make(map[uint][]File)
 	for _, fileTag := range fileTags {
 		for _, fileID := range fileIDs {
 			if fileID == fileTag.FileID {
-				tagsPerFiles[fileTag.TagID] = append(tagsPerFiles[fileTag.TagID], File{
+				tagsPerFile[fileID] = append(tagsPerFile[fileID], Tag{
+					ID: fileTag.TagID,
+				})
+				filesPerTag[fileTag.TagID] = append(filesPerTag[fileTag.TagID], File{
 					ID: fileID,
 				})
 				continue
@@ -516,6 +545,9 @@ func (service *TagService) ReadTagsByFileIDs(
 			ancestors := fileIDToAncestors[fileID]
 			for _, ancestor := range ancestors {
 				if ancestor.ID == fileTag.FileID {
+					tagsPerFile[fileID] = append(tagsPerFile[fileID], Tag{
+						ID: fileTag.TagID,
+					})
 					tagsForAncestors[fileTag.TagID] = append(tagsForAncestors[fileTag.TagID], File{
 						ID: fileID,
 					})
@@ -525,11 +557,12 @@ func (service *TagService) ReadTagsByFileIDs(
 		}
 	}
 	response := ReadTagsByFileIDsResponse{
-		FilesMap:    tagsPerFiles,
+		tagsMap:     tagsPerFile,
+		FilesMap:    filesPerTag,
 		AncestorMap: tagsForAncestors,
 		TagCounts:   make(map[uint]uint),
 	}
-	for tagID, files := range tagsPerFiles {
+	for tagID, files := range filesPerTag {
 		response.TagCounts[tagID] = uint(len(files) + len(tagsForAncestors[tagID]))
 	}
 	for tagID, files := range tagsForAncestors {
