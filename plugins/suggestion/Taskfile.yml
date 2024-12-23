@@ -5,6 +5,9 @@ vars:
   PREPROCESSED_DIR: ./datasets
   MODEL_DIR: ./models
 
+env:
+  PYTHONPATH: ../plugins-protos/gen/python
+
 tasks:
   setup:
     cmds:
@@ -13,10 +16,15 @@ tasks:
 
   preprocess:
     cmds:
-      - mv {{ .PREPROCESSED_DIR }} {{ .PREPROCESSED_DIR }}.bak
+      - cmd: mv {{ .PREPROCESSED_DIR }} {{ .PREPROCESSED_DIR }}.bak
+        ignore_error: true
       - python src/main.py preprocess {{ .DATA_DIR }} {{ .PREPROCESSED_DIR }}
       - zip -rq {{ .PREPROCESSED_DIR }}.zip {{ .PREPROCESSED_DIR }}
 
   train:
     cmds:
       - python src/main.py train {{ .PREPROCESSED_DIR }} {{ .MODEL_DIR }}
+
+  server:
+    cmds:
+      - python src/main.py server {{ .MODEL_DIR }}

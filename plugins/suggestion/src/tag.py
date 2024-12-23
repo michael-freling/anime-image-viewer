@@ -52,6 +52,7 @@ class TagReader:
         # Convert dict to list
         result = ['' for _ in range(len(dict) + 1)]
         for key, value in dict.items():
-            result[key] = value['full_path']
+            # result[key] = value['full_path']
+            result[key] = value['name']
 
         return result

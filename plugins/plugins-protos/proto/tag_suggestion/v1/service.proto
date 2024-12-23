@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package tag_suggestion.v1;
+
+service TagSuggestionService {
+  rpc Suggest(SuggestRequest) returns (SuggestResponse);
+}
+
+message SuggestRequest {
+  repeated string image_urls = 1;
+}
+
+message Suggestion {
+  string image_url = 1;
+
+  // The score of the suggestion. Higher scores are better.
+  // The index is matching with a tag id
+  repeated double scores = 2;
+
+  // The indices of the scores sorted in descending order.
+  // The index is matching with a tag id
+  repeated int64 sorted_score_indices = 3;
+}
+
+message SuggestResponse {
+  repeated Suggestion suggestions = 1;
+
+  // The all tags that can be potentially suggested
+  // The key is the tag id
+  map<int64, string> all_tags = 2;
+}

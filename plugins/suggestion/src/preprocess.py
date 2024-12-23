@@ -29,7 +29,7 @@ class Preprocessor:
             os.remove(file_path)
             return f"Removed corrupted image: {file_path}"
 
-    def process_images(self, root_dir, destination_dir, target_width):
+    def process_images(self, root_dir, root_destination_dir, target_width):
         image_paths = []
         metadata_file_paths = []
         for subdir, dirs, files in os.walk(root_dir):
@@ -41,16 +41,22 @@ class Preprocessor:
                 file_path = os.path.join(subdir, file)
                 image_paths.append(file_path)
 
-        os.mkdir(destination_dir)
-        print(f"Processing {len(image_paths)} images...")
-        with mp.Pool(processes=mp.cpu_count()) as pool:
-            results = pool.starmap(
-                self.process_image, [(path, destination_dir, target_width) for path in image_paths])
+        for split in ['train']:
+            image_destination_dir = os.path.join(root_destination_dir, split)
+            os.makedirs(image_destination_dir)
+            print(f"Processing {len(image_paths)} images...")
+            with mp.Pool(processes=mp.cpu_count()) as pool:
+                results = pool.starmap(
+                    self.process_image, [(path, image_destination_dir, target_width) for path in image_paths])
 
-        for metadata_file in metadata_file_paths:
-            file_name = os.path.basename(metadata_file)
-            file_path = os.path.join(destination_dir, file_name)
-            shutil.copy(metadata_file, file_path)
+            for metadata_file in metadata_file_paths:
+                file_name = os.path.basename(metadata_file)
+                if file_name == 'tags.json':
+                    file_path = os.path.join(root_destination_dir, file_name)
+                else:
+                    file_path = os.path.join(image_destination_dir, file_name)
+                shutil.copy(metadata_file, file_path)
 
-        dataset = datasets.ImageFolder(root=root_dir)
-        print(f"Processed {len(results)} images in {len(dataset)} classes.")
+            dataset = datasets.ImageFolder(root=root_dir)
+            print(f"Processed {len(results)} images in {
+                  len(dataset)} classes.")

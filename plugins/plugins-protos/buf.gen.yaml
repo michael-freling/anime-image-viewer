@@ -1,0 +1,16 @@
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/bufbuild/buf-tour/gen
+plugins:
+  # https://buf.build/protocolbuffers/python?version=v29.2
+  - remote: buf.build/protocolbuffers/python:v28.3
+    out: gen/python
+  - remote: buf.build/protocolbuffers/pyi:v28.3
+    out: gen/python
+  - remote: buf.build/grpc/python
+    out: gen/python
+inputs:
+  - directory: proto
