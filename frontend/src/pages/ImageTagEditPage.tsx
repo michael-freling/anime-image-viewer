@@ -2,7 +2,7 @@ import { Box, Button, Stack, Typography } from "@mui/joy";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { TagService } from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
-import TagExplorer from "../components/TagExplorer";
+import SelectTagExplorer from "../components/SelectTagExplorer";
 
 const ImageTagEditPage = () => {
   const navigate = useNavigate();
@@ -32,8 +32,7 @@ const ImageTagEditPage = () => {
       }}
     >
       <Typography>Select tags for {imageIds.length} images</Typography>
-      <TagExplorer
-        selectable={true}
+      <SelectTagExplorer
         fileIds={imageIds}
         onSelect={(addedTagIds, deletedTagIds) => {
           setAddedTagIds(addedTagIds);

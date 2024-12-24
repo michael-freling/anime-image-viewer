@@ -91,10 +91,10 @@ const TagImageListPage: FC = () => {
         </Button>
       </Box>
       {images.tags.map((tag) => (
-        <Stack key={tag.ID} spacing={2}>
+        <Stack key={tag.id} spacing={2}>
           <Box>
             <Typography variant="soft" level="h4">
-              {tag.FullName}
+              {tag.full_name}
             </Typography>
           </Box>
           <Box
@@ -103,7 +103,7 @@ const TagImageListPage: FC = () => {
               gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
             }}
           >
-            {images.userImages[tag.ID].map((userImage, imageIndex) => (
+            {images.userImages[tag.id].map((userImage, imageIndex) => (
               <Card
                 key={userImage.Path}
                 size="sm"
@@ -122,7 +122,7 @@ const TagImageListPage: FC = () => {
                   <Checkbox
                     overlay
                     onChange={() => {
-                      images.userImages[tag.ID][imageIndex].selected =
+                      images.userImages[tag.id][imageIndex].selected =
                         !userImage.selected;
                       setImages({
                         ...images,
