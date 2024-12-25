@@ -158,7 +158,7 @@ type Tag struct {
 	FullName string `json:"full_name,omitempty"`
 	parent   *Tag   `json:"-"`
 	tagType  db.TagType
-	Children []Tag `json:"children,omitempty"`
+	Children []*Tag `json:"children,omitempty"`
 }
 
 func (tag Tag) fullName() string {
@@ -183,7 +183,7 @@ func (tag Tag) findChildByID(ID uint) Tag {
 func (tag Tag) findDescendants() []Tag {
 	descendants := make([]Tag, 0)
 	for i := range tag.Children {
-		descendants = append(descendants, tag.Children[i])
+		descendants = append(descendants, *tag.Children[i])
 		descendants = append(descendants, tag.Children[i].findDescendants()...)
 	}
 	return descendants
@@ -193,7 +193,9 @@ func convertTagsToMap(tags []Tag) map[uint]Tag {
 	result := make(map[uint]Tag)
 	for _, tag := range tags {
 		result[tag.ID] = tag
-		children := convertTagsToMap(tag.Children)
+		children := convertTagsToMap(xslices.Map(tag.Children, func(t *Tag) Tag {
+			return *t
+		}))
 		for id, child := range children {
 			result[id] = child
 		}
@@ -279,10 +281,12 @@ func (service *TagService) readAllTags() ([]Tag, error) {
 		childMap[t.ParentID] = append(childMap[t.ParentID], tagMap[t.ID])
 	}
 
-	return buildTagTree(tagMap, childMap, 0, nil).Children, nil
+	return xslices.Map(buildTagTree(tagMap, childMap, 0, nil).Children, func(t *Tag) Tag {
+		return *t
+	}), nil
 }
 
-func buildTagTree(tagMap map[uint]Tag, childMap map[uint][]Tag, parentID uint, parent *Tag) Tag {
+func buildTagTree(tagMap map[uint]Tag, childMap map[uint][]Tag, parentID uint, parent *Tag) *Tag {
 	t := tagMap[parentID]
 	if parent != nil && parent.ID != 0 {
 		t.parent = parent
@@ -290,17 +294,17 @@ func buildTagTree(tagMap map[uint]Tag, childMap map[uint][]Tag, parentID uint, p
 	t.FullName = t.fullName()
 
 	if _, ok := childMap[parentID]; !ok {
-		return t
+		return &t
 	}
 
-	t.Children = make([]Tag, len(childMap[parentID]))
+	t.Children = make([]*Tag, len(childMap[parentID]))
 	for i, child := range childMap[parentID] {
 		t.Children[i] = buildTagTree(tagMap, childMap, child.ID, &t)
 	}
 	sort.Slice(t.Children, func(i, j int) bool {
 		return t.Children[i].Name < t.Children[j].Name
 	})
-	return t
+	return &t
 }
 
 type ReadImageFilesResponse struct {

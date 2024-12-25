@@ -90,7 +90,7 @@ func (service ExportService) ExportImages(ctx context.Context, rootExportDirecto
 	allImageFiles := make(map[int][]ImageFile, len(rootDirectory.Children))
 	for index, directory := range rootDirectory.Children {
 		eg.Go(func() error {
-			imageFiles, err := service.directoryService.readImageFilesRecursively(directory)
+			imageFiles, err := service.directoryService.readImageFilesRecursively(*directory)
 			if err != nil {
 				return fmt.Errorf("readImageFilesRecursively: %w", err)
 			}

@@ -9,14 +9,12 @@ import (
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/xassert"
-	"github.com/michael-freling/anime-image-viewer/internal/xslices"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type tagBuilder struct {
-	tags        map[uint]*Tag
-	childrenMap map[uint][]*Tag
+	tags map[uint]*Tag
 }
 
 func newTagBuilder() *tagBuilder {
@@ -30,6 +28,11 @@ func (b *tagBuilder) add(tag Tag, parentID uint) *tagBuilder {
 		parent := b.tags[parentID]
 		tag.parent = parent
 		tag.FullName = parent.FullName + " > " + tag.Name
+
+		if parent.Children == nil {
+			parent.Children = []*Tag{}
+		}
+		parent.Children = append(parent.Children, &tag)
 	}
 	if tag.FullName == "" {
 		tag.FullName = tag.Name
@@ -40,28 +43,7 @@ func (b *tagBuilder) add(tag Tag, parentID uint) *tagBuilder {
 }
 
 func (b tagBuilder) build(id uint) Tag {
-	if b.childrenMap == nil {
-		childrenMap := make(map[uint][]*Tag)
-		for _, tag := range b.tags {
-			if tag.parent == nil {
-				continue
-			}
-			childrenMap[tag.parent.ID] = append(childrenMap[tag.parent.ID], tag)
-		}
-		for _, tag := range b.tags {
-			children := xslices.Map(childrenMap[tag.ID], func(tag *Tag) Tag {
-				return *tag
-			})
-			if len(children) == 0 {
-				continue
-			}
-			tag.Children = children
-		}
-		b.childrenMap = childrenMap
-	}
-
-	result := b.tags[id]
-	return *result
+	return *b.tags[id]
 }
 
 func TestTagsService_GetAll(t *testing.T) {
@@ -119,12 +101,7 @@ func TestTagsService_GetAll(t *testing.T) {
 			}
 			got, gotErr := service.GetAll()
 			require.NoError(t, gotErr)
-			xassert.ElementsMatch(t, tc.want, got,
-				// todo: Temporary not to compare parent because
-				// parent.Children cannot be updated by a builder
-				cmpopts.IgnoreUnexported(Tag{}),
-				cmpopts.IgnoreFields(Tag{}, "parent", "Children"),
-			)
+			assert.Equal(t, tc.want, got)
 		})
 	}
 }
@@ -329,12 +306,7 @@ func TestTagService_ReadImageFiles(t *testing.T) {
 				return
 			}
 			assert.NoError(t, gotErr)
-			xassert.ElementsMatch(t, tc.want.Tags, got.Tags,
-				// todo: Temporary not to compare parent because
-				cmpopts.IgnoreUnexported(Tag{}),
-				cmpopts.IgnoreFields(Tag{}, "parent", "Children"),
-			)
-			assert.Equal(t, tc.want.ImageFiles, got.ImageFiles)
+			assert.Equal(t, tc.want, got)
 		})
 	}
 }
