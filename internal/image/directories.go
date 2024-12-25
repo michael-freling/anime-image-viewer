@@ -127,35 +127,40 @@ func NewDirectoryService(
 	dbClient *db.Client,
 	imageFileService *ImageFileService,
 ) *DirectoryService {
-	return &DirectoryService{
+	service := &DirectoryService{
 		logger:           logger,
 		config:           conf,
 		dbClient:         dbClient,
 		imageFileService: imageFileService,
 	}
+	// todo: solve a inter dependency
+	imageFileService.directoryService = service
+	return service
 }
 
 func (service *DirectoryService) ReadInitialDirectory() string {
 	return service.config.ImageRootDirectory
 }
 
-func (service *DirectoryService) ImportImages(ctx context.Context, directoryID uint) error {
+func (service *DirectoryService) ImportImages(ctx context.Context, directoryID uint) ([]ImageFile, error) {
 	directory, err := service.readDirectory(directoryID)
 	if err != nil {
-		return fmt.Errorf("service.ReadDirectory: %w", err)
+		return nil, fmt.Errorf("service.ReadDirectory: %w", err)
 	}
 
 	paths, err := application.OpenFileDialog().
 		// CanChooseFiles(true).
 		// CanChooseDirectories(true).
-		AddFilter("Images", "*.jpg;*.jpeg;*.png").
+
+		// This doesn't work on WSL
+		// AddFilter("Images", "*.jpg;*.jpeg;*.png").
 		AttachToWindow(application.Get().CurrentWindow()).
 		PromptForMultipleSelection()
 	if err != nil {
-		return fmt.Errorf("application.OpenFileDialog: %w", err)
+		return nil, fmt.Errorf("application.OpenFileDialog: %w", err)
 	}
 	if len(paths) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	service.logger.DebugContext(ctx, "ImportImages",
@@ -223,6 +228,7 @@ func (service *DirectoryService) convertImageFile(parentDirectory Directory, ima
 		// from the frontend, use a path only under an image root directory for a wails
 		Path:          "/files" + strings.TrimPrefix(imageFilePath, service.ReadInitialDirectory()),
 		localFilePath: imageFilePath,
+		ParentID:      imageFile.ParentID,
 		ContentType:   contentType,
 	}, nil
 }

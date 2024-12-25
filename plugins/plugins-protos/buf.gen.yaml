@@ -3,7 +3,7 @@ managed:
   enabled: true
   override:
     - file_option: go_package_prefix
-      value: github.com/bufbuild/buf-tour/gen
+      value: 'github.com/michael-freling/anime-image-viewer/plugins/plugins-protos/gen/go'
 plugins:
   # https://buf.build/protocolbuffers/python?version=v29.2
   - remote: buf.build/protocolbuffers/python:v28.3
@@ -12,5 +12,14 @@ plugins:
     out: gen/python
   - remote: buf.build/grpc/python
     out: gen/python
+
+  - remote: buf.build/protocolbuffers/go
+    out: gen/go
+    opt:
+      - paths=source_relative
+  - remote: buf.build/grpc/go
+    out: gen/go
+    opt:
+      - paths=source_relative
 inputs:
   - directory: proto

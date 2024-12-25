@@ -189,6 +189,19 @@ func (tag Tag) findDescendants() []Tag {
 	return descendants
 }
 
+func convertTagsToMap(tags []Tag) map[uint]Tag {
+	result := make(map[uint]Tag)
+	for _, tag := range tags {
+		result[tag.ID] = tag
+		children := convertTagsToMap(tag.Children)
+		for id, child := range children {
+			result[id] = child
+		}
+		tag.Children = nil
+	}
+	return result
+}
+
 func getMaxTagID(tags []Tag) uint {
 	maxID := uint(0)
 	for _, tag := range tags {
@@ -274,6 +287,7 @@ func buildTagTree(tagMap map[uint]Tag, childMap map[uint][]Tag, parentID uint, p
 	if parent != nil && parent.ID != 0 {
 		t.parent = parent
 	}
+	t.FullName = t.fullName()
 
 	if _, ok := childMap[parentID]; !ok {
 		return t
@@ -450,10 +464,7 @@ func (service *TagService) ReadImageFiles(tagID uint) (ReadImageFilesResponse, e
 					continue
 				}
 				result[tag.ID] = make([]ImageFile, 0)
-				resultTags = append(resultTags, Tag{
-					ID:       tag.ID,
-					FullName: tag.fullName(),
-				})
+				resultTags = append(resultTags, tag)
 			}
 		OUTER:
 			for _, tag := range imageFileTags {

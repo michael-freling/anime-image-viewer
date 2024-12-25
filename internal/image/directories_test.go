@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/michael-freling/anime-image-viewer/frontend/src/xassert"
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
+	"github.com/michael-freling/anime-image-viewer/internal/xassert"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

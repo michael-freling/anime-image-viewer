@@ -3,34 +3,97 @@ package image
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
-	"github.com/michael-freling/anime-image-viewer/internal/xlog"
 	"github.com/stretchr/testify/assert"
 )
+
+type fileBuilder struct {
+	staticFilePrefix string
+	localFilePrefix  string
+
+	directories        map[uint]Directory
+	localDirectoryPath map[uint]string
+	imageFiles         map[uint]ImageFile
+}
+
+func (builder *fileBuilder) addDirectory(directory Directory) *fileBuilder {
+	if directory.ParentID != 0 {
+		parent := builder.directories[directory.ParentID]
+		directory.Path = filepath.Join(parent.Path, directory.Name)
+
+		parentLocalFilePath := builder.localDirectoryPath[directory.ParentID]
+		builder.localDirectoryPath[directory.ID] = filepath.Join(parentLocalFilePath, directory.Name)
+	} else {
+		directory.Path = filepath.Join(builder.localFilePrefix, directory.Name)
+		builder.localDirectoryPath[directory.ID] = filepath.Join(builder.localFilePrefix, directory.Name)
+	}
+
+	builder.directories[directory.ID] = directory
+	return builder
+}
+
+func (builder *fileBuilder) addImageFile(imageFile ImageFile) *fileBuilder {
+	if imageFile.ParentID != 0 {
+		parentLocalFilePath := builder.localDirectoryPath[imageFile.ParentID]
+		imageFile.localFilePath = filepath.Join(parentLocalFilePath, imageFile.Name)
+
+		// todo: workaround
+		imageFile.Path = "/files" + strings.TrimPrefix(imageFile.localFilePath, builder.localFilePrefix)
+		// filepath.Join(parent.Path, imageFile.Name)
+	}
+
+	builder.imageFiles[imageFile.ID] = imageFile
+	return builder
+}
+
+func (builder fileBuilder) buildDirectory(id uint) Directory {
+	return builder.directories[id]
+}
+
+func (builder fileBuilder) buildImageFile(id uint) ImageFile {
+	return builder.imageFiles[id]
+}
 
 func TestImageFileService_importImageFiles(t *testing.T) {
 	tester := newTester(t)
 	tempDir := tester.config.ImageRootDirectory
 	dbClient := tester.dbClient
 
-	imageFileService := ImageFileService{
-		dbClient: dbClient,
-		logger:   xlog.Nop(),
-	}
+	imageFileService := tester.fileService
 
-	duplicatedFileInFS := "other_image.jpg"
+	destinationDirectory := Directory{
+		ID:   1,
+		Name: "Directory 1",
+	}
+	tester.createDirectoryInFS(t, "Directory 1")
+	duplicatedFileInFS := filepath.Join(destinationDirectory.Name, "other_image.jpg")
 	tester.copyImageFile(t, "image.jpg", duplicatedFileInFS)
-	duplicatedFileInDB := "other_image_in_db.jpg"
+	duplicatedFileInDB := filepath.Join(destinationDirectory.Name, "other_image_in_db.jpg")
 	tester.copyImageFile(t, "image.jpg", duplicatedFileInDB)
 	tester.createDirectoryInFS(t, "testdata")
 	tester.copyImageFile(t, "image.jpg", filepath.Join("testdata", "image2.jpg"))
+
+	fileBuilder := tester.newFileBuilder().
+		addDirectory(destinationDirectory).
+		addImageFile(ImageFile{ID: 10, Name: "image2.jpg", ParentID: 1,
+			ContentType: "image/jpeg",
+			// Path:          "/files/image2.jpg",
+			// localFilePath: filepath.Join(tempDir, "image2.jpg"),
+		}).
+		addImageFile(ImageFile{ID: 11, Name: "image.jpg", ParentID: 1,
+			ContentType: "image/jpeg",
+			// Path:          "/files/image.jpg",
+			// localFilePath: filepath.Join(tempDir, "image.jpg"),
+		})
 
 	testCases := []struct {
 		name                 string
 		sourceFilePaths      []string
 		destinationDirectory Directory
+		want                 []ImageFile
 		wantInsert           []db.File
 		wantErrors           []error
 	}{
@@ -39,9 +102,10 @@ func TestImageFileService_importImageFiles(t *testing.T) {
 			sourceFilePaths: []string{
 				tempDir + "/testdata/image2.jpg",
 			},
-			destinationDirectory: Directory{
-				ID:   1,
-				Path: tempDir,
+			destinationDirectory: fileBuilder.buildDirectory(1),
+			want: []ImageFile{
+				// id will be overwritten
+				fileBuilder.buildImageFile(10),
 			},
 			wantInsert: []db.File{
 				{Name: "image2.jpg", ParentID: 1, Type: db.FileTypeImage},
@@ -55,9 +119,10 @@ func TestImageFileService_importImageFiles(t *testing.T) {
 				filepath.Join(tempDir, duplicatedFileInFS),
 				filepath.Join(tempDir, duplicatedFileInDB),
 			},
-			destinationDirectory: Directory{
-				ID:   1,
-				Path: tempDir,
+			destinationDirectory: fileBuilder.buildDirectory(1),
+			want: []ImageFile{
+				// id will be overwritten
+				fileBuilder.buildImageFile(11),
 			},
 			wantInsert: []db.File{
 				{Name: "image.jpg", ParentID: 1, Type: db.FileTypeImage},
@@ -72,10 +137,11 @@ func TestImageFileService_importImageFiles(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			gotErrs := imageFileService.importImageFiles(context.Background(), tc.destinationDirectory, tc.sourceFilePaths)
+			got, gotErrs := imageFileService.importImageFiles(context.Background(), tc.destinationDirectory, tc.sourceFilePaths)
 			if len(tc.wantErrors) > 0 {
 				uw, ok := gotErrs.(interface{ Unwrap() []error })
 				assert.True(t, ok)
+				assert.Len(t, uw.Unwrap(), len(tc.wantErrors))
 				for index, gotErr := range uw.Unwrap() {
 					wantErr := tc.wantErrors[index]
 					assert.ErrorIs(t, gotErr, wantErr)
@@ -83,6 +149,10 @@ func TestImageFileService_importImageFiles(t *testing.T) {
 			} else {
 				assert.NoError(t, gotErrs)
 			}
+			for i := range got {
+				tc.want[i].ID = got[i].ID
+			}
+			assert.Equal(t, tc.want, got)
 
 			for _, want := range tc.wantInsert {
 				got, err := db.FindByValue(dbClient, want)

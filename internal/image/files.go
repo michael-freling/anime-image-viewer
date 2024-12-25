@@ -44,13 +44,13 @@ var (
 func copy(sourceFilePath, destinationFilePath string) (int64, error) {
 	source, err := os.Open(sourceFilePath)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("os.Open > %W", err)
 	}
 	defer source.Close()
 
 	destination, err := os.Create(destinationFilePath)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("os.Create > %w", err)
 	}
 	defer destination.Close()
 
@@ -98,8 +98,9 @@ func getContentType(file *os.File) (string, error) {
 }
 
 type ImageFileService struct {
-	logger   *slog.Logger
-	dbClient *db.Client
+	logger           *slog.Logger
+	dbClient         *db.Client
+	directoryService *DirectoryService
 }
 
 func NewFileService(logger *slog.Logger, dbClient *db.Client) *ImageFileService {
@@ -107,6 +108,43 @@ func NewFileService(logger *slog.Logger, dbClient *db.Client) *ImageFileService 
 		logger:   logger,
 		dbClient: dbClient,
 	}
+}
+
+func (service *ImageFileService) readImagesByIDs(ctx context.Context, imageFileIDs []uint) (map[uint]ImageFile, error) {
+	dbImageFiles, err := service.dbClient.File().FindImageFilesByIDs(imageFileIDs)
+	if err != nil {
+		return nil, fmt.Errorf("FindImageFilesByIDs: %w", err)
+	}
+	dbParentIDs := make([]uint, 0)
+	directoryFound := make(map[uint]bool, 0)
+	for _, dbImageFile := range dbImageFiles {
+		if _, ok := directoryFound[dbImageFile.ParentID]; ok {
+			continue
+		}
+		directoryFound[dbImageFile.ParentID] = true
+		dbParentIDs = append(dbParentIDs, dbImageFile.ParentID)
+	}
+
+	parentDirectories, err := service.directoryService.readDirectories(dbParentIDs)
+	if err != nil && !errors.Is(err, ErrDirectoryNotFound) {
+		return nil, fmt.Errorf("directoryService.readDirectories: %w", err)
+	}
+	parentDirectoriesMap := make(map[uint]Directory, 0)
+	for _, parentDirectory := range parentDirectories {
+		parentDirectoriesMap[parentDirectory.ID] = parentDirectory
+	}
+
+	imageFiles := make(map[uint]ImageFile, 0)
+	for _, dbImageFile := range dbImageFiles {
+		parentDirectory := parentDirectoriesMap[dbImageFile.ParentID]
+
+		imageFile, err := service.directoryService.convertImageFile(parentDirectory, dbImageFile)
+		if err != nil {
+			return nil, fmt.Errorf("convertImageFile: %w", err)
+		}
+		imageFiles[imageFile.ID] = imageFile
+	}
+	return imageFiles, nil
 }
 
 func (service *ImageFileService) validateImportImageFile(sourceFilePath string, destinationDirectory Directory) error {
@@ -137,7 +175,7 @@ func (service *ImageFileService) validateImportImageFile(sourceFilePath string, 
 	return nil
 }
 
-func (service *ImageFileService) importImageFiles(ctx context.Context, destinationParentDirectory Directory, paths []string) error {
+func (service *ImageFileService) importImageFiles(ctx context.Context, destinationParentDirectory Directory, paths []string) ([]ImageFile, error) {
 	imageErrors := make([]error, 0)
 	newImages := make([]db.File, 0)
 	newImagePaths := make([]string, 0)
@@ -155,6 +193,7 @@ func (service *ImageFileService) importImageFiles(ctx context.Context, destinati
 		}
 		if err := service.validateImportImageFile(sourceFilePath, destinationParentDirectory); err != nil {
 			imageErrors = append(imageErrors, err)
+			continue
 		}
 
 		newImages = append(newImages, db.File{
@@ -171,25 +210,34 @@ func (service *ImageFileService) importImageFiles(ctx context.Context, destinati
 		"imageErrors", imageErrors,
 	)
 	if len(newImages) == 0 {
-		return errors.Join(imageErrors...)
+		return nil, errors.Join(imageErrors...)
 	}
 
 	if err := db.BatchCreate(service.dbClient, newImages); err != nil {
 		imageErrors = append(imageErrors, fmt.Errorf("BatchCreate: %w", err))
-		return errors.Join(imageErrors...)
+		return nil, errors.Join(imageErrors...)
 	}
+
+	resultImageFiles := make([]ImageFile, 0)
 	for index, image := range newImages {
 		sourceFilePath := newImagePaths[index]
 		destinationFilePath := filepath.Join(destinationParentDirectory.Path, image.Name)
 		if _, err := copy(sourceFilePath, destinationFilePath); err != nil {
 			imageErrors = append(imageErrors, fmt.Errorf("copy: %w", err))
+			continue
 		}
+		resultImage, err := service.directoryService.convertImageFile(destinationParentDirectory, image)
+		if err != nil {
+			imageErrors = append(imageErrors, fmt.Errorf("convertImageFile: %w", err))
+			continue
+		}
+		resultImageFiles = append(resultImageFiles, resultImage)
 	}
 	if len(imageErrors) > 0 {
-		return errors.Join(imageErrors...)
+		return resultImageFiles, errors.Join(imageErrors...)
 	}
 
-	return nil
+	return resultImageFiles, nil
 }
 
 type StaticFileService struct {

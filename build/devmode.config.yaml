@@ -22,9 +22,12 @@ config:
       type: background
     - cmd: go mod tidy
       type: blocking
-#    - cmd: wails3 task build
-    - cmd: wails3 task build:wsl
+    - cmd: wails3 task build
       type: blocking
-#    - cmd: wails3 task run
-    - cmd: wails3 task run:wsl
+    - cmd: wails3 task run
       type: primary
+    # For some reason, hot reloading on a frontend doesn't work on WSL
+    # - cmd: wails3 task build:wsl
+    #   type: blocking
+    # - cmd: wails3 task run:wsl
+    #   type: primary

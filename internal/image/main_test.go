@@ -4,6 +4,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
@@ -17,6 +18,7 @@ type Tester struct {
 
 	directoryService *DirectoryService
 	tagService       *TagService
+	fileService      *ImageFileService
 
 	staticFilePath string
 }
@@ -55,17 +57,20 @@ func newTester(t *testing.T, opts ...newTesterOption) Tester {
 		ImageRootDirectory: t.TempDir(),
 	}
 
+	imageFileService := NewFileService(logger, dbClient)
 	directoryService := NewDirectoryService(
 		logger,
 		cfg,
 		dbClient,
-		nil,
+		imageFileService,
 	)
+
 	return Tester{
 		config:           cfg,
 		dbClient:         dbClient,
 		directoryService: directoryService,
 		tagService:       NewTagService(logger, dbClient, directoryService),
+		fileService:      imageFileService,
 
 		staticFilePath: "/files",
 	}
@@ -74,7 +79,7 @@ func newTester(t *testing.T, opts ...newTesterOption) Tester {
 func (tester Tester) createDirectoryInFS(t *testing.T, name string) string {
 	t.Helper()
 
-	path := tester.config.ImageRootDirectory + "/" + name
+	path := filepath.Join(tester.config.ImageRootDirectory, name)
 	require.NoError(t, os.MkdirAll(path, 0755))
 	return path
 }
@@ -82,6 +87,20 @@ func (tester Tester) createDirectoryInFS(t *testing.T, name string) string {
 func (tester Tester) copyImageFile(t *testing.T, source, destination string) {
 	t.Helper()
 
-	_, err := copy("testdata/"+source, tester.config.ImageRootDirectory+"/"+destination)
+	_, err := copy(
+		filepath.Join("testdata", source),
+		filepath.Join(tester.config.ImageRootDirectory, destination),
+	)
 	require.NoError(t, err)
+}
+
+func (tester Tester) newFileBuilder() *fileBuilder {
+	return &fileBuilder{
+		staticFilePrefix: tester.staticFilePath,
+		localFilePrefix:  tester.config.ImageRootDirectory,
+
+		directories:        map[uint]Directory{},
+		localDirectoryPath: map[uint]string{},
+		imageFiles:         map[uint]ImageFile{},
+	}
 }

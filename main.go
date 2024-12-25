@@ -12,7 +12,10 @@ import (
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
+	tag_suggestionv1 "github.com/michael-freling/anime-image-viewer/plugins/plugins-protos/gen/go/tag_suggestion/v1"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // Wails uses Go's `embed` package to embed the frontend files into the binary.
@@ -93,12 +96,25 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 	}
 	dbClient.Migrate()
 
+	clientConn, err := grpc.NewClient("localhost:50051",
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		return fmt.Errorf("grpc.NewClient: %w", err)
+	}
+	tagSuggestionServiceClient := tag_suggestionv1.NewTagSuggestionServiceClient(clientConn)
+
 	imageFileService := image.NewFileService(logger, dbClient)
 	directoryService := image.NewDirectoryService(
 		logger,
 		conf,
 		dbClient,
 		imageFileService,
+	)
+	tagService := image.NewTagService(
+		logger,
+		dbClient,
+		directoryService,
 	)
 
 	title := "anime-image-viewer"
@@ -114,10 +130,11 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 		Services: []application.Service{
 			application.NewService(imageFileService),
 			application.NewService(directoryService),
-			application.NewService(image.NewTagService(
-				logger,
-				dbClient,
-				directoryService,
+			application.NewService(tagService),
+			application.NewService(image.NewTagSuggestionService(
+				tagSuggestionServiceClient,
+				imageFileService,
+				tagService,
 			)),
 			application.NewService(configService),
 			application.NewService(
