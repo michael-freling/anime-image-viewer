@@ -459,6 +459,22 @@ tasks:
     cmds:
       - '{{.BIN_DIR}}/{{.APP_NAME}}'
 
+  run:export:datasets:
+    summary: Exports
+    cmds:
+      - go run {{ .BUILD_FLAGS }} ./cmd/pluginctl/ -config pluginctl-config.toml datasets
+    vars:
+      BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags production{{end}}'
+    env:
+      PRODUCTION: '{{.PRODUCTION | default "false"}}'
+
+  run:export:datasets:prod:
+    summary: Exports
+    cmds:
+      - task: run:export:datasets
+        vars:
+          PRODUCTION: "true"
+
   dev:frontend:
     summary: Runs the frontend in development mode
     dir: frontend
@@ -467,9 +483,17 @@ tasks:
     cmds:
       - npm run dev -- --port {{.VITE_PORT}} --strictPort
 
+  dev:plugins:
+    summary: Runs the plugins in development mode
+    dir: plugins/tag-suggestion
+    cmds:
+      - pdm run server &
+
   dev:
     summary: Runs the application in development mode
     cmds:
+      - task: dev:plugins
+
       - wails3 dev -config ./build/devmode.config.yaml -port {{.VITE_PORT}}
 
   dev:reload:

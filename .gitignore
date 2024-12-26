@@ -3,3 +3,4 @@ bin
 frontend/bindings
 frontend/dist
 frontend/node_modules
+pluginctl-config.toml

@@ -23,30 +23,37 @@ type Config struct {
 	Environment        env
 }
 
-func ReadConfig() (Config, error) {
+func ReadConfig(configFile string) (Config, error) {
 	var conf Config
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return conf, fmt.Errorf("os.UserHomeDir: %w", err)
-	}
-	configDir := filepath.Join(homeDir, ".config", "anime-image-viewer")
-	if err = os.MkdirAll(configDir, 0755); err != nil {
-		return conf, fmt.Errorf("os.MkdirAll: %w", err)
+	if configFile != "" {
+		if _, err := os.Stat(configFile); os.IsNotExist(err) {
+			return conf, fmt.Errorf("config file %s does not exist", configFile)
+		}
+	} else {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return conf, fmt.Errorf("os.UserHomeDir: %w", err)
+		}
+
+		configDir := filepath.Join(homeDir, ".config", "anime-image-viewer")
+		if err = os.MkdirAll(configDir, 0755); err != nil {
+			return conf, fmt.Errorf("os.MkdirAll: %w", err)
+		}
+
+		configFile = filepath.Join(configDir, "default.toml")
+		if _, err := os.Stat(configFile); os.IsNotExist(err) {
+			tempDir := os.TempDir()
+			return Config{
+				ImageRootDirectory: filepath.Join(homeDir, "Pictures", "anime-image-viewer", string(runtimeEnv)),
+				ConfigDirectory:    configDir,
+				LogDirectory:       filepath.Join(tempDir, "anime-image-viewer", "logs"),
+				Environment:        runtimeEnv,
+			}, nil
+		}
 	}
 
-	tempDir := os.TempDir()
-	configFile := filepath.Join(configDir, "default.toml")
-	if _, err := os.Stat(configFile); os.IsNotExist(err) {
-		return Config{
-			ImageRootDirectory: filepath.Join(homeDir, "Pictures", "anime-image-viewer", string(runtimeEnv)),
-			ConfigDirectory:    configDir,
-			LogDirectory:       filepath.Join(tempDir, "anime-image-viewer", "logs"),
-			Environment:        runtimeEnv,
-		}, nil
-	}
-
-	file, err := os.OpenFile(configFile, os.O_CREATE|os.O_RDWR, 0644)
+	file, err := os.Open(configFile)
 	if err != nil {
 		return conf, fmt.Errorf("os.OpenFile: %w", err)
 	}

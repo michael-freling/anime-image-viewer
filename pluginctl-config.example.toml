@@ -1,0 +1,2 @@
+config_directory = "$HOME/.config/anime-image-viewer"
+image_root_directory = "$HOME/Pictures/anime-image-viewer/development"

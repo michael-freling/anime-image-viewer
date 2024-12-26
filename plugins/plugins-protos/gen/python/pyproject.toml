@@ -1,0 +1,4 @@
+[project]
+name = "plugins-protos"
+version = "0.1.0"
+dependencies = ["plugins-protos"]

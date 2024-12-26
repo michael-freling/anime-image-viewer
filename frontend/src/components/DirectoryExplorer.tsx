@@ -1,20 +1,20 @@
 // TreeView hasn't been supported by a Joy UI yet: https://github.com/mui/mui-x/issues/14687
+import { Add } from "@mui/icons-material";
 import FolderIcon from "@mui/icons-material/Folder";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
+import { Button, IconButton, Stack, Typography } from "@mui/joy";
 import { RichTreeView, TreeViewBaseItem } from "@mui/x-tree-view";
 import React, { FC, useEffect, useState } from "react";
+import { createSearchParams, useNavigate } from "react-router";
 import {
   Directory,
   DirectoryService,
 } from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
 import {
   ExplorerTreeItem,
-  ExplorerTreeItemLabel,
   ExplorerTreeItemProps,
+  ExplorerTreeItemWithCheckbox,
 } from "./ExplorerTreeItem";
-import { Button, IconButton, Stack, Typography } from "@mui/joy";
-import { Add } from "@mui/icons-material";
-import { createSearchParams, useNavigate } from "react-router";
 
 interface DirectoryExplorerProps {
   editable?: boolean;
@@ -29,7 +29,9 @@ function directoriesToTreeViewBaseItems(
     return {
       id: directory.ID,
       label: directory.Name,
-      children: directoriesToTreeViewBaseItems(directory.Children),
+      children: directoriesToTreeViewBaseItems(
+        directory.Children.filter((child) => child != null)
+      ),
     };
   });
 }
@@ -40,7 +42,10 @@ const getDirectoryMap = (
   const map: { [id: number]: Directory } = {};
   directories.forEach((directory) => {
     map[directory.ID] = directory;
-    Object.assign(map, getDirectoryMap(directory.Children));
+    Object.assign(
+      map,
+      getDirectoryMap(directory.Children.filter((child) => child != null))
+    );
   });
   return map;
 };
@@ -112,18 +117,12 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
           defaultExpandedItems={[rootDirectory]}
           slots={{
             // todo: RichTreeView doesn't allow to pass a type other than TreeItem2Props
-            item: ExplorerTreeItem as any,
+            item: ExplorerTreeItemWithCheckbox as any,
             expandIcon: (props) => <FolderIcon color="primary" {...props} />,
             collapseIcon: (props) => (
               <FolderOpenIcon color="primary" {...props} />
             ),
             endIcon: (props) => <FolderOpenIcon color="primary" {...props} />,
-          }}
-          slotProps={{
-            item: {
-              labelComponent: ExplorerTreeItemLabel,
-              selectable,
-            } as ExplorerTreeItemProps,
           }}
           items={directoriesToTreeViewBaseItems(children)}
           onSelectedItemsChange={(
@@ -245,10 +244,6 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
               await DirectoryService.ImportImages(parseInt(parentID, 10));
               await refresh();
             },
-            labelComponent: ExplorerTreeItemLabel,
-
-            // selectable
-            selectable,
           } as ExplorerTreeItemProps,
         }}
         items={directoriesToTreeViewBaseItems(children)}

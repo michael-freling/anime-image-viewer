@@ -1,0 +1,9 @@
+pyproject.toml
+plugins_protos.egg-info/PKG-INFO
+plugins_protos.egg-info/SOURCES.txt
+plugins_protos.egg-info/dependency_links.txt
+plugins_protos.egg-info/requires.txt
+plugins_protos.egg-info/top_level.txt
+tag_suggestion/v1/service_pb2.py
+tag_suggestion/v1/service_pb2.pyi
+tag_suggestion/v1/service_pb2_grpc.py

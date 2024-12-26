@@ -12,7 +12,11 @@ import (
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
+	"github.com/michael-freling/anime-image-viewer/internal/tag"
+	tag_suggestionv1 "github.com/michael-freling/anime-image-viewer/plugins/plugins-protos/gen/go/tag_suggestion/v1"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // Wails uses Go's `embed` package to embed the frontend files into the binary.
@@ -65,7 +69,7 @@ func newLogger(conf config.Config) (*slog.Logger, error) {
 // and starts a goroutine that emits a time-based event every second. It subsequently runs the application and
 // logs any error that might occur.
 func main() {
-	conf, err := config.ReadConfig()
+	conf, err := config.ReadConfig("")
 	if err != nil {
 		log.Fatalf("config.ReadConfig: %v", err)
 	}
@@ -87,28 +91,46 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 		return fmt.Errorf("config.NewService: %w", err)
 	}
 
-	dbFile := db.DSNFromFilePath(conf.ConfigDirectory,
-		fmt.Sprintf("%s_v1.sqlite", conf.Environment),
-	)
-	logger.Info("Connecting to a DB", "dbFile", dbFile)
-
-	var dbClient *db.Client
-	if conf.Environment == config.EnvironmentDevelopment {
-		dbClient, err = db.NewClient(dbFile, db.WithGormLogger(logger))
-	} else {
-		dbClient, err = db.NewClient(dbFile, db.WithNopLogger())
-	}
+	dbClient, err := db.FromConfig(conf, logger)
 	if err != nil {
 		return fmt.Errorf("db.NewClient: %w", err)
 	}
 	dbClient.Migrate()
 
-	imageFileService := image.NewFileService(logger, dbClient)
+	clientConn, err := grpc.NewClient("localhost:50051",
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		return fmt.Errorf("grpc.NewClient: %w", err)
+	}
+	tagSuggestionServiceClient := tag_suggestionv1.NewTagSuggestionServiceClient(clientConn)
+
+	directoryReader := image.NewDirectoryReader(conf, dbClient)
+	imageFileConverter := image.NewImageFileConverter(conf)
+	imageFileService := image.NewFileService(
+		logger,
+		dbClient,
+		directoryReader,
+		imageFileConverter,
+	)
 	directoryService := image.NewDirectoryService(
 		logger,
 		conf,
 		dbClient,
 		imageFileService,
+		directoryReader,
+	)
+	tagReader := tag.NewReader(dbClient, directoryReader, imageFileConverter)
+	tagService := tag.NewFrontendService(
+		logger,
+		dbClient,
+		tagReader,
+		tag.NewSuggestionService(
+			dbClient,
+			tagSuggestionServiceClient,
+			tagReader,
+			imageFileService,
+		),
 	)
 
 	title := "anime-image-viewer"
@@ -124,11 +146,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 		Services: []application.Service{
 			application.NewService(imageFileService),
 			application.NewService(directoryService),
-			application.NewService(image.NewTagService(
-				logger,
-				dbClient,
-				directoryService,
-			)),
+			application.NewService(tagService),
 			application.NewService(configService),
 			application.NewService(
 				image.NewStaticFileService(logger, conf),

@@ -4,6 +4,7 @@ import {
   Card,
   CardOverflow,
   Checkbox,
+  Stack,
   //  Link,
   Typography,
 } from "@mui/joy";
@@ -54,12 +55,35 @@ const DirectoryImageListPage: FC = () => {
     }
   }, [directoryId]);
 
+  const selectedImageCount = images.userImages.filter(
+    (image) => image.selected
+  ).length;
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <Box>
+      <Stack direction="row" gap={2} alignItems="center">
+        <Typography>Selected {selectedImageCount} images</Typography>
+        <Button
+          color="primary"
+          disabled={selectedImageCount === 0}
+          onClick={() => {
+            const imageIds = images.userImages
+              .filter((image) => image.selected)
+              .map((image) => String(image.ID));
+            setSearchParams({
+              imageIds: imageIds,
+            });
+            navigate(
+              "/images/edit/tags/suggestion?imageIds=" +
+                encodeURIComponent(imageIds.join(","))
+            );
+          }}
+        >
+          Suggest tags
+        </Button>
         <Button
           variant="outlined"
           color="primary"
+          disabled={selectedImageCount === 0}
           onClick={() => {
             const imageIds = images.userImages
               .filter((image) => image.selected)
@@ -73,9 +97,9 @@ const DirectoryImageListPage: FC = () => {
             );
           }}
         >
-          Edit tags
+          Edit tags manually
         </Button>
-      </Box>
+      </Stack>
       <Box
         sx={{
           display: "grid",

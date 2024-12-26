@@ -11,11 +11,11 @@ import {
 import { CardActions } from "@mui/material";
 import { FC, useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
+import { ImageFile } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
 import {
-  ImageFile,
   Tag,
-  TagService,
-} from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
+  TagFrontendService,
+} from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
 import LazyImage from "../../components/LazyImage";
 
 export interface UserImages {
@@ -40,7 +40,9 @@ const TagImageListPage: FC = () => {
   });
 
   const readTag = async (tagId: string) => {
-    const response = await TagService.ReadImageFiles(parseInt(tagId, 10));
+    const response = await TagFrontendService.ReadImageFiles(
+      parseInt(tagId, 10)
+    );
     let userImages: {
       [key: number]: Array<ImageFile & { selected: boolean }>;
     } = {};
@@ -91,10 +93,10 @@ const TagImageListPage: FC = () => {
         </Button>
       </Box>
       {images.tags.map((tag) => (
-        <Stack key={tag.ID} spacing={2}>
+        <Stack key={tag.id} spacing={2}>
           <Box>
             <Typography variant="soft" level="h4">
-              {tag.FullName}
+              {tag.full_name}
             </Typography>
           </Box>
           <Box
@@ -103,7 +105,7 @@ const TagImageListPage: FC = () => {
               gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
             }}
           >
-            {images.userImages[tag.ID].map((userImage, imageIndex) => (
+            {images.userImages[tag.id].map((userImage, imageIndex) => (
               <Card
                 key={userImage.Path}
                 size="sm"
@@ -122,7 +124,7 @@ const TagImageListPage: FC = () => {
                   <Checkbox
                     overlay
                     onChange={() => {
-                      images.userImages[tag.ID][imageIndex].selected =
+                      images.userImages[tag.id][imageIndex].selected =
                         !userImage.selected;
                       setImages({
                         ...images,

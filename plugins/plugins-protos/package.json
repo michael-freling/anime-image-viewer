@@ -1,0 +1,14 @@
+{
+  "name": "plugins-protos",
+  "version": "0.1.0",
+  "main": "index.js",
+  "scripts": {
+    "lint": "buf lint",
+    "build": "buf generate"
+  },
+  "author": "michael-freling",
+  "license": "MIT",
+  "devDependencies": {
+    "@bufbuild/buf": "^1.48.0"
+  }
+}

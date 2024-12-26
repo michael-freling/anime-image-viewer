@@ -4,20 +4,20 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 type Tester struct {
-	config   config.Config
-	dbClient *db.Client
-
-	directoryService *DirectoryService
-	tagService       *TagService
-
+	logger         *slog.Logger
+	config         config.Config
+	dbClient       *db.Client
+	mockController *gomock.Controller
 	staticFilePath string
 }
 
@@ -55,33 +55,74 @@ func newTester(t *testing.T, opts ...newTesterOption) Tester {
 		ImageRootDirectory: t.TempDir(),
 	}
 
-	directoryService := NewDirectoryService(
-		logger,
-		cfg,
-		dbClient,
-		nil,
-	)
 	return Tester{
-		config:           cfg,
-		dbClient:         dbClient,
-		directoryService: directoryService,
-		tagService:       NewTagService(logger, dbClient, directoryService),
-
+		logger:         logger,
+		config:         cfg,
+		dbClient:       dbClient,
 		staticFilePath: "/files",
 	}
+}
+
+func (tester Tester) getFileService() *ImageFileService {
+	return NewFileService(
+		tester.logger,
+		tester.dbClient,
+		tester.getDirectoryReader(),
+		tester.getImageFileConverter(),
+	)
+}
+
+func (tester Tester) getDirectoryService() *DirectoryService {
+	fileService := tester.getFileService()
+	return NewDirectoryService(
+		tester.logger,
+		tester.config,
+		tester.dbClient,
+		fileService,
+		tester.getDirectoryReader(),
+	)
+}
+
+func (tester Tester) getDirectoryReader() *DirectoryReader {
+	return NewDirectoryReader(tester.config, tester.dbClient)
+}
+
+func (tester Tester) getImageFileConverter() *ImageFileConverter {
+	return NewImageFileConverter(tester.config)
 }
 
 func (tester Tester) createDirectoryInFS(t *testing.T, name string) string {
 	t.Helper()
 
-	path := tester.config.ImageRootDirectory + "/" + name
+	path := filepath.Join(tester.config.ImageRootDirectory, name)
 	require.NoError(t, os.MkdirAll(path, 0755))
 	return path
+}
+
+func (tester Tester) getTestFilePath(filePath string) string {
+	return filepath.Join("..", "..", "testdata", filePath)
 }
 
 func (tester Tester) copyImageFile(t *testing.T, source, destination string) {
 	t.Helper()
 
-	_, err := copy("testdata/"+source, tester.config.ImageRootDirectory+"/"+destination)
+	destination = filepath.Join(tester.config.ImageRootDirectory, destination)
+	require.NoError(t, os.MkdirAll(filepath.Dir(destination), 0755))
+
+	_, err := Copy(
+		filepath.Join("..", "..", "testdata", source),
+		destination,
+	)
 	require.NoError(t, err)
+}
+
+func (tester Tester) newFileBuilder() *fileBuilder {
+	return &fileBuilder{
+		staticFilePrefix: tester.staticFilePath,
+		localFilePrefix:  tester.config.ImageRootDirectory,
+
+		directories:        map[uint]Directory{},
+		localDirectoryPath: map[uint]string{},
+		imageFiles:         map[uint]ImageFile{},
+	}
 }

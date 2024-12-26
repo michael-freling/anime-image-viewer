@@ -13,11 +13,9 @@ import React, { SyntheticEvent } from "react";
 export interface ExplorerTreeItemLabelProps
   extends UseTreeItem2LabelSlotOwnProps {
   editable: boolean;
-  selectable: boolean;
   addNewChild: () => Promise<void>;
   toggleItemEditing: () => void;
   importImages: () => Promise<void> | null;
-  count: number;
 }
 
 export function ExplorerTreeItemLabel({
@@ -27,9 +25,6 @@ export function ExplorerTreeItemLabel({
   toggleItemEditing, // only for editable
   addNewChild, // only for editable
   importImages, // only for editable
-
-  selectable,
-  count, // only for selectable
   ...other
 }: ExplorerTreeItemLabelProps) {
   return (
@@ -79,32 +74,38 @@ export function ExplorerTreeItemLabel({
           >
             <EditOutlined fontSize="small" />
           </IconButton>
-          {/*}
-          <IconButton variant="outlined" color="danger">
-            <Delete />
-          </IconButton>
-          */}
-        </Stack>
-      )}
-      {selectable == false ? null : (
-        <Stack direction="row" spacing={2}>
-          <Chip>{count}</Chip>
         </Stack>
       )}
     </TreeItem2Label>
   );
 }
 
-export interface ExplorerTreeItemProps extends TreeItem2Props {
-  labelComponent: React.ElementType<ExplorerTreeItemLabelProps>;
-  // only for editable
-  addNewChild: (parentID: string) => Promise<void>;
-  importImages?: (parentID: string) => Promise<void>;
-
-  // only for selectable
-  selectable: boolean;
+export interface ExplorerTreeItemLabelWithCountProps
+  extends UseTreeItem2LabelSlotOwnProps {
   count: number;
-  selectItem?: (id: string) => Promise<void>;
+}
+
+export function ExplorerTreeItemLabelWithCount({
+  children,
+  count,
+  ...other
+}: ExplorerTreeItemLabelWithCountProps) {
+  return (
+    <TreeItem2Label
+      {...other}
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 2,
+        justifyContent: "space-between",
+      }}
+    >
+      {children}
+      <Stack direction="row" spacing={2}>
+        <Chip>{count}</Chip>
+      </Stack>
+    </TreeItem2Label>
+  );
 }
 
 interface ExplorerCheckboxProps {
@@ -119,29 +120,71 @@ const ExplorerCheckbox = React.forwardRef(function CustomCheckbox(
   props: ExplorerCheckboxProps,
   ref: React.Ref<HTMLInputElement>
 ) {
-  if (!props.selectable) {
-    return null;
-  }
   return <Checkbox ref={ref} {...props} />;
 });
 
+export interface ExplorerTreeItemWithCheckboxProps extends TreeItem2Props {}
+export const ExplorerTreeItemWithCheckbox = React.forwardRef(
+  function CustomTreeItem(
+    { itemId, ...props }: TreeItem2Props & ExplorerTreeItemWithCheckboxProps,
+    ref: React.Ref<HTMLLIElement>
+  ) {
+    const { interactions, status, publicAPI } = useTreeItem2Utils({
+      itemId: itemId,
+      children: props.children,
+    });
+    const item = publicAPI.getItem(itemId);
+
+    const handleContentDoubleClick: UseTreeItem2LabelSlotOwnProps["onDoubleClick"] =
+      (event) => {
+        event.defaultMuiPrevented = true;
+      };
+
+    return (
+      <TreeItem2
+        {...props}
+        itemId={itemId}
+        ref={ref}
+        slots={{
+          label: ExplorerTreeItemLabelWithCount,
+          checkbox: ExplorerCheckbox,
+        }}
+        slotProps={{
+          label: {
+            onDoubleClick: handleContentDoubleClick,
+            count: item.count ? item.count : 0,
+          } as ExplorerTreeItemLabelWithCountProps,
+          checkbox: {
+            indeterminate: item.indeterminate,
+            checked: status.selected,
+            disabled: item.disabled,
+            onChange: interactions.handleCheckboxSelection,
+          } as ExplorerCheckboxProps,
+        }}
+      />
+    );
+  }
+);
+
+export interface ExplorerTreeItemProps extends TreeItem2Props {
+  addNewChild: (parentID: string) => Promise<void>;
+  importImages?: (parentID: string) => Promise<void>;
+}
 export const ExplorerTreeItem = React.forwardRef(function CustomTreeItem(
   { itemId, ...props }: TreeItem2Props & ExplorerTreeItemProps,
   ref: React.Ref<HTMLLIElement>
 ) {
-  const { interactions, status, publicAPI } = useTreeItem2Utils({
+  const { interactions, status } = useTreeItem2Utils({
     itemId: itemId,
     children: props.children,
   });
-  const item = publicAPI.getItem(itemId);
 
   const handleContentDoubleClick: UseTreeItem2LabelSlotOwnProps["onDoubleClick"] =
     (event) => {
       event.defaultMuiPrevented = true;
     };
 
-  const { addNewChild, labelComponent, importImages, selectable } =
-    props as ExplorerTreeItemProps;
+  const { addNewChild, importImages } = props as ExplorerTreeItemProps;
 
   return (
     <TreeItem2
@@ -149,8 +192,7 @@ export const ExplorerTreeItem = React.forwardRef(function CustomTreeItem(
       itemId={itemId}
       ref={ref}
       slots={{
-        label: labelComponent,
-        checkbox: ExplorerCheckbox,
+        label: ExplorerTreeItemLabel,
       }}
       slotProps={{
         label: {
@@ -168,18 +210,7 @@ export const ExplorerTreeItem = React.forwardRef(function CustomTreeItem(
               : () => {
                   importImages(itemId);
                 },
-
-          // selectable
-          selectable: selectable == true,
-          count: item.count ? item.count : 0,
         } as ExplorerTreeItemLabelProps,
-        checkbox: {
-          selectable,
-          indeterminate: item.indeterminate,
-          checked: status.selected,
-          disabled: item.disabled,
-          onChange: interactions.handleCheckboxSelection,
-        } as ExplorerCheckboxProps,
       }}
     />
   );

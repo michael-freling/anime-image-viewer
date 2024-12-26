@@ -11,6 +11,7 @@ import ImageTagEditPage from "./pages/ImageTagEditPage";
 import TagsListPage from "./pages/tags/TagsListPage";
 import DirectoryTagsEditPage from "./pages/DirectoryTagEditPage";
 import TagImageListPage from "./pages/tags/TagImageListPage";
+import ImageTagSuggestionPage from "./pages/tags/ImageTagSuggestionPage";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
@@ -62,6 +63,10 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
             {/* Image edit */}
             <Route path="images" element={<Layout.TwoColumnLayout />}>
               <Route path="edit/tags" element={<ImageTagEditPage />} />
+              <Route
+                path="edit/tags/suggestion"
+                element={<ImageTagSuggestionPage />}
+              />
             </Route>
 
             {/* Tags */}
