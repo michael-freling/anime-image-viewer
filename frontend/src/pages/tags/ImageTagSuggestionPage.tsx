@@ -27,7 +27,9 @@ const ImageTagSuggestionPage: React.FC = () => {
   const imageFileIds = imageFileIdStr.split(",").map((id) => parseInt(id));
 
   const [imageFiles, setImageFiles] = useState<ImageFile[]>([]);
-  const [tagSuggestions, setTagSuggestions] = useState<TagSuggestion[]>([]);
+  const [tagSuggestions, setTagSuggestions] = useState<{
+    [id: number]: TagSuggestion[];
+  }>([]);
   const [tags, setTags] = useState<{ [id: number]: Tag }>({});
 
   const [error, setError] = useState<Error | null>(null);
@@ -47,9 +49,9 @@ const ImageTagSuggestionPage: React.FC = () => {
 
     TagSuggestionService.SuggestTags(imageFileIds)
       .then((response) => {
-        setImageFiles(response.ImageFiles);
-        setTagSuggestions(response.TagSuggestions);
-        setTags(response.AllTags);
+        setImageFiles(response.imageFiles);
+        setTagSuggestions(response.suggestions);
+        setTags(response.allTags);
       })
       .catch((error) => {
         setError(error);
@@ -126,16 +128,37 @@ const ImageTagSuggestionPage: React.FC = () => {
                 overflowY: "auto",
               }}
             >
-              {tagSuggestions[index].SortedTagIndices.map((tagId) => {
-                const score = tagSuggestions[index].Scores[tagId] * 100;
+              {tagSuggestions[image.ID].map((suggestion) => {
+                const tagId = suggestion.tagId;
                 if (!(tagId in tags)) {
                   return null;
                 }
+                if (!suggestion.hasTag) {
+                  return null;
+                }
+
+                return (
+                  <Chip key={tagId} color="primary">
+                    {tags[tagId].full_name}
+                  </Chip>
+                );
+              })}
+              <Divider orientation="horizontal" />
+
+              {tagSuggestions[image.ID].map((suggestion) => {
+                const tagId = suggestion.tagId;
+                if (!(tagId in tags)) {
+                  return null;
+                }
+                if (suggestion.hasTag || suggestion.hasDescendantTag) {
+                  return null;
+                }
+                const score = suggestion.score * 100;
 
                 const disabled = score < selectedScore;
-                const color = disabled ? "neutral" : "primary";
+                const color = disabled ? "neutral" : "success";
                 return (
-                  <Chip key={tagId} color={color} disabled={disabled} size="lg">
+                  <Chip key={tagId} color={color} disabled={disabled}>
                     {tags[tagId].full_name} ({score.toFixed(0)}%)
                   </Chip>
                 );

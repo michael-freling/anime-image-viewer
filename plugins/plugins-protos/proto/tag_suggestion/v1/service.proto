@@ -10,16 +10,23 @@ message SuggestRequest {
   repeated string image_urls = 1;
 }
 
-message Suggestion {
-  string image_url = 1;
+message SuggestionScore {
+    uint64 tag_id = 1;
 
   // The score of the suggestion. Higher scores are better.
-  // The index is matching with a tag id
-  repeated double scores = 2;
+    double score = 2;
+}
 
-  // The indices of the scores sorted in descending order.
+message Suggestion {
+  string image_url = 1;
   // The index is matching with a tag id
-  repeated int64 sorted_score_indices = 3;
+  // scores is sorted by tags with higher scores
+  repeated SuggestionScore scores = 2;
+}
+
+message Tag {
+    uint64 id = 1;
+    string name = 2;
 }
 
 message SuggestResponse {
@@ -27,5 +34,5 @@ message SuggestResponse {
 
   // The all tags that can be potentially suggested
   // The key is the tag id
-  map<int64, string> all_tags = 2;
+  map<uint64, Tag> all_tags = 2;
 }

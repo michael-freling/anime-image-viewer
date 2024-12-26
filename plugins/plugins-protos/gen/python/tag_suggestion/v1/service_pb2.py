@@ -24,24 +24,28 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1ftag_suggestion/v1/service.proto\x12\x11tag_suggestion.v1\"/\n\x0eSuggestRequest\x12\x1d\n\nimage_urls\x18\x01 \x03(\tR\timageUrls\"s\n\nSuggestion\x12\x1b\n\timage_url\x18\x01 \x01(\tR\x08imageUrl\x12\x16\n\x06scores\x18\x02 \x03(\x01R\x06scores\x12\x30\n\x14sorted_score_indices\x18\x03 \x03(\x03R\x12sortedScoreIndices\"\xda\x01\n\x0fSuggestResponse\x12?\n\x0bsuggestions\x18\x01 \x03(\x0b\x32\x1d.tag_suggestion.v1.SuggestionR\x0bsuggestions\x12J\n\x08\x61ll_tags\x18\x02 \x03(\x0b\x32/.tag_suggestion.v1.SuggestResponse.AllTagsEntryR\x07\x61llTags\x1a:\n\x0c\x41llTagsEntry\x12\x10\n\x03key\x18\x01 \x01(\x03R\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x32h\n\x14TagSuggestionService\x12P\n\x07Suggest\x12!.tag_suggestion.v1.SuggestRequest\x1a\".tag_suggestion.v1.SuggestResponseB\xcb\x01\n\x15\x63om.tag_suggestion.v1B\x0cServiceProtoP\x01ZCgithub.com/bufbuild/buf-tour/gen/tag_suggestion/v1;tag_suggestionv1\xa2\x02\x03TXX\xaa\x02\x10TagSuggestion.V1\xca\x02\x10TagSuggestion\\V1\xe2\x02\x1cTagSuggestion\\V1\\GPBMetadata\xea\x02\x11TagSuggestion::V1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1ftag_suggestion/v1/service.proto\x12\x11tag_suggestion.v1\"/\n\x0eSuggestRequest\x12\x1d\n\nimage_urls\x18\x01 \x03(\tR\timageUrls\">\n\x0fSuggestionScore\x12\x15\n\x06tag_id\x18\x01 \x01(\x04R\x05tagId\x12\x14\n\x05score\x18\x02 \x01(\x01R\x05score\"e\n\nSuggestion\x12\x1b\n\timage_url\x18\x01 \x01(\tR\x08imageUrl\x12:\n\x06scores\x18\x02 \x03(\x0b\x32\".tag_suggestion.v1.SuggestionScoreR\x06scores\")\n\x03Tag\x12\x0e\n\x02id\x18\x01 \x01(\x04R\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\"\xf2\x01\n\x0fSuggestResponse\x12?\n\x0bsuggestions\x18\x01 \x03(\x0b\x32\x1d.tag_suggestion.v1.SuggestionR\x0bsuggestions\x12J\n\x08\x61ll_tags\x18\x02 \x03(\x0b\x32/.tag_suggestion.v1.SuggestResponse.AllTagsEntryR\x07\x61llTags\x1aR\n\x0c\x41llTagsEntry\x12\x10\n\x03key\x18\x01 \x01(\x04R\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.tag_suggestion.v1.TagR\x05value:\x02\x38\x01\x32h\n\x14TagSuggestionService\x12P\n\x07Suggest\x12!.tag_suggestion.v1.SuggestRequest\x1a\".tag_suggestion.v1.SuggestResponseB\xf6\x01\n\x15\x63om.tag_suggestion.v1B\x0cServiceProtoP\x01Zngithub.com/michael-freling/anime-image-viewer/plugins/plugins-protos/gen/go/tag_suggestion/v1;tag_suggestionv1\xa2\x02\x03TXX\xaa\x02\x10TagSuggestion.V1\xca\x02\x10TagSuggestion\\V1\xe2\x02\x1cTagSuggestion\\V1\\GPBMetadata\xea\x02\x11TagSuggestion::V1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'tag_suggestion.v1.service_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
-  _globals['DESCRIPTOR']._serialized_options = b'\n\025com.tag_suggestion.v1B\014ServiceProtoP\001ZCgithub.com/bufbuild/buf-tour/gen/tag_suggestion/v1;tag_suggestionv1\242\002\003TXX\252\002\020TagSuggestion.V1\312\002\020TagSuggestion\\V1\342\002\034TagSuggestion\\V1\\GPBMetadata\352\002\021TagSuggestion::V1'
+  _globals['DESCRIPTOR']._serialized_options = b'\n\025com.tag_suggestion.v1B\014ServiceProtoP\001Zngithub.com/michael-freling/anime-image-viewer/plugins/plugins-protos/gen/go/tag_suggestion/v1;tag_suggestionv1\242\002\003TXX\252\002\020TagSuggestion.V1\312\002\020TagSuggestion\\V1\342\002\034TagSuggestion\\V1\\GPBMetadata\352\002\021TagSuggestion::V1'
   _globals['_SUGGESTRESPONSE_ALLTAGSENTRY']._loaded_options = None
   _globals['_SUGGESTRESPONSE_ALLTAGSENTRY']._serialized_options = b'8\001'
   _globals['_SUGGESTREQUEST']._serialized_start=54
   _globals['_SUGGESTREQUEST']._serialized_end=101
-  _globals['_SUGGESTION']._serialized_start=103
-  _globals['_SUGGESTION']._serialized_end=218
-  _globals['_SUGGESTRESPONSE']._serialized_start=221
-  _globals['_SUGGESTRESPONSE']._serialized_end=439
-  _globals['_SUGGESTRESPONSE_ALLTAGSENTRY']._serialized_start=381
-  _globals['_SUGGESTRESPONSE_ALLTAGSENTRY']._serialized_end=439
-  _globals['_TAGSUGGESTIONSERVICE']._serialized_start=441
-  _globals['_TAGSUGGESTIONSERVICE']._serialized_end=545
+  _globals['_SUGGESTIONSCORE']._serialized_start=103
+  _globals['_SUGGESTIONSCORE']._serialized_end=165
+  _globals['_SUGGESTION']._serialized_start=167
+  _globals['_SUGGESTION']._serialized_end=268
+  _globals['_TAG']._serialized_start=270
+  _globals['_TAG']._serialized_end=311
+  _globals['_SUGGESTRESPONSE']._serialized_start=314
+  _globals['_SUGGESTRESPONSE']._serialized_end=556
+  _globals['_SUGGESTRESPONSE_ALLTAGSENTRY']._serialized_start=474
+  _globals['_SUGGESTRESPONSE_ALLTAGSENTRY']._serialized_end=556
+  _globals['_TAGSUGGESTIONSERVICE']._serialized_start=558
+  _globals['_TAGSUGGESTIONSERVICE']._serialized_end=662
 # @@protoc_insertion_point(module_scope)

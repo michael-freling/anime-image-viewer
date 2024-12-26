@@ -9,17 +9,16 @@ import (
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
+	tag_suggestionv1 "github.com/michael-freling/anime-image-viewer/plugins/plugins-protos/gen/go/tag_suggestion/v1"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 type Tester struct {
-	config   config.Config
-	dbClient *db.Client
-
-	directoryService *DirectoryService
-	tagService       *TagService
-	fileService      *ImageFileService
-
+	logger         *slog.Logger
+	config         config.Config
+	dbClient       *db.Client
+	mockController *gomock.Controller
 	staticFilePath string
 }
 
@@ -57,23 +56,54 @@ func newTester(t *testing.T, opts ...newTesterOption) Tester {
 		ImageRootDirectory: t.TempDir(),
 	}
 
-	imageFileService := NewFileService(logger, dbClient)
-	directoryService := NewDirectoryService(
-		logger,
-		cfg,
-		dbClient,
-		imageFileService,
-	)
-
 	return Tester{
-		config:           cfg,
-		dbClient:         dbClient,
-		directoryService: directoryService,
-		tagService:       NewTagService(logger, dbClient, directoryService),
-		fileService:      imageFileService,
-
+		logger:         logger,
+		config:         cfg,
+		dbClient:       dbClient,
 		staticFilePath: "/files",
 	}
+}
+
+func (tester Tester) getFileService() *ImageFileService {
+	// todo: currently, file service sets a pointer to a directory service
+	// in NewDirectoryService and has a inter dependency
+	// Fix it in the future
+	dirService := tester.getDirectoryService()
+	return dirService.imageFileService
+}
+
+func (tester Tester) getDirectoryService() *DirectoryService {
+	fileService := NewFileService(tester.logger, tester.dbClient)
+	return NewDirectoryService(
+		tester.logger,
+		tester.config,
+		tester.dbClient,
+		fileService,
+	)
+}
+
+func (tester Tester) getTagService() *TagService {
+	return NewTagService(tester.logger, tester.dbClient, tester.getDirectoryService())
+}
+
+func (tester Tester) getTagSuggestionService(
+	t *testing.T,
+	setupMockClient func(*tag_suggestionv1.MockTagSuggestionServiceClient),
+) *TagSuggestionService {
+	t.Helper()
+
+	if tester.mockController == nil {
+		tester.mockController = gomock.NewController(t)
+		t.Cleanup(tester.mockController.Finish)
+	}
+	mockSuggestionClient := tag_suggestionv1.NewMockTagSuggestionServiceClient(tester.mockController)
+	setupMockClient(mockSuggestionClient)
+
+	return NewTagSuggestionService(
+		mockSuggestionClient,
+		tester.getFileService(),
+		tester.getTagService(),
+	)
 }
 
 func (tester Tester) createDirectoryInFS(t *testing.T, name string) string {
@@ -87,9 +117,14 @@ func (tester Tester) createDirectoryInFS(t *testing.T, name string) string {
 func (tester Tester) copyImageFile(t *testing.T, source, destination string) {
 	t.Helper()
 
+	destination = filepath.Join(tester.config.ImageRootDirectory, destination)
+	if err := os.MkdirAll(filepath.Dir(destination), 0755); err != nil {
+		t.Fatal(err)
+	}
+
 	_, err := copy(
 		filepath.Join("testdata", source),
-		filepath.Join(tester.config.ImageRootDirectory, destination),
+		destination,
 	)
 	require.NoError(t, err)
 }

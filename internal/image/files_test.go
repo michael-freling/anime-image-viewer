@@ -62,7 +62,7 @@ func TestImageFileService_importImageFiles(t *testing.T) {
 	tempDir := tester.config.ImageRootDirectory
 	dbClient := tester.dbClient
 
-	imageFileService := tester.fileService
+	imageFileService := tester.getFileService()
 
 	destinationDirectory := Directory{
 		ID:   1,

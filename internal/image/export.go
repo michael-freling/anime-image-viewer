@@ -123,7 +123,7 @@ func (service ExportService) ExportImages(ctx context.Context, rootExportDirecto
 		}
 	}
 
-	tagsPerFileIDResponse, err := service.tagService.ReadTagsByFileIDs(ctx, allImageFileIDs)
+	batchTagChecker, err := service.tagService.createBatchTagCheckerByFileIDs(ctx, allImageFileIDs)
 	if err != nil {
 		return fmt.Errorf("ReadTagsByFileIDs: %w", err)
 	}
@@ -138,9 +138,8 @@ func (service ExportService) ExportImages(ctx context.Context, rootExportDirecto
 				FileName: imageFile.Name,
 				Tags:     make([]float64, maxTagID+1),
 			}
-			tags := tagsPerFileIDResponse.tagsMap[imageFile.ID]
-			for _, tag := range tags {
-				metadata.Tags[tag.ID] = 1.0
+			for tagID := range batchTagChecker.getTagCheckerForImageFileID(imageFile.ID).getTagCounts() {
+				metadata.Tags[tagID] = 1.0
 			}
 			allMetadata = append(allMetadata, metadata)
 

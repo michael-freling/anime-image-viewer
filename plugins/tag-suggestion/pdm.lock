@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:8635a9f4ab544ce168e3c1321da4aad419c2fb41ffcb63242dfe33e9d5069df4"
+content_hash = "sha256:d8c5a24aa2addbe8d4151ecba0312d2cb2374e828d3b789dd09590980036f498"
 
 [[metadata.targets]]
 requires_python = "==3.12.*"
@@ -291,6 +291,20 @@ dependencies = [
 files = [
     {file = "fsspec-2024.9.0-py3-none-any.whl", hash = "sha256:a0947d552d8a6efa72cc2c730b12c41d043509156966cca4fb157b0f2a0c574b"},
     {file = "fsspec-2024.9.0.tar.gz", hash = "sha256:4b0afb90c2f21832df142f292649035d80b421f60a9e1c027802e5a0da2b04e8"},
+]
+
+[[package]]
+name = "grpc-interceptor"
+version = "0.15.4"
+requires_python = ">=3.7,<4.0"
+summary = "Simplifies gRPC interceptors"
+groups = ["default"]
+dependencies = [
+    "grpcio<2.0.0,>=1.49.1",
+]
+files = [
+    {file = "grpc-interceptor-0.15.4.tar.gz", hash = "sha256:1f45c0bcb58b6f332f37c637632247c9b02bc6af0fdceb7ba7ce8d2ebbfb0926"},
+    {file = "grpc_interceptor-0.15.4-py3-none-any.whl", hash = "sha256:0035f33228693ed3767ee49d937bac424318db173fef4d2d0170b3215f254d9d"},
 ]
 
 [[package]]

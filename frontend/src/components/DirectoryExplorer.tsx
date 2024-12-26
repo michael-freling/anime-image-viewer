@@ -29,7 +29,9 @@ function directoriesToTreeViewBaseItems(
     return {
       id: directory.ID,
       label: directory.Name,
-      children: directoriesToTreeViewBaseItems(directory.Children),
+      children: directoriesToTreeViewBaseItems(
+        directory.Children.filter((child) => child != null)
+      ),
     };
   });
 }
@@ -40,7 +42,10 @@ const getDirectoryMap = (
   const map: { [id: number]: Directory } = {};
   directories.forEach((directory) => {
     map[directory.ID] = directory;
-    Object.assign(map, getDirectoryMap(directory.Children));
+    Object.assign(
+      map,
+      getDirectoryMap(directory.Children.filter((child) => child != null))
+    );
   });
   return map;
 };

@@ -77,6 +77,7 @@ dependencies = [
     "urllib3==2.2.3",
     "xxhash==3.5.0",
     "yarl==1.17.1",
+    "grpc-interceptor>=0.15.4",
 ]
 requires-python = "==3.12.*"
 readme = "README.md"
@@ -99,3 +100,5 @@ preprocess.composite = [
 train.cmd = "python src/main.py train ${PREPROCESSED_DATA_DIR} ${MODEL_DIR}"
 # _.env = { PYTHON_PATH = "../plugins-protos/gen/python/tag_suggestion" }
 server.cmd = "python src/main.py server ${MODEL_DIR}"
+client.cmd = "python src/grpc_client.py {args}"
+predict.cmd = "python src/main.py predict ${MODEL_DIR} {args}"

@@ -2,13 +2,16 @@ package image
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 
-	"github.com/michael-freling/anime-image-viewer/internal/xslices"
 	tag_suggestionv1 "github.com/michael-freling/anime-image-viewer/plugins/plugins-protos/gen/go/tag_suggestion/v1"
 	"golang.org/x/sync/errgroup"
+)
+
+var (
+	ErrImageFileNotFound = errors.New("no image file was found")
 )
 
 type TagSuggestionService struct {
@@ -30,15 +33,20 @@ func NewTagSuggestionService(
 }
 
 type TagSuggestion struct {
-	Scores           []float64
-	SortedTagIndices []uint
+	TagID            uint    `json:"tagId"`
+	Score            float64 `json:"score"`
+	HasTag           bool    `json:"hasTag"`
+	HasDescendantTag bool    `json:"hasDescendantTag"`
 }
 
 type SuggestTagsResponse struct {
-	ImageFiles     []ImageFile
-	TagSuggestions []TagSuggestion
+	ImageFiles []ImageFile `json:"imageFiles"`
+
+	// Suggestions maps image file IDs to tag suggestions
+	Suggestions map[uint][]TagSuggestion `json:"suggestions"`
+
 	// AllTags maps tag IDs to tags
-	AllTags map[uint]Tag
+	AllTags map[uint]Tag `json:"allTags"`
 }
 
 func (service *TagSuggestionService) SuggestTags(ctx context.Context, imageFileIDs []uint) (SuggestTagsResponse, error) {
@@ -47,21 +55,12 @@ func (service *TagSuggestionService) SuggestTags(ctx context.Context, imageFileI
 		return SuggestTagsResponse{}, fmt.Errorf("imageFileService.getImagesByIDs: %w", err)
 	}
 	if len(imageFileMap) == 0 {
-		return SuggestTagsResponse{}, nil
+		return SuggestTagsResponse{}, fmt.Errorf("%w by IDs: %v", ErrImageFileNotFound, imageFileIDs)
 	}
+
 	imageUrls := make([]string, len(imageFileMap))
 	for index, imageFileID := range imageFileIDs {
-		imageFile := imageFileMap[imageFileID]
-
-		wslPath := strings.ReplaceAll(
-			strings.ReplaceAll(imageFile.localFilePath,
-				"C:\\",
-				"/mnt/c/",
-			),
-			"\\",
-			"/",
-		)
-		imageUrls[index] = wslPath
+		imageUrls[index] = imageFileMap[imageFileID].localFilePath
 	}
 
 	eg, childCtx := errgroup.WithContext(ctx)
@@ -76,13 +75,23 @@ func (service *TagSuggestionService) SuggestTags(ctx context.Context, imageFileI
 		}
 		return nil
 	})
-	var tagMap map[uint]Tag
+
+	var allTagMap map[uint]Tag
+	var tagChecker batchImageTagChecker
 	eg.Go(func() error {
 		allTags, err := service.tagService.GetAll()
 		if err != nil {
 			return fmt.Errorf("tagService.GetAll: %w", err)
 		}
-		tagMap = convertTagsToMap(allTags)
+		allTagMap = convertTagsToMap(allTags)
+
+		tagChecker, err = service.tagService.createBatchTagCheckerByFileIDs(
+			childCtx,
+			imageFileIDs,
+		)
+		if err != nil {
+			return fmt.Errorf("tagService.createBatchTagCheckerByFileIDs: %w", err)
+		}
 		return nil
 	})
 	if err := eg.Wait(); err != nil {
@@ -92,30 +101,44 @@ func (service *TagSuggestionService) SuggestTags(ctx context.Context, imageFileI
 		return SuggestTagsResponse{}, nil
 	}
 
-	slog.Default().DebugContext(ctx, "suggest tag client response",
+	logger := slog.Default()
+	logger.DebugContext(ctx, "suggest tag client response",
 		"imageFileIDs", imageFileIDs,
 		"imageUrls", imageUrls,
 		"response", response,
 	)
 
 	imageFiles := make([]ImageFile, len(imageFileIDs))
-	suggestions := make([]TagSuggestion, len(response.Suggestions))
+	suggestionsForImageFiles := make(map[uint][]TagSuggestion, len(response.Suggestions))
 	for index, imageFileID := range imageFileIDs {
-		tagSuggestion := response.Suggestions[index]
 		imageFile := imageFileMap[imageFileID]
-
 		imageFiles[index] = imageFile
-		suggestions[index] = TagSuggestion{
-			Scores: tagSuggestion.Scores,
-			SortedTagIndices: xslices.Map(tagSuggestion.SortedScoreIndices, func(index int64) uint {
-				return uint(index)
-			}),
+
+		batchTagChecker := tagChecker.getTagCheckerForImageFileID(imageFileID)
+		tagSuggestion := response.Suggestions[index]
+		suggestions := make([]TagSuggestion, 0, len(tagSuggestion.Scores))
+		for _, score := range tagSuggestion.Scores {
+			tag, ok := allTagMap[uint(score.TagId)]
+			if !ok {
+				logger.WarnContext(ctx, "tag was not found",
+					"tag_id", score.TagId,
+				)
+				continue
+			}
+
+			suggestions = append(suggestions, TagSuggestion{
+				TagID:            uint(score.TagId),
+				Score:            score.Score,
+				HasTag:           batchTagChecker.hasTag(tag.ID),
+				HasDescendantTag: batchTagChecker.hasDecendantTag(tag.ID),
+			})
 		}
+		suggestionsForImageFiles[imageFile.ID] = suggestions
 	}
 
 	return SuggestTagsResponse{
-		ImageFiles:     imageFiles,
-		TagSuggestions: suggestions,
-		AllTags:        tagMap,
+		ImageFiles:  imageFiles,
+		Suggestions: suggestionsForImageFiles,
+		AllTags:     allTagMap,
 	}, nil
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/xslices"
+	"golang.org/x/sync/errgroup"
 )
 
 type TagService struct {
@@ -500,91 +501,211 @@ type File struct {
 	ParentID uint
 }
 
-type ReadTagsByFileIDsResponse struct {
-	// FilesMap maps tag IDs to the files that have the tag
-	FilesMap map[uint][]File
+type imageTagChecker struct {
+	imageFileID uint
 
+	// tag id => bool (true if the image file has the tag)
+	imageFileTags map[uint]bool
+
+	// directory id => an ancestor
+	ancestors map[uint]Directory
+
+	// tag id => an ids of ancestors
+	ancestorsTags map[uint][]uint
+
+	allTags map[uint]Tag
+}
+
+func (checker imageTagChecker) hasDecendantTag(tagID uint) bool {
+	tag, ok := checker.allTags[tagID]
+	if !ok {
+		return false
+	}
+	for _, descendant := range tag.findDescendants() {
+		if _, ok := checker.imageFileTags[descendant.ID]; ok {
+			return true
+		}
+		if _, ok := checker.ancestorsTags[descendant.ID]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func (checker imageTagChecker) hasTag(tagID uint) bool {
+	if _, ok := checker.imageFileTags[tagID]; ok {
+		return true
+	}
+	if _, ok := checker.ancestorsTags[tagID]; ok {
+		return true
+	}
+	return false
+}
+
+func (checker imageTagChecker) getTagCounts() map[uint]bool {
+	tagCounts := make(map[uint]bool)
+	for tagID := range checker.imageFileTags {
+		tagCounts[tagID] = true
+	}
+	for tagID := range checker.ancestorsTags {
+		tagCounts[tagID] = true
+	}
+	return tagCounts
+}
+
+type batchImageTagChecker struct {
+	imageTagCheckers []imageTagChecker
+}
+
+func (checker batchImageTagChecker) getTagCheckerForImageFileID(imageFileID uint) imageTagChecker {
+	for _, imageTagChecker := range checker.imageTagCheckers {
+		if imageTagChecker.imageFileID == imageFileID {
+			return imageTagChecker
+		}
+	}
+	return imageTagChecker{}
+}
+
+func (checker batchImageTagChecker) getTagsMapFromAncestors() map[uint][]File {
+	ancestorMap := make(map[uint][]File)
+	for _, imageTagChecker := range checker.imageTagCheckers {
+		for tagID := range imageTagChecker.ancestorsTags {
+			ancestorMap[tagID] = append(ancestorMap[tagID], File{
+				ID: imageTagChecker.imageFileID,
+			})
+		}
+	}
+	if len(ancestorMap) == 0 {
+		return nil
+	}
+
+	return ancestorMap
+}
+
+func (checker batchImageTagChecker) getTagCounts() map[uint]uint {
+	tagCounts := make(map[uint]uint)
+	for _, imageTagChecker := range checker.imageTagCheckers {
+		for tagID := range imageTagChecker.getTagCounts() {
+			tagCounts[tagID]++
+		}
+	}
+	if len(tagCounts) == 0 {
+		return nil
+	}
+
+	return tagCounts
+}
+
+type ReadTagsByFileIDsResponse struct {
 	// AncestorMap maps tag IDs to their ancestors
 	AncestorMap map[uint][]File
 
 	// TagCounts maps tag IDs to the number of files that have the tag
 	TagCounts map[uint]uint
+}
 
-	// tagsMap maps file IDs to tags
-	tagsMap map[uint][]Tag
+func (service *TagService) createBatchTagCheckerByFileIDs(
+	ctx context.Context,
+	fileIDs []uint,
+) (batchImageTagChecker, error) {
+	allTagMap := make(map[uint]Tag, 0)
+
+	eg, _ := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		allTags, err := service.readAllTags()
+		if err != nil {
+			return fmt.Errorf("service.readAllTags: %w", err)
+		}
+		allTagMap = convertTagsToMap(allTags)
+		return nil
+	})
+
+	var fileTags []db.FileTag
+	var fileIDToAncestors map[uint][]Directory
+	eg.Go(func() error {
+		var err error
+		fileIDToAncestors, err = service.directoryService.readAncestors(fileIDs)
+		if err != nil {
+			return fmt.Errorf("directoryService.readAncestors: %w", err)
+		}
+		allFileIDs := make([]uint, 0)
+		for _, fileID := range fileIDs {
+			ancestors, ok := fileIDToAncestors[fileID]
+			if ok {
+				for _, ancestor := range ancestors {
+					allFileIDs = append(allFileIDs, ancestor.ID)
+				}
+			}
+			allFileIDs = append(allFileIDs, fileID)
+		}
+
+		fileTags, err = service.dbClient.FileTag().
+			FindAllByFileID(allFileIDs)
+		if err != nil {
+			return fmt.Errorf("db.FindAllByValue: %w", err)
+		}
+		return nil
+	})
+	if err := eg.Wait(); err != nil {
+		return batchImageTagChecker{}, fmt.Errorf("eg.Wait: %w", err)
+	}
+	if len(fileTags) == 0 {
+		return batchImageTagChecker{}, nil
+	}
+
+	imageTagCheckers := make([]imageTagChecker, 0)
+	for _, fileID := range fileIDs {
+		ancestors := fileIDToAncestors[fileID]
+
+		ancestorMap := make(map[uint]Directory)
+		for _, ancestor := range ancestors {
+			ancestorMap[ancestor.ID] = ancestor
+		}
+		imageTagChecker := imageTagChecker{
+			imageFileID: fileID,
+			ancestors:   ancestorMap,
+			allTags:     allTagMap,
+		}
+
+		hasImageFileTag := make(map[uint]bool, 0)
+		for _, fileTag := range fileTags {
+			if fileID != fileTag.FileID {
+				continue
+			}
+			hasImageFileTag[fileTag.TagID] = true
+		}
+		imageTagChecker.imageFileTags = hasImageFileTag
+
+		tagsForAncestors := make(map[uint][]uint, 0)
+		for _, fileTag := range fileTags {
+			for _, ancestor := range ancestors {
+				if ancestor.ID != fileTag.FileID {
+					continue
+				}
+				tagID := fileTag.TagID
+				tagsForAncestors[tagID] = append(tagsForAncestors[tagID], ancestor.ID)
+			}
+		}
+		imageTagChecker.ancestorsTags = tagsForAncestors
+		imageTagCheckers = append(imageTagCheckers, imageTagChecker)
+	}
+
+	return batchImageTagChecker{
+		imageTagCheckers: imageTagCheckers,
+	}, nil
 }
 
 func (service *TagService) ReadTagsByFileIDs(
 	ctx context.Context,
 	fileIDs []uint,
 ) (ReadTagsByFileIDsResponse, error) {
-	fileIDToAncestors, err := service.directoryService.readAncestors(fileIDs)
+	batchImageTagChecker, err := service.createBatchTagCheckerByFileIDs(ctx, fileIDs)
 	if err != nil {
-		return ReadTagsByFileIDsResponse{}, fmt.Errorf("directoryService.readAncestors: %w", err)
-	}
-	allFileIDs := make([]uint, 0)
-	for _, fileID := range fileIDs {
-		ancestors, ok := fileIDToAncestors[fileID]
-		if ok {
-			for _, ancestor := range ancestors {
-				allFileIDs = append(allFileIDs, ancestor.ID)
-			}
-		}
-		allFileIDs = append(allFileIDs, fileID)
-	}
-
-	fileTags, err := service.dbClient.FileTag().
-		FindAllByFileID(allFileIDs)
-	if err != nil {
-		return ReadTagsByFileIDsResponse{}, fmt.Errorf("db.FindAllByValue: %w", err)
-	}
-	if len(fileTags) == 0 {
-		return ReadTagsByFileIDsResponse{}, nil
-	}
-
-	tagsPerFile := make(map[uint][]Tag)
-	filesPerTag := make(map[uint][]File)
-	tagsForAncestors := make(map[uint][]File)
-	for _, fileTag := range fileTags {
-		for _, fileID := range fileIDs {
-			if fileID == fileTag.FileID {
-				tagsPerFile[fileID] = append(tagsPerFile[fileID], Tag{
-					ID: fileTag.TagID,
-				})
-				filesPerTag[fileTag.TagID] = append(filesPerTag[fileTag.TagID], File{
-					ID: fileID,
-				})
-				continue
-			}
-
-			ancestors := fileIDToAncestors[fileID]
-			for _, ancestor := range ancestors {
-				if ancestor.ID == fileTag.FileID {
-					tagsPerFile[fileID] = append(tagsPerFile[fileID], Tag{
-						ID: fileTag.TagID,
-					})
-					tagsForAncestors[fileTag.TagID] = append(tagsForAncestors[fileTag.TagID], File{
-						ID: fileID,
-					})
-					break
-				}
-			}
-		}
+		return ReadTagsByFileIDsResponse{}, fmt.Errorf("service.createBatchTagCheckerByFileIDs: %w", err)
 	}
 	response := ReadTagsByFileIDsResponse{
-		tagsMap:     tagsPerFile,
-		FilesMap:    filesPerTag,
-		AncestorMap: tagsForAncestors,
-		TagCounts:   make(map[uint]uint),
-	}
-	for tagID, files := range filesPerTag {
-		response.TagCounts[tagID] = uint(len(files) + len(tagsForAncestors[tagID]))
-	}
-	for tagID, files := range tagsForAncestors {
-		if _, ok := response.TagCounts[tagID]; ok {
-			continue
-		}
-		response.TagCounts[tagID] = uint(len(files))
+		AncestorMap: batchImageTagChecker.getTagsMapFromAncestors(),
+		TagCounts:   batchImageTagChecker.getTagCounts(),
 	}
 	return response, nil
 }

@@ -11,15 +11,29 @@ class SuggestRequest(_message.Message):
     image_urls: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, image_urls: _Optional[_Iterable[str]] = ...) -> None: ...
 
+class SuggestionScore(_message.Message):
+    __slots__ = ("tag_id", "score")
+    TAG_ID_FIELD_NUMBER: _ClassVar[int]
+    SCORE_FIELD_NUMBER: _ClassVar[int]
+    tag_id: int
+    score: float
+    def __init__(self, tag_id: _Optional[int] = ..., score: _Optional[float] = ...) -> None: ...
+
 class Suggestion(_message.Message):
-    __slots__ = ("image_url", "scores", "sorted_score_indices")
+    __slots__ = ("image_url", "scores")
     IMAGE_URL_FIELD_NUMBER: _ClassVar[int]
     SCORES_FIELD_NUMBER: _ClassVar[int]
-    SORTED_SCORE_INDICES_FIELD_NUMBER: _ClassVar[int]
     image_url: str
-    scores: _containers.RepeatedScalarFieldContainer[float]
-    sorted_score_indices: _containers.RepeatedScalarFieldContainer[int]
-    def __init__(self, image_url: _Optional[str] = ..., scores: _Optional[_Iterable[float]] = ..., sorted_score_indices: _Optional[_Iterable[int]] = ...) -> None: ...
+    scores: _containers.RepeatedCompositeFieldContainer[SuggestionScore]
+    def __init__(self, image_url: _Optional[str] = ..., scores: _Optional[_Iterable[_Union[SuggestionScore, _Mapping]]] = ...) -> None: ...
+
+class Tag(_message.Message):
+    __slots__ = ("id", "name")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    id: int
+    name: str
+    def __init__(self, id: _Optional[int] = ..., name: _Optional[str] = ...) -> None: ...
 
 class SuggestResponse(_message.Message):
     __slots__ = ("suggestions", "all_tags")
@@ -28,10 +42,10 @@ class SuggestResponse(_message.Message):
         KEY_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
         key: int
-        value: str
-        def __init__(self, key: _Optional[int] = ..., value: _Optional[str] = ...) -> None: ...
+        value: Tag
+        def __init__(self, key: _Optional[int] = ..., value: _Optional[_Union[Tag, _Mapping]] = ...) -> None: ...
     SUGGESTIONS_FIELD_NUMBER: _ClassVar[int]
     ALL_TAGS_FIELD_NUMBER: _ClassVar[int]
     suggestions: _containers.RepeatedCompositeFieldContainer[Suggestion]
-    all_tags: _containers.ScalarMap[int, str]
-    def __init__(self, suggestions: _Optional[_Iterable[_Union[Suggestion, _Mapping]]] = ..., all_tags: _Optional[_Mapping[int, str]] = ...) -> None: ...
+    all_tags: _containers.MessageMap[int, Tag]
+    def __init__(self, suggestions: _Optional[_Iterable[_Union[Suggestion, _Mapping]]] = ..., all_tags: _Optional[_Mapping[int, Tag]] = ...) -> None: ...

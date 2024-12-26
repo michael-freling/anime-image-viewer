@@ -145,14 +145,6 @@ func TestTagService_ReadTagsByFileIDs(t *testing.T) {
 				{FileID: 100, TagID: 111}, // a tag for a direct file
 			},
 			want: ReadTagsByFileIDsResponse{
-				tagsMap: map[uint][]Tag{
-					2:   {{ID: 1}, {ID: 2}},
-					100: {{ID: 1}, {ID: 11}, {ID: 111}},
-				},
-				FilesMap: map[uint][]File{
-					2:   {{ID: 2}},
-					111: {{ID: 100}}, // a tag from a top directory
-				},
 				AncestorMap: map[uint][]File{
 					1:  {{ID: 2}, {ID: 100}},
 					11: {{ID: 100}}, // a tag from a parent directory
@@ -300,7 +292,7 @@ func TestTagService_ReadImageFiles(t *testing.T) {
 				require.NoError(t, db.BatchCreate(dbClient, tc.insertFileTags))
 			}
 
-			got, gotErr := tester.tagService.ReadImageFiles(tc.tagID)
+			got, gotErr := tester.getTagService().ReadImageFiles(tc.tagID)
 			if tc.wantErr != nil {
 				assert.ErrorIs(t, gotErr, tc.wantErr)
 				return

@@ -39,7 +39,7 @@ const tagsToTreeViewBaseItems = (
       id: String(child.id),
       label: child.name,
       children: tagsToTreeViewBaseItems(
-        child.children ?? [],
+        (child.children ?? []).filter((child) => child != null),
         fileCount,
         addedTagIds,
         deletedTagIds,

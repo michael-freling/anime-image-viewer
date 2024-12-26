@@ -5,6 +5,8 @@ managed:
     - file_option: go_package_prefix
       value: 'github.com/michael-freling/anime-image-viewer/plugins/plugins-protos/gen/go'
 plugins:
+  # The list of plugins: https://buf.build/plugins
+
   # https://buf.build/protocolbuffers/python?version=v29.2
   - remote: buf.build/protocolbuffers/python:v28.3
     out: gen/python
@@ -21,5 +23,9 @@ plugins:
     out: gen/go
     opt:
       - paths=source_relative
+  # https://github.com/sorcererxw/protoc-gen-go-grpc-mock
+  - local: protoc-gen-go-grpc-mock
+    out: gen/go
+    opt: paths=source_relative
 inputs:
   - directory: proto

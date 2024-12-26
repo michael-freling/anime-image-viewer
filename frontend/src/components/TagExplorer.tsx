@@ -20,7 +20,10 @@ const tagsToTreeViewBaseItems = (
     return {
       id: String(child.id),
       label: child.name,
-      children: tagsToTreeViewBaseItems(child.children ?? [], fileCount),
+      children: tagsToTreeViewBaseItems(
+        (child.children ?? []).filter((child) => child != null),
+        fileCount
+      ),
     };
   });
 };
