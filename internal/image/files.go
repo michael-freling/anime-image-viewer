@@ -19,18 +19,18 @@ import (
 )
 
 type File struct {
-	ID       uint
-	Name     string
-	ParentID uint
+	ID       uint   `json:"id"`
+	Name     string `json:"name"`
+	ParentID uint   `json:"-"`
 }
 
 type ImageFile struct {
-	ID            uint
-	Name          string
-	Path          string
-	LocalFilePath string
-	ParentID      uint
-	ContentType   string
+	ID            uint   `json:"id"`
+	Name          string `json:"name"`
+	Path          string `json:"path"`
+	LocalFilePath string `json:"-"`
+	ParentID      uint   `json:"-"`
+	ContentType   string `json:"-"`
 }
 
 func (imageFile ImageFile) toFile() File {

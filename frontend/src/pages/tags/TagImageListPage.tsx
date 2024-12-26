@@ -76,7 +76,7 @@ const TagImageListPage: FC = () => {
               selectedImageIds = selectedImageIds.concat(
                 images.userImages[tagID]
                   .filter((image) => image.selected)
-                  .map((image) => String(image.ID))
+                  .map((image) => String(image.id))
               );
             }
             selectedImageIds = Array.from(new Set(selectedImageIds)).sort();
@@ -107,7 +107,7 @@ const TagImageListPage: FC = () => {
           >
             {images.userImages[tag.id].map((userImage, imageIndex) => (
               <Card
-                key={userImage.Path}
+                key={userImage.path}
                 size="sm"
                 color={userImage.selected ? "primary" : "neutral"}
                 variant={userImage.selected ? "solid" : "outlined"}
@@ -132,12 +132,12 @@ const TagImageListPage: FC = () => {
                     }}
                   />
                   <Typography level="title-sm">
-                    {userImage.Name.substring(0, 10)}...
-                    {userImage.Name.substring(userImage.Name.length - 10)}
+                    {userImage.name.substring(0, 10)}...
+                    {userImage.name.substring(userImage.name.length - 10)}
                   </Typography>
                 </CardActions>
                 <CardOverflow>
-                  <LazyImage src={userImage.Path} />
+                  <LazyImage src={userImage.path} />
                 </CardOverflow>
               </Card>
             ))}
