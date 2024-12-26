@@ -12,11 +12,14 @@ import {
 import { useNavigate, useSearchParams } from "react-router";
 import LazyImage from "../../components/LazyImage";
 import { useEffect, useState } from "react";
-import { ImageFile } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
+import {
+  ImageFile,
+  ImageFileService,
+} from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
 import {
   Tag,
   TagSuggestion,
-  TagSuggestionService,
+  TagFrontendService,
 } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
 
 const ImageTagSuggestionPage: React.FC = () => {
@@ -31,6 +34,7 @@ const ImageTagSuggestionPage: React.FC = () => {
     [id: number]: TagSuggestion[];
   }>([]);
   const [tags, setTags] = useState<{ [id: number]: Tag }>({});
+  const [isSubmitted, setSubmitted] = useState<boolean>(false);
 
   const [error, setError] = useState<Error | null>(null);
 
@@ -47,16 +51,60 @@ const ImageTagSuggestionPage: React.FC = () => {
       return;
     }
 
-    TagSuggestionService.SuggestTags(imageFileIds)
+    ImageFileService.ReadImagesByIDs(imageFileIds).then((response) => {
+      const imageFiles = imageFileIds.map((id) => response[id]);
+      setImageFiles(imageFiles);
+      setTagSuggestions(
+        imageFiles.reduce((acc, image) => {
+          acc[image.ID] = [];
+          return acc;
+        }, {} as { [id: number]: TagSuggestion[] })
+      );
+    });
+    TagFrontendService.SuggestTags(imageFileIds)
       .then((response) => {
-        setImageFiles(response.imageFiles);
+        // it's too slow to show image files from a suggestion's result
+        // setImageFiles(response.imageFiles);
         setTagSuggestions(response.suggestions);
         setTags(response.allTags);
       })
       .catch((error) => {
         setError(error);
       });
-  }, [searchParams, selectedScore]);
+  }, [searchParams]);
+
+  function handleSubmit() {
+    setSubmitted(true);
+
+    try {
+      let selectedTags: { [id: number]: number[] } = {};
+      for (const image of imageFiles) {
+        let tags: number[] = [];
+        for (const suggestion of tagSuggestions[image.ID]) {
+          if (suggestion.hasTag) {
+            continue;
+          }
+          if (suggestion.hasDescendantTag) {
+            continue;
+          }
+          if (suggestion.score * 100 < selectedScore) {
+            continue;
+          }
+
+          tags.push(suggestion.tagId);
+        }
+        selectedTags[image.ID] = tags;
+      }
+
+      TagFrontendService.AddSuggestedTags({
+        selectedTags,
+      });
+
+      navigate(-1);
+    } finally {
+      setSubmitted(false);
+    }
+  }
 
   if (error) {
     return <Box>{error.message}</Box>;
@@ -70,13 +118,7 @@ const ImageTagSuggestionPage: React.FC = () => {
         alignItems="center"
         divider={<Divider orientation="vertical" />}
       >
-        <Button
-          color="primary"
-          onClick={() => {
-            // todo: make sure it doesn't cause a problem
-            navigate(-1);
-          }}
-        >
+        <Button color="primary" onClick={handleSubmit} disabled={isSubmitted}>
           Submit
         </Button>
         <Stack direction="row" spacing={2} alignItems="center" flexGrow={1}>

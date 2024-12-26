@@ -91,18 +91,23 @@ func (tester Tester) getReader() *Reader {
 	)
 }
 
-func (tester Tester) getFrontendService() *TagFrontendService {
+type frontendServiceMocks struct {
+	suggestionService *SuggestionService
+}
+
+func (tester Tester) getFrontendService(mocks frontendServiceMocks) *TagFrontendService {
 	return NewFrontendService(
 		tester.logger,
 		tester.dbClient,
 		tester.getReader(),
+		mocks.suggestionService,
 	)
 }
 
 func (tester Tester) getTagSuggestionService(
 	t *testing.T,
 	setupMockClient func(*tag_suggestionv1.MockTagSuggestionServiceClient),
-) *TagSuggestionService {
+) *SuggestionService {
 	t.Helper()
 
 	if tester.mockController == nil {
@@ -113,9 +118,10 @@ func (tester Tester) getTagSuggestionService(
 	setupMockClient(mockSuggestionClient)
 
 	return NewSuggestionService(
+		tester.dbClient,
 		mockSuggestionClient,
-		tester.getFileService(),
 		tester.getReader(),
+		tester.getFileService(),
 	)
 }
 

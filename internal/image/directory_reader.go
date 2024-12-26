@@ -92,7 +92,7 @@ func (service DirectoryReader) ReadChildDirectoriesRecursively(directoryID uint)
 func (service DirectoryReader) ReadAncestors(fileIDs []uint) (map[uint][]Directory, error) {
 	rootDirectory, err := service.ReadDirectoryTree()
 	if err != nil {
-		return nil, fmt.Errorf("service.readDirectoryTree: %w", err)
+		return nil, fmt.Errorf("service.ReadDirectoryTree: %w", err)
 	}
 
 	result := make(map[uint][]Directory, 0)
@@ -117,7 +117,7 @@ func (service DirectoryReader) ReadDirectoryTree() (Directory, error) {
 		return result, fmt.Errorf("db.GetAll: %w", err)
 	}
 	if len(allFiles) == 0 {
-		return result, ErrDirectoryNotFound
+		return result, fmt.Errorf("db.GetAll: %w", ErrDirectoryNotFound)
 	}
 
 	childDirectoryMap := make(map[uint][]*Directory)

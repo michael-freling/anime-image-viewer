@@ -2,29 +2,37 @@ package tag
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
+	"github.com/michael-freling/anime-image-viewer/internal/frontend"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type TagFrontendService struct {
 	logger   *slog.Logger
 	dbClient *db.Client
 
-	reader *Reader
+	reader            *Reader
+	suggestionService *SuggestionService
 }
 
 func NewFrontendService(
 	logger *slog.Logger,
 	dbClient *db.Client,
 	reader *Reader,
+	suggestionService *SuggestionService,
 ) *TagFrontendService {
 	return &TagFrontendService{
-		logger:   logger,
-		dbClient: dbClient,
-		reader:   reader,
+		logger:            logger,
+		dbClient:          dbClient,
+		reader:            reader,
+		suggestionService: suggestionService,
 	}
 }
 
@@ -229,8 +237,9 @@ func (service TagFrontendService) BatchUpdateTagsForFiles(fileIDs []uint, addedT
 			}
 
 			createdFileTags = append(createdFileTags, db.FileTag{
-				TagID:  tagID,
-				FileID: fileID,
+				TagID:   tagID,
+				FileID:  fileID,
+				AddedBy: db.FileTagAddedByUser,
 			})
 		}
 	}
@@ -255,4 +264,80 @@ func (service TagFrontendService) BatchUpdateTagsForFiles(fileIDs []uint, addedT
 		return fmt.Errorf("db.NewTransaction: %w", err)
 	}
 	return nil
+}
+
+type SuggestTagsResponse struct {
+	ImageFiles []image.ImageFile `json:"imageFiles"`
+
+	// Suggestions maps image file IDs to tag suggestions
+	Suggestions map[uint][]TagSuggestion `json:"suggestions"`
+
+	// AllTags maps tag IDs to tags
+	AllTags map[uint]Tag `json:"allTags"`
+}
+
+func (service TagFrontendService) SuggestTags(ctx context.Context, imageFileIDs []uint) (SuggestTagsResponse, error) {
+	if len(imageFileIDs) == 0 {
+		return SuggestTagsResponse{}, fmt.Errorf("%w: imageFileIDs is required", frontend.ErrInvalidArgument)
+	}
+	response, err := service.suggestionService.suggestTags(ctx, imageFileIDs)
+	if err != nil {
+		grpcStatusCode := status.Code(err)
+		unexpectedErrorCode := []codes.Code{
+			codes.Internal,
+			codes.Unknown,
+		}
+		if !slices.Contains(unexpectedErrorCode, grpcStatusCode) {
+			return SuggestTagsResponse{}, fmt.Errorf("suggestionService.suggestTags > %w", err)
+		}
+		if errors.Is(err, image.ErrImageFileNotFound) {
+			return SuggestTagsResponse{}, fmt.Errorf("failed to find an image: %w", err)
+		}
+
+		service.logger.Error("failed to suggest tags",
+			"imageFileIDs", imageFileIDs,
+			"error", err,
+		)
+		return SuggestTagsResponse{}, fmt.Errorf("failed to suggest tags")
+	}
+	return response, nil
+}
+
+type AddSuggestedTagsRequest struct {
+	// fileID -> tagID
+	SelectedTags map[uint][]uint `json:"selectedTags"`
+}
+
+type AddSuggestedTagsResponse struct {
+	// todo: add addedTags if necessary
+	// addedTags      map[uint][]uint `json:"succeededTags"`
+	DuplicatedTags map[uint][]uint `json:"duplicatedTags"`
+}
+
+func (service TagFrontendService) AddSuggestedTags(ctx context.Context, request AddSuggestedTagsRequest) (AddSuggestedTagsResponse, error) {
+	if len(request.SelectedTags) == 0 {
+		return AddSuggestedTagsResponse{}, nil
+	}
+
+	logger := service.logger
+	logger.DebugContext(ctx, "add suggested tags request",
+		"request", request,
+	)
+
+	duplicatedTags, err := service.suggestionService.addSuggestedTags(ctx, request.SelectedTags)
+	if len(duplicatedTags) == 0 {
+		duplicatedTags = nil
+	}
+	response := AddSuggestedTagsResponse{
+		DuplicatedTags: duplicatedTags,
+	}
+	if err != nil {
+		logger.Error("failed to add suggested tags",
+			"request", request,
+			"error", err,
+		)
+		return response, fmt.Errorf("failed to add tags")
+		// return response, err
+	}
+	return response, nil
 }

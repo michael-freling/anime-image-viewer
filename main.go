@@ -125,6 +125,12 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 		logger,
 		dbClient,
 		tagReader,
+		tag.NewSuggestionService(
+			dbClient,
+			tagSuggestionServiceClient,
+			tagReader,
+			imageFileService,
+		),
 	)
 
 	title := "anime-image-viewer"
@@ -141,11 +147,6 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 			application.NewService(imageFileService),
 			application.NewService(directoryService),
 			application.NewService(tagService),
-			application.NewService(tag.NewSuggestionService(
-				tagSuggestionServiceClient,
-				imageFileService,
-				tagReader,
-			)),
 			application.NewService(configService),
 			application.NewService(
 				image.NewStaticFileService(logger, conf),

@@ -12,13 +12,13 @@ import (
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
+	"github.com/michael-freling/anime-image-viewer/internal/frontend"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 var (
 	ErrDirectoryNotFound      = errors.New("directory not found")
 	ErrDirectoryAlreadyExists = errors.New("directory already exists")
-	ErrInvalidArgument        = errors.New("invalid argument")
 	ErrImageFileNotFound      = errors.New("image file not found")
 )
 
@@ -253,7 +253,7 @@ func (service DirectoryService) UpdateName(id uint, name string) (Directory, err
 		return Directory{}, fmt.Errorf("%w for id: %d", ErrDirectoryNotFound, id)
 	}
 	if directory.Name == name {
-		return directory, fmt.Errorf("%w: directory name hasn't been changed: %s", ErrInvalidArgument, name)
+		return directory, fmt.Errorf("%w: directory name hasn't been changed: %s", frontend.ErrInvalidArgument, name)
 	}
 	if _, err := os.Stat(directory.Path); err != nil {
 		if errors.Is(err, fs.ErrNotExist) {

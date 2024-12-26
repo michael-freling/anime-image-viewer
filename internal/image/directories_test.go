@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
+	"github.com/michael-freling/anime-image-viewer/internal/frontend"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -297,7 +298,7 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 			makeDirectories: []string{"directory1"},
 			directoryID:     1,
 			newName:         "directory1",
-			wantErr:         ErrInvalidArgument,
+			wantErr:         frontend.ErrInvalidArgument,
 		},
 	}
 

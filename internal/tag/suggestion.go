@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
 	tag_suggestionv1 "github.com/michael-freling/anime-image-viewer/plugins/plugins-protos/gen/go/tag_suggestion/v1"
 	"golang.org/x/sync/errgroup"
@@ -17,35 +18,32 @@ type TagSuggestion struct {
 	HasDescendantTag bool    `json:"hasDescendantTag"`
 }
 
-type TagSuggestionService struct {
+type SuggestionService struct {
+	dbClient             *db.Client
 	suggestServiceClient tag_suggestionv1.TagSuggestionServiceClient
-	imageFileService     *image.ImageFileService
-	reader               *Reader
+
+	reader *Reader
+
+	imageFileService *image.ImageFileService
 }
 
 func NewSuggestionService(
+	dbClient *db.Client,
 	tagSuggestionClient tag_suggestionv1.TagSuggestionServiceClient,
-	imageFileService *image.ImageFileService,
 	reader *Reader,
-) *TagSuggestionService {
-	return &TagSuggestionService{
+	imageFileService *image.ImageFileService,
+) *SuggestionService {
+	return &SuggestionService{
+		dbClient:             dbClient,
 		suggestServiceClient: tagSuggestionClient,
-		imageFileService:     imageFileService,
-		reader:               reader,
+
+		reader: reader,
+
+		imageFileService: imageFileService,
 	}
 }
 
-type SuggestTagsResponse struct {
-	ImageFiles []image.ImageFile `json:"imageFiles"`
-
-	// Suggestions maps image file IDs to tag suggestions
-	Suggestions map[uint][]TagSuggestion `json:"suggestions"`
-
-	// AllTags maps tag IDs to tags
-	AllTags map[uint]Tag `json:"allTags"`
-}
-
-func (service *TagSuggestionService) SuggestTags(ctx context.Context, imageFileIDs []uint) (SuggestTagsResponse, error) {
+func (service *SuggestionService) suggestTags(ctx context.Context, imageFileIDs []uint) (SuggestTagsResponse, error) {
 	imageFileMap, err := service.imageFileService.ReadImagesByIDs(ctx, imageFileIDs)
 	if err != nil {
 		return SuggestTagsResponse{}, fmt.Errorf("imageFileService.getImagesByIDs: %w", err)
@@ -104,12 +102,11 @@ func (service *TagSuggestionService) SuggestTags(ctx context.Context, imageFileI
 		"response", response,
 	)
 
-	imageFiles := make([]image.ImageFile, len(imageFileIDs))
+	// imageFiles := make([]image.ImageFile, len(imageFileIDs))
 	suggestionsForImageFiles := make(map[uint][]TagSuggestion, len(response.Suggestions))
 	for index, imageFileID := range imageFileIDs {
-		imageFile := imageFileMap[imageFileID]
-		imageFiles[index] = imageFile
-
+		// imageFile := imageFileMap[imageFileID]
+		// imageFiles[index] = imageFile
 		batchTagChecker := tagChecker.GetTagCheckerForImageFileID(imageFileID)
 		tagSuggestion := response.Suggestions[index]
 		suggestions := make([]TagSuggestion, 0, len(tagSuggestion.Scores))
@@ -129,12 +126,52 @@ func (service *TagSuggestionService) SuggestTags(ctx context.Context, imageFileI
 				HasDescendantTag: batchTagChecker.hasDecendantTag(tag.ID),
 			})
 		}
-		suggestionsForImageFiles[imageFile.ID] = suggestions
+		suggestionsForImageFiles[imageFileID] = suggestions
 	}
 
 	return SuggestTagsResponse{
-		ImageFiles:  imageFiles,
+		// ImageFiles:  imageFiles,
 		Suggestions: suggestionsForImageFiles,
 		AllTags:     allTagMap,
 	}, nil
+}
+
+func (service *SuggestionService) addSuggestedTags(ctx context.Context, selectedTags map[uint][]uint) (map[uint][]uint, error) {
+	fileIDs := make([]uint, len(selectedTags))
+	for fileID := range selectedTags {
+		fileIDs = append(fileIDs, fileID)
+	}
+	batchTagChecker, err := service.reader.CreateBatchTagCheckerByFileIDs(ctx, fileIDs)
+	if err != nil {
+		return nil, fmt.Errorf("tagService.CreateBatchTagCheckerByFileIDs: %w", err)
+	}
+
+	duplicatedTags := make(map[uint][]uint)
+	fileTags := db.FileTagList{}
+	for fileID, tags := range selectedTags {
+		tagChecker := batchTagChecker.GetTagCheckerForImageFileID(fileID)
+		for _, tagID := range tags {
+			if tagChecker.hasTag(tagID) || tagChecker.hasDecendantTag(tagID) {
+				if _, ok := duplicatedTags[fileID]; !ok {
+					duplicatedTags[fileID] = make([]uint, 0)
+				}
+				duplicatedTags[fileID] = append(duplicatedTags[fileID], tagID)
+				continue
+			}
+
+			fileTags = append(fileTags, db.FileTag{
+				FileID:  fileID,
+				TagID:   tagID,
+				AddedBy: db.FileTagAddedBySuggestion,
+			})
+		}
+	}
+	if len(fileTags) == 0 {
+		return duplicatedTags, nil
+	}
+
+	if err := db.BatchCreate(service.dbClient, fileTags); err != nil {
+		return duplicatedTags, fmt.Errorf("db.BatchCreate: %w", err)
+	}
+	return duplicatedTags, nil
 }
