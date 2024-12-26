@@ -18,6 +18,12 @@ import (
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 )
 
+type File struct {
+	ID       uint
+	Name     string
+	ParentID uint
+}
+
 type ImageFile struct {
 	ID            uint
 	Name          string
@@ -119,7 +125,7 @@ func NewFileService(
 	}
 }
 
-func (service *ImageFileService) readImagesByIDs(ctx context.Context, imageFileIDs []uint) (map[uint]ImageFile, error) {
+func (service *ImageFileService) ReadImagesByIDs(ctx context.Context, imageFileIDs []uint) (map[uint]ImageFile, error) {
 	dbImageFiles, err := service.dbClient.File().FindImageFilesByIDs(imageFileIDs)
 	if err != nil {
 		return nil, fmt.Errorf("FindImageFilesByIDs: %w", err)
@@ -134,7 +140,7 @@ func (service *ImageFileService) readImagesByIDs(ctx context.Context, imageFileI
 		dbParentIDs = append(dbParentIDs, dbImageFile.ParentID)
 	}
 
-	parentDirectories, err := service.directoryReader.readDirectories(dbParentIDs)
+	parentDirectories, err := service.directoryReader.ReadDirectories(dbParentIDs)
 	if err != nil && !errors.Is(err, ErrDirectoryNotFound) {
 		return nil, fmt.Errorf("directoryReader.readDirectories: %w", err)
 	}
@@ -147,7 +153,7 @@ func (service *ImageFileService) readImagesByIDs(ctx context.Context, imageFileI
 	for _, dbImageFile := range dbImageFiles {
 		parentDirectory := parentDirectoriesMap[dbImageFile.ParentID]
 
-		imageFile, err := service.imageFileConverter.convertImageFile(parentDirectory, dbImageFile)
+		imageFile, err := service.imageFileConverter.ConvertImageFile(parentDirectory, dbImageFile)
 		if err != nil {
 			return nil, fmt.Errorf("convertImageFile: %w", err)
 		}
@@ -235,7 +241,7 @@ func (service *ImageFileService) importImageFiles(ctx context.Context, destinati
 			imageErrors = append(imageErrors, fmt.Errorf("copy: %w", err))
 			continue
 		}
-		resultImage, err := service.imageFileConverter.convertImageFile(destinationParentDirectory, image)
+		resultImage, err := service.imageFileConverter.ConvertImageFile(destinationParentDirectory, image)
 		if err != nil {
 			imageErrors = append(imageErrors, fmt.Errorf("convertImageFile: %w", err))
 			continue
@@ -283,7 +289,7 @@ func NewImageFileConverter(config config.Config) *ImageFileConverter {
 	}
 }
 
-func (converter ImageFileConverter) convertImageFile(parentDirectory Directory, imageFile db.File) (ImageFile, error) {
+func (converter ImageFileConverter) ConvertImageFile(parentDirectory Directory, imageFile db.File) (ImageFile, error) {
 	imageFilePath := filepath.Join(parentDirectory.Path, imageFile.Name)
 	if _, err := os.Stat(imageFilePath); err != nil {
 		return ImageFile{}, fmt.Errorf("os.Stat: %w", err)

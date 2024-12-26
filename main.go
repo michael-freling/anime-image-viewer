@@ -12,6 +12,7 @@ import (
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
+	"github.com/michael-freling/anime-image-viewer/internal/tag"
 	tag_suggestionv1 "github.com/michael-freling/anime-image-viewer/plugins/plugins-protos/gen/go/tag_suggestion/v1"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"google.golang.org/grpc"
@@ -119,11 +120,11 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 		imageFileService,
 		directoryReader,
 	)
-	tagService := image.NewTagService(
+	tagReader := tag.NewReader(dbClient, directoryReader, imageFileConverter)
+	tagService := tag.NewFrontendService(
 		logger,
 		dbClient,
-		directoryReader,
-		imageFileConverter,
+		tagReader,
 	)
 
 	title := "anime-image-viewer"
@@ -140,10 +141,10 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 			application.NewService(imageFileService),
 			application.NewService(directoryService),
 			application.NewService(tagService),
-			application.NewService(image.NewTagSuggestionService(
+			application.NewService(tag.NewSuggestionService(
 				tagSuggestionServiceClient,
 				imageFileService,
-				tagService,
+				tagReader,
 			)),
 			application.NewService(configService),
 			application.NewService(

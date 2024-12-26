@@ -9,7 +9,7 @@ import (
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
-	"github.com/michael-freling/anime-image-viewer/internal/image"
+	"github.com/michael-freling/anime-image-viewer/internal/export"
 )
 
 func main() {
@@ -44,7 +44,7 @@ func runMain(logger *slog.Logger) error {
 		return fmt.Errorf("db.FromConfig: %w", err)
 	}
 
-	service := image.NewExportService(logger, conf, dbClient)
+	service := export.NewExportService(logger, conf, dbClient)
 	if err := service.ExportAll(context.Background(), exportDirectory); err != nil {
 		return fmt.Errorf("service.ExportAll: %w", err)
 	}

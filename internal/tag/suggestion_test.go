@@ -1,4 +1,4 @@
-package image
+package tag
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
+	"github.com/michael-freling/anime-image-viewer/internal/image"
 	tag_suggestionv1 "github.com/michael-freling/anime-image-viewer/plugins/plugins-protos/gen/go/tag_suggestion/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,11 +30,11 @@ func TestTagSuggestionService_Suggest(t *testing.T) {
 	tester.copyImageFile(t, "image.jpg", filepath.Join("Directory 1", "Directory 10", "Directory 100", "image101.jpg"))
 
 	fileBuilder := tester.newFileBuilder().
-		addDirectory(Directory{ID: 1, Name: "Directory 1"}).
-		addDirectory(Directory{ID: 10, Name: "Directory 10", ParentID: 1}).
-		addImageFile(ImageFile{ID: 11, Name: "image11.jpg", ParentID: 10, ContentType: "image/jpeg"}).
-		addDirectory(Directory{ID: 100, Name: "Directory 100", ParentID: 10}).
-		addImageFile(ImageFile{ID: 101, Name: "image101.jpg", ParentID: 100, ContentType: "image/jpeg"})
+		addDirectory(image.Directory{ID: 1, Name: "Directory 1"}).
+		addDirectory(image.Directory{ID: 10, Name: "Directory 10", ParentID: 1}).
+		addImageFile(image.ImageFile{ID: 11, Name: "image11.jpg", ParentID: 10, ContentType: "image/jpeg"}).
+		addDirectory(image.Directory{ID: 100, Name: "Directory 100", ParentID: 10}).
+		addImageFile(image.ImageFile{ID: 101, Name: "image101.jpg", ParentID: 100, ContentType: "image/jpeg"})
 
 	// See the full list of how it should behave in /docs/features/tag_suggestion.md
 	testCases := []struct {
@@ -116,7 +117,7 @@ func TestTagSuggestionService_Suggest(t *testing.T) {
 					}, nil)
 			},
 			want: SuggestTagsResponse{
-				ImageFiles: []ImageFile{
+				ImageFiles: []image.ImageFile{
 					fileBuilder.buildImageFile(11),
 					fileBuilder.buildImageFile(101),
 				},
@@ -177,7 +178,7 @@ func TestTagSuggestionService_Suggest(t *testing.T) {
 					Suggest(gomock.Any(), gomock.Any()).
 					Times(0)
 			},
-			wantError: ErrImageFileNotFound,
+			wantError: image.ErrImageFileNotFound,
 		},
 	}
 

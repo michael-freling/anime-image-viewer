@@ -14,6 +14,7 @@ import (
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
+	"github.com/michael-freling/anime-image-viewer/internal/tag"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -21,23 +22,23 @@ type ExportService struct {
 	logger          *slog.Logger
 	dbClient        *db.Client
 	directoryReader *image.DirectoryReader
-	tagService      *image.TagService
+	tagReader       *tag.Reader
 }
 
 func NewExportService(logger *slog.Logger, conf config.Config, dbClient *db.Client) *ExportService {
 	directoryReader := image.NewDirectoryReader(conf, dbClient)
 	imageFileConverter := image.NewImageFileConverter(conf)
-	tagService := image.NewTagService(
-		logger,
+	tagReader := tag.NewReader(
 		dbClient,
 		directoryReader,
 		imageFileConverter,
 	)
+
 	return &ExportService{
 		logger:          logger,
 		dbClient:        dbClient,
 		directoryReader: directoryReader,
-		tagService:      tagService,
+		tagReader:       tagReader,
 	}
 }
 
@@ -51,9 +52,9 @@ type Metadata struct {
 func (service ExportService) ExportAll(ctx context.Context, exportDirectory string) error {
 	// imageFileService := image.NewFileService(logger, dbClient)
 	// imageDirectoryService := image.NewDirectoryService(logger, conf, dbClient, imageFileService)
-	allTags, err := service.tagService.GetAll()
+	allTags, err := service.tagReader.ReadAllTags()
 	if err != nil {
-		return fmt.Errorf("tagService.GetAll: %w", err)
+		return fmt.Errorf("tagReader.ReadAllTags: %w", err)
 	}
 	alLTagsMarshaled, err := json.Marshal(allTags)
 	if err != nil {
@@ -76,7 +77,7 @@ func (service ExportService) ExportAll(ctx context.Context, exportDirectory stri
 	return nil
 }
 
-func (service ExportService) ExportImages(ctx context.Context, rootExportDirectory string, allTags []image.Tag) error {
+func (service ExportService) ExportImages(ctx context.Context, rootExportDirectory string, allTags []tag.Tag) error {
 	// splits := []string{"train", "validation"}
 	splits := []string{"train"}
 	for _, split := range splits {
@@ -86,7 +87,7 @@ func (service ExportService) ExportImages(ctx context.Context, rootExportDirecto
 		}
 	}
 
-	maxTagID := image.GetMaxTagID(allTags)
+	maxTagID := tag.GetMaxTagID(allTags)
 	rootDirectory, err := service.directoryReader.ReadDirectoryTree()
 	if err != nil {
 		return fmt.Errorf("readDirectoryTree: %w", err)
@@ -129,7 +130,7 @@ func (service ExportService) ExportImages(ctx context.Context, rootExportDirecto
 		}
 	}
 
-	batchTagChecker, err := service.tagService.CreateBatchTagCheckerByFileIDs(ctx, allImageFileIDs)
+	batchTagChecker, err := service.tagReader.CreateBatchTagCheckerByFileIDs(ctx, allImageFileIDs)
 	if err != nil {
 		return fmt.Errorf("ReadTagsByFileIDs: %w", err)
 	}

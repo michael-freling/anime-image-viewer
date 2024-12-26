@@ -49,7 +49,7 @@ func (service DirectoryReader) ReadImageFiles(parentDirectoryID uint) ([]ImageFi
 	imageFileErrors := make([]error, 0)
 	result := make([]ImageFile, 0)
 	for _, imageFile := range imageFiles {
-		imageFile, err := service.converter.convertImageFile(parentDirectory, imageFile)
+		imageFile, err := service.converter.ConvertImageFile(parentDirectory, imageFile)
 		if err != nil {
 			imageFileErrors = append(imageFileErrors, err)
 			continue
@@ -88,8 +88,8 @@ func (service DirectoryReader) ReadChildDirectoriesRecursively(directoryID uint)
 	}), nil
 }
 
-// readAncestors reads the ancestors of the given file IDs, including the file itself.
-func (service DirectoryReader) readAncestors(fileIDs []uint) (map[uint][]Directory, error) {
+// ReadAncestors reads the ancestors of the given file IDs, including the file itself.
+func (service DirectoryReader) ReadAncestors(fileIDs []uint) (map[uint][]Directory, error) {
 	rootDirectory, err := service.ReadDirectoryTree()
 	if err != nil {
 		return nil, fmt.Errorf("service.readDirectoryTree: %w", err)
@@ -165,7 +165,7 @@ func (service DirectoryReader) ReadDirectoryTree() (Directory, error) {
 	return *root, nil
 }
 
-func (service DirectoryReader) readDirectories(directoryIDs []uint) (map[uint]Directory, error) {
+func (service DirectoryReader) ReadDirectories(directoryIDs []uint) (map[uint]Directory, error) {
 	directoryTree, err := service.ReadDirectoryTree()
 	if err != nil {
 		return nil, fmt.Errorf("service.readDirectoryTree: %w", err)
@@ -174,7 +174,7 @@ func (service DirectoryReader) readDirectories(directoryIDs []uint) (map[uint]Di
 	dirErrors := make([]error, 0)
 	result := make(map[uint]Directory, 0)
 	for _, directoryID := range directoryIDs {
-		directory := directoryTree.findChildByID(directoryID)
+		directory := directoryTree.FindChildByID(directoryID)
 		if directory.ID == 0 {
 			dirErrors = append(dirErrors, fmt.Errorf("%w: %d", ErrDirectoryNotFound, directoryID))
 		}
@@ -194,7 +194,7 @@ func (service DirectoryReader) readDirectory(directoryID uint) (Directory, error
 	if directoryID == db.RootDirectoryID {
 		return directoryTree, nil
 	}
-	dir := directoryTree.findChildByID(directoryID)
+	dir := directoryTree.FindChildByID(directoryID)
 	if dir.ID == 0 {
 		return Directory{}, ErrDirectoryNotFound
 	}

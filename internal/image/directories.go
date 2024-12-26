@@ -19,6 +19,7 @@ var (
 	ErrDirectoryNotFound      = errors.New("directory not found")
 	ErrDirectoryAlreadyExists = errors.New("directory already exists")
 	ErrInvalidArgument        = errors.New("invalid argument")
+	ErrImageFileNotFound      = errors.New("image file not found")
 )
 
 type Directory struct {
@@ -38,12 +39,12 @@ func (directory Directory) toFile() File {
 	}
 }
 
-func (directory Directory) toFlatIDMap() map[uint][]uint {
+func (directory Directory) ToFlatIDMap() map[uint][]uint {
 	result := make(map[uint][]uint, 0)
 
 	ids := make([]uint, 0)
 	for _, child := range directory.Children {
-		for id, childIDs := range child.toFlatIDMap() {
+		for id, childIDs := range child.ToFlatIDMap() {
 			result[id] = childIDs
 			ids = append(ids, childIDs...)
 		}
@@ -90,12 +91,12 @@ func (directory Directory) findAncestors(fileID uint) []Directory {
 	return nil
 }
 
-func (parent Directory) findChildByID(ID uint) Directory {
+func (parent Directory) FindChildByID(ID uint) Directory {
 	for _, child := range parent.Children {
 		if child.ID == ID {
 			return *child
 		}
-		result := child.findChildByID(ID)
+		result := child.FindChildByID(ID)
 		if result.ID != 0 {
 			return result
 		}
@@ -103,11 +104,11 @@ func (parent Directory) findChildByID(ID uint) Directory {
 	return Directory{}
 }
 
-func (parent Directory) getDescendants() []Directory {
+func (parent Directory) GetDescendants() []Directory {
 	result := make([]Directory, 0)
 	for _, child := range parent.Children {
 		result = append(result, *child)
-		result = append(result, child.getDescendants()...)
+		result = append(result, child.GetDescendants()...)
 	}
 	return result
 }

@@ -1,36 +1,14 @@
-package image
+package tag
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 
+	"github.com/michael-freling/anime-image-viewer/internal/image"
 	tag_suggestionv1 "github.com/michael-freling/anime-image-viewer/plugins/plugins-protos/gen/go/tag_suggestion/v1"
 	"golang.org/x/sync/errgroup"
 )
-
-var (
-	ErrImageFileNotFound = errors.New("no image file was found")
-)
-
-type TagSuggestionService struct {
-	suggestServiceClient tag_suggestionv1.TagSuggestionServiceClient
-	imageFileService     *ImageFileService
-	tagService           *TagService
-}
-
-func NewTagSuggestionService(
-	tagSuggestionClient tag_suggestionv1.TagSuggestionServiceClient,
-	imageFileService *ImageFileService,
-	tagService *TagService,
-) *TagSuggestionService {
-	return &TagSuggestionService{
-		suggestServiceClient: tagSuggestionClient,
-		imageFileService:     imageFileService,
-		tagService:           tagService,
-	}
-}
 
 type TagSuggestion struct {
 	TagID            uint    `json:"tagId"`
@@ -39,8 +17,26 @@ type TagSuggestion struct {
 	HasDescendantTag bool    `json:"hasDescendantTag"`
 }
 
+type TagSuggestionService struct {
+	suggestServiceClient tag_suggestionv1.TagSuggestionServiceClient
+	imageFileService     *image.ImageFileService
+	reader               *Reader
+}
+
+func NewSuggestionService(
+	tagSuggestionClient tag_suggestionv1.TagSuggestionServiceClient,
+	imageFileService *image.ImageFileService,
+	reader *Reader,
+) *TagSuggestionService {
+	return &TagSuggestionService{
+		suggestServiceClient: tagSuggestionClient,
+		imageFileService:     imageFileService,
+		reader:               reader,
+	}
+}
+
 type SuggestTagsResponse struct {
-	ImageFiles []ImageFile `json:"imageFiles"`
+	ImageFiles []image.ImageFile `json:"imageFiles"`
 
 	// Suggestions maps image file IDs to tag suggestions
 	Suggestions map[uint][]TagSuggestion `json:"suggestions"`
@@ -50,12 +46,12 @@ type SuggestTagsResponse struct {
 }
 
 func (service *TagSuggestionService) SuggestTags(ctx context.Context, imageFileIDs []uint) (SuggestTagsResponse, error) {
-	imageFileMap, err := service.imageFileService.readImagesByIDs(ctx, imageFileIDs)
+	imageFileMap, err := service.imageFileService.ReadImagesByIDs(ctx, imageFileIDs)
 	if err != nil {
 		return SuggestTagsResponse{}, fmt.Errorf("imageFileService.getImagesByIDs: %w", err)
 	}
 	if len(imageFileMap) == 0 {
-		return SuggestTagsResponse{}, fmt.Errorf("%w by IDs: %v", ErrImageFileNotFound, imageFileIDs)
+		return SuggestTagsResponse{}, fmt.Errorf("%w by IDs: %v", image.ErrImageFileNotFound, imageFileIDs)
 	}
 
 	imageUrls := make([]string, len(imageFileMap))
@@ -79,13 +75,13 @@ func (service *TagSuggestionService) SuggestTags(ctx context.Context, imageFileI
 	var allTagMap map[uint]Tag
 	var tagChecker BatchImageTagChecker
 	eg.Go(func() error {
-		allTags, err := service.tagService.GetAll()
+		allTags, err := service.reader.ReadAllTags()
 		if err != nil {
-			return fmt.Errorf("tagService.GetAll: %w", err)
+			return fmt.Errorf("reader.ReadAllTags: %w", err)
 		}
 		allTagMap = convertTagsToMap(allTags)
 
-		tagChecker, err = service.tagService.CreateBatchTagCheckerByFileIDs(
+		tagChecker, err = service.reader.CreateBatchTagCheckerByFileIDs(
 			childCtx,
 			imageFileIDs,
 		)
@@ -108,7 +104,7 @@ func (service *TagSuggestionService) SuggestTags(ctx context.Context, imageFileI
 		"response", response,
 	)
 
-	imageFiles := make([]ImageFile, len(imageFileIDs))
+	imageFiles := make([]image.ImageFile, len(imageFileIDs))
 	suggestionsForImageFiles := make(map[uint][]TagSuggestion, len(response.Suggestions))
 	for index, imageFileID := range imageFileIDs {
 		imageFile := imageFileMap[imageFileID]

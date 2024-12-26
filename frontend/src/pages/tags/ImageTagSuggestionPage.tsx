@@ -12,12 +12,12 @@ import {
 import { useNavigate, useSearchParams } from "react-router";
 import LazyImage from "../../components/LazyImage";
 import { useEffect, useState } from "react";
+import { ImageFile } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
 import {
-  ImageFile,
   Tag,
   TagSuggestion,
   TagSuggestionService,
-} from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
+} from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
 
 const ImageTagSuggestionPage: React.FC = () => {
   const navigate = useNavigate();

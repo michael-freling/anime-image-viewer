@@ -100,7 +100,7 @@ func TestImageFileService_importImageFiles(t *testing.T) {
 		{
 			name: "succeed to import an image file without an error",
 			sourceFilePaths: []string{
-				tempDir + "/testdata/image2.jpg",
+				filepath.Join(tester.config.ImageRootDirectory, "testdata", "image2.jpg"),
 			},
 			destinationDirectory: fileBuilder.buildDirectory(1),
 			want: []ImageFile{
@@ -114,8 +114,8 @@ func TestImageFileService_importImageFiles(t *testing.T) {
 		{
 			name: "succeed to import image files with errors",
 			sourceFilePaths: []string{
-				"testdata/image.jpg",
-				"testdata/image.txt",
+				tester.getTestFilePath("image.jpg"),
+				tester.getTestFilePath("image.txt"),
 				filepath.Join(tempDir, duplicatedFileInFS),
 				filepath.Join(tempDir, duplicatedFileInDB),
 			},
@@ -142,8 +142,9 @@ func TestImageFileService_importImageFiles(t *testing.T) {
 				uw, ok := gotErrs.(interface{ Unwrap() []error })
 				assert.True(t, ok)
 				assert.Len(t, uw.Unwrap(), len(tc.wantErrors))
-				for index, gotErr := range uw.Unwrap() {
-					wantErr := tc.wantErrors[index]
+				unwrappedErrors := uw.Unwrap()
+				for index, wantErr := range tc.wantErrors {
+					gotErr := unwrappedErrors[index]
 					assert.ErrorIs(t, gotErr, wantErr)
 				}
 			} else {

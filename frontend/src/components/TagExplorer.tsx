@@ -5,8 +5,8 @@ import React, { FC, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Tag,
-  TagService,
-} from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
+  TagFrontendService,
+} from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
 import { ExplorerTreeItem, ExplorerTreeItemProps } from "./ExplorerTreeItem";
 
 const tagsToTreeViewBaseItems = (
@@ -45,7 +45,7 @@ const TagExplorer: FC<TagExplorerProps> = (props) => {
   }, []);
 
   async function refresh() {
-    const tags = await TagService.GetAll();
+    const tags = await TagFrontendService.GetAll();
     setChildren(tags);
   }
 
@@ -58,7 +58,7 @@ const TagExplorer: FC<TagExplorerProps> = (props) => {
   const { title, editable } = props;
   if (editable) {
     const addNewChild = async (parentID: string) => {
-      await TagService.Create({
+      await TagFrontendService.Create({
         Name: "New Tag",
         ParentID: parseInt(parentID, 10),
       });
@@ -88,7 +88,7 @@ const TagExplorer: FC<TagExplorerProps> = (props) => {
               <Button
                 variant="outlined"
                 onClick={async () => {
-                  await TagService.CreateTopTag("New Tag");
+                  await TagFrontendService.CreateTopTag("New Tag");
                   // todo: Update only added tag
                   await refresh();
                 }}
@@ -115,7 +115,7 @@ const TagExplorer: FC<TagExplorerProps> = (props) => {
           experimentalFeatures={{ labelEditing: true }}
           items={treeItems}
           onItemLabelChange={async (itemId, newLabel) => {
-            await TagService.UpdateName(parseInt(itemId, 10), newLabel);
+            await TagFrontendService.UpdateName(parseInt(itemId, 10), newLabel);
             // todo: Update only changed tag
             await refresh();
           }}

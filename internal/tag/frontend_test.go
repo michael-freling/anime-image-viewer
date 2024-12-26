@@ -1,4 +1,4 @@
-package image
+package tag
 
 import (
 	"context"
@@ -7,45 +7,13 @@ import (
 
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
+	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"github.com/michael-freling/anime-image-viewer/internal/xassert"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-type tagBuilder struct {
-	tags map[uint]*Tag
-}
-
-func newTagBuilder() *tagBuilder {
-	return &tagBuilder{
-		tags: make(map[uint]*Tag),
-	}
-}
-
-func (b *tagBuilder) add(tag Tag, parentID uint) *tagBuilder {
-	if parentID != 0 {
-		parent := b.tags[parentID]
-		tag.parent = parent
-		tag.FullName = parent.FullName + " > " + tag.Name
-
-		if parent.Children == nil {
-			parent.Children = []*Tag{}
-		}
-		parent.Children = append(parent.Children, &tag)
-	}
-	if tag.FullName == "" {
-		tag.FullName = tag.Name
-	}
-
-	b.tags[tag.ID] = &tag
-	return b
-}
-
-func (b tagBuilder) build(id uint) Tag {
-	return *b.tags[id]
-}
-
-func TestTagsService_GetAll(t *testing.T) {
+func TestTagFrontendService_GetAll(t *testing.T) {
 	tester := newTester(t)
 	dbClient := tester.dbClient
 
@@ -95,9 +63,7 @@ func TestTagsService_GetAll(t *testing.T) {
 				require.EqualExportedValues(t, tc.tagsInDB[i], allTags[i])
 			}
 
-			service := &TagService{
-				dbClient: dbClient,
-			}
+			service := tester.getFrontendService()
 			got, gotErr := service.GetAll()
 			require.NoError(t, gotErr)
 			assert.Equal(t, tc.want, got)
@@ -105,7 +71,7 @@ func TestTagsService_GetAll(t *testing.T) {
 	}
 }
 
-func TestTagService_ReadTagsByFileIDs(t *testing.T) {
+func TestTagFrontendService_ReadTagsByFileIDs(t *testing.T) {
 	tester := newTester(t)
 	dbClient := tester.dbClient
 
@@ -144,7 +110,7 @@ func TestTagService_ReadTagsByFileIDs(t *testing.T) {
 				{FileID: 100, TagID: 111}, // a tag for a direct file
 			},
 			want: ReadTagsByFileIDsResponse{
-				AncestorMap: map[uint][]File{
+				AncestorMap: map[uint][]image.File{
 					1:  {{ID: 2}, {ID: 100}},
 					11: {{ID: 100}}, // a tag from a parent directory
 				},
@@ -168,7 +134,7 @@ func TestTagService_ReadTagsByFileIDs(t *testing.T) {
 				require.NoError(t, db.BatchCreate(dbClient, tc.insertFileTags))
 			}
 
-			service := tester.getTagService()
+			service := tester.getFrontendService()
 			got, gotErr := service.ReadTagsByFileIDs(context.Background(), tc.fileIDs)
 			if tc.wantErr != nil {
 				assert.ErrorIs(t, gotErr, tc.wantErr)
@@ -180,7 +146,7 @@ func TestTagService_ReadTagsByFileIDs(t *testing.T) {
 	}
 }
 
-func TestTagService_ReadImageFiles(t *testing.T) {
+func TestTagFrontendService_ReadImageFiles(t *testing.T) {
 	tester := newTester(t, withGormLogger(slog.Default()))
 	dbClient := tester.dbClient
 
@@ -197,11 +163,11 @@ func TestTagService_ReadImageFiles(t *testing.T) {
 		add(Tag{ID: 100, Name: "tag 100"}, 10)
 
 	fileBuilder := tester.newFileBuilder().
-		addDirectory(Directory{ID: 1, Name: "Directory 1"}).
-		addDirectory(Directory{ID: 10, Name: "Directory 10", ParentID: 1}).
-		addImageFile(ImageFile{ID: 2, Name: "image file 2", ContentType: "image/jpeg", ParentID: 1}).
-		addImageFile(ImageFile{ID: 3, Name: "image file 3", ContentType: "image/jpeg", ParentID: 1}).
-		addImageFile(ImageFile{ID: 100, Name: "image file 100", ContentType: "image/jpeg", ParentID: 10})
+		addDirectory(image.Directory{ID: 1, Name: "Directory 1"}).
+		addDirectory(image.Directory{ID: 10, Name: "Directory 10", ParentID: 1}).
+		addImageFile(image.ImageFile{ID: 2, Name: "image file 2", ContentType: "image/jpeg", ParentID: 1}).
+		addImageFile(image.ImageFile{ID: 3, Name: "image file 3", ContentType: "image/jpeg", ParentID: 1}).
+		addImageFile(image.ImageFile{ID: 100, Name: "image file 100", ContentType: "image/jpeg", ParentID: 10})
 
 	testCases := []struct {
 		name           string
@@ -241,7 +207,7 @@ func TestTagService_ReadImageFiles(t *testing.T) {
 					tagBuilder.build(10),
 					tagBuilder.build(100),
 				},
-				ImageFiles: map[uint][]ImageFile{
+				ImageFiles: map[uint][]image.ImageFile{
 					1: {
 						fileBuilder.buildImageFile(2),
 						fileBuilder.buildImageFile(3),
@@ -283,7 +249,7 @@ func TestTagService_ReadImageFiles(t *testing.T) {
 				require.NoError(t, db.BatchCreate(dbClient, tc.insertFileTags))
 			}
 
-			got, gotErr := tester.getTagService().ReadImageFiles(tc.tagID)
+			got, gotErr := tester.getFrontendService().ReadImageFiles(tc.tagID)
 			if tc.wantErr != nil {
 				assert.ErrorIs(t, gotErr, tc.wantErr)
 				return
@@ -294,7 +260,7 @@ func TestTagService_ReadImageFiles(t *testing.T) {
 	}
 }
 
-func TestTagService_BatchUpdateTagsForFiles(t *testing.T) {
+func TestTagFrontendService_BatchUpdateTagsForFiles(t *testing.T) {
 	tester := newTester(t)
 	dbClient := tester.dbClient
 
@@ -402,7 +368,7 @@ func TestTagService_BatchUpdateTagsForFiles(t *testing.T) {
 			dbClient.Truncate(&db.FileTag{})
 			require.NoError(t, db.BatchCreate(dbClient, tc.insertFileTags))
 
-			service := &TagService{
+			service := &TagFrontendService{
 				dbClient: dbClient,
 			}
 			gotErr := service.BatchUpdateTagsForFiles(tc.fileIDs, tc.addedTagIDs, tc.deletedTagIDs)

@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDirectoryReader_readAncestors(t *testing.T) {
+func TestDirectoryReader_ReadAncestors(t *testing.T) {
 	tester := newTester(t)
 	dbClient := tester.dbClient
 
@@ -78,7 +78,7 @@ func TestDirectoryReader_readAncestors(t *testing.T) {
 				require.NoError(t, db.BatchCreate(dbClient, tc.insertDirectories))
 			}
 
-			got, gotErr := reader.readAncestors(tc.fileIDs)
+			got, gotErr := reader.ReadAncestors(tc.fileIDs)
 			assert.ErrorIs(t, gotErr, tc.wantErr)
 			if tc.wantErr != nil {
 				return

@@ -1,7 +1,7 @@
 import { Box, Button, Stack, Typography } from "@mui/joy";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { TagService } from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
+import { TagFrontendService } from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
 import SelectTagExplorer from "../components/SelectTagExplorer";
 
 const ImageTagEditPage = () => {
@@ -14,7 +14,7 @@ const ImageTagEditPage = () => {
   const [deletedTagIds, setDeletedTagIds] = useState<number[]>([]);
 
   const updateImageTags = async () => {
-    await TagService.BatchUpdateTagsForFiles(
+    await TagFrontendService.BatchUpdateTagsForFiles(
       imageIds,
       addedTagIds,
       deletedTagIds

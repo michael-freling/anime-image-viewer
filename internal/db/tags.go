@@ -37,9 +37,17 @@ func (client TagClient) FindAllByTagIDs(tagIDs []uint) (TagList, error) {
 	return values, err
 }
 
+type FileTagAddedBy string
+
+const (
+	FileTagAddedByUser       FileTagAddedBy = "user"
+	FileTagAddedBySuggestion FileTagAddedBy = "tag-suggestion"
+)
+
 type FileTag struct {
 	TagID     uint `gorm:"primaryKey;autoIncrement:false"`
 	FileID    uint `gorm:"primaryKey;autoIncrement:false"`
+	AddedBy   FileTagAddedBy
 	CreatedAt uint `gorm:"autoCreateTime"`
 }
 

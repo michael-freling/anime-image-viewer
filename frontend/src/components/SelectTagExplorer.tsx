@@ -5,8 +5,8 @@ import React, { FC, useEffect, useState } from "react";
 import {
   ReadTagsByFileIDsResponse,
   Tag,
-  TagService,
-} from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
+  TagFrontendService,
+} from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
 import { ExplorerTreeItemWithCheckbox } from "./ExplorerTreeItem";
 
 const tagsToTreeViewBaseItems = (
@@ -85,14 +85,14 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
   }, []);
 
   async function refresh() {
-    const tags = await TagService.GetAll();
+    const tags = await TagFrontendService.GetAll();
     setChildren(tags);
     // setMap(getTagMap(tags));
     if (tagStatsLoaded) {
       return;
     }
 
-    const response = await TagService.ReadTagsByFileIDs(fileIds);
+    const response = await TagFrontendService.ReadTagsByFileIDs(fileIds);
     setTagStats(response);
     setTagStatsLoaded(true);
   }

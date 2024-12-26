@@ -9,7 +9,6 @@ import (
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
-	tag_suggestionv1 "github.com/michael-freling/anime-image-viewer/plugins/plugins-protos/gen/go/tag_suggestion/v1"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -65,9 +64,6 @@ func newTester(t *testing.T, opts ...newTesterOption) Tester {
 }
 
 func (tester Tester) getFileService() *ImageFileService {
-	// todo: currently, file service sets a pointer to a directory service
-	// in NewDirectoryService and has a inter dependency
-	// Fix it in the future
 	return NewFileService(
 		tester.logger,
 		tester.dbClient,
@@ -95,35 +91,6 @@ func (tester Tester) getImageFileConverter() *ImageFileConverter {
 	return NewImageFileConverter(tester.config)
 }
 
-func (tester Tester) getTagService() *TagService {
-	return NewTagService(
-		tester.logger,
-		tester.dbClient,
-		tester.getDirectoryReader(),
-		tester.getImageFileConverter(),
-	)
-}
-
-func (tester Tester) getTagSuggestionService(
-	t *testing.T,
-	setupMockClient func(*tag_suggestionv1.MockTagSuggestionServiceClient),
-) *TagSuggestionService {
-	t.Helper()
-
-	if tester.mockController == nil {
-		tester.mockController = gomock.NewController(t)
-		t.Cleanup(tester.mockController.Finish)
-	}
-	mockSuggestionClient := tag_suggestionv1.NewMockTagSuggestionServiceClient(tester.mockController)
-	setupMockClient(mockSuggestionClient)
-
-	return NewTagSuggestionService(
-		mockSuggestionClient,
-		tester.getFileService(),
-		tester.getTagService(),
-	)
-}
-
 func (tester Tester) createDirectoryInFS(t *testing.T, name string) string {
 	t.Helper()
 
@@ -132,16 +99,18 @@ func (tester Tester) createDirectoryInFS(t *testing.T, name string) string {
 	return path
 }
 
+func (tester Tester) getTestFilePath(filePath string) string {
+	return filepath.Join("..", "..", "testdata", filePath)
+}
+
 func (tester Tester) copyImageFile(t *testing.T, source, destination string) {
 	t.Helper()
 
 	destination = filepath.Join(tester.config.ImageRootDirectory, destination)
-	if err := os.MkdirAll(filepath.Dir(destination), 0755); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(filepath.Dir(destination), 0755))
 
 	_, err := Copy(
-		filepath.Join("testdata", source),
+		filepath.Join("..", "..", "testdata", source),
 		destination,
 	)
 	require.NoError(t, err)
