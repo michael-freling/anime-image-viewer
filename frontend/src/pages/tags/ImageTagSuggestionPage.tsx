@@ -55,8 +55,8 @@ const ImageTagSuggestionPage: React.FC = () => {
       const imageFiles = imageFileIds.map((id) => response[id]);
       setImageFiles(imageFiles);
       setTagSuggestions(
-        imageFiles.reduce((acc, image) => {
-          acc[image.ID] = [];
+        imageFileIds.reduce((acc, id) => {
+          acc[id] = [];
           return acc;
         }, {} as { [id: number]: TagSuggestion[] })
       );
@@ -80,7 +80,7 @@ const ImageTagSuggestionPage: React.FC = () => {
       let selectedTags: { [id: number]: number[] } = {};
       for (const image of imageFiles) {
         let tags: number[] = [];
-        for (const suggestion of tagSuggestions[image.ID]) {
+        for (const suggestion of tagSuggestions[image.id]) {
           if (suggestion.hasTag) {
             continue;
           }
@@ -93,7 +93,7 @@ const ImageTagSuggestionPage: React.FC = () => {
 
           tags.push(suggestion.tagId);
         }
-        selectedTags[image.ID] = tags;
+        selectedTags[image.id] = tags;
       }
 
       TagFrontendService.AddSuggestedTags({
@@ -160,7 +160,7 @@ const ImageTagSuggestionPage: React.FC = () => {
             }}
           >
             <CardOverflow sx={{ width: 240 }}>
-              <LazyImage src={image.Path} />
+              <LazyImage src={image.path} />
             </CardOverflow>
             <CardOverflow
               sx={{
@@ -170,7 +170,7 @@ const ImageTagSuggestionPage: React.FC = () => {
                 overflowY: "auto",
               }}
             >
-              {tagSuggestions[image.ID].map((suggestion) => {
+              {tagSuggestions[image.id].map((suggestion) => {
                 const tagId = suggestion.tagId;
                 if (!(tagId in tags)) {
                   return null;
@@ -187,7 +187,7 @@ const ImageTagSuggestionPage: React.FC = () => {
               })}
               <Divider orientation="horizontal" />
 
-              {tagSuggestions[image.ID].map((suggestion) => {
+              {tagSuggestions[image.id].map((suggestion) => {
                 const tagId = suggestion.tagId;
                 if (!(tagId in tags)) {
                   return null;
