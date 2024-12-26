@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
@@ -21,7 +22,7 @@ type ImageFile struct {
 	ID            uint
 	Name          string
 	Path          string
-	localFilePath string
+	LocalFilePath string
 	ParentID      uint
 	ContentType   string
 }
@@ -41,7 +42,7 @@ var (
 	}
 )
 
-func copy(sourceFilePath, destinationFilePath string) (int64, error) {
+func Copy(sourceFilePath, destinationFilePath string) (int64, error) {
 	source, err := os.Open(sourceFilePath)
 	if err != nil {
 		return 0, fmt.Errorf("os.Open > %W", err)
@@ -98,15 +99,23 @@ func getContentType(file *os.File) (string, error) {
 }
 
 type ImageFileService struct {
-	logger           *slog.Logger
-	dbClient         *db.Client
-	directoryService *DirectoryService
+	logger             *slog.Logger
+	dbClient           *db.Client
+	directoryReader    *DirectoryReader
+	imageFileConverter *ImageFileConverter
 }
 
-func NewFileService(logger *slog.Logger, dbClient *db.Client) *ImageFileService {
+func NewFileService(
+	logger *slog.Logger,
+	dbClient *db.Client,
+	directoryReader *DirectoryReader,
+	imageFileConverter *ImageFileConverter,
+) *ImageFileService {
 	return &ImageFileService{
-		logger:   logger,
-		dbClient: dbClient,
+		logger:             logger,
+		dbClient:           dbClient,
+		directoryReader:    directoryReader,
+		imageFileConverter: imageFileConverter,
 	}
 }
 
@@ -125,9 +134,9 @@ func (service *ImageFileService) readImagesByIDs(ctx context.Context, imageFileI
 		dbParentIDs = append(dbParentIDs, dbImageFile.ParentID)
 	}
 
-	parentDirectories, err := service.directoryService.readDirectories(dbParentIDs)
+	parentDirectories, err := service.directoryReader.readDirectories(dbParentIDs)
 	if err != nil && !errors.Is(err, ErrDirectoryNotFound) {
-		return nil, fmt.Errorf("directoryService.readDirectories: %w", err)
+		return nil, fmt.Errorf("directoryReader.readDirectories: %w", err)
 	}
 	parentDirectoriesMap := make(map[uint]Directory, 0)
 	for _, parentDirectory := range parentDirectories {
@@ -138,7 +147,7 @@ func (service *ImageFileService) readImagesByIDs(ctx context.Context, imageFileI
 	for _, dbImageFile := range dbImageFiles {
 		parentDirectory := parentDirectoriesMap[dbImageFile.ParentID]
 
-		imageFile, err := service.directoryService.convertImageFile(parentDirectory, dbImageFile)
+		imageFile, err := service.imageFileConverter.convertImageFile(parentDirectory, dbImageFile)
 		if err != nil {
 			return nil, fmt.Errorf("convertImageFile: %w", err)
 		}
@@ -222,11 +231,11 @@ func (service *ImageFileService) importImageFiles(ctx context.Context, destinati
 	for index, image := range newImages {
 		sourceFilePath := newImagePaths[index]
 		destinationFilePath := filepath.Join(destinationParentDirectory.Path, image.Name)
-		if _, err := copy(sourceFilePath, destinationFilePath); err != nil {
+		if _, err := Copy(sourceFilePath, destinationFilePath); err != nil {
 			imageErrors = append(imageErrors, fmt.Errorf("copy: %w", err))
 			continue
 		}
-		resultImage, err := service.directoryService.convertImageFile(destinationParentDirectory, image)
+		resultImage, err := service.imageFileConverter.convertImageFile(destinationParentDirectory, image)
 		if err != nil {
 			imageErrors = append(imageErrors, fmt.Errorf("convertImageFile: %w", err))
 			continue
@@ -262,4 +271,43 @@ func (service *StaticFileService) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		"r.URL.Path", r.URL.Path,
 	)
 	service.fileServer.ServeHTTP(w, r)
+}
+
+type ImageFileConverter struct {
+	config config.Config
+}
+
+func NewImageFileConverter(config config.Config) *ImageFileConverter {
+	return &ImageFileConverter{
+		config: config,
+	}
+}
+
+func (converter ImageFileConverter) convertImageFile(parentDirectory Directory, imageFile db.File) (ImageFile, error) {
+	imageFilePath := filepath.Join(parentDirectory.Path, imageFile.Name)
+	if _, err := os.Stat(imageFilePath); err != nil {
+		return ImageFile{}, fmt.Errorf("os.Stat: %w", err)
+	}
+	file, err := os.Open(imageFilePath)
+	if err != nil {
+		return ImageFile{}, fmt.Errorf("os.Open: %w", err)
+	}
+	defer file.Close()
+	contentType, err := getContentType(file)
+	if err != nil {
+		return ImageFile{}, err
+	}
+	if !slices.Contains(supportedContentTypes, contentType) {
+		return ImageFile{}, fmt.Errorf("%w: %s", ErrUnsupportedImageFile, imageFilePath)
+	}
+
+	return ImageFile{
+		ID:   imageFile.ID,
+		Name: imageFile.Name,
+		// from the frontend, use a path only under an image root directory for a wails
+		Path:          "/files" + strings.TrimPrefix(imageFilePath, converter.config.ImageRootDirectory),
+		LocalFilePath: imageFilePath,
+		ParentID:      imageFile.ParentID,
+		ContentType:   contentType,
+	}, nil
 }

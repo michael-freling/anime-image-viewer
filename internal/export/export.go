@@ -1,4 +1,4 @@
-package image
+package export
 
 import (
 	"bufio"
@@ -13,25 +13,31 @@ import (
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
+	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"golang.org/x/sync/errgroup"
 )
 
 type ExportService struct {
-	logger           *slog.Logger
-	dbClient         *db.Client
-	directoryService *DirectoryService
-	tagService       *TagService
+	logger          *slog.Logger
+	dbClient        *db.Client
+	directoryReader *image.DirectoryReader
+	tagService      *image.TagService
 }
 
 func NewExportService(logger *slog.Logger, conf config.Config, dbClient *db.Client) *ExportService {
-	imageFileService := NewFileService(logger, dbClient)
-	directoryService := NewDirectoryService(logger, conf, dbClient, imageFileService)
-	tagService := NewTagService(logger, dbClient, directoryService)
+	directoryReader := image.NewDirectoryReader(conf, dbClient)
+	imageFileConverter := image.NewImageFileConverter(conf)
+	tagService := image.NewTagService(
+		logger,
+		dbClient,
+		directoryReader,
+		imageFileConverter,
+	)
 	return &ExportService{
-		logger:           logger,
-		dbClient:         dbClient,
-		directoryService: directoryService,
-		tagService:       tagService,
+		logger:          logger,
+		dbClient:        dbClient,
+		directoryReader: directoryReader,
+		tagService:      tagService,
 	}
 }
 
@@ -70,7 +76,7 @@ func (service ExportService) ExportAll(ctx context.Context, exportDirectory stri
 	return nil
 }
 
-func (service ExportService) ExportImages(ctx context.Context, rootExportDirectory string, allTags []Tag) error {
+func (service ExportService) ExportImages(ctx context.Context, rootExportDirectory string, allTags []image.Tag) error {
 	// splits := []string{"train", "validation"}
 	splits := []string{"train"}
 	for _, split := range splits {
@@ -80,25 +86,25 @@ func (service ExportService) ExportImages(ctx context.Context, rootExportDirecto
 		}
 	}
 
-	maxTagID := getMaxTagID(allTags)
-	rootDirectory, err := service.directoryService.readDirectoryTree()
+	maxTagID := image.GetMaxTagID(allTags)
+	rootDirectory, err := service.directoryReader.ReadDirectoryTree()
 	if err != nil {
 		return fmt.Errorf("readDirectoryTree: %w", err)
 	}
 
 	eg, _ := errgroup.WithContext(ctx)
-	allImageFiles := make(map[int][]ImageFile, len(rootDirectory.Children))
+	allImageFiles := make(map[int][]image.ImageFile, len(rootDirectory.Children))
 	for index, directory := range rootDirectory.Children {
 		eg.Go(func() error {
-			imageFiles, err := service.directoryService.readImageFilesRecursively(*directory)
+			imageFiles, err := service.directoryReader.ReadImageFilesRecursively(*directory)
 			if err != nil {
 				return fmt.Errorf("readImageFilesRecursively: %w", err)
 			}
 			allImageFiles[index] = imageFiles
 
 			for _, imageFile := range imageFiles {
-				if _, err := os.Stat(imageFile.localFilePath); err != nil {
-					return fmt.Errorf("os.Stat: %w for %s", err, imageFile.localFilePath)
+				if _, err := os.Stat(imageFile.LocalFilePath); err != nil {
+					return fmt.Errorf("os.Stat: %w for %s", err, imageFile.LocalFilePath)
 				}
 				for _, split := range splits {
 					destinationFilePath := filepath.Join(rootExportDirectory, split, imageFile.Name)
@@ -123,7 +129,7 @@ func (service ExportService) ExportImages(ctx context.Context, rootExportDirecto
 		}
 	}
 
-	batchTagChecker, err := service.tagService.createBatchTagCheckerByFileIDs(ctx, allImageFileIDs)
+	batchTagChecker, err := service.tagService.CreateBatchTagCheckerByFileIDs(ctx, allImageFileIDs)
 	if err != nil {
 		return fmt.Errorf("ReadTagsByFileIDs: %w", err)
 	}
@@ -138,7 +144,7 @@ func (service ExportService) ExportImages(ctx context.Context, rootExportDirecto
 				FileName: imageFile.Name,
 				Tags:     make([]float64, maxTagID+1),
 			}
-			for tagID := range batchTagChecker.getTagCheckerForImageFileID(imageFile.ID).getTagCounts() {
+			for tagID := range batchTagChecker.GetTagCheckerForImageFileID(imageFile.ID).GetTagCounts() {
 				metadata.Tags[tagID] = 1.0
 			}
 			allMetadata = append(allMetadata, metadata)
@@ -208,9 +214,9 @@ func (service ExportService) ExportImages(ctx context.Context, rootExportDirecto
 	return nil
 }
 
-func (service *ExportService) exportImageFile(imageFile ImageFile, exportDirectory string) error {
+func (service *ExportService) exportImageFile(imageFile image.ImageFile, exportDirectory string) error {
 	destinationFilePath := fmt.Sprintf("%s/%s", exportDirectory, imageFile.Name)
-	if _, err := copy(imageFile.localFilePath, destinationFilePath); err != nil {
+	if _, err := image.Copy(imageFile.LocalFilePath, destinationFilePath); err != nil {
 		return fmt.Errorf("copy: %w", err)
 	}
 

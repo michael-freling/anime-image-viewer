@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/xassert"
 	"github.com/stretchr/testify/assert"
@@ -169,15 +168,7 @@ func TestTagService_ReadTagsByFileIDs(t *testing.T) {
 				require.NoError(t, db.BatchCreate(dbClient, tc.insertFileTags))
 			}
 
-			service := &TagService{
-				dbClient: dbClient,
-				directoryService: &DirectoryService{
-					dbClient: dbClient,
-					config: config.Config{
-						ImageRootDirectory: t.TempDir(),
-					},
-				},
-			}
+			service := tester.getTagService()
 			got, gotErr := service.ReadTagsByFileIDs(context.Background(), tc.fileIDs)
 			if tc.wantErr != nil {
 				assert.ErrorIs(t, gotErr, tc.wantErr)

@@ -104,17 +104,26 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 	}
 	tagSuggestionServiceClient := tag_suggestionv1.NewTagSuggestionServiceClient(clientConn)
 
-	imageFileService := image.NewFileService(logger, dbClient)
+	directoryReader := image.NewDirectoryReader(conf, dbClient)
+	imageFileConverter := image.NewImageFileConverter(conf)
+	imageFileService := image.NewFileService(
+		logger,
+		dbClient,
+		directoryReader,
+		imageFileConverter,
+	)
 	directoryService := image.NewDirectoryService(
 		logger,
 		conf,
 		dbClient,
 		imageFileService,
+		directoryReader,
 	)
 	tagService := image.NewTagService(
 		logger,
 		dbClient,
-		directoryService,
+		directoryReader,
+		imageFileConverter,
 	)
 
 	title := "anime-image-viewer"

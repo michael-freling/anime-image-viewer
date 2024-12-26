@@ -38,10 +38,10 @@ func (builder *fileBuilder) addDirectory(directory Directory) *fileBuilder {
 func (builder *fileBuilder) addImageFile(imageFile ImageFile) *fileBuilder {
 	if imageFile.ParentID != 0 {
 		parentLocalFilePath := builder.localDirectoryPath[imageFile.ParentID]
-		imageFile.localFilePath = filepath.Join(parentLocalFilePath, imageFile.Name)
+		imageFile.LocalFilePath = filepath.Join(parentLocalFilePath, imageFile.Name)
 
 		// todo: workaround
-		imageFile.Path = "/files" + strings.TrimPrefix(imageFile.localFilePath, builder.localFilePrefix)
+		imageFile.Path = "/files" + strings.TrimPrefix(imageFile.LocalFilePath, builder.localFilePrefix)
 		// filepath.Join(parent.Path, imageFile.Name)
 	}
 

@@ -68,22 +68,40 @@ func (tester Tester) getFileService() *ImageFileService {
 	// todo: currently, file service sets a pointer to a directory service
 	// in NewDirectoryService and has a inter dependency
 	// Fix it in the future
-	dirService := tester.getDirectoryService()
-	return dirService.imageFileService
+	return NewFileService(
+		tester.logger,
+		tester.dbClient,
+		tester.getDirectoryReader(),
+		tester.getImageFileConverter(),
+	)
 }
 
 func (tester Tester) getDirectoryService() *DirectoryService {
-	fileService := NewFileService(tester.logger, tester.dbClient)
+	fileService := tester.getFileService()
 	return NewDirectoryService(
 		tester.logger,
 		tester.config,
 		tester.dbClient,
 		fileService,
+		tester.getDirectoryReader(),
 	)
 }
 
+func (tester Tester) getDirectoryReader() *DirectoryReader {
+	return NewDirectoryReader(tester.config, tester.dbClient)
+}
+
+func (tester Tester) getImageFileConverter() *ImageFileConverter {
+	return NewImageFileConverter(tester.config)
+}
+
 func (tester Tester) getTagService() *TagService {
-	return NewTagService(tester.logger, tester.dbClient, tester.getDirectoryService())
+	return NewTagService(
+		tester.logger,
+		tester.dbClient,
+		tester.getDirectoryReader(),
+		tester.getImageFileConverter(),
+	)
 }
 
 func (tester Tester) getTagSuggestionService(
@@ -122,7 +140,7 @@ func (tester Tester) copyImageFile(t *testing.T, source, destination string) {
 		t.Fatal(err)
 	}
 
-	_, err := copy(
+	_, err := Copy(
 		filepath.Join("testdata", source),
 		destination,
 	)

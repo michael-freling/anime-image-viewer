@@ -60,7 +60,7 @@ func (service *TagSuggestionService) SuggestTags(ctx context.Context, imageFileI
 
 	imageUrls := make([]string, len(imageFileMap))
 	for index, imageFileID := range imageFileIDs {
-		imageUrls[index] = imageFileMap[imageFileID].localFilePath
+		imageUrls[index] = imageFileMap[imageFileID].LocalFilePath
 	}
 
 	eg, childCtx := errgroup.WithContext(ctx)
@@ -77,7 +77,7 @@ func (service *TagSuggestionService) SuggestTags(ctx context.Context, imageFileI
 	})
 
 	var allTagMap map[uint]Tag
-	var tagChecker batchImageTagChecker
+	var tagChecker BatchImageTagChecker
 	eg.Go(func() error {
 		allTags, err := service.tagService.GetAll()
 		if err != nil {
@@ -85,7 +85,7 @@ func (service *TagSuggestionService) SuggestTags(ctx context.Context, imageFileI
 		}
 		allTagMap = convertTagsToMap(allTags)
 
-		tagChecker, err = service.tagService.createBatchTagCheckerByFileIDs(
+		tagChecker, err = service.tagService.CreateBatchTagCheckerByFileIDs(
 			childCtx,
 			imageFileIDs,
 		)
@@ -114,7 +114,7 @@ func (service *TagSuggestionService) SuggestTags(ctx context.Context, imageFileI
 		imageFile := imageFileMap[imageFileID]
 		imageFiles[index] = imageFile
 
-		batchTagChecker := tagChecker.getTagCheckerForImageFileID(imageFileID)
+		batchTagChecker := tagChecker.GetTagCheckerForImageFileID(imageFileID)
 		tagSuggestion := response.Suggestions[index]
 		suggestions := make([]TagSuggestion, 0, len(tagSuggestion.Scores))
 		for _, score := range tagSuggestion.Scores {

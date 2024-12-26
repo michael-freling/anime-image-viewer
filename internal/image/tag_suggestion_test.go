@@ -77,8 +77,8 @@ func TestTagSuggestionService_Suggest(t *testing.T) {
 				mock.EXPECT().
 					Suggest(gomock.Any(), &tag_suggestionv1.SuggestRequest{
 						ImageUrls: []string{
-							fileBuilder.buildImageFile(11).localFilePath,
-							fileBuilder.buildImageFile(101).localFilePath,
+							fileBuilder.buildImageFile(11).LocalFilePath,
+							fileBuilder.buildImageFile(101).LocalFilePath,
 						},
 					}).
 					Return(&tag_suggestionv1.SuggestResponse{

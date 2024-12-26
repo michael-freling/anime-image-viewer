@@ -14,20 +14,23 @@ import (
 )
 
 type TagService struct {
-	logger           *slog.Logger
-	dbClient         *db.Client
-	directoryService *DirectoryService
+	logger             *slog.Logger
+	dbClient           *db.Client
+	directoryReader    *DirectoryReader
+	imageFileConverter *ImageFileConverter
 }
 
 func NewTagService(
 	logger *slog.Logger,
 	dbClient *db.Client,
-	directoryService *DirectoryService,
+	directoryReader *DirectoryReader,
+	imageFileConverter *ImageFileConverter,
 ) *TagService {
 	return &TagService{
-		logger:           logger,
-		dbClient:         dbClient,
-		directoryService: directoryService,
+		logger:             logger,
+		dbClient:           dbClient,
+		directoryReader:    directoryReader,
+		imageFileConverter: imageFileConverter,
 	}
 }
 
@@ -205,7 +208,7 @@ func convertTagsToMap(tags []Tag) map[uint]Tag {
 	return result
 }
 
-func getMaxTagID(tags []Tag) uint {
+func GetMaxTagID(tags []Tag) uint {
 	maxID := uint(0)
 	for _, tag := range tags {
 		if tag.ID > maxID {
@@ -370,9 +373,9 @@ func (service *TagService) ReadImageFiles(tagID uint) (ReadImageFilesResponse, e
 	fileIDs := fileTags.ToFileIDs()
 
 	// find ancestors of directories
-	directories, err := service.directoryService.readDirectories(fileIDs)
+	directories, err := service.directoryReader.readDirectories(fileIDs)
 	if err != nil && !errors.Is(err, ErrDirectoryNotFound) {
-		return ReadImageFilesResponse{}, fmt.Errorf("directoryService.readDirectories: %w", err)
+		return ReadImageFilesResponse{}, fmt.Errorf("directoryReader.readDirectories: %w", err)
 	}
 	dbParentIDs := make([]uint, len(directories))
 	for _, directory := range directories {
@@ -397,9 +400,9 @@ func (service *TagService) ReadImageFiles(tagID uint) (ReadImageFilesResponse, e
 	for _, dbImageFile := range dbImageFiles {
 		dbParentIDs = append(dbParentIDs, dbImageFile.ParentID)
 	}
-	parentDirectories, err := service.directoryService.readDirectories(dbParentIDs)
+	parentDirectories, err := service.directoryReader.readDirectories(dbParentIDs)
 	if err != nil && !errors.Is(err, ErrDirectoryNotFound) {
-		return ReadImageFilesResponse{}, fmt.Errorf("directoryService.readDirectories: %w", err)
+		return ReadImageFilesResponse{}, fmt.Errorf("directoryReader.readDirectories: %w", err)
 	}
 
 	// to find a tag and
@@ -457,9 +460,9 @@ func (service *TagService) ReadImageFiles(tagID uint) (ReadImageFilesResponse, e
 				imageFileErrors = append(imageFileErrors, fmt.Errorf("%w: %d for an image %d", ErrDirectoryNotFound, dbImageFile.ParentID, dbImageFile.ID))
 				continue
 			}
-			imageFile, err := service.directoryService.convertImageFile(parentDirectory, dbImageFile)
+			imageFile, err := service.imageFileConverter.convertImageFile(parentDirectory, dbImageFile)
 			if err != nil {
-				imageFileErrors = append(imageFileErrors, fmt.Errorf("directoryService.convertImageFile: %w", err))
+				imageFileErrors = append(imageFileErrors, fmt.Errorf("imageFileConverter.convertImageFile: %w", err))
 				continue
 			}
 
@@ -501,7 +504,7 @@ type File struct {
 	ParentID uint
 }
 
-type imageTagChecker struct {
+type ImageTagChecker struct {
 	imageFileID uint
 
 	// tag id => bool (true if the image file has the tag)
@@ -516,7 +519,7 @@ type imageTagChecker struct {
 	allTags map[uint]Tag
 }
 
-func (checker imageTagChecker) hasDecendantTag(tagID uint) bool {
+func (checker ImageTagChecker) hasDecendantTag(tagID uint) bool {
 	tag, ok := checker.allTags[tagID]
 	if !ok {
 		return false
@@ -532,7 +535,7 @@ func (checker imageTagChecker) hasDecendantTag(tagID uint) bool {
 	return false
 }
 
-func (checker imageTagChecker) hasTag(tagID uint) bool {
+func (checker ImageTagChecker) hasTag(tagID uint) bool {
 	if _, ok := checker.imageFileTags[tagID]; ok {
 		return true
 	}
@@ -542,7 +545,7 @@ func (checker imageTagChecker) hasTag(tagID uint) bool {
 	return false
 }
 
-func (checker imageTagChecker) getTagCounts() map[uint]bool {
+func (checker ImageTagChecker) GetTagCounts() map[uint]bool {
 	tagCounts := make(map[uint]bool)
 	for tagID := range checker.imageFileTags {
 		tagCounts[tagID] = true
@@ -553,20 +556,20 @@ func (checker imageTagChecker) getTagCounts() map[uint]bool {
 	return tagCounts
 }
 
-type batchImageTagChecker struct {
-	imageTagCheckers []imageTagChecker
+type BatchImageTagChecker struct {
+	imageTagCheckers []ImageTagChecker
 }
 
-func (checker batchImageTagChecker) getTagCheckerForImageFileID(imageFileID uint) imageTagChecker {
+func (checker BatchImageTagChecker) GetTagCheckerForImageFileID(imageFileID uint) ImageTagChecker {
 	for _, imageTagChecker := range checker.imageTagCheckers {
 		if imageTagChecker.imageFileID == imageFileID {
 			return imageTagChecker
 		}
 	}
-	return imageTagChecker{}
+	return ImageTagChecker{}
 }
 
-func (checker batchImageTagChecker) getTagsMapFromAncestors() map[uint][]File {
+func (checker BatchImageTagChecker) getTagsMapFromAncestors() map[uint][]File {
 	ancestorMap := make(map[uint][]File)
 	for _, imageTagChecker := range checker.imageTagCheckers {
 		for tagID := range imageTagChecker.ancestorsTags {
@@ -582,10 +585,10 @@ func (checker batchImageTagChecker) getTagsMapFromAncestors() map[uint][]File {
 	return ancestorMap
 }
 
-func (checker batchImageTagChecker) getTagCounts() map[uint]uint {
+func (checker BatchImageTagChecker) getTagCounts() map[uint]uint {
 	tagCounts := make(map[uint]uint)
 	for _, imageTagChecker := range checker.imageTagCheckers {
-		for tagID := range imageTagChecker.getTagCounts() {
+		for tagID := range imageTagChecker.GetTagCounts() {
 			tagCounts[tagID]++
 		}
 	}
@@ -604,10 +607,10 @@ type ReadTagsByFileIDsResponse struct {
 	TagCounts map[uint]uint
 }
 
-func (service *TagService) createBatchTagCheckerByFileIDs(
+func (service *TagService) CreateBatchTagCheckerByFileIDs(
 	ctx context.Context,
 	fileIDs []uint,
-) (batchImageTagChecker, error) {
+) (BatchImageTagChecker, error) {
 	allTagMap := make(map[uint]Tag, 0)
 
 	eg, _ := errgroup.WithContext(ctx)
@@ -624,9 +627,9 @@ func (service *TagService) createBatchTagCheckerByFileIDs(
 	var fileIDToAncestors map[uint][]Directory
 	eg.Go(func() error {
 		var err error
-		fileIDToAncestors, err = service.directoryService.readAncestors(fileIDs)
+		fileIDToAncestors, err = service.directoryReader.readAncestors(fileIDs)
 		if err != nil {
-			return fmt.Errorf("directoryService.readAncestors: %w", err)
+			return fmt.Errorf("directoryReader.readAncestors: %w", err)
 		}
 		allFileIDs := make([]uint, 0)
 		for _, fileID := range fileIDs {
@@ -647,13 +650,13 @@ func (service *TagService) createBatchTagCheckerByFileIDs(
 		return nil
 	})
 	if err := eg.Wait(); err != nil {
-		return batchImageTagChecker{}, fmt.Errorf("eg.Wait: %w", err)
+		return BatchImageTagChecker{}, fmt.Errorf("eg.Wait: %w", err)
 	}
 	if len(fileTags) == 0 {
-		return batchImageTagChecker{}, nil
+		return BatchImageTagChecker{}, nil
 	}
 
-	imageTagCheckers := make([]imageTagChecker, 0)
+	imageTagCheckers := make([]ImageTagChecker, 0)
 	for _, fileID := range fileIDs {
 		ancestors := fileIDToAncestors[fileID]
 
@@ -661,7 +664,7 @@ func (service *TagService) createBatchTagCheckerByFileIDs(
 		for _, ancestor := range ancestors {
 			ancestorMap[ancestor.ID] = ancestor
 		}
-		imageTagChecker := imageTagChecker{
+		imageTagChecker := ImageTagChecker{
 			imageFileID: fileID,
 			ancestors:   ancestorMap,
 			allTags:     allTagMap,
@@ -690,7 +693,7 @@ func (service *TagService) createBatchTagCheckerByFileIDs(
 		imageTagCheckers = append(imageTagCheckers, imageTagChecker)
 	}
 
-	return batchImageTagChecker{
+	return BatchImageTagChecker{
 		imageTagCheckers: imageTagCheckers,
 	}, nil
 }
@@ -699,7 +702,7 @@ func (service *TagService) ReadTagsByFileIDs(
 	ctx context.Context,
 	fileIDs []uint,
 ) (ReadTagsByFileIDsResponse, error) {
-	batchImageTagChecker, err := service.createBatchTagCheckerByFileIDs(ctx, fileIDs)
+	batchImageTagChecker, err := service.CreateBatchTagCheckerByFileIDs(ctx, fileIDs)
 	if err != nil {
 		return ReadTagsByFileIDsResponse{}, fmt.Errorf("service.createBatchTagCheckerByFileIDs: %w", err)
 	}
