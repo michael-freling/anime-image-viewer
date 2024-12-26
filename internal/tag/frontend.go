@@ -93,18 +93,11 @@ func (service TagFrontendService) Create(input TagInput) (Tag, error) {
 		// create some tags automatically
 		if parentTag.Type == db.TagTypeSeries && parentTag.ParentID == 0 {
 			seriesTags := []db.Tag{
-				{Name: "Characters", ParentID: tag.ID},
-				{Name: "Seasons", ParentID: tag.ID},
+				{Name: "Main Character", ParentID: tag.ID, Type: db.TagTypeCharacter},
+				{Name: "Season 1", ParentID: tag.ID, Type: db.TagTypeSeason},
 			}
 			if err := ormClient.BatchCreate(seriesTags); err != nil {
 				return fmt.Errorf("ormClient.BatchCreate: %w", err)
-			}
-			if err := ormClient.Create(&db.Tag{
-				Name:     "Season 1",
-				Type:     db.TagTypeSeason,
-				ParentID: seriesTags[1].ID,
-			}); err != nil {
-				return fmt.Errorf("ormClient.Create: %w", err)
 			}
 		}
 		if parentTag.Type == db.TagTypeSeason && parentTag.ParentID == 0 {

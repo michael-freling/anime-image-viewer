@@ -5,8 +5,9 @@ import "gorm.io/gorm"
 type TagType string
 
 const (
-	TagTypeSeries TagType = "series"
-	TagTypeSeason TagType = "seasons"
+	TagTypeSeries    TagType = "series"
+	TagTypeSeason    TagType = "seasons"
+	TagTypeCharacter TagType = "character"
 )
 
 type Tag struct {
