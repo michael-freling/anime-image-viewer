@@ -23,12 +23,12 @@ var (
 )
 
 type Directory struct {
-	ID              uint
-	Name            string
-	Path            string
-	ParentID        uint
-	Children        []*Directory
-	ChildImageFiles []*ImageFile
+	ID              uint         `json:"id"`
+	Name            string       `json:"name"`
+	Path            string       `json:"path"`
+	ParentID        uint         `json:"parentId"`
+	Children        []*Directory `json:"children"`
+	ChildImageFiles []*ImageFile `json:"childImageFiles"`
 }
 
 func (directory Directory) toFile() File {

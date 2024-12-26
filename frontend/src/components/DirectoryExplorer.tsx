@@ -2,35 +2,25 @@
 import { Add } from "@mui/icons-material";
 import FolderIcon from "@mui/icons-material/Folder";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
-import { Button, IconButton, Stack, Typography } from "@mui/joy";
+import { IconButton, Stack, Typography } from "@mui/joy";
 import { RichTreeView, TreeViewBaseItem } from "@mui/x-tree-view";
 import React, { FC, useEffect, useState } from "react";
-import { createSearchParams, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import {
   Directory,
   DirectoryService,
 } from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
-import {
-  ExplorerTreeItem,
-  ExplorerTreeItemProps,
-  ExplorerTreeItemWithCheckbox,
-} from "./ExplorerTreeItem";
-
-interface DirectoryExplorerProps {
-  editable?: boolean;
-  selectable?: boolean;
-  selectDirectory?: (directory: string) => Promise<void>;
-}
+import { ExplorerTreeItem, ExplorerTreeItemProps } from "./ExplorerTreeItem";
 
 function directoriesToTreeViewBaseItems(
   directories: Directory[]
 ): TreeViewBaseItem<{}>[] {
   return directories.map((directory) => {
     return {
-      id: directory.ID,
-      label: directory.Name,
+      id: directory.id,
+      label: directory.name,
       children: directoriesToTreeViewBaseItems(
-        directory.Children.filter((child) => child != null)
+        directory.children.filter((child) => child != null)
       ),
     };
   });
@@ -41,19 +31,21 @@ const getDirectoryMap = (
 ): { [id: number]: Directory } => {
   const map: { [id: number]: Directory } = {};
   directories.forEach((directory) => {
-    map[directory.ID] = directory;
+    map[directory.id] = directory;
     Object.assign(
       map,
-      getDirectoryMap(directory.Children.filter((child) => child != null))
+      getDirectoryMap(directory.children.filter((child) => child != null))
     );
   });
   return map;
 };
 
-const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
-  editable,
-  selectable,
-}) => {
+interface DirectoryExplorerProps {
+  editable?: boolean;
+  selectDirectory?: (directory: string) => Promise<void>;
+}
+
+const DirectoryExplorer: FC<DirectoryExplorerProps> = ({ editable }) => {
   const [rootDirectory, setRootDirectory] = useState<string>("");
   const [children, setChildren] = useState<Directory[]>([]);
   const [, setDirectoryMap] = useState<{
@@ -79,67 +71,6 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({
     const children = await DirectoryService.ReadChildDirectoriesRecursively(0);
     await setChildren(children);
     setDirectoryMap(getDirectoryMap(children));
-  }
-
-  if (selectable) {
-    const [directoriesIds, setDirectoriesIds] = useState<string[]>([]);
-
-    return (
-      <Stack spacing={2}>
-        <Stack
-          spacing={2}
-          direction="row"
-          sx={{
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <Typography>Select directories to update tags</Typography>
-          <Button
-            variant="outlined"
-            disabled={directoriesIds.length === 0}
-            onClick={() => {
-              const searchParams = createSearchParams({
-                directoryIds: directoriesIds.join(","),
-              }).toString();
-              navigate({
-                pathname: "/directories/tags/edit",
-                search: `?${searchParams}`,
-              });
-            }}
-          >
-            Edit tags
-          </Button>
-        </Stack>
-
-        <RichTreeView
-          expansionTrigger="content"
-          defaultExpandedItems={[rootDirectory]}
-          slots={{
-            // todo: RichTreeView doesn't allow to pass a type other than TreeItem2Props
-            item: ExplorerTreeItemWithCheckbox as any,
-            expandIcon: (props) => <FolderIcon color="primary" {...props} />,
-            collapseIcon: (props) => (
-              <FolderOpenIcon color="primary" {...props} />
-            ),
-            endIcon: (props) => <FolderOpenIcon color="primary" {...props} />,
-          }}
-          items={directoriesToTreeViewBaseItems(children)}
-          onSelectedItemsChange={(
-            event: React.SyntheticEvent,
-            directoryIds: string[]
-          ) => {
-            if (!directoryIds) {
-              return;
-            }
-
-            setDirectoriesIds(directoryIds);
-          }}
-          multiSelect={true}
-          checkboxSelection={true}
-        />
-      </Stack>
-    );
   }
 
   let otherProps = {};
