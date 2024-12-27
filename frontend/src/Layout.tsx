@@ -42,15 +42,10 @@ function SideNav(props: BoxProps) {
       {...props}
       sx={[
         {
-          p: 2,
           bgcolor: "background.surface",
           borderRight: "1px solid",
           borderColor: "divider",
-          maxHeight: "100%",
-          display: {
-            xs: "none",
-            sm: "initial",
-          },
+          height: "100%",
         },
         ...(Array.isArray(props.sx) ? props.sx : [props.sx]),
       ]}
@@ -64,10 +59,7 @@ function Main(props: BoxProps) {
       component="main"
       className="Main"
       {...props}
-      sx={[
-        { p: 2, overflowY: "auto", maxHeight: "100%" },
-        ...(Array.isArray(props.sx) ? props.sx : [props.sx]),
-      ]}
+      sx={[...(Array.isArray(props.sx) ? props.sx : [props.sx])]}
     />
   );
 }
@@ -124,9 +116,9 @@ const ThreeColumnLayout: React.FC<ThreeColumnLayoutProps> = ({
         md: "minmax(100px, 160px) minmax(240px, 320px) minmax(500px, 1fr)",
       },
       gridTemplateRows: "64px 1fr",
-      minWidth: "100vw",
-      minHeight: "100vh",
-      maxHeight: "100vh",
+      width: "100vw",
+      height: "100vh",
+      overflowY: "hidden",
     }}
   >
     <Header>
@@ -135,9 +127,7 @@ const ThreeColumnLayout: React.FC<ThreeColumnLayoutProps> = ({
     <SideNav>
       <Navigation />
     </SideNav>
-    <SideNav sx={{ overflowY: "auto", maxHeight: "100%" }}>
-      {sideNavigation}
-    </SideNav>
+    <SideNav>{sideNavigation}</SideNav>
 
     <Main>
       <Outlet />
@@ -155,9 +145,9 @@ const TwoColumnLayout: React.FC = () => (
         md: "minmax(100px, 160px) minmax(500px, 1fr)",
       },
       gridTemplateRows: "64px 1fr",
-      minWidth: "100vw",
-      minHeight: "100vh",
-      maxHeight: "100vh",
+      width: "100vw",
+      height: "100vh",
+      overflowY: "hidden",
     }}
   >
     <Header>
@@ -173,11 +163,38 @@ const TwoColumnLayout: React.FC = () => (
   </Box>
 );
 
+const PlainLayout: React.FC = () => (
+  <Box
+    sx={{
+      display: "grid",
+      gridTemplateColumns: {
+        xs: "1fr",
+        sm: "minmax(64px, 200px) minmax(450px, 1fr)",
+        md: "minmax(100px, 160px) minmax(500px, 1fr)",
+      },
+      gridTemplateRows: "64px 1fr",
+      width: "100vw",
+      height: "100vh",
+      msOverflowY: "hidden",
+    }}
+  >
+    <Header>
+      <HeaderComponent />
+    </Header>
+    <SideNav>
+      <Navigation />
+    </SideNav>
+
+    <Outlet />
+  </Box>
+);
+
 export default {
   Header,
   SideNav,
   SideDrawer,
   Main,
+  PlainLayout,
   TwoColumnLayout,
   ThreeColumnLayout,
 };

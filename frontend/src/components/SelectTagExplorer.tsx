@@ -57,16 +57,36 @@ const tagsToTreeViewBaseItems = (
   });
 };
 
-interface SelectTagExplorerProps {
-  onSelect: (addedTagIds: number[], deletedTagIds: number[]) => void;
-  fileIds: number[];
-}
+const getTagMap = (tags: Tag[]): { [id: number]: Tag } => {
+  const map: { [id: number]: Tag } = {};
+  tags.forEach((tag) => {
+    map[tag.id] = tag;
+    Object.assign(
+      map,
+      getTagMap((tag.children || []).filter((child) => child != null))
+    );
+  });
+  return map;
+};
+
+type SelectTagExplorerProps =
+  | {
+      isMultiSelect: true;
+      onSelect: (addedTagIds: number[], deletedTagIds: number[]) => void;
+      fileIds: number[];
+    }
+  | {
+      isMultiSelect: false;
+      onSelect: (tag: Tag | null) => void;
+    };
 
 export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
+  isMultiSelect,
   onSelect,
-  fileIds,
+  ...props
 }) => {
   const [children, setChildren] = useState<Tag[]>([]);
+  const [tagMap, setTagMap] = useState<{ [id: number]: Tag }>({});
   const [tagStats, setTagStats] = useState<ReadTagsByFileIDsResponse>();
   const [tagStatsLoaded, setTagStatsLoaded] = useState(false);
   const [addedTagIds, setAddedTagIds] = useState<{ [key: number]: boolean }>(
@@ -84,16 +104,73 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
     refresh();
   }, []);
 
+  let fileIds: number[];
+  let onSelectedItemsChange;
+  if (isMultiSelect) {
+    fileIds = (props as { fileIds: number[] }).fileIds;
+    onSelectedItemsChange = (event: React.SyntheticEvent, tagIds: string[]) => {
+      if (!tagIds) {
+        return;
+      }
+      let initialSelectedTagIds: string[] = [];
+      let initialAllTagIds: string[] = [];
+      if (tagStats) {
+        for (let [tagId, count] of Object.entries(tagStats.TagCounts)) {
+          if (count == fileIds.length) {
+            initialSelectedTagIds.push(tagId);
+          }
+          initialAllTagIds.push(tagId);
+        }
+      }
+
+      const addedTagIds = tagIds
+        .filter((tagId) => !initialSelectedTagIds.includes(tagId))
+        .map((tagId) => parseInt(tagId, 10));
+      const deletedTagIds = initialAllTagIds
+        .filter((tagId) => !tagIds.includes(tagId))
+        .map((tagId) => parseInt(tagId, 10));
+      setAddedTagIds(
+        addedTagIds.reduce((acc, tagId) => {
+          acc[tagId] = true;
+          return acc;
+        }, {} as { [key: number]: boolean })
+      );
+      setDeletedTagIds(
+        deletedTagIds.reduce((acc, tagId) => {
+          acc[tagId] = true;
+          return acc;
+        }, {} as { [key: number]: boolean })
+      );
+      onSelect(addedTagIds, deletedTagIds);
+    };
+  } else {
+    fileIds = [];
+    onSelectedItemsChange = (
+      event: React.SyntheticEvent,
+      tagId: string | null
+    ) => {
+      if (!tagId) {
+        onSelect(null);
+        return;
+      }
+
+      onSelect(tagMap[parseInt(tagId, 10)]);
+    };
+  }
+
   async function refresh() {
     const tags = await TagFrontendService.GetAll();
     setChildren(tags);
-    // setMap(getTagMap(tags));
+    setTagMap(getTagMap(tags));
+
     if (tagStatsLoaded) {
       return;
     }
 
-    const response = await TagFrontendService.ReadTagsByFileIDs(fileIds);
-    setTagStats(response);
+    if (isMultiSelect) {
+      const response = await TagFrontendService.ReadTagsByFileIDs(fileIds);
+      setTagStats(response);
+    }
     setTagStatsLoaded(true);
   }
 
@@ -130,17 +207,18 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
     return itemIds;
   };
 
-  const defaultExpandedItems = getAllTreeItemIds(treeItems);
-  const defaultSelectedItems = Object.keys(tagStats!.TagCounts).filter(
-    (tagId) => {
-      return tagStats?.TagCounts[tagId] == fileIds.length;
-    }
+  const defaultExpandedItems = Object.keys(tagMap).map((tagId) =>
+    String(tagId)
   );
+  //const defaultExpandedItems = getAllTreeItemIds(treeItems);
+  const defaultSelectedItems =
+    tagStats != undefined
+      ? Object.keys(tagStats.TagCounts).filter((tagId) => {
+          return tagStats?.TagCounts[tagId] == fileIds.length;
+        })
+      : [];
   return (
     <RichTreeView
-      sx={{
-        flexGrow: 1,
-      }}
       expansionTrigger="content"
       defaultExpandedItems={defaultExpandedItems}
       defaultSelectedItems={defaultSelectedItems}
@@ -148,46 +226,9 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
         // todo: RichTreeView doesn't allow to pass a type other than TreeItem2Props
         item: ExplorerTreeItemWithCheckbox as any,
       }}
-      onSelectedItemsChange={(
-        event: React.SyntheticEvent,
-        tagIds: string[]
-      ) => {
-        if (!tagIds) {
-          return;
-        }
-        let initialSelectedTagIds: string[] = [];
-        let initialAllTagIds: string[] = [];
-        if (tagStats) {
-          for (let [tagId, count] of Object.entries(tagStats.TagCounts)) {
-            if (count == fileIds.length) {
-              initialSelectedTagIds.push(tagId);
-            }
-            initialAllTagIds.push(tagId);
-          }
-        }
-
-        const addedTagIds = tagIds
-          .filter((tagId) => !initialSelectedTagIds.includes(tagId))
-          .map((tagId) => parseInt(tagId, 10));
-        const deletedTagIds = initialAllTagIds
-          .filter((tagId) => !tagIds.includes(tagId))
-          .map((tagId) => parseInt(tagId, 10));
-        setAddedTagIds(
-          addedTagIds.reduce((acc, tagId) => {
-            acc[tagId] = true;
-            return acc;
-          }, {} as { [key: number]: boolean })
-        );
-        setDeletedTagIds(
-          deletedTagIds.reduce((acc, tagId) => {
-            acc[tagId] = true;
-            return acc;
-          }, {} as { [key: number]: boolean })
-        );
-        onSelect(addedTagIds, deletedTagIds);
-      }}
+      onSelectedItemsChange={onSelectedItemsChange}
       items={treeItems}
-      multiSelect={true}
+      multiSelect={isMultiSelect}
       checkboxSelection={true}
     />
   );

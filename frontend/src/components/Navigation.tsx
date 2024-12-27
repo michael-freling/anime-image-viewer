@@ -11,7 +11,8 @@ import { NavLink } from "react-router";
 
 export enum Menu {
   Series = "Series",
-  SeriesByTags = "Tags",
+  Search = "Search",
+
   Directories = "Directories",
   TagsForDirectories = "TagsForDirectories",
   Tags = "List",
@@ -31,10 +32,10 @@ const Navigation: React.FC = () => {
           url: "/",
         },
         {
-          id: Menu.SeriesByTags,
-          text: "Search by tags",
-          icon: <Icons.Bookmarks />,
-          url: "/tags",
+          id: Menu.Search,
+          text: "Search",
+          icon: <Icons.Search />,
+          url: "/search",
         },
       ],
     },
@@ -65,24 +66,36 @@ const Navigation: React.FC = () => {
   ];
 
   return (
-    <List size="sm">
+    <List sx={{ width: "100%" }}>
       {menus.map((menu, index) => (
-        <ListItem key={index} nested sx={{ mt: 2 }}>
-          <ListSubheader sx={{ letterSpacing: "2px", fontWeight: "800" }}>
+        <ListItem key={index} nested sx={{ p: 0, width: "inherit" }}>
+          <ListSubheader
+            sx={{
+              letterSpacing: "2px",
+              fontWeight: "800",
+              pl: 3,
+            }}
+          >
             {menu.text}
           </ListSubheader>
-          <List aria-labelledby="nav-list-tags" size="sm">
+          <List aria-labelledby="nav-list-tags" sx={{ m: 0, width: "inherit" }}>
             {menu.menuItems.map((menuItem, index) => (
-              <ListItem key={index}>
+              <ListItem key={index} sx={{ p: 0, width: "inherit" }}>
                 <NavLink
                   to={menuItem.url}
-                  style={{ textDecoration: "none" }}
+                  style={{ textDecoration: "none", width: "inherit" }}
                   viewTransition
                 >
                   <ListItemButton
                     selected={selectedMenu === menuItem.id}
                     onClick={() => {
                       selectMenu(menuItem.id);
+                    }}
+                    sx={{
+                      m: 0,
+                      p: 1,
+                      pl: 2,
+                      width: "inherit",
                     }}
                   >
                     <ListItemDecorator>{menuItem.icon}</ListItemDecorator>
