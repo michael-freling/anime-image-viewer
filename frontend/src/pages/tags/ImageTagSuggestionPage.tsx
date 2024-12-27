@@ -110,6 +110,7 @@ const ImageTagSuggestionPage: React.FC = () => {
     return <Box>{error.message}</Box>;
   }
 
+  const height = 320;
   return (
     <Stack spacing={2}>
       <Stack
@@ -154,12 +155,12 @@ const ImageTagSuggestionPage: React.FC = () => {
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "space-between",
-              height: 150,
+              height,
               gap: 2,
               marginBottom: 1,
             }}
           >
-            <CardOverflow sx={{ width: 240 }}>
+            <CardOverflow sx={{ width: height * (16 / 9) }}>
               <LazyImage src={image.path} />
             </CardOverflow>
             <CardOverflow

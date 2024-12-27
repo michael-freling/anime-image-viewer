@@ -33,6 +33,7 @@ const DirectoryTagsEditPage = () => {
     >
       <Typography>Select tags for {directoryIds.length} directories</Typography>
       <SelectTagExplorer
+        isMultiSelect={true}
         fileIds={directoryIds}
         onSelect={(addedTagIds, deletedTagIds) => {
           setAddedTagIds(addedTagIds);

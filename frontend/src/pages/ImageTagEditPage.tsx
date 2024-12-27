@@ -33,6 +33,7 @@ const ImageTagEditPage = () => {
     >
       <Typography>Select tags for {imageIds.length} images</Typography>
       <SelectTagExplorer
+        isMultiSelect={true}
         fileIds={imageIds}
         onSelect={(addedTagIds, deletedTagIds) => {
           setAddedTagIds(addedTagIds);

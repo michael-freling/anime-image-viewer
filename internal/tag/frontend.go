@@ -8,8 +8,8 @@ import (
 	"slices"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
-	"github.com/michael-freling/anime-image-viewer/internal/frontend"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
+	"github.com/michael-freling/anime-image-viewer/internal/xerrors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -271,7 +271,7 @@ type SuggestTagsResponse struct {
 
 func (service TagFrontendService) SuggestTags(ctx context.Context, imageFileIDs []uint) (SuggestTagsResponse, error) {
 	if len(imageFileIDs) == 0 {
-		return SuggestTagsResponse{}, fmt.Errorf("%w: imageFileIDs is required", frontend.ErrInvalidArgument)
+		return SuggestTagsResponse{}, fmt.Errorf("%w: imageFileIDs is required", xerrors.ErrInvalidArgument)
 	}
 	response, err := service.suggestionService.suggestTags(ctx, imageFileIDs)
 	if err != nil {

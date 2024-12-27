@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import { StyledEngineProvider } from "@mui/joy";
 import { BrowserRouter, Route, Routes } from "react-router";
-import DirectoryImageListPage from "./pages/directories/ImageListPage";
+import DirectoryImageListPage from "./pages/directories/DirectoryImageListPage";
 import DirectoryExplorer from "./components/DirectoryExplorer";
 import TagExplorer from "./components/TagExplorer";
 import Layout from "./Layout";
@@ -12,7 +12,8 @@ import TagsListPage from "./pages/tags/TagsListPage";
 import DirectoryTagsEditPage from "./pages/DirectoryTagEditPage";
 import TagImageListPage from "./pages/tags/TagImageListPage";
 import ImageTagSuggestionPage from "./pages/tags/ImageTagSuggestionPage";
-import SelectableDirectoryExplorer from "./components/SelectableDirectoryExplorer";
+import SearchPage from "./pages/search/SearchPage";
+import DirectoryEditPage from "./pages/directories/DirectoryEditPage";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
@@ -31,6 +32,11 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
               <Route index element={<DirectoryImageListPage />} />
             </Route>
 
+            {/* Search */}
+            <Route element={<Layout.PlainLayout />} path="search">
+              <Route index element={<SearchPage />} />
+            </Route>
+
             {/* Directory */}
             <Route path="directories">
               <Route element={<Layout.TwoColumnLayout />}>
@@ -40,10 +46,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
                 />
               </Route>
               <Route element={<Layout.TwoColumnLayout />}>
-                <Route
-                  path="tags/select"
-                  element={<SelectableDirectoryExplorer />}
-                />
+                <Route path="tags/select" element={<DirectoryEditPage />} />
                 <Route path="tags/edit" element={<DirectoryTagsEditPage />} />
               </Route>
               <Route

@@ -11,6 +11,7 @@ import (
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
+	"github.com/michael-freling/anime-image-viewer/internal/frontend"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"github.com/michael-freling/anime-image-viewer/internal/tag"
 	tag_suggestionv1 "github.com/michael-freling/anime-image-viewer/plugins/plugins-protos/gen/go/tag_suggestion/v1"
@@ -132,6 +133,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 			imageFileService,
 		),
 	)
+	searchService := frontend.NewSearchService(directoryReader, tagReader)
 
 	title := "anime-image-viewer"
 	// Create a new Wails application by providing the necessary options.
@@ -154,6 +156,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 					Route: "/files/",
 				},
 			),
+			application.NewService(searchService),
 		},
 		Assets: application.AssetOptions{
 			Handler:        application.AssetFileServerFS(assets),
