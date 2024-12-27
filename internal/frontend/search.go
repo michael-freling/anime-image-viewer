@@ -9,6 +9,10 @@ import (
 	"github.com/michael-freling/anime-image-viewer/internal/xerrors"
 )
 
+var (
+	ErrImageNotFound = fmt.Errorf("directory not found")
+)
+
 type SearchService struct {
 	directoryReader *image.DirectoryReader
 	tagReader       *tag.Reader
@@ -25,8 +29,8 @@ func NewSearchService(
 }
 
 type SearchImagesRequest struct {
-	parentDirectoryID uint `json:"parentDirectoryId"`
-	tagID             uint `json:"tagId"`
+	ParentDirectoryID uint `json:"parentDirectoryId,omitempty"`
+	TagID             uint `json:"tagId,omitempty"`
 }
 
 type SearchImagesResponse struct {
@@ -42,12 +46,12 @@ func (service SearchService) SearchImages(
 ) (SearchImagesResponse, error) {
 	var imageFiles []image.ImageFile
 
-	if request.parentDirectoryID == 0 && request.tagID == 0 {
+	if request.ParentDirectoryID == 0 && request.TagID == 0 {
 		return SearchImagesResponse{}, fmt.Errorf("%w: either parentDirectoryId or tagId is required", xerrors.ErrInvalidArgument)
 	}
-	if request.parentDirectoryID == 0 {
+	if request.ParentDirectoryID == 0 {
 		// if no parent directory id, search files by tag id
-		tagFinder, err := service.tagReader.ReadImageFiles(request.tagID)
+		tagFinder, err := service.tagReader.ReadImageFiles(request.TagID)
 		if err != nil {
 			return SearchImagesResponse{}, fmt.Errorf("service.tagReader.ReadImageFiles: %w", err)
 		}
@@ -67,38 +71,16 @@ func (service SearchService) SearchImages(
 	}
 
 	var err error
-	imageFiles, err = service.directoryReader.ReadImageFiles(request.parentDirectoryID)
+	imageFiles, err = service.directoryReader.ReadImageFiles(request.ParentDirectoryID)
 	if err != nil {
 		return SearchImagesResponse{}, fmt.Errorf("service.directoryReader.ReadImageFiles: %w", err)
 	}
 	if len(imageFiles) == 0 {
-		return SearchImagesResponse{}, fmt.Errorf("no image files found in directory")
+		return SearchImagesResponse{}, fmt.Errorf("%w: no image files found in directory: %d", ErrImageNotFound, request.ParentDirectoryID)
 	}
 
 	batchImageConverter := newBatchImageConverter(imageFiles)
 	return SearchImagesResponse{
-		Images: batchImageConverter.Convert(),
-	}, nil
-}
-
-type SearchImageFilesInDirectoryResponse struct {
-	Images []Image `json:"images"`
-}
-
-func (service SearchService) SearchImageFilesInDirectory(
-	ctx context.Context,
-	parentDirectoryID uint,
-) (SearchImageFilesInDirectoryResponse, error) {
-	imageFiles, err := service.directoryReader.ReadImageFiles(parentDirectoryID)
-	if err != nil {
-		return SearchImageFilesInDirectoryResponse{}, fmt.Errorf("service.directoryReader.ReadImageFiles: %w", err)
-	}
-	if len(imageFiles) == 0 {
-		return SearchImageFilesInDirectoryResponse{}, fmt.Errorf("no image files found in directory")
-	}
-
-	batchImageConverter := newBatchImageConverter(imageFiles)
-	return SearchImageFilesInDirectoryResponse{
 		Images: batchImageConverter.Convert(),
 	}, nil
 }
