@@ -5,12 +5,10 @@ import { StyledEngineProvider } from "@mui/joy";
 import { BrowserRouter, Route, Routes } from "react-router";
 import DirectoryImageListPage from "./pages/directories/DirectoryImageListPage";
 import DirectoryExplorer from "./components/DirectoryExplorer";
-import TagExplorer from "./components/TagExplorer";
 import Layout from "./Layout";
 import ImageTagEditPage from "./pages/ImageTagEditPage";
 import TagsListPage from "./pages/tags/TagsListPage";
 import DirectoryTagsEditPage from "./pages/DirectoryTagEditPage";
-import TagImageListPage from "./pages/tags/TagImageListPage";
 import ImageTagSuggestionPage from "./pages/tags/ImageTagSuggestionPage";
 import SearchPage from "./pages/search/SearchPage";
 import DirectoryEditPage from "./pages/directories/DirectoryEditPage";
@@ -77,18 +75,6 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
             <Route path="tags">
               <Route element={<Layout.TwoColumnLayout />}>
                 <Route path="edit" element={<TagsListPage />} />
-              </Route>
-              <Route
-                element={
-                  <Layout.ThreeColumnLayout
-                    sideNavigation={
-                      <TagExplorer title="Search by tags" editable={false} />
-                    }
-                  />
-                }
-              >
-                <Route index element={<TagImageListPage />} />
-                <Route path=":tagId" element={<TagImageListPage />} />
               </Route>
             </Route>
           </Route>
