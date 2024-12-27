@@ -2,6 +2,8 @@ package frontend
 
 import (
 	"path/filepath"
+
+	"github.com/michael-freling/anime-image-viewer/internal/db"
 )
 
 type fileBuilder struct {
@@ -39,6 +41,26 @@ func (builder *fileBuilder) addImage(imageFile Image) *fileBuilder {
 	return builder
 }
 
+func (builder fileBuilder) buildDBDirectory(id uint) db.File {
+	dir := builder.directories[id]
+	return db.File{
+		ID:       dir.ID,
+		Name:     dir.Name,
+		Type:     db.FileTypeDirectory,
+		ParentID: dir.ParentID,
+	}
+}
+
 func (builder fileBuilder) buildImage(id uint) Image {
 	return builder.imageFiles[id]
+}
+
+func (builder fileBuilder) buildDBImage(id uint) db.File {
+	image := builder.imageFiles[id]
+	return db.File{
+		ID:       image.ID,
+		Name:     image.Name,
+		Type:     db.FileTypeImage,
+		ParentID: image.parentID,
+	}
 }
