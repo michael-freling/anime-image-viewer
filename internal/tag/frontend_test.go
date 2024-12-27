@@ -2,7 +2,6 @@ package tag
 
 import (
 	"context"
-	"log/slog"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -142,121 +141,6 @@ func TestTagFrontendService_ReadTagsByFileIDs(t *testing.T) {
 
 			service := tester.getFrontendService(frontendServiceMocks{})
 			got, gotErr := service.ReadTagsByFileIDs(context.Background(), tc.fileIDs)
-			if tc.wantErr != nil {
-				assert.ErrorIs(t, gotErr, tc.wantErr)
-				return
-			}
-			assert.NoError(t, gotErr)
-			assert.Equal(t, tc.want, got)
-		})
-	}
-}
-
-func TestTagFrontendService_ReadImageFiles(t *testing.T) {
-	tester := newTester(t, withGormLogger(slog.Default()))
-	dbClient := tester.dbClient
-
-	tester.createDirectoryInFS(t, "Directory 1/Directory 10")
-	tester.copyImageFile(t, "image.jpg", "Directory 1/image file 2")
-	tester.copyImageFile(t, "image.jpg", "Directory 1/image file 3")
-	tester.copyImageFile(t, "image.jpg", "Directory 1/Directory 10/image file 100")
-
-	tagBuilder := newTagBuilder().
-		add(Tag{ID: 1, Name: "tag 1"}, 0).
-		add(Tag{ID: 2, Name: "tag 2"}, 0).
-		add(Tag{ID: 10, Name: "tag 10"}, 1).
-		add(Tag{ID: 11, Name: "tag 11"}, 1).
-		add(Tag{ID: 100, Name: "tag 100"}, 10)
-
-	fileBuilder := tester.newFileBuilder().
-		addDirectory(image.Directory{ID: 1, Name: "Directory 1"}).
-		addDirectory(image.Directory{ID: 10, Name: "Directory 10", ParentID: 1}).
-		addImageFile(image.ImageFile{ID: 2, Name: "image file 2", ContentType: "image/jpeg", ParentID: 1}).
-		addImageFile(image.ImageFile{ID: 3, Name: "image file 3", ContentType: "image/jpeg", ParentID: 1}).
-		addImageFile(image.ImageFile{ID: 100, Name: "image file 100", ContentType: "image/jpeg", ParentID: 10})
-
-	testCases := []struct {
-		name           string
-		tagID          uint
-		insertFiles    []db.File
-		insertTags     []db.Tag
-		insertFileTags []db.FileTag
-		want           ReadImageFilesResponse
-		wantErr        error
-	}{
-		{
-			name:  "Some image files",
-			tagID: 1,
-			insertFiles: []db.File{
-				{ID: 1, Type: db.FileTypeDirectory, Name: "Directory 1"},
-				{ID: 2, Type: db.FileTypeImage, ParentID: 1, Name: "image file 2"},
-				{ID: 3, Type: db.FileTypeImage, ParentID: 1, Name: "image file 3"},
-				{ID: 10, Type: db.FileTypeDirectory, ParentID: 1, Name: "Directory 10"},
-				{ID: 100, Type: db.FileTypeImage, ParentID: 10, Name: "image file 100"},
-			},
-			insertTags: []db.Tag{
-				{ID: 1, Name: "tag 1"},
-				{ID: 2, Name: "tag 2"},
-				{ID: 10, Name: "tag 10", ParentID: 1},
-				{ID: 11, Name: "tag 11", ParentID: 1}, // a tag without an file
-				{ID: 100, Name: "tag 100", ParentID: 10},
-			},
-			insertFileTags: []db.FileTag{
-				{FileID: 1, TagID: 1},     // a top tag for a directory
-				{FileID: 2, TagID: 2},     // a tag unrelated to an input tag
-				{FileID: 10, TagID: 10},   // a tag for an intermediate directory
-				{FileID: 100, TagID: 100}, // a tag for a direct file
-			},
-			want: ReadImageFilesResponse{
-				Tags: []Tag{
-					tagBuilder.build(1),
-					tagBuilder.build(10),
-					tagBuilder.build(100),
-				},
-				ImageFiles: map[uint][]image.ImageFile{
-					1: {
-						fileBuilder.buildImageFile(2),
-						fileBuilder.buildImageFile(3),
-						fileBuilder.buildImageFile(100),
-					},
-					10: {
-						fileBuilder.buildImageFile(100),
-					},
-					100: {
-						fileBuilder.buildImageFile(100),
-					},
-				},
-			},
-		},
-
-		{
-			name:  "No tag exists",
-			tagID: 1,
-		},
-		{
-			name:  "No image file for a tag",
-			tagID: 1,
-			insertFileTags: []db.FileTag{
-				{FileID: 1, TagID: 1},
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			require.NoError(t, dbClient.Truncate(&db.FileTag{}, &db.File{}, &db.Tag{}))
-			if len(tc.insertFiles) > 0 {
-				require.NoError(t, db.BatchCreate(dbClient, tc.insertFiles))
-			}
-			if len(tc.insertTags) > 0 {
-				require.NoError(t, db.BatchCreate(dbClient, tc.insertTags))
-			}
-			if len(tc.insertFileTags) > 0 {
-				require.NoError(t, db.BatchCreate(dbClient, tc.insertFileTags))
-			}
-
-			got, gotErr := tester.getFrontendService(frontendServiceMocks{}).
-				ReadImageFiles(tc.tagID)
 			if tc.wantErr != nil {
 				assert.ErrorIs(t, gotErr, tc.wantErr)
 				return

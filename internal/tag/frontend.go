@@ -181,16 +181,6 @@ func (service TagFrontendService) GetAll() ([]Tag, error) {
 	return result, nil
 }
 
-type ReadImageFilesResponse struct {
-	// tag includes descendants
-	Tags       []Tag
-	ImageFiles map[uint][]image.ImageFile
-}
-
-func (service TagFrontendService) ReadImageFiles(tagID uint) (ReadImageFilesResponse, error) {
-	return service.reader.readImageFiles(tagID)
-}
-
 type ReadTagsByFileIDsResponse struct {
 	// AncestorMap maps tag IDs to their ancestors
 	AncestorMap map[uint][]image.File

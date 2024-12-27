@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
@@ -62,20 +61,29 @@ func (reader Reader) ReadAllTags() ([]Tag, error) {
 	}), nil
 }
 
-func (reader Reader) readImageFiles(tagID uint) (ReadImageFilesResponse, error) {
+type ImageFinder struct {
+	directories []image.Directory
+	Images      map[uint]image.ImageFile
+
+	TaggedImages map[uint][]uint
+}
+
+func (reader Reader) ReadImageFiles(tagID uint) (ImageFinder, error) {
+	result := ImageFinder{}
+
 	fileTags, err := reader.readDBTagRecursively(tagID)
 	if err != nil {
-		return ReadImageFilesResponse{}, fmt.Errorf("reader.readDBTagRecursively: %w", err)
+		return result, fmt.Errorf("reader.readDBTagRecursively: %w", err)
 	}
 	if len(fileTags) == 0 {
-		return ReadImageFilesResponse{}, nil
+		return result, nil
 	}
 	fileIDs := fileTags.ToFileIDs()
 
 	// find ancestors of directories
 	directories, err := reader.directoryReader.ReadDirectories(fileIDs)
 	if err != nil && !errors.Is(err, image.ErrDirectoryNotFound) {
-		return ReadImageFilesResponse{}, fmt.Errorf("directoryReader.ReadDirectories: %w", err)
+		return result, fmt.Errorf("directoryReader.ReadDirectories: %w", err)
 	}
 	dbParentIDs := make([]uint, len(directories))
 	for _, directory := range directories {
@@ -88,27 +96,27 @@ func (reader Reader) readImageFiles(tagID uint) (ReadImageFilesResponse, error) 
 	imageFilesUnderDirectories, err := reader.dbClient.File().
 		FindImageFilesByParentIDs(dbParentIDs)
 	if err != nil && !errors.Is(err, db.ErrRecordNotFound) {
-		return ReadImageFilesResponse{}, fmt.Errorf("db.FindImageFilesByParentIDs: %w", err)
+		return result, fmt.Errorf("db.FindImageFilesByParentIDs: %w", err)
 	}
 
 	// find files
 	dbImageFiles, err := reader.dbClient.File().
 		FindImageFilesByIDs(fileIDs)
 	if err != nil && !errors.Is(err, db.ErrRecordNotFound) {
-		return ReadImageFilesResponse{}, fmt.Errorf("db.FindImageFilesByIDs: %w", err)
+		return result, fmt.Errorf("db.FindImageFilesByIDs: %w", err)
 	}
 	for _, dbImageFile := range dbImageFiles {
 		dbParentIDs = append(dbParentIDs, dbImageFile.ParentID)
 	}
 	parentDirectories, err := reader.directoryReader.ReadDirectories(dbParentIDs)
 	if err != nil && !errors.Is(err, image.ErrDirectoryNotFound) {
-		return ReadImageFilesResponse{}, fmt.Errorf("directoryReader.ReadDirectories: %w", err)
+		return result, fmt.Errorf("directoryReader.ReadDirectories: %w", err)
 	}
 
 	// to find a tag and
 	allTags, err := reader.ReadAllTags()
 	if err != nil {
-		return ReadImageFilesResponse{}, fmt.Errorf("reader.ReadAllTags: %w", err)
+		return result, fmt.Errorf("reader.ReadAllTags: %w", err)
 	}
 
 	directoryDescendants := make(map[uint][]uint)
@@ -144,10 +152,12 @@ func (reader Reader) readImageFiles(tagID uint) (ReadImageFilesResponse, error) 
 		}
 	}
 
-	resultTags := make([]Tag, 0)
-	result := make(map[uint][]image.ImageFile, 0)
+	// tag id to file id
+	resultTags := make(map[uint][]uint, 0)
+	resultImages := make(map[uint][]image.ImageFile, 0)
 	imageFileErrors := make([]error, 0)
 	fileAdded := make(map[uint]struct{})
+	images := make(map[uint]image.ImageFile, 0)
 	for _, dbfs := range [][]db.File{imageFilesUnderDirectories, dbImageFiles} {
 		for _, dbImageFile := range dbfs {
 			if _, ok := fileAdded[dbImageFile.ID]; ok {
@@ -165,36 +175,37 @@ func (reader Reader) readImageFiles(tagID uint) (ReadImageFilesResponse, error) 
 				imageFileErrors = append(imageFileErrors, fmt.Errorf("imageFileConverter.ConvertImageFile: %w", err))
 				continue
 			}
+			images[imageFile.ID] = imageFile
 
 			imageFileTags := fileTagsMap[imageFile.ID]
 			for _, tag := range imageFileTags {
-				if _, ok := result[tag.ID]; ok {
+				if _, ok := resultImages[tag.ID]; ok {
 					continue
 				}
-				result[tag.ID] = make([]image.ImageFile, 0)
-				resultTags = append(resultTags, tag)
+
+				resultImages[tag.ID] = make([]image.ImageFile, 0)
+				// resultTags = append(resultTags, tag)
+				resultTags[tag.ID] = make([]uint, 0)
 			}
 		OUTER:
 			for _, tag := range imageFileTags {
-				for _, resultFile := range result[tag.ID] {
+				for _, resultFile := range resultImages[tag.ID] {
 					if imageFile.ID == resultFile.ID {
 						continue OUTER
 					}
 				}
-				result[tag.ID] = append(result[tag.ID], imageFile)
+				resultTags[tag.ID] = append(resultTags[tag.ID], imageFile.ID)
+				resultImages[tag.ID] = append(resultImages[tag.ID], imageFile)
 			}
 		}
 	}
 	if len(imageFileErrors) > 0 {
-		return ReadImageFilesResponse{}, errors.Join(imageFileErrors...)
+		return result, errors.Join(imageFileErrors...)
 	}
 
-	sort.Slice(resultTags, func(i, j int) bool {
-		return resultTags[i].Name < resultTags[j].Name
-	})
-	return ReadImageFilesResponse{
-		Tags:       resultTags,
-		ImageFiles: result,
+	return ImageFinder{
+		Images:       images,
+		TaggedImages: resultTags,
 	}, nil
 }
 
