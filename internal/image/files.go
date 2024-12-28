@@ -104,29 +104,26 @@ func getContentType(file *os.File) (string, error) {
 	return http.DetectContentType(data), nil
 }
 
-type ImageFileService struct {
-	logger             *slog.Logger
+type Reader struct {
 	dbClient           *db.Client
 	directoryReader    *DirectoryReader
 	imageFileConverter *ImageFileConverter
 }
 
-func NewFileService(
-	logger *slog.Logger,
+func NewReader(
 	dbClient *db.Client,
 	directoryReader *DirectoryReader,
 	imageFileConverter *ImageFileConverter,
-) *ImageFileService {
-	return &ImageFileService{
-		logger:             logger,
+) *Reader {
+	return &Reader{
 		dbClient:           dbClient,
 		directoryReader:    directoryReader,
 		imageFileConverter: imageFileConverter,
 	}
 }
 
-func (service *ImageFileService) ReadImagesByIDs(ctx context.Context, imageFileIDs []uint) (map[uint]ImageFile, error) {
-	dbImageFiles, err := service.dbClient.File().FindImageFilesByIDs(imageFileIDs)
+func (reader Reader) ReadImagesByIDs(imageFileIDs []uint) (map[uint]ImageFile, error) {
+	dbImageFiles, err := reader.dbClient.File().FindImageFilesByIDs(imageFileIDs)
 	if err != nil {
 		return nil, fmt.Errorf("FindImageFilesByIDs: %w", err)
 	}
@@ -140,7 +137,7 @@ func (service *ImageFileService) ReadImagesByIDs(ctx context.Context, imageFileI
 		dbParentIDs = append(dbParentIDs, dbImageFile.ParentID)
 	}
 
-	parentDirectories, err := service.directoryReader.ReadDirectories(dbParentIDs)
+	parentDirectories, err := reader.directoryReader.ReadDirectories(dbParentIDs)
 	if err != nil && !errors.Is(err, ErrDirectoryNotFound) {
 		return nil, fmt.Errorf("directoryReader.readDirectories: %w", err)
 	}
@@ -153,13 +150,34 @@ func (service *ImageFileService) ReadImagesByIDs(ctx context.Context, imageFileI
 	for _, dbImageFile := range dbImageFiles {
 		parentDirectory := parentDirectoriesMap[dbImageFile.ParentID]
 
-		imageFile, err := service.imageFileConverter.ConvertImageFile(parentDirectory, dbImageFile)
+		imageFile, err := reader.imageFileConverter.ConvertImageFile(parentDirectory, dbImageFile)
 		if err != nil {
 			return nil, fmt.Errorf("convertImageFile: %w", err)
 		}
 		imageFiles[imageFile.ID] = imageFile
 	}
 	return imageFiles, nil
+}
+
+type ImageFileService struct {
+	logger   *slog.Logger
+	dbClient *db.Client
+
+	imageFileConverter *ImageFileConverter
+}
+
+func NewFileService(
+	logger *slog.Logger,
+	dbClient *db.Client,
+	directoryReader *DirectoryReader,
+	imageFileConverter *ImageFileConverter,
+) *ImageFileService {
+	return &ImageFileService{
+		logger:   logger,
+		dbClient: dbClient,
+
+		imageFileConverter: imageFileConverter,
+	}
 }
 
 func (service *ImageFileService) validateImportImageFile(sourceFilePath string, destinationDirectory Directory) error {

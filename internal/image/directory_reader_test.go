@@ -168,7 +168,7 @@ func TestDirectoryReader_readDirectory(t *testing.T) {
 				require.NoError(t, db.BatchCreate(dbClient, tc.insertDirectories))
 			}
 
-			got, gotErr := reader.readDirectory(tc.directoryID)
+			got, gotErr := reader.ReadDirectory(tc.directoryID)
 			assert.ErrorIs(t, gotErr, tc.wantErr)
 			if tc.wantErr != nil {
 				assert.Zero(t, got)

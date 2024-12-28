@@ -1,6 +1,24 @@
 package frontend
 
-import "github.com/michael-freling/anime-image-viewer/internal/image"
+import (
+	"context"
+
+	"github.com/michael-freling/anime-image-viewer/internal/image"
+)
+
+type ImageService struct {
+	imageReader *image.Reader
+}
+
+func NewImageService(imageReader *image.Reader) *ImageService {
+	return &ImageService{
+		imageReader: imageReader,
+	}
+}
+
+func (service *ImageService) ReadImagesByIDs(ctx context.Context, imageIDs []uint) (map[uint]image.ImageFile, error) {
+	return service.imageReader.ReadImagesByIDs(imageIDs)
+}
 
 type Image struct {
 	ID   uint   `json:"id"`

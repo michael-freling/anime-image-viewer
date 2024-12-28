@@ -106,9 +106,11 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 	}
 	tagSuggestionServiceClient := tag_suggestionv1.NewTagSuggestionServiceClient(clientConn)
 
-	directoryReader := image.NewDirectoryReader(conf, dbClient)
 	imageFileConverter := image.NewImageFileConverter(conf)
-	imageFileService := image.NewFileService(
+	directoryReader := image.NewDirectoryReader(conf, dbClient)
+	imageReader := image.NewReader(dbClient, directoryReader, imageFileConverter)
+	imageService := frontend.NewImageService(imageReader)
+	legacyImageService := image.NewFileService(
 		logger,
 		dbClient,
 		directoryReader,
@@ -118,11 +120,12 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 		logger,
 		conf,
 		dbClient,
-		imageFileService,
+		legacyImageService,
 		directoryReader,
 	)
-	tagReader := tag.NewReader(dbClient, directoryReader, imageFileConverter)
-	tagService := tag.NewFrontendService(
+	tagReader := tag.NewReader(dbClient, directoryReader, imageReader, imageFileConverter)
+	tagService := frontend.NewTagService(tagReader)
+	legacyTagFrontendService := tag.NewFrontendService(
 		logger,
 		dbClient,
 		tagReader,
@@ -130,7 +133,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 			dbClient,
 			tagSuggestionServiceClient,
 			tagReader,
-			imageFileService,
+			imageReader,
 		),
 	)
 	searchService := frontend.NewSearchService(directoryReader, tagReader)
@@ -146,9 +149,11 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 		Description: "A simple image collection for anime images",
 		Logger:      logger,
 		Services: []application.Service{
-			application.NewService(imageFileService),
+			application.NewService(imageService),
+			application.NewService(legacyImageService),
 			application.NewService(directoryService),
 			application.NewService(tagService),
+			application.NewService(legacyTagFrontendService),
 			application.NewService(configService),
 			application.NewService(
 				image.NewStaticFileService(logger, conf),

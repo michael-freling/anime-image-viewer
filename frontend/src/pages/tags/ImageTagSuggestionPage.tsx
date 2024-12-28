@@ -12,15 +12,13 @@ import {
 import { useNavigate, useSearchParams } from "react-router";
 import LazyImage from "../../components/LazyImage";
 import { useEffect, useState } from "react";
-import {
-  ImageFile,
-  ImageFileService,
-} from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
+import { ImageFile } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
 import {
   Tag,
   TagSuggestion,
   TagFrontendService,
 } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
+import { ImageService } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 
 const ImageTagSuggestionPage: React.FC = () => {
   const navigate = useNavigate();
@@ -51,7 +49,7 @@ const ImageTagSuggestionPage: React.FC = () => {
       return;
     }
 
-    ImageFileService.ReadImagesByIDs(imageFileIds).then((response) => {
+    ImageService.ReadImagesByIDs(imageFileIds).then((response) => {
       const imageFiles = imageFileIds.map((id) => response[id]);
       setImageFiles(imageFiles);
       setTagSuggestions(

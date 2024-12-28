@@ -2,12 +2,18 @@ import { Box } from "@mui/joy";
 import { FC, useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { SearchService } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
-import ImageList, { ImageListType } from "../../components/Images/ImageList";
+import ImageListContainer, {
+  ImageList,
+  ViewImage,
+} from "../../components/Images/ImageList";
 
 const DirectoryImageListPage: FC = () => {
   const { directoryId } = useParams();
 
-  const [images, setImages] = useState<ImageListType>([]);
+  const [images, setImages] = useState<ViewImage[]>([]);
+  const [imageIdIndexes, setImageIdIndexes] = useState<{
+    [key: number]: number;
+  }>({});
 
   console.debug("DirectoryImageListPage", {
     directoryId,
@@ -27,6 +33,12 @@ const DirectoryImageListPage: FC = () => {
         selected: false,
       })),
     ]);
+    setImageIdIndexes(
+      response.images.reduce((acc, image, index) => {
+        acc[image.id] = index;
+        return acc;
+      }, {})
+    );
   };
 
   useEffect(() => {
@@ -41,13 +53,16 @@ const DirectoryImageListPage: FC = () => {
         gap: 1,
       }}
     >
-      <ImageList
-        images={images}
-        onSelect={(index) => {
-          images[index].selected = !images[index].selected;
-          setImages([...images]);
-        }}
-      />
+      <ImageListContainer images={images}>
+        <ImageList
+          images={images}
+          onSelect={(selectedId) => {
+            const index = imageIdIndexes[selectedId];
+            images[index].selected = !images[index].selected;
+            setImages([...images]);
+          }}
+        />
+      </ImageListContainer>
     </Box>
   );
 };
