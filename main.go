@@ -13,6 +13,7 @@ import (
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/frontend"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
+	"github.com/michael-freling/anime-image-viewer/internal/search"
 	"github.com/michael-freling/anime-image-viewer/internal/tag"
 	tag_suggestionv1 "github.com/michael-freling/anime-image-viewer/plugins/plugins-protos/gen/go/tag_suggestion/v1"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -123,7 +124,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 		legacyImageService,
 		directoryReader,
 	)
-	tagReader := tag.NewReader(dbClient, directoryReader, imageReader, imageFileConverter)
+	tagReader := tag.NewReader(dbClient, directoryReader)
 	tagService := frontend.NewTagService(tagReader)
 	legacyTagFrontendService := tag.NewFrontendService(
 		logger,
@@ -136,7 +137,10 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 			imageReader,
 		),
 	)
-	searchService := frontend.NewSearchService(directoryReader, tagReader)
+	searchService := frontend.NewSearchService(
+		search.NewSearchRunner(dbClient, directoryReader, imageReader, tagReader, imageFileConverter),
+		directoryReader,
+	)
 
 	title := "anime-image-viewer"
 	// Create a new Wails application by providing the necessary options.

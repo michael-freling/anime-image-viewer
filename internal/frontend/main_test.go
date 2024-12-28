@@ -11,6 +11,7 @@ import (
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
+	"github.com/michael-freling/anime-image-viewer/internal/search"
 	"github.com/michael-freling/anime-image-viewer/internal/tag"
 	"github.com/stretchr/testify/require"
 )
@@ -64,8 +65,14 @@ func newTester(t *testing.T, opts ...newTesterOption) tester {
 
 func (tester tester) getSearchService() *SearchService {
 	return NewSearchService(
+		search.NewSearchRunner(
+			tester.dbClient,
+			tester.getDirectoryReader(),
+			tester.getFileReader(),
+			tester.getTagReader(),
+			tester.getImageConverter(),
+		),
 		tester.getDirectoryReader(),
-		tester.getTagReader(),
 	)
 }
 
@@ -89,8 +96,6 @@ func (tester tester) getTagReader() *tag.Reader {
 	return tag.NewReader(
 		tester.dbClient,
 		tester.getDirectoryReader(),
-		tester.getFileReader(),
-		tester.getImageConverter(),
 	)
 }
 
