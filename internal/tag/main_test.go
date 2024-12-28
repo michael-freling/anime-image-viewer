@@ -87,6 +87,7 @@ func (tester Tester) getReader() *Reader {
 	return NewReader(
 		tester.dbClient,
 		tester.getDirectoryReader(),
+		tester.getImageReader(),
 		tester.getImageFileConverter(),
 	)
 }
@@ -101,6 +102,14 @@ func (tester Tester) getFrontendService(mocks frontendServiceMocks) *TagFrontend
 		tester.dbClient,
 		tester.getReader(),
 		mocks.suggestionService,
+	)
+}
+
+func (tester Tester) getImageReader() *image.Reader {
+	return image.NewReader(
+		tester.dbClient,
+		tester.getDirectoryReader(),
+		tester.getImageFileConverter(),
 	)
 }
 
@@ -121,7 +130,7 @@ func (tester Tester) getTagSuggestionService(
 		tester.dbClient,
 		mockSuggestionClient,
 		tester.getReader(),
-		tester.getFileService(),
+		tester.getImageReader(),
 	)
 }
 

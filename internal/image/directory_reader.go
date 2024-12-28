@@ -31,7 +31,7 @@ func (service DirectoryReader) readInitialDirectory() string {
 }
 
 func (service DirectoryReader) ReadImageFiles(parentDirectoryID uint) ([]ImageFile, error) {
-	parentDirectory, err := service.readDirectory(parentDirectoryID)
+	parentDirectory, err := service.ReadDirectory(parentDirectoryID)
 	if err != nil {
 		if errors.Is(err, ErrDirectoryNotFound) {
 			return nil, err
@@ -79,7 +79,7 @@ func (service DirectoryReader) ReadImageFilesRecursively(directory Directory) ([
 }
 
 func (service DirectoryReader) ReadChildDirectoriesRecursively(directoryID uint) ([]Directory, error) {
-	directory, err := service.readDirectory(directoryID)
+	directory, err := service.ReadDirectory(directoryID)
 	if err != nil {
 		return nil, fmt.Errorf("service.ReadDirectory: %w", err)
 	}
@@ -186,7 +186,7 @@ func (service DirectoryReader) ReadDirectories(directoryIDs []uint) (map[uint]Di
 	return result, nil
 }
 
-func (service DirectoryReader) readDirectory(directoryID uint) (Directory, error) {
+func (service DirectoryReader) ReadDirectory(directoryID uint) (Directory, error) {
 	directoryTree, err := service.ReadDirectoryTree()
 	if err != nil {
 		return Directory{}, fmt.Errorf("service.readDirectoryTree: %w", err)

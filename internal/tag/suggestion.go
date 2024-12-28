@@ -24,14 +24,14 @@ type SuggestionService struct {
 
 	reader *Reader
 
-	imageFileService *image.ImageFileService
+	imageReader *image.Reader
 }
 
 func NewSuggestionService(
 	dbClient *db.Client,
 	tagSuggestionClient tag_suggestionv1.TagSuggestionServiceClient,
 	reader *Reader,
-	imageFileService *image.ImageFileService,
+	imageReader *image.Reader,
 ) *SuggestionService {
 	return &SuggestionService{
 		dbClient:             dbClient,
@@ -39,14 +39,14 @@ func NewSuggestionService(
 
 		reader: reader,
 
-		imageFileService: imageFileService,
+		imageReader: imageReader,
 	}
 }
 
 func (service *SuggestionService) suggestTags(ctx context.Context, imageFileIDs []uint) (SuggestTagsResponse, error) {
-	imageFileMap, err := service.imageFileService.ReadImagesByIDs(ctx, imageFileIDs)
+	imageFileMap, err := service.imageReader.ReadImagesByIDs(imageFileIDs)
 	if err != nil {
-		return SuggestTagsResponse{}, fmt.Errorf("imageFileService.getImagesByIDs: %w", err)
+		return SuggestTagsResponse{}, fmt.Errorf("imageReader.getImagesByIDs: %w", err)
 	}
 	if len(imageFileMap) == 0 {
 		return SuggestTagsResponse{}, fmt.Errorf("%w by IDs: %v", image.ErrImageFileNotFound, imageFileIDs)
@@ -77,7 +77,7 @@ func (service *SuggestionService) suggestTags(ctx context.Context, imageFileIDs 
 		if err != nil {
 			return fmt.Errorf("reader.ReadAllTags: %w", err)
 		}
-		allTagMap = convertTagsToMap(allTags)
+		allTagMap = ConvertTagsToMap(allTags)
 
 		tagChecker, err = service.reader.CreateBatchTagCheckerByFileIDs(
 			childCtx,

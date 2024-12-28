@@ -28,9 +28,11 @@ type ExportService struct {
 func NewExportService(logger *slog.Logger, conf config.Config, dbClient *db.Client) *ExportService {
 	directoryReader := image.NewDirectoryReader(conf, dbClient)
 	imageFileConverter := image.NewImageFileConverter(conf)
+	fileReader := image.NewReader(dbClient, directoryReader, imageFileConverter)
 	tagReader := tag.NewReader(
 		dbClient,
 		directoryReader,
+		fileReader,
 		imageFileConverter,
 	)
 

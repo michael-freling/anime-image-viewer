@@ -47,11 +47,11 @@ func (tag Tag) findDescendants() []Tag {
 	return descendants
 }
 
-func convertTagsToMap(tags []Tag) map[uint]Tag {
+func ConvertTagsToMap(tags []Tag) map[uint]Tag {
 	result := make(map[uint]Tag)
 	for _, tag := range tags {
 		result[tag.ID] = tag
-		children := convertTagsToMap(xslices.Map(tag.Children, func(t *Tag) Tag {
+		children := ConvertTagsToMap(xslices.Map(tag.Children, func(t *Tag) Tag {
 			return *t
 		}))
 		for id, child := range children {

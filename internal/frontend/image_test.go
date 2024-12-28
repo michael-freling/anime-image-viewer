@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"fmt"
 	"path/filepath"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
@@ -42,7 +43,11 @@ func (builder *fileBuilder) addImage(imageFile Image) *fileBuilder {
 }
 
 func (builder fileBuilder) buildDBDirectory(id uint) db.File {
-	dir := builder.directories[id]
+	dir, ok := builder.directories[id]
+	if !ok {
+		panic(fmt.Errorf("image not found: %d", id))
+	}
+
 	return db.File{
 		ID:       dir.ID,
 		Name:     dir.Name,
@@ -52,7 +57,11 @@ func (builder fileBuilder) buildDBDirectory(id uint) db.File {
 }
 
 func (builder fileBuilder) buildImage(id uint) Image {
-	return builder.imageFiles[id]
+	result, ok := builder.imageFiles[id]
+	if !ok {
+		panic(fmt.Errorf("image not found: %d", id))
+	}
+	return result
 }
 
 func (builder fileBuilder) buildDBImage(id uint) db.File {

@@ -1,4 +1,4 @@
-import Layout from "../../Layout";
+import { Bookmark, Folder } from "@mui/icons-material";
 import {
   Accordion,
   AccordionDetails,
@@ -11,12 +11,20 @@ import {
   Switch,
   Typography,
 } from "@mui/joy";
-import { FC, useState } from "react";
-import { Bookmark, Folder } from "@mui/icons-material";
+import { FC, useEffect, useState } from "react";
+import {
+  SearchService,
+  TagService,
+} from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import { Directory } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
 import { Tag } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
+import ImageListContainer, {
+  ImageList,
+  ViewImage,
+} from "../../components/Images/ImageList";
 import SelectDirectoryExplorer from "../../components/SelectDirectoryExplorer";
 import SelectTagExplorer from "../../components/SelectTagExplorer";
+import Layout from "../../Layout";
 
 interface SearchSidebarProps {
   onSelect(directoryId: number, tagId: number): void;
@@ -105,10 +113,66 @@ const SearchSidebar: FC<SearchSidebarProps> = ({ onSelect }) => {
   );
 };
 
+const ImageListWithTags: FC<{
+  images: ViewImage[];
+  taggedImageIds: { [tagId: number]: number[] };
+  allTagMap: { [id: number]: Tag };
+  setImages: (images: ViewImage[]) => void;
+  imageIdIndexes: { [id: number]: number };
+}> = ({ images, taggedImageIds, allTagMap, setImages, imageIdIndexes }) => {
+  return (
+    <ImageListContainer images={images}>
+      {Object.entries(taggedImageIds).map(([tagId, imageIds]) => {
+        const tag = allTagMap[tagId];
+        return (
+          <Box key={tagId}>
+            <Box>
+              <Typography variant="soft" level="h4" sx={{ p: 2 }}>
+                {tag?.fullName}
+              </Typography>
+            </Box>
+            <ImageList
+              images={images.filter((image) => imageIds.includes(image.id))}
+              onSelect={(selectedImageId) => {
+                const index = imageIdIndexes[selectedImageId];
+                images[index].selected = !images[index].selected;
+                setImages([...images]);
+              }}
+            />
+          </Box>
+        );
+      })}
+    </ImageListContainer>
+  );
+};
+
 const SearchPage: FC = () => {
-  const [, setImages] = useState({
-    userImages: [],
+  const [allTagMap, setAllTagMap] = useState<{
+    [id: number]: Tag;
+  }>({});
+  const [images, setImages] = useState<ViewImage[]>([]);
+  const [imageIdIndexes, setImageIdIndexes] = useState<{
+    [id: number]: number;
+  }>({});
+  const [taggedImageIds, setTaggedImageIds] = useState<{
+    [tagId: number]: number[];
+  }>({});
+
+  console.debug("SearchPage", {
+    allTagMap,
+    images,
+    taggedImageIds,
   });
+
+  useEffect(() => {
+    if (Object.keys(allTagMap).length > 0) {
+      return;
+    }
+
+    TagService.ReadAllMap().then((tagMap) => {
+      setAllTagMap(tagMap);
+    });
+  }, []);
 
   return (
     <Box
@@ -136,14 +200,42 @@ const SearchPage: FC = () => {
               directoryId,
               tagId,
             });
-            setImages({
-              userImages: [],
+            SearchService.SearchImages({
+              parentDirectoryId: directoryId,
+              tagId: tagId,
+            }).then(({ images, taggedImages }) => {
+              setImages(images.map((image) => ({ ...image, selected: false })));
+              setImageIdIndexes(
+                images.reduce((acc, image, index) => {
+                  acc[image.id] = index;
+                  return acc;
+                }, {})
+              );
+              setTaggedImageIds(taggedImages);
             });
           }}
         />
       </Layout.SideNav>
       <Layout.Main>
-        <h1>Search</h1>
+        {Object.keys(taggedImageIds).length === 0 && (
+          <ImageList
+            images={images}
+            onSelect={(selectedImageId) => {
+              const index = imageIdIndexes[selectedImageId];
+              images[index].selected = !images[index].selected;
+              setImages([...images]);
+            }}
+          />
+        )}
+        {Object.keys(taggedImageIds).length > 0 && (
+          <ImageListWithTags
+            images={images}
+            taggedImageIds={taggedImageIds}
+            allTagMap={allTagMap}
+            setImages={setImages}
+            imageIdIndexes={imageIdIndexes}
+          />
+        )}
       </Layout.Main>
     </Box>
   );

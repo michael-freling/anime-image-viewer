@@ -69,6 +69,18 @@ func (tester tester) getSearchService() *SearchService {
 	)
 }
 
+func (tester tester) getImageConverter() *image.ImageFileConverter {
+	return image.NewImageFileConverter(tester.config)
+}
+
+func (tester tester) getFileReader() *image.Reader {
+	return image.NewReader(
+		tester.dbClient,
+		tester.getDirectoryReader(),
+		tester.getImageConverter(),
+	)
+}
+
 func (tester tester) getDirectoryReader() *image.DirectoryReader {
 	return image.NewDirectoryReader(tester.config, tester.dbClient)
 }
@@ -77,13 +89,12 @@ func (tester tester) getTagReader() *tag.Reader {
 	return tag.NewReader(
 		tester.dbClient,
 		tester.getDirectoryReader(),
-		image.NewImageFileConverter(tester.config),
+		tester.getFileReader(),
+		tester.getImageConverter(),
 	)
 }
 
 func (tester tester) copyImageFile(t *testing.T, source, destination string) {
-	t.Helper()
-
 	destination = strings.TrimPrefix(destination, "/files/")
 	destination = filepath.Join(tester.config.ImageRootDirectory, destination)
 	if err := os.MkdirAll(filepath.Dir(destination), 0755); err != nil {

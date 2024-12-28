@@ -49,38 +49,43 @@ func (service SearchService) SearchImages(
 	if request.ParentDirectoryID == 0 && request.TagID == 0 {
 		return SearchImagesResponse{}, fmt.Errorf("%w: either parentDirectoryId or tagId is required", xerrors.ErrInvalidArgument)
 	}
-	if request.ParentDirectoryID == 0 {
-		// if no parent directory id, search files by tag id
-		tagFinder, err := service.tagReader.ReadImageFiles(request.TagID)
+
+	var fileIDs []uint
+	if request.ParentDirectoryID != 0 && request.TagID == 0 {
+		var err error
+		imageFiles, err = service.directoryReader.ReadImageFiles(request.ParentDirectoryID)
 		if err != nil {
-			return SearchImagesResponse{}, fmt.Errorf("service.tagReader.ReadImageFiles: %w", err)
+			return SearchImagesResponse{}, fmt.Errorf("service.directoryReader.ReadImageFiles: %w", err)
+		}
+		if len(imageFiles) == 0 {
+			return SearchImagesResponse{}, fmt.Errorf("%w: no image files found in directory: %d", ErrImageNotFound, request.ParentDirectoryID)
+		}
+		for _, imageFile := range imageFiles {
+			fileIDs = append(fileIDs, imageFile.ID)
 		}
 
-		images := make([]Image, 0, len(tagFinder.Images))
-		for _, imageFile := range tagFinder.Images {
-			images = append(images, newImageConverterFromImageFiles(imageFile).Convert())
-		}
-		if len(tagFinder.Images) == 0 {
-			images = nil
-		}
-
+		batchImageConverter := newBatchImageConverter(imageFiles)
 		return SearchImagesResponse{
-			Images:       images,
-			TaggedImages: tagFinder.TaggedImages,
+			Images: batchImageConverter.Convert(),
 		}, nil
 	}
 
-	var err error
-	imageFiles, err = service.directoryReader.ReadImageFiles(request.ParentDirectoryID)
+	// if there is no directory search, search files by tag id
+	tagFinder, err := service.tagReader.ReadImageFiles(request.TagID, request.ParentDirectoryID)
 	if err != nil {
-		return SearchImagesResponse{}, fmt.Errorf("service.directoryReader.ReadImageFiles: %w", err)
-	}
-	if len(imageFiles) == 0 {
-		return SearchImagesResponse{}, fmt.Errorf("%w: no image files found in directory: %d", ErrImageNotFound, request.ParentDirectoryID)
+		return SearchImagesResponse{}, fmt.Errorf("service.tagReader.ReadImageFiles: %w", err)
 	}
 
-	batchImageConverter := newBatchImageConverter(imageFiles)
+	images := make([]Image, 0, len(tagFinder.Images))
+	for _, imageFile := range tagFinder.Images {
+		images = append(images, newImageConverterFromImageFiles(imageFile).Convert())
+	}
+	if len(tagFinder.Images) == 0 {
+		images = nil
+	}
+
 	return SearchImagesResponse{
-		Images: batchImageConverter.Convert(),
+		Images:       images,
+		TaggedImages: tagFinder.TaggedImages,
 	}, nil
 }
