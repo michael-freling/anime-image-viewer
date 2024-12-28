@@ -207,10 +207,10 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
     return itemIds;
   };
 
-  const defaultExpandedItems = Object.keys(tagMap).map((tagId) =>
-    String(tagId)
-  );
-  //const defaultExpandedItems = getAllTreeItemIds(treeItems);
+  //   const defaultExpandedItems = Object.keys(tagMap).map((tagId) =>
+  //     String(tagId)
+  //   );
+  const defaultExpandedItems = [];
   const defaultSelectedItems =
     tagStats != undefined
       ? Object.keys(tagStats.TagCounts).filter((tagId) => {

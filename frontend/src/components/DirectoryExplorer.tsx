@@ -152,7 +152,6 @@ const DirectoryExplorer: FC<DirectoryExplorerProps> = ({ editable }) => {
 
       <RichTreeView
         expansionTrigger="content"
-        defaultExpandedItems={[rootDirectory]}
         slots={{
           // todo: RichTreeView doesn't allow to pass a type other than TreeItem2Props
           item: ExplorerTreeItem as any,
