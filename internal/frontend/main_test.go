@@ -66,6 +66,7 @@ func newTester(t *testing.T, opts ...newTesterOption) tester {
 func (tester tester) getSearchService() *SearchService {
 	return NewSearchService(
 		search.NewSearchRunner(
+			tester.logger,
 			tester.dbClient,
 			tester.getDirectoryReader(),
 			tester.getFileReader(),

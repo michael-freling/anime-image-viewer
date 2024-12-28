@@ -74,6 +74,15 @@ func (client FileTagClient) WithTransaction(f func(*FileTagClient) error) error 
 
 type FileTagList []FileTag
 
+func (tags FileTagList) ContainsFileID(fileID uint) bool {
+	for _, tag := range tags {
+		if tag.FileID == fileID {
+			return true
+		}
+	}
+	return false
+}
+
 func (tags FileTagList) ToFileIDs() []uint {
 	result := make([]uint, 0)
 	added := make(map[uint]struct{})

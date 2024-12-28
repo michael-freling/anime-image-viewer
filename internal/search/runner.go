@@ -1,8 +1,10 @@
 package search
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
@@ -11,6 +13,7 @@ import (
 )
 
 type SearchImageRunner struct {
+	logger             *slog.Logger
 	dbClient           *db.Client
 	directoryReader    *image.DirectoryReader
 	imageReader        *image.Reader
@@ -19,6 +22,7 @@ type SearchImageRunner struct {
 }
 
 func NewSearchRunner(
+	logger *slog.Logger,
 	dbClient *db.Client,
 	directoryReader *image.DirectoryReader,
 	imageReader *image.Reader,
@@ -26,6 +30,7 @@ func NewSearchRunner(
 	imageFileConverter *image.ImageFileConverter,
 ) *SearchImageRunner {
 	return &SearchImageRunner{
+		logger:             logger,
 		dbClient:           dbClient,
 		directoryReader:    directoryReader,
 		imageReader:        imageReader,
@@ -40,27 +45,32 @@ type ImageFinder struct {
 	TaggedImages map[uint][]uint
 }
 
-func (runner SearchImageRunner) SearchImages(tagID uint, parentDirectoryID uint) (ImageFinder, error) {
+func (runner SearchImageRunner) SearchImages(
+	ctx context.Context,
+	tagID uint,
+	isInvertedTagSearch bool,
+	parentDirectoryID uint,
+) (ImageFinder, error) {
 	result := ImageFinder{}
 
-	tagTree, err := runner.tagReader.ReadAllTagTree()
-	if err != nil {
-		return result, fmt.Errorf("reader.ReadAllTagTree: %w", err)
+	var fileTags db.FileTagList
+	if tagID != 0 {
+		var err error
+		fileTags, err = runner.tagReader.ReadDBTagRecursively(tagID)
+		if err != nil {
+			return result, fmt.Errorf("reader.readDBTagRecursively: %w", err)
+		}
+		if !isInvertedTagSearch && len(fileTags) == 0 {
+			return result, nil
+		}
 	}
-
-	fileTags, err := runner.tagReader.ReadDBTagRecursively(tagID)
-	if err != nil {
-		return result, fmt.Errorf("reader.readDBTagRecursively: %w", err)
-	}
-	if len(fileTags) == 0 {
-		return result, nil
-	}
-	fileIDs := fileTags.ToFileIDs()
 
 	var imageFiles []image.ImageFile
 	parentDirectories := make(map[uint]image.Directory, 0)
 	directoryDescendants := make(map[uint][]uint, 0)
 	if parentDirectoryID == 0 {
+		fileIDs := fileTags.ToFileIDs()
+
 		// find ancestors of directories
 		directories, err := runner.directoryReader.ReadDirectories(fileIDs)
 		if err != nil && !errors.Is(err, image.ErrDirectoryNotFound) {
@@ -101,16 +111,22 @@ func (runner SearchImageRunner) SearchImages(tagID uint, parentDirectoryID uint)
 		}
 
 		imageFiles = make([]image.ImageFile, len(dbImageFiles)+len(imageFilesUnderDirectories))
+		imageFileErrors := make([]error, 0)
 		for i, dbImageFile := range slices.Concat(dbImageFiles, imageFilesUnderDirectories) {
 			parentDirectory := parentDirectories[dbImageFile.ParentID]
 			if parentDirectory.ID == 0 {
-				return result, fmt.Errorf("%w: %d for an image %d", image.ErrDirectoryNotFound, dbImageFile.ParentID, dbImageFile.ID)
+				imageFileErrors = append(imageFileErrors, fmt.Errorf("%w: %d for an image %d", image.ErrDirectoryNotFound, dbImageFile.ParentID, dbImageFile.ID))
+				continue
 			}
 			imageFile, err := runner.imageFileConverter.ConvertImageFile(parentDirectory, dbImageFile)
 			if err != nil {
-				return result, fmt.Errorf("imageFileConverter.ConvertImageFile: %w", err)
+				imageFileErrors = append(imageFileErrors, fmt.Errorf("imageFileConverter.ConvertImageFile: %w", err))
+				continue
 			}
 			imageFiles[i] = imageFile
+		}
+		if len(imageFileErrors) > 0 {
+			return result, errors.Join(imageFileErrors...)
 		}
 	} else {
 		parentDirectory, err := runner.directoryReader.ReadDirectory(parentDirectoryID)
@@ -119,18 +135,22 @@ func (runner SearchImageRunner) SearchImages(tagID uint, parentDirectoryID uint)
 		}
 		parentDirectories[parentDirectoryID] = parentDirectory
 
-		hasParentDirectoryTag := false
-		for _, fileTag := range fileTags {
-			if fileTag.FileID == parentDirectoryID {
-				hasParentDirectoryTag = true
-				continue
-			}
+		hasParentDirectoryTag := fileTags.ContainsFileID(parentDirectoryID)
+		if isInvertedTagSearch && hasParentDirectoryTag {
+			return result, nil
+			// return result, fmt.Errorf("%w: a directory %s already has a tag",
+			// 	xerrors.ErrInvalidArgument,
+			// 	parentDirectory.Name,
+			// )
 		}
-		if hasParentDirectoryTag {
+		if hasParentDirectoryTag || isInvertedTagSearch {
 			// Do not look up files in sub directories recursively
 			imageFiles, err = runner.directoryReader.ReadImageFiles(parentDirectoryID)
 			if err != nil {
 				return result, fmt.Errorf("directoryReader.ReadImageFiles: %w", err)
+			}
+			for _, imageFile := range imageFiles {
+				directoryDescendants[parentDirectoryID] = append(directoryDescendants[parentDirectoryID], imageFile.ID)
 			}
 		} else {
 			fileIDs := fileTags.ToFileIDs()
@@ -147,67 +167,78 @@ func (runner SearchImageRunner) SearchImages(tagID uint, parentDirectoryID uint)
 				imageFiles = append(imageFiles, imageFile)
 			}
 		}
+
+		if isInvertedTagSearch {
+			filteredImageFiles := make([]image.ImageFile, 0)
+			for _, image := range imageFiles {
+				if fileTags.ContainsFileID(image.ID) {
+					continue
+				}
+				filteredImageFiles = append(filteredImageFiles, image)
+			}
+			imageFiles = filteredImageFiles
+		}
 	}
 
-	tagMap := tagTree.ConvertToFlattenMap()
-	fileTagsMap := make(map[uint][]tag.Tag, 0)
-	for tagID, fileTagMap := range fileTags.ToTagMap() {
-		tag := tagMap[tagID]
-
-		for fileID := range fileTagMap {
-			descendants := directoryDescendants[fileID]
-			for _, descendantFileID := range descendants {
-				fileTagsMap[descendantFileID] = append(fileTagsMap[descendantFileID], tag)
-			}
-
-			for _, imageFile := range imageFiles {
-				if imageFile.ID == fileID {
-					fileTagsMap[fileID] = append(fileTagsMap[fileID], tag)
-					break
-				}
-			}
-		}
+	images := make(map[uint]image.ImageFile, 0)
+	for _, imageFile := range imageFiles {
+		images[imageFile.ID] = imageFile
 	}
 
 	// tag id to file id
-	resultTags := make(map[uint][]uint, 0)
-	resultImages := make(map[uint][]image.ImageFile, 0)
-	imageFileErrors := make([]error, 0)
-	fileAdded := make(map[uint]struct{})
-	images := make(map[uint]image.ImageFile, 0)
-	for _, imageFile := range imageFiles {
-		if _, ok := fileAdded[imageFile.ID]; ok {
-			continue
-		}
-		fileAdded[imageFile.ID] = struct{}{}
+	var resultTags map[uint][]uint
+	if tagID != 0 {
+		resultTags = make(map[uint][]uint, 0)
 
-		images[imageFile.ID] = imageFile
-		imageFileTags := fileTagsMap[imageFile.ID]
-		for _, tag := range imageFileTags {
-			if _, ok := resultImages[tag.ID]; ok {
-				continue
-			}
+		// Create a map of tag IDs to file IDs
+		// descendants variable may contain a directory or image files which
+		// is not a target for a search by a tag ID
+		fileTagsMap := make(map[uint][]uint, 0)
+		for tagID, fileTagMap := range fileTags.ToTagMap() {
+			for fileID := range fileTagMap {
+				descendants := directoryDescendants[fileID]
+				for _, descendantFileID := range descendants {
+					fileTagsMap[descendantFileID] = append(fileTagsMap[descendantFileID], tagID)
+				}
 
-			resultImages[tag.ID] = make([]image.ImageFile, 0)
-			// resultTags = append(resultTags, tag)
-			resultTags[tag.ID] = make([]uint, 0)
-		}
-	OUTER:
-		for _, tag := range imageFileTags {
-			for _, resultFile := range resultImages[tag.ID] {
-				if imageFile.ID == resultFile.ID {
-					continue OUTER
+				for _, imageFile := range imageFiles {
+					if imageFile.ID == fileID {
+						fileTagsMap[fileID] = append(fileTagsMap[fileID], tagID)
+						break
+					}
 				}
 			}
-			resultTags[tag.ID] = append(resultTags[tag.ID], imageFile.ID)
-			resultImages[tag.ID] = append(resultImages[tag.ID], imageFile)
 		}
-	}
-	if len(imageFileErrors) > 0 {
-		return result, errors.Join(imageFileErrors...)
-	}
-	if len(resultTags) == 0 {
-		resultTags = nil
+		runner.logger.DebugContext(ctx, "SearchImageRunner.SearchImages",
+			"fileTags", fileTags,
+			"fileTagsMap", fileTagsMap,
+			"imageFiles", imageFiles,
+		)
+
+		// tag id to file id
+		tagIsAdded := make(map[uint]map[uint]bool, 0)
+		for _, imageFile := range imageFiles {
+			imageFileTags := fileTagsMap[imageFile.ID]
+
+			for _, tagID := range imageFileTags {
+				if _, ok := resultTags[tagID]; ok {
+					continue
+				}
+				resultTags[tagID] = make([]uint, 0)
+				tagIsAdded[tagID] = make(map[uint]bool)
+			}
+			for _, tagID := range imageFileTags {
+				if _, ok := tagIsAdded[tagID][imageFile.ID]; ok {
+					continue
+				}
+
+				resultTags[tagID] = append(resultTags[tagID], imageFile.ID)
+				tagIsAdded[tagID][imageFile.ID] = true
+			}
+		}
+		if len(resultTags) == 0 {
+			resultTags = nil
+		}
 	}
 
 	return ImageFinder{

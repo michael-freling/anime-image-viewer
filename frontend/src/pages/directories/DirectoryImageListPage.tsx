@@ -25,7 +25,7 @@ const DirectoryImageListPage: FC = () => {
       return;
     }
     const response = await SearchService.SearchImages({
-      parentDirectoryId: parseInt(directoryId, 10),
+      directoryId: parseInt(directoryId, 10),
     });
     setImages([
       ...response.images.map((image) => ({
