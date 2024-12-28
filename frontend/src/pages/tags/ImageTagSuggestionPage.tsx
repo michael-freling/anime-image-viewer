@@ -19,6 +19,7 @@ import {
   TagFrontendService,
 } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
 import { ImageService } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
+import Layout from "../../Layout";
 
 const ImageTagSuggestionPage: React.FC = () => {
   const navigate = useNavigate();
@@ -108,19 +109,14 @@ const ImageTagSuggestionPage: React.FC = () => {
     return <Box>{error.message}</Box>;
   }
 
-  const height = 320;
+  const cardHeight = 320;
   return (
-    <Stack spacing={2}>
-      <Stack
-        direction="row"
-        spacing={2}
-        alignItems="center"
-        divider={<Divider orientation="vertical" />}
-      >
-        <Button color="primary" onClick={handleSubmit} disabled={isSubmitted}>
-          Submit
-        </Button>
-        <Stack direction="row" spacing={2} alignItems="center" flexGrow={1}>
+    <Layout.Main
+      actionHeader={
+        <>
+          <Button color="primary" onClick={handleSubmit} disabled={isSubmitted}>
+            Submit
+          </Button>
           <Typography width={100}>Match rate</Typography>
           <Slider
             color="primary"
@@ -134,9 +130,9 @@ const ImageTagSuggestionPage: React.FC = () => {
             }}
             sx={{ flexGrow: 1 }}
           />
-        </Stack>
-      </Stack>
-
+        </>
+      }
+    >
       {/* Grid component doesn't work https://github.com/mui/material-ui/issues/44102 */}
       <Stack
         spacing={1}
@@ -153,12 +149,12 @@ const ImageTagSuggestionPage: React.FC = () => {
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "space-between",
-              height,
+              height: cardHeight,
               gap: 2,
               marginBottom: 1,
             }}
           >
-            <CardOverflow sx={{ width: height * (16 / 9) }}>
+            <CardOverflow sx={{ width: cardHeight * (16 / 9) }}>
               <LazyImage src={image.path} />
             </CardOverflow>
             <CardOverflow
@@ -208,7 +204,7 @@ const ImageTagSuggestionPage: React.FC = () => {
           </Card>
         ))}
       </Stack>
-    </Stack>
+    </Layout.Main>
   );
 };
 export default ImageTagSuggestionPage;

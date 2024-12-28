@@ -13,6 +13,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { Image } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 
 import LazyImage from "../../components/LazyImage";
+import Layout from "../../Layout";
 
 export type ViewImage = Image & {
   selected: boolean;
@@ -81,7 +82,7 @@ export interface ImageListContainerProps {
   images: ViewImage[];
 }
 
-const ImageListContainer: FC<ImageListContainerProps & PropsWithChildren> = ({
+const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
   images,
   children,
 }) => {
@@ -91,70 +92,52 @@ const ImageListContainer: FC<ImageListContainerProps & PropsWithChildren> = ({
   const navigate = useNavigate();
 
   return (
-    <Box>
-      <Card
-        sx={{
-          position: "sticky",
-          top: 0,
-          p: 1,
-          zIndex: 1,
-
-          display: "flex",
-          flexDirection: "row",
-          alignItems: "center",
-        }}
-      >
-        <Typography>Selected {selectedImageCount} images</Typography>
-        <Button
-          color="primary"
-          disabled={selectedImageCount === 0}
-          onClick={() => {
-            const imageIds = images
-              .filter((image) => image.selected)
-              .map((image) => String(image.id));
-            setSearchParams({
-              imageIds: imageIds,
-            });
-            navigate(
-              "/images/edit/tags/suggestion?imageIds=" +
-                encodeURIComponent(imageIds.join(","))
-            );
-          }}
-        >
-          Suggest tags
-        </Button>
-        <Button
-          variant="outlined"
-          color="primary"
-          disabled={selectedImageCount === 0}
-          onClick={() => {
-            const imageIds = images
-              .filter((image) => image.selected)
-              .map((image) => String(image.id));
-            setSearchParams({
-              imageIds: imageIds,
-            });
-            navigate(
-              "/images/edit/tags?imageIds=" +
-                encodeURIComponent(imageIds.join(","))
-            );
-          }}
-        >
-          Edit tags manually
-        </Button>
-      </Card>
-
-      <Box
-        sx={{
-          height: "calc(100vh - 120px)",
-          width: "100%",
-          overflowX: "hidden",
-          overflowY: "auto",
-        }}
-      >
-        {children}
-      </Box>
-    </Box>
+    <Layout.Main
+      actionHeader={
+        <>
+          <Typography>Selected {selectedImageCount} images</Typography>
+          <Button
+            color="primary"
+            disabled={selectedImageCount === 0}
+            onClick={() => {
+              const imageIds = images
+                .filter((image) => image.selected)
+                .map((image) => String(image.id));
+              setSearchParams({
+                imageIds: imageIds,
+              });
+              navigate(
+                "/images/edit/tags/suggestion?imageIds=" +
+                  encodeURIComponent(imageIds.join(","))
+              );
+            }}
+          >
+            Suggest tags
+          </Button>
+          <Button
+            variant="outlined"
+            color="primary"
+            disabled={selectedImageCount === 0}
+            onClick={() => {
+              const imageIds = images
+                .filter((image) => image.selected)
+                .map((image) => String(image.id));
+              setSearchParams({
+                imageIds: imageIds,
+              });
+              navigate(
+                "/images/edit/tags?imageIds=" +
+                  encodeURIComponent(imageIds.join(","))
+              );
+            }}
+          >
+            Edit tags manually
+          </Button>
+        </>
+      }
+    >
+      {children}
+    </Layout.Main>
   );
 };
-export default ImageListContainer;
+export default ImageListMain;

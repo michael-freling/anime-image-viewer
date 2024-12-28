@@ -5,6 +5,7 @@ import Sheet from "@mui/joy/Sheet";
 import HeaderComponent from "./components/Header";
 import Navigation from "./components/Navigation";
 import { Outlet } from "react-router";
+import { Card, Stack } from "@mui/joy";
 
 function Header(props: BoxProps) {
   return (
@@ -53,16 +54,41 @@ function SideNav(props: BoxProps) {
   );
 }
 
-function Main(props: BoxProps) {
-  return (
-    <Box
-      component="main"
-      className="Main"
-      {...props}
-      sx={[...(Array.isArray(props.sx) ? props.sx : [props.sx])]}
-    />
-  );
+export interface MainProps {
+  actionHeader: React.ReactNode;
 }
+const Main: React.FC<MainProps & React.PropsWithChildren> = ({
+  actionHeader,
+  children,
+}) => {
+  return (
+    <Box component="main" className="Main">
+      <Card
+        sx={{
+          position: "sticky",
+          top: 0,
+          p: 1,
+          zIndex: 1,
+        }}
+      >
+        <Stack direction="row" spacing={2} alignItems="center">
+          {actionHeader}
+        </Stack>
+      </Card>
+      <Box
+        sx={{
+          height: "calc(100vh - 120px)",
+          width: "100%",
+          overflowX: "hidden",
+          overflowY: "auto",
+        }}
+      >
+        {children}
+      </Box>
+    </Box>
+  );
+};
+
 function SideDrawer(
   props: BoxProps & { onClose: React.MouseEventHandler<HTMLDivElement> }
 ) {
@@ -129,9 +155,7 @@ const ThreeColumnLayout: React.FC<ThreeColumnLayoutProps> = ({
     </SideNav>
     <SideNav>{sideNavigation}</SideNav>
 
-    <Main>
-      <Outlet />
-    </Main>
+    <Outlet />
   </Box>
 );
 
@@ -157,34 +181,6 @@ const TwoColumnLayout: React.FC = () => (
       <Navigation />
     </SideNav>
 
-    <Main>
-      <Outlet />
-    </Main>
-  </Box>
-);
-
-const PlainLayout: React.FC = () => (
-  <Box
-    sx={{
-      display: "grid",
-      gridTemplateColumns: {
-        xs: "1fr",
-        sm: "minmax(64px, 200px) minmax(450px, 1fr)",
-        md: "minmax(100px, 160px) minmax(500px, 1fr)",
-      },
-      gridTemplateRows: "64px 1fr",
-      width: "100vw",
-      height: "100vh",
-      msOverflowY: "hidden",
-    }}
-  >
-    <Header>
-      <HeaderComponent />
-    </Header>
-    <SideNav>
-      <Navigation />
-    </SideNav>
-
     <Outlet />
   </Box>
 );
@@ -194,7 +190,6 @@ export default {
   SideNav,
   SideDrawer,
   Main,
-  PlainLayout,
   TwoColumnLayout,
   ThreeColumnLayout,
 };

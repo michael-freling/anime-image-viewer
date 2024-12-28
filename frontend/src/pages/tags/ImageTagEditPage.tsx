@@ -1,8 +1,9 @@
-import { Box, Button, Stack, Typography } from "@mui/joy";
+import { Button, Stack, Typography } from "@mui/joy";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { TagFrontendService } from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
-import SelectTagExplorer from "../components/SelectTagExplorer";
+import { TagFrontendService } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
+import SelectTagExplorer from "../../components/SelectTagExplorer";
+import Layout from "../../Layout";
 
 const ImageTagEditPage = () => {
   const navigate = useNavigate();
@@ -23,15 +24,23 @@ const ImageTagEditPage = () => {
   };
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 2,
-        minHeight: "100%",
-      }}
+    <Layout.Main
+      actionHeader={
+        <>
+          <Typography>Select tags for {imageIds.length} images</Typography>
+          <Stack direction="row" spacing={2}>
+            <Button
+              color="primary"
+              onClick={() => {
+                updateImageTags();
+              }}
+            >
+              Update
+            </Button>
+          </Stack>
+        </>
+      }
     >
-      <Typography>Select tags for {imageIds.length} images</Typography>
       <SelectTagExplorer
         isMultiSelect={true}
         fileIds={imageIds}
@@ -40,18 +49,7 @@ const ImageTagEditPage = () => {
           setDeletedTagIds(deletedTagIds);
         }}
       />
-
-      <Stack direction="row" spacing={2}>
-        <Button
-          color="primary"
-          onClick={() => {
-            updateImageTags();
-          }}
-        >
-          Update
-        </Button>
-      </Stack>
-    </Box>
+    </Layout.Main>
   );
 };
 export default ImageTagEditPage;

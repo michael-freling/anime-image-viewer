@@ -6,12 +6,13 @@ import { BrowserRouter, Route, Routes } from "react-router";
 import DirectoryImageListPage from "./pages/directories/DirectoryImageListPage";
 import DirectoryExplorer from "./components/DirectoryExplorer";
 import Layout from "./Layout";
-import ImageTagEditPage from "./pages/ImageTagEditPage";
+import ImageTagEditPage from "./pages/tags/ImageTagEditPage";
 import TagsListPage from "./pages/tags/TagsListPage";
-import DirectoryTagsEditPage from "./pages/DirectoryTagEditPage";
+import DirectoryTagsEditPage from "./pages/tags/DirectoryTagEditPage";
 import ImageTagSuggestionPage from "./pages/tags/ImageTagSuggestionPage";
 import SearchPage from "./pages/search/SearchPage";
 import DirectoryEditPage from "./pages/directories/DirectoryEditPage";
+import DirectorySelectPage from "./pages/directories/DirectorySelectPage";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
@@ -23,7 +24,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
             <Route
               element={
                 <Layout.ThreeColumnLayout
-                  sideNavigation={<DirectoryExplorer editable={false} />}
+                  sideNavigation={<DirectoryExplorer />}
                 />
               }
             >
@@ -31,26 +32,23 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
             </Route>
 
             {/* Search */}
-            <Route element={<Layout.PlainLayout />} path="search">
+            <Route element={<Layout.TwoColumnLayout />} path="search">
               <Route index element={<SearchPage />} />
             </Route>
 
             {/* Directory */}
             <Route path="directories">
               <Route element={<Layout.TwoColumnLayout />}>
-                <Route
-                  path="edit"
-                  element={<DirectoryExplorer editable={true} />}
-                />
+                <Route path="edit" element={<DirectoryEditPage />} />
               </Route>
               <Route element={<Layout.TwoColumnLayout />}>
-                <Route path="tags/select" element={<DirectoryEditPage />} />
+                <Route path="tags/select" element={<DirectorySelectPage />} />
                 <Route path="tags/edit" element={<DirectoryTagsEditPage />} />
               </Route>
               <Route
                 element={
                   <Layout.ThreeColumnLayout
-                    sideNavigation={<DirectoryExplorer editable={false} />}
+                    sideNavigation={<DirectoryExplorer />}
                   />
                 }
               >

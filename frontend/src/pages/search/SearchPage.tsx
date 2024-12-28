@@ -18,7 +18,7 @@ import {
 } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import { Directory } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
 import { Tag } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
-import ImageListContainer, {
+import ImageListMain, {
   ImageList,
   ViewImage,
 } from "../../components/Images/ImageList";
@@ -250,29 +250,27 @@ const SearchPage: FC = () => {
           }}
         />
       </Layout.SideNav>
-      <Layout.Main>
-        <ImageListContainer images={images}>
-          {Object.keys(taggedImageIds).length === 0 && (
-            <ImageList
-              images={images}
-              onSelect={(selectedImageId) => {
-                const index = imageIdIndexes[selectedImageId];
-                images[index].selected = !images[index].selected;
-                setImages([...images]);
-              }}
-            />
-          )}
-          {Object.keys(taggedImageIds).length > 0 && (
-            <ImageListWithTags
-              images={images}
-              taggedImageIds={taggedImageIds}
-              allTagMap={allTagMap}
-              setImages={setImages}
-              imageIdIndexes={imageIdIndexes}
-            />
-          )}
-        </ImageListContainer>
-      </Layout.Main>
+      <ImageListMain images={images}>
+        {Object.keys(taggedImageIds).length === 0 && (
+          <ImageList
+            images={images}
+            onSelect={(selectedImageId) => {
+              const index = imageIdIndexes[selectedImageId];
+              images[index].selected = !images[index].selected;
+              setImages([...images]);
+            }}
+          />
+        )}
+        {Object.keys(taggedImageIds).length > 0 && (
+          <ImageListWithTags
+            images={images}
+            taggedImageIds={taggedImageIds}
+            allTagMap={allTagMap}
+            setImages={setImages}
+            imageIdIndexes={imageIdIndexes}
+          />
+        )}
+      </ImageListMain>
     </Box>
   );
 };

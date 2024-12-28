@@ -1,48 +1,112 @@
-// TreeView hasn't been supported by a Joy UI yet: https://github.com/mui/mui-x/issues/14687
-import { Button, Stack, Typography } from "@mui/joy";
-import { FC, useState } from "react";
-import { createSearchParams, useNavigate } from "react-router";
-import SelectDirectoryExplorer from "../../components/SelectDirectoryExplorer";
+import { Add } from "@mui/icons-material";
+import FolderIcon from "@mui/icons-material/Folder";
+import FolderOpenIcon from "@mui/icons-material/FolderOpen";
+import { IconButton, Typography } from "@mui/joy";
+import { RichTreeView } from "@mui/x-tree-view";
+import { FC, useEffect, useState } from "react";
+import {
+  Directory,
+  DirectoryService,
+} from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
+import {
+  directoriesToTreeViewBaseItems,
+  getDirectoryMap,
+} from "../../components/DirectoryExplorer";
+import {
+  ExplorerTreeItem,
+  ExplorerTreeItemProps,
+} from "../../components/ExplorerTreeItem";
+import Layout from "../../Layout";
 
 const DirectoryEditPage: FC = () => {
-  const navigate = useNavigate();
-  const [directoriesIds, setDirectoriesIds] = useState<number[]>([]);
+  const [rootDirectory, setRootDirectory] = useState<string>("");
+  const [children, setChildren] = useState<Directory[]>([]);
+  const [, setDirectoryMap] = useState<{
+    [id: number]: Directory;
+  }>({});
 
-  function onSelect(directoryIds: number[]) {
-    setDirectoriesIds(directoryIds);
+  useEffect(() => {
+    DirectoryService.ReadInitialDirectory().then(async (directory) => {
+      setRootDirectory(directory);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!rootDirectory) {
+      return;
+    }
+    refresh();
+  }, [rootDirectory]);
+
+  async function refresh() {
+    // todo: stop hardcoding root directory ID 0
+    const children = await DirectoryService.ReadChildDirectoriesRecursively(0);
+    await setChildren(children);
+    setDirectoryMap(getDirectoryMap(children));
   }
 
+  const newDirectoryName = "New Directory";
   return (
-    <Stack spacing={2}>
-      <Stack
-        spacing={2}
-        direction="row"
-        sx={{
-          justifyContent: "space-between",
-          alignItems: "center",
-          p: 1,
+    <Layout.Main
+      actionHeader={
+        <>
+          <Typography>Edit directories</Typography>
+          <IconButton
+            variant="outlined"
+            color="primary"
+            onClick={async (event) => {
+              await DirectoryService.CreateTopDirectory(newDirectoryName);
+              // todo: don't reload all directories
+              await refresh();
+            }}
+          >
+            <Add />
+          </IconButton>
+        </>
+      }
+    >
+      <RichTreeView
+        expansionTrigger="content"
+        slots={{
+          // todo: RichTreeView doesn't allow to pass a type other than TreeItem2Props
+          item: ExplorerTreeItem as any,
+          expandIcon: (props) => <FolderIcon color="primary" {...props} />,
+          collapseIcon: (props) => (
+            <FolderOpenIcon color="primary" {...props} />
+          ),
+          endIcon: (props) => <FolderOpenIcon color="primary" {...props} />,
         }}
-      >
-        <Typography>Select directories to update tags</Typography>
-        <Button
-          variant="outlined"
-          disabled={directoriesIds.length === 0}
-          onClick={() => {
-            const searchParams = createSearchParams({
-              directoryIds: directoriesIds.join(","),
-            }).toString();
-            navigate({
-              pathname: "/directories/tags/edit",
-              search: `?${searchParams}`,
-            });
-          }}
-        >
-          Edit tags
-        </Button>
-      </Stack>
-
-      <SelectDirectoryExplorer isMultiSelect={true} onSelect={onSelect} />
-    </Stack>
+        slotProps={{
+          item: {
+            addNewChild: async (parentID: string) => {
+              await DirectoryService.CreateDirectory(
+                newDirectoryName,
+                parseInt(parentID, 10)
+              );
+              await refresh();
+            },
+            importImages: async (parentID: string) => {
+              await DirectoryService.ImportImages(parseInt(parentID, 10));
+              await refresh();
+            },
+          } as ExplorerTreeItemProps,
+        }}
+        items={directoriesToTreeViewBaseItems(children)}
+        isItemEditable={() => true}
+        experimentalFeatures={{ labelEditing: true }}
+        onItemLabelChange={async (itemId, newLabel) => {
+          const directoryID = parseInt(itemId, 10);
+          console.debug("DirectoryExplorer.onItemLabelChange", {
+            directoryID,
+            newLabel,
+          });
+          await DirectoryService.UpdateName(directoryID, newLabel);
+          await refresh();
+          // The label doesn't add a child tag correctly
+        }}
+      />
+    </Layout.Main>
   );
 };
+
 export default DirectoryEditPage;
