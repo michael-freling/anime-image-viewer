@@ -104,7 +104,6 @@ func TestSearchService_Search(t *testing.T) {
 				insertFiles: []db.File{
 					fileBuilder.buildDBDirectory(1),
 				},
-				wantErr: ErrImageNotFound,
 			},
 		}
 

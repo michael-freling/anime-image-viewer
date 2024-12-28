@@ -69,7 +69,7 @@ func (service SearchService) SearchImages(
 			return SearchImagesResponse{}, fmt.Errorf("service.directoryReader.ReadImageFiles: %w", err)
 		}
 		if len(imageFiles) == 0 {
-			return SearchImagesResponse{}, fmt.Errorf("%w: no image files found in directory: %d", ErrImageNotFound, request.DirectoryID)
+			return SearchImagesResponse{}, nil
 		}
 		for _, imageFile := range imageFiles {
 			fileIDs = append(fileIDs, imageFile.ID)
