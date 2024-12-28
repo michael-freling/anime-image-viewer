@@ -82,7 +82,7 @@ export function ExplorerTreeItemLabel({
 
 export interface ExplorerTreeItemLabelWithCountProps
   extends UseTreeItem2LabelSlotOwnProps {
-  count: number;
+  count?: number;
 }
 
 export function ExplorerTreeItemLabelWithCount({
@@ -101,9 +101,11 @@ export function ExplorerTreeItemLabelWithCount({
       }}
     >
       {children}
-      <Stack direction="row" spacing={2}>
-        <Chip>{count}</Chip>
-      </Stack>
+      {count == null ? null : (
+        <Stack direction="row" spacing={2}>
+          <Chip>{count}</Chip>
+        </Stack>
+      )}
     </TreeItem2Label>
   );
 }
@@ -152,7 +154,7 @@ export const ExplorerTreeItemWithCheckbox = React.forwardRef(
         slotProps={{
           label: {
             onDoubleClick: handleContentDoubleClick,
-            count: item.count ? item.count : 0,
+            count: item.count,
           } as ExplorerTreeItemLabelWithCountProps,
           checkbox: {
             indeterminate: item.indeterminate,

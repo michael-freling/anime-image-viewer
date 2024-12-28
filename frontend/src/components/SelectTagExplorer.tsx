@@ -18,22 +18,31 @@ const tagsToTreeViewBaseItems = (
 ): TreeViewBaseItem<{
   id: string;
   label: string;
-  count: number;
+  count?: number;
   indeterminate: boolean;
   checked: boolean;
 }>[] => {
   return tags.map((child) => {
-    let count = 0;
-    if (tagStats != undefined && tagStats.TagCounts[child.id] > 0) {
-      count = tagStats.TagCounts[child.id];
-    }
-    let disabled = false;
-    if (tagStats != undefined && tagStats.AncestorMap[child.id] != undefined) {
-      disabled = true;
-    }
-
     const isAdded = addedTagIds[child.id];
     const isDeleted = deletedTagIds[child.id];
+
+    let count: number | undefined = undefined;
+    let disabled = false;
+    let indeterminate = false;
+    if (tagStats != undefined) {
+      count = 0;
+      const tagCount = tagStats.TagCounts[child.id];
+      if (tagCount != null && tagCount > 0) {
+        count = tagCount;
+        indeterminate =
+          isAdded == undefined &&
+          isDeleted == undefined &&
+          tagCount < fileCount;
+      }
+      if (tagStats.AncestorMap[child.id] != undefined) {
+        disabled = true;
+      }
+    }
 
     return {
       id: String(child.id),
@@ -46,11 +55,7 @@ const tagsToTreeViewBaseItems = (
         tagStats
       ),
       count,
-      indeterminate:
-        isAdded == undefined &&
-        isDeleted == undefined &&
-        count > 0 &&
-        count < fileCount,
+      indeterminate,
       checked: isAdded || count == fileCount,
       disabled,
     };
