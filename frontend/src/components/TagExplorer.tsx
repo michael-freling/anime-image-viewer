@@ -124,7 +124,6 @@ const TagExplorer: FC<TagExplorerProps> = (props) => {
     );
   }
 
-  const rootID = "0";
   return (
     <Stack spacing={2}>
       <Stack
@@ -140,7 +139,6 @@ const TagExplorer: FC<TagExplorerProps> = (props) => {
 
       <RichTreeView
         expansionTrigger="content"
-        defaultExpandedItems={[rootID]}
         slots={{
           // todo: RichTreeView doesn't allow to pass a type other than TreeItem2Props
           item: ExplorerTreeItem as any,

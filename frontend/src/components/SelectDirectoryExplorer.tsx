@@ -110,9 +110,10 @@ const SelectDirectoryExplorer: FC<SelectDirectoryExplorerProps> = ({
     return <div>Loading...</div>;
   }
 
-  const defaultExpandedItems = Object.keys(directoryMap).map((directoryId) =>
-    String(directoryId)
-  );
+  //   const defaultExpandedItems = Object.keys(directoryMap).map((directoryId) =>
+  //     String(directoryId)
+  //   );
+  const defaultExpandedItems = [];
   return (
     <RichTreeView
       expansionTrigger="content"
