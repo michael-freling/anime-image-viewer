@@ -1,13 +1,13 @@
-import * as React from "react";
 import List from "@mui/joy/List";
-import ListSubheader from "@mui/joy/ListSubheader";
 import ListItem from "@mui/joy/ListItem";
 import ListItemButton from "@mui/joy/ListItemButton";
-import ListItemDecorator from "@mui/joy/ListItemDecorator";
 import ListItemContent from "@mui/joy/ListItemContent";
+import ListItemDecorator from "@mui/joy/ListItemDecorator";
+import ListSubheader from "@mui/joy/ListSubheader";
+import * as React from "react";
 
 import * as Icons from "@mui/icons-material";
-import { NavLink } from "react-router";
+import { NavLink, useLocation } from "react-router";
 
 export enum Menu {
   Series = "Series",
@@ -19,7 +19,7 @@ export enum Menu {
 }
 
 const Navigation: React.FC = () => {
-  const [selectedMenu, selectMenu] = React.useState<Menu>(Menu.Series);
+  const location = useLocation();
 
   const menus = [
     {
@@ -87,10 +87,7 @@ const Navigation: React.FC = () => {
                   viewTransition
                 >
                   <ListItemButton
-                    selected={selectedMenu === menuItem.id}
-                    onClick={() => {
-                      selectMenu(menuItem.id);
-                    }}
+                    selected={location.pathname == menuItem.url}
                     sx={{
                       m: 0,
                       p: 1,
