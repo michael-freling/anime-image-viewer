@@ -33,10 +33,6 @@ export const ImageList: FC<ImageListProps> = ({
         display: "grid",
         gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
         gap: 1,
-
-        p: 2,
-        height: "calc(100vh - 120px)",
-        overflowY: "auto",
       }}
     >
       {images.map((image) => (
@@ -96,7 +92,14 @@ const ImageListContainer: FC<ImageListContainerProps & PropsWithChildren> = ({
 
   return (
     <Box>
-      {children}
+      <Box
+        sx={{
+          height: "calc(100vh - 120px)",
+          overflow: "auto",
+        }}
+      >
+        {children}
+      </Box>
 
       <Card
         sx={{

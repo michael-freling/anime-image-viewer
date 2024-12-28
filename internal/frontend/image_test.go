@@ -64,6 +64,14 @@ func (builder fileBuilder) buildImage(id uint) Image {
 	return result
 }
 
+func (builder fileBuilder) buildImages() []Image {
+	result := make([]Image, 0, len(builder.imageFiles))
+	for id := range builder.imageFiles {
+		result = append(result, builder.buildImage(id))
+	}
+	return result
+}
+
 func (builder fileBuilder) buildDBImage(id uint) db.File {
 	image := builder.imageFiles[id]
 	return db.File{

@@ -29,8 +29,9 @@ func NewSearchService(
 }
 
 type SearchImagesRequest struct {
-	ParentDirectoryID uint `json:"parentDirectoryId,omitempty"`
-	TagID             uint `json:"tagId,omitempty"`
+	DirectoryID         uint `json:"directoryId,omitempty"`
+	TagID               uint `json:"tagId,omitempty"`
+	IsInvertedTagSearch bool `json:"isInvertedTagSearch,omitempty"`
 }
 
 type SearchImagesResponse struct {
@@ -40,25 +41,35 @@ type SearchImagesResponse struct {
 	TaggedImages map[uint][]uint `json:"taggedImages"`
 }
 
+func (service SearchService) validateSearchImagesRequest(request SearchImagesRequest) error {
+	if request.DirectoryID == 0 && request.TagID == 0 {
+		return fmt.Errorf("%w: either parentDirectoryId or tagId is required", xerrors.ErrInvalidArgument)
+	}
+	if request.IsInvertedTagSearch && request.DirectoryID == 0 {
+		return fmt.Errorf("%w: parentDirectoryId is required for an inverted tag search", xerrors.ErrInvalidArgument)
+	}
+	return nil
+}
+
 func (service SearchService) SearchImages(
 	ctx context.Context,
 	request SearchImagesRequest,
 ) (SearchImagesResponse, error) {
 	var imageFiles []image.ImageFile
 
-	if request.ParentDirectoryID == 0 && request.TagID == 0 {
-		return SearchImagesResponse{}, fmt.Errorf("%w: either parentDirectoryId or tagId is required", xerrors.ErrInvalidArgument)
+	if err := service.validateSearchImagesRequest(request); err != nil {
+		return SearchImagesResponse{}, err
 	}
 
 	var fileIDs []uint
-	if request.ParentDirectoryID != 0 && request.TagID == 0 {
+	if request.DirectoryID != 0 && request.TagID == 0 {
 		var err error
-		imageFiles, err = service.directoryReader.ReadImageFiles(request.ParentDirectoryID)
+		imageFiles, err = service.directoryReader.ReadImageFiles(request.DirectoryID)
 		if err != nil {
 			return SearchImagesResponse{}, fmt.Errorf("service.directoryReader.ReadImageFiles: %w", err)
 		}
 		if len(imageFiles) == 0 {
-			return SearchImagesResponse{}, fmt.Errorf("%w: no image files found in directory: %d", ErrImageNotFound, request.ParentDirectoryID)
+			return SearchImagesResponse{}, fmt.Errorf("%w: no image files found in directory: %d", ErrImageNotFound, request.DirectoryID)
 		}
 		for _, imageFile := range imageFiles {
 			fileIDs = append(fileIDs, imageFile.ID)
@@ -71,7 +82,12 @@ func (service SearchService) SearchImages(
 	}
 
 	// if there is no directory search, search files by tag id
-	tagFinder, err := service.searchRunner.SearchImages(request.TagID, request.ParentDirectoryID)
+	tagFinder, err := service.searchRunner.SearchImages(
+		ctx,
+		request.TagID,
+		request.IsInvertedTagSearch,
+		request.DirectoryID,
+	)
 	if err != nil {
 		return SearchImagesResponse{}, fmt.Errorf("service.searchRunner.ReadImageFiles: %w", err)
 	}

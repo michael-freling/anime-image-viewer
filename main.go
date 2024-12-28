@@ -138,7 +138,14 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 		),
 	)
 	searchService := frontend.NewSearchService(
-		search.NewSearchRunner(dbClient, directoryReader, imageReader, tagReader, imageFileConverter),
+		search.NewSearchRunner(
+			logger,
+			dbClient,
+			directoryReader,
+			imageReader,
+			tagReader,
+			imageFileConverter,
+		),
 		directoryReader,
 	)
 
