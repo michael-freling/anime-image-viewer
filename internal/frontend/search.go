@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/michael-freling/anime-image-viewer/internal/image"
-	"github.com/michael-freling/anime-image-viewer/internal/tag"
+	"github.com/michael-freling/anime-image-viewer/internal/search"
 	"github.com/michael-freling/anime-image-viewer/internal/xerrors"
 )
 
@@ -14,17 +14,17 @@ var (
 )
 
 type SearchService struct {
+	searchRunner    *search.SearchImageRunner
 	directoryReader *image.DirectoryReader
-	tagReader       *tag.Reader
 }
 
 func NewSearchService(
+	searchRunner *search.SearchImageRunner,
 	directoryReader *image.DirectoryReader,
-	tagReader *tag.Reader,
 ) *SearchService {
 	return &SearchService{
+		searchRunner:    searchRunner,
 		directoryReader: directoryReader,
-		tagReader:       tagReader,
 	}
 }
 
@@ -71,9 +71,9 @@ func (service SearchService) SearchImages(
 	}
 
 	// if there is no directory search, search files by tag id
-	tagFinder, err := service.tagReader.ReadImageFiles(request.TagID, request.ParentDirectoryID)
+	tagFinder, err := service.searchRunner.SearchImages(request.TagID, request.ParentDirectoryID)
 	if err != nil {
-		return SearchImagesResponse{}, fmt.Errorf("service.tagReader.ReadImageFiles: %w", err)
+		return SearchImagesResponse{}, fmt.Errorf("service.searchRunner.ReadImageFiles: %w", err)
 	}
 
 	images := make([]Image, 0, len(tagFinder.Images))

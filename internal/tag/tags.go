@@ -47,6 +47,34 @@ func (tag Tag) findDescendants() []Tag {
 	return descendants
 }
 
+func (tag Tag) convertToFlattenMap() map[uint]Tag {
+	result := make(map[uint]Tag)
+	result[tag.ID] = tag
+	for _, child := range tag.Children {
+		for id, t := range child.convertToFlattenMap() {
+			result[id] = t
+		}
+	}
+	return result
+}
+
+type Tree Tag
+
+func newTree(root Tag) Tree {
+	return Tree(root)
+}
+
+func (tree Tree) ConvertToFlattenMap() map[uint]Tag {
+	result := make(map[uint]Tag)
+	for _, tag := range tree.Children {
+		// root is not a correct tag. Will be ignored
+		for id, t := range tag.convertToFlattenMap() {
+			result[id] = t
+		}
+	}
+	return result
+}
+
 func ConvertTagsToMap(tags []Tag) map[uint]Tag {
 	result := make(map[uint]Tag)
 	for _, tag := range tags {

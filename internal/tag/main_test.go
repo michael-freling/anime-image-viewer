@@ -87,8 +87,6 @@ func (tester Tester) getReader() *Reader {
 	return NewReader(
 		tester.dbClient,
 		tester.getDirectoryReader(),
-		tester.getImageReader(),
-		tester.getImageFileConverter(),
 	)
 }
 
@@ -206,10 +204,6 @@ func (builder *fileBuilder) addImageFile(imageFile image.ImageFile) *fileBuilder
 
 	builder.imageFiles[imageFile.ID] = imageFile
 	return builder
-}
-
-func (builder fileBuilder) buildDirectory(id uint) image.Directory {
-	return builder.directories[id]
 }
 
 func (builder fileBuilder) buildImageFile(id uint) image.ImageFile {
