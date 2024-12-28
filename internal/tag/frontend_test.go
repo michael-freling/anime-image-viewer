@@ -23,11 +23,11 @@ func TestTagFrontendService_GetAll(t *testing.T) {
 	dbClient := tester.dbClient
 
 	builder := newTagBuilder().
-		add(Tag{ID: 1, Name: "tag1", tagType: db.TagTypeSeries}, 0).
-		add(Tag{ID: 2, Name: "tag2", tagType: db.TagTypeSeason}, 0).
-		add(Tag{ID: 11, Name: "child1 tag under tag1", tagType: db.TagTypeSeries}, 1).
-		add(Tag{ID: 12, Name: "child2 tag under tag1", tagType: db.TagTypeSeries}, 1).
-		add(Tag{ID: 111, Name: "child tag under child1"}, 11)
+		add(Tag{ID: 1, Name: "tag1", tagType: db.TagTypeSeries}).
+		add(Tag{ID: 2, Name: "tag2", tagType: db.TagTypeSeason}).
+		add(Tag{ID: 11, Name: "child1 tag under tag1", tagType: db.TagTypeSeries, ParentID: 1}).
+		add(Tag{ID: 12, Name: "child2 tag under tag1", tagType: db.TagTypeSeries, ParentID: 1}).
+		add(Tag{ID: 111, Name: "child tag under child1", ParentID: 11})
 
 	testCases := []struct {
 		name     string
@@ -290,12 +290,12 @@ func TestTagFrontendService_SuggestTags(t *testing.T) {
 	tester := newTester(t)
 
 	tagBuilder := newTagBuilder().
-		add(Tag{ID: 1, Name: "tag1"}, 0).
-		add(Tag{ID: 2, Name: "tag2"}, 0).
-		add(Tag{ID: 10, Name: "tag 10"}, 1).
-		add(Tag{ID: 20, Name: "tag 11"}, 2).
-		add(Tag{ID: 100, Name: "tag 100"}, 10).
-		add(Tag{ID: 200, Name: "tag 110"}, 20)
+		add(Tag{ID: 1, Name: "tag1"}).
+		add(Tag{ID: 2, Name: "tag2"}).
+		add(Tag{ID: 10, Name: "tag 10", ParentID: 1}).
+		add(Tag{ID: 20, Name: "tag 11", ParentID: 2}).
+		add(Tag{ID: 100, Name: "tag 100", ParentID: 10}).
+		add(Tag{ID: 200, Name: "tag 110", ParentID: 20})
 
 	tester.copyImageFile(t, "image.jpg", filepath.Join("Directory 1", "Directory 10", "image11.jpg"))
 	tester.copyImageFile(t, "image.jpg", filepath.Join("Directory 1", "Directory 10", "Directory 100", "image101.jpg"))

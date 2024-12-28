@@ -14,6 +14,7 @@ type Tag struct {
 	ID       uint   `json:"id"`
 	Name     string `json:"name"`
 	FullName string `json:"full_name,omitempty"`
+	ParentID uint   `json:"parentId,omitempty"`
 	parent   *Tag   `json:"-"`
 	tagType  db.TagType
 	Children []*Tag `json:"children,omitempty"`
@@ -114,6 +115,7 @@ func GetMaxTagID(tags []Tag) uint {
 func buildTagTree(tagMap map[uint]Tag, childMap map[uint][]Tag, parentID uint, parent *Tag) *Tag {
 	t := tagMap[parentID]
 	if parent != nil && parent.ID != 0 {
+		t.ParentID = parent.ID
 		t.parent = parent
 	}
 	t.FullName = t.fullName()

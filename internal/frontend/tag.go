@@ -10,6 +10,7 @@ type Tag struct {
 	ID       uint   `json:"id"`
 	Name     string `json:"name"`
 	FullName string `json:"fullName"`
+	ParentID uint   `json:"parentId"`
 }
 
 type batchTagConverter struct {
@@ -29,6 +30,7 @@ func (converter batchTagConverter) convertToFlattenMap() map[uint]Tag {
 			ID:       tag.ID,
 			Name:     tag.Name,
 			FullName: tag.FullName,
+			ParentID: tag.ParentID,
 		}
 	}
 	return result

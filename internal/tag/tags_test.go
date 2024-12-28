@@ -10,9 +10,9 @@ func newTagBuilder() *tagBuilder {
 	}
 }
 
-func (b *tagBuilder) add(tag Tag, parentID uint) *tagBuilder {
-	if parentID != 0 {
-		parent := b.tags[parentID]
+func (b *tagBuilder) add(tag Tag) *tagBuilder {
+	if tag.ParentID != 0 {
+		parent := b.tags[tag.ParentID]
 		tag.parent = parent
 		tag.FullName = parent.FullName + " > " + tag.Name
 

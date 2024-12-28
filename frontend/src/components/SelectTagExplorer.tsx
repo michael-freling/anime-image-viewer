@@ -207,16 +207,31 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
     return itemIds;
   };
 
-  //   const defaultExpandedItems = Object.keys(tagMap).map((tagId) =>
-  //     String(tagId)
-  //   );
-  const defaultExpandedItems = [];
   const defaultSelectedItems =
     tagStats != undefined
       ? Object.keys(tagStats.TagCounts).filter((tagId) => {
           return tagStats?.TagCounts[tagId] == fileIds.length;
         })
       : [];
+  // selected items should be visible as default.
+  // So, we need to expand all parent items of selected items.
+  let defaultExpandedItems: string[] = [];
+  for (let selectedItemId of defaultSelectedItems) {
+    let selectedItemIdInt = parseInt(selectedItemId);
+    let selectedTag = tagMap[selectedItemIdInt];
+    while (true) {
+      defaultExpandedItems.push(String(selectedTag.id));
+      if (selectedTag.parentId == null) {
+        break;
+      }
+      let parentTag = tagMap[selectedTag.parentId];
+      if (parentTag == null) {
+        break;
+      }
+      selectedTag = parentTag;
+    }
+  }
+
   return (
     <RichTreeView
       expansionTrigger="content"
