@@ -92,19 +92,10 @@ const ImageListContainer: FC<ImageListContainerProps & PropsWithChildren> = ({
 
   return (
     <Box>
-      <Box
-        sx={{
-          height: "calc(100vh - 120px)",
-          overflow: "auto",
-        }}
-      >
-        {children}
-      </Box>
-
       <Card
         sx={{
           position: "sticky",
-          bottom: 0,
+          top: 0,
           p: 1,
           zIndex: 1,
 
@@ -152,6 +143,17 @@ const ImageListContainer: FC<ImageListContainerProps & PropsWithChildren> = ({
           Edit tags manually
         </Button>
       </Card>
+
+      <Box
+        sx={{
+          height: "calc(100vh - 120px)",
+          width: "100%",
+          overflowX: "hidden",
+          overflowY: "auto",
+        }}
+      >
+        {children}
+      </Box>
     </Box>
   );
 };
