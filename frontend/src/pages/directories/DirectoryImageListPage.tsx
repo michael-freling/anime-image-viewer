@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from "react";
+import { FC, useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { SearchService } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import ImageListMain, {
@@ -10,9 +10,22 @@ const DirectoryImageListPage: FC = () => {
   const { directoryId } = useParams();
 
   const [images, setImages] = useState<ViewImage[]>([]);
-  const [imageIdIndexes, setImageIdIndexes] = useState<{
-    [key: number]: number;
-  }>({});
+
+  const onSelect = useCallback((selectedId) => {
+    // https://alexsidorenko.com/blog/react-list-rerender
+    setImages((previousImages) =>
+      previousImages.map((image) => {
+        if (image.id !== selectedId) {
+          return image;
+        }
+
+        return {
+          ...image,
+          selected: !image.selected,
+        };
+      })
+    );
+  }, []);
 
   console.debug("DirectoryImageListPage", {
     directoryId,
@@ -32,12 +45,6 @@ const DirectoryImageListPage: FC = () => {
         selected: false,
       })),
     ]);
-    setImageIdIndexes(
-      response.images.reduce((acc, image, index) => {
-        acc[image.id] = index;
-        return acc;
-      }, {})
-    );
   };
 
   useEffect(() => {
@@ -48,14 +55,7 @@ const DirectoryImageListPage: FC = () => {
 
   return (
     <ImageListMain images={images}>
-      <ImageList
-        images={images}
-        onSelect={(selectedId) => {
-          const index = imageIdIndexes[selectedId];
-          images[index].selected = !images[index].selected;
-          setImages([...images]);
-        }}
-      />
+      <ImageList images={images} onSelect={onSelect} />
     </ImageListMain>
   );
 };

@@ -8,7 +8,7 @@ import {
   //  Link,
   Typography,
 } from "@mui/joy";
-import { FC, PropsWithChildren } from "react";
+import { FC, memo, PropsWithChildren } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Image } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 
@@ -24,6 +24,55 @@ export interface ImageListProps {
   onSelect: (selectedImageId: number) => void;
 }
 
+const ImageCard = memo(function ImageCard({
+  image,
+  width,
+  onSelect,
+}: {
+  image: ViewImage;
+  width: number;
+  onSelect: (selectedImageId: number) => void;
+}) {
+  return (
+    <Card
+      key={image.id}
+      size="sm"
+      color={image.selected ? "primary" : "neutral"}
+      variant={image.selected ? "solid" : "outlined"}
+      invertedColors={image.selected}
+      sx={{
+        "&:hover": {
+          borderColor: "neutral.outlinedHoverBorder",
+          borderWidth: 2,
+          opacity: 0.8,
+        },
+      }}
+    >
+      <CardActions
+        sx={{
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+        }}
+      >
+        <Checkbox
+          overlay
+          onChange={() => {
+            onSelect(image.id);
+          }}
+        />
+        <Typography level="title-sm">
+          {image.name.substring(0, 10)}...
+          {image.name.substring(image.name.length - 10)}
+        </Typography>
+      </CardActions>
+      <CardOverflow>
+        <LazyImage src={image.path} width={width} />
+      </CardOverflow>
+    </Card>
+  );
+});
+
 export const ImageList: FC<ImageListProps> = ({
   images,
   onSelect,
@@ -38,42 +87,7 @@ export const ImageList: FC<ImageListProps> = ({
       }}
     >
       {images.map((image) => (
-        <Card
-          key={image.id}
-          size="sm"
-          color={image.selected ? "primary" : "neutral"}
-          variant={image.selected ? "solid" : "outlined"}
-          invertedColors={image.selected}
-          sx={{
-            "&:hover": {
-              borderColor: "neutral.outlinedHoverBorder",
-              borderWidth: 2,
-              opacity: 0.8,
-            },
-          }}
-        >
-          <CardActions
-            sx={{
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "center",
-            }}
-          >
-            <Checkbox
-              overlay
-              onChange={() => {
-                onSelect(image.id);
-              }}
-            />
-            <Typography level="title-sm">
-              {image.name.substring(0, 10)}...
-              {image.name.substring(image.name.length - 10)}
-            </Typography>
-          </CardActions>
-          <CardOverflow>
-            <LazyImage src={image.path} width={width} />
-          </CardOverflow>
-        </Card>
+        <ImageCard image={image} width={width} onSelect={onSelect} />
       ))}
     </Box>
   );

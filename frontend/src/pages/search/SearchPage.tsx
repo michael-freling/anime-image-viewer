@@ -11,7 +11,7 @@ import {
   Switch,
   Typography,
 } from "@mui/joy";
-import { FC, useEffect, useState } from "react";
+import { FC, useCallback, useEffect, useState } from "react";
 import {
   SearchService,
   TagService,
@@ -137,9 +137,8 @@ const ImageListWithTags: FC<{
   images: ViewImage[];
   taggedImageIds: { [tagId: number]: number[] };
   allTagMap: { [id: number]: Tag };
-  setImages: (images: ViewImage[]) => void;
-  imageIdIndexes: { [id: number]: number };
-}> = ({ images, taggedImageIds, allTagMap, setImages, imageIdIndexes }) => {
+  onSelect: (selectedImageId: number) => void;
+}> = ({ images, taggedImageIds, allTagMap, onSelect }) => {
   return (
     <>
       {Object.entries(taggedImageIds).map(([tagId, imageIds]) => {
@@ -153,11 +152,7 @@ const ImageListWithTags: FC<{
             </Box>
             <ImageList
               images={images.filter((image) => imageIds.includes(image.id))}
-              onSelect={(selectedImageId) => {
-                const index = imageIdIndexes[selectedImageId];
-                images[index].selected = !images[index].selected;
-                setImages([...images]);
-              }}
+              onSelect={onSelect}
             />
           </Box>
         );
@@ -172,12 +167,25 @@ const SearchPage: FC = () => {
     [id: number]: Tag;
   }>({});
   const [images, setImages] = useState<ViewImage[]>([]);
-  const [imageIdIndexes, setImageIdIndexes] = useState<{
-    [id: number]: number;
-  }>({});
   const [taggedImageIds, setTaggedImageIds] = useState<{
     [tagId: number]: number[];
   }>({});
+
+  const onSelect = useCallback((selectedImageId: number) => {
+    // https://alexsidorenko.com/blog/react-list-rerender
+    setImages((previousImages) =>
+      previousImages.map((image) => {
+        if (image.id !== selectedImageId) {
+          return image;
+        }
+
+        return {
+          ...image,
+          selected: !image.selected,
+        };
+      })
+    );
+  }, []);
 
   console.debug("SearchPage", {
     allTagMap,
@@ -239,12 +247,6 @@ const SearchPage: FC = () => {
               isInvertedTagSearch,
             }).then(({ images, taggedImages }) => {
               setImages(images.map((image) => ({ ...image, selected: false })));
-              setImageIdIndexes(
-                images.reduce((acc, image, index) => {
-                  acc[image.id] = index;
-                  return acc;
-                }, {})
-              );
               setTaggedImageIds(taggedImages);
             });
           }}
@@ -252,22 +254,14 @@ const SearchPage: FC = () => {
       </Layout.SideNav>
       <ImageListMain images={images}>
         {Object.keys(taggedImageIds).length === 0 && (
-          <ImageList
-            images={images}
-            onSelect={(selectedImageId) => {
-              const index = imageIdIndexes[selectedImageId];
-              images[index].selected = !images[index].selected;
-              setImages([...images]);
-            }}
-          />
+          <ImageList images={images} onSelect={onSelect} />
         )}
         {Object.keys(taggedImageIds).length > 0 && (
           <ImageListWithTags
             images={images}
             taggedImageIds={taggedImageIds}
             allTagMap={allTagMap}
-            setImages={setImages}
-            imageIdIndexes={imageIdIndexes}
+            onSelect={onSelect}
           />
         )}
       </ImageListMain>
