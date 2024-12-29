@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Profiler } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { StyledEngineProvider } from "@mui/joy";
@@ -16,35 +16,17 @@ import DirectorySelectPage from "./pages/directories/DirectorySelectPage";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <StyledEngineProvider injectFirst>
-      <BrowserRouter>
-        <Routes>
-          <Route element={<App />}>
-            {/* Home. Currently same as /directories */}
-            <Route
-              element={
-                <Layout.ThreeColumnLayout
-                  sideNavigation={<DirectoryExplorer />}
-                />
-              }
-            >
-              <Route index element={<DirectoryImageListPage />} />
-            </Route>
-
-            {/* Search */}
-            <Route element={<Layout.TwoColumnLayout />} path="search">
-              <Route index element={<SearchPage />} />
-            </Route>
-
-            {/* Directory */}
-            <Route path="directories">
-              <Route element={<Layout.TwoColumnLayout />}>
-                <Route path="edit" element={<DirectoryEditPage />} />
-              </Route>
-              <Route element={<Layout.TwoColumnLayout />}>
-                <Route path="tags/select" element={<DirectorySelectPage />} />
-                <Route path="tags/edit" element={<DirectoryTagsEditPage />} />
-              </Route>
+    <Profiler
+      id="App"
+      onRender={(id, phase, actualDuration) => {
+        console.log("profiler", { id, phase, actualDuration });
+      }}
+    >
+      <StyledEngineProvider injectFirst>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<App />}>
+              {/* Home. Currently same as /directories */}
               <Route
                 element={
                   <Layout.ThreeColumnLayout
@@ -53,31 +35,56 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
                 }
               >
                 <Route index element={<DirectoryImageListPage />} />
+              </Route>
+
+              {/* Search */}
+              <Route element={<Layout.TwoColumnLayout />} path="search">
+                <Route index element={<SearchPage />} />
+              </Route>
+
+              {/* Directory */}
+              <Route path="directories">
+                <Route element={<Layout.TwoColumnLayout />}>
+                  <Route path="edit" element={<DirectoryEditPage />} />
+                </Route>
+                <Route element={<Layout.TwoColumnLayout />}>
+                  <Route path="tags/select" element={<DirectorySelectPage />} />
+                  <Route path="tags/edit" element={<DirectoryTagsEditPage />} />
+                </Route>
                 <Route
-                  path=":directoryId"
-                  element={<DirectoryImageListPage />}
+                  element={
+                    <Layout.ThreeColumnLayout
+                      sideNavigation={<DirectoryExplorer />}
+                    />
+                  }
+                >
+                  <Route index element={<DirectoryImageListPage />} />
+                  <Route
+                    path=":directoryId"
+                    element={<DirectoryImageListPage />}
+                  />
+                </Route>
+              </Route>
+
+              {/* Image edit */}
+              <Route path="images" element={<Layout.TwoColumnLayout />}>
+                <Route path="edit/tags" element={<ImageTagEditPage />} />
+                <Route
+                  path="edit/tags/suggestion"
+                  element={<ImageTagSuggestionPage />}
                 />
               </Route>
-            </Route>
 
-            {/* Image edit */}
-            <Route path="images" element={<Layout.TwoColumnLayout />}>
-              <Route path="edit/tags" element={<ImageTagEditPage />} />
-              <Route
-                path="edit/tags/suggestion"
-                element={<ImageTagSuggestionPage />}
-              />
-            </Route>
-
-            {/* Tags */}
-            <Route path="tags">
-              <Route element={<Layout.TwoColumnLayout />}>
-                <Route path="edit" element={<TagsListPage />} />
+              {/* Tags */}
+              <Route path="tags">
+                <Route element={<Layout.TwoColumnLayout />}>
+                  <Route path="edit" element={<TagsListPage />} />
+                </Route>
               </Route>
             </Route>
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </StyledEngineProvider>
+          </Routes>
+        </BrowserRouter>
+      </StyledEngineProvider>
+    </Profiler>
   </React.StrictMode>
 );
