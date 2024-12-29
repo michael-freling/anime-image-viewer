@@ -24,9 +24,11 @@ import Layout from "../../Layout";
 const ImageTagSuggestionPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const imageFileIdStr = searchParams.get("imageIds") || "";
+
+  const imageFileIds = searchParams
+    .getAll("imageIds")
+    .map((id) => parseInt(id));
   const [selectedScore, setSelectedScore] = useState<number>(50);
-  const imageFileIds = imageFileIdStr.split(",").map((id) => parseInt(id));
 
   const [imageFiles, setImageFiles] = useState<ImageFile[]>([]);
   const [tagSuggestions, setTagSuggestions] = useState<{

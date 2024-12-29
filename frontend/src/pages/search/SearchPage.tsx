@@ -13,10 +13,10 @@ import {
 } from "@mui/joy";
 import { FC, useCallback, useEffect, useState } from "react";
 import {
+  SearchImagesRequest,
   SearchService,
   TagService,
 } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
-import { Directory } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
 import { Tag } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
 import ImageListMain, {
   ImageList,
@@ -25,23 +25,37 @@ import ImageListMain, {
 import SelectDirectoryExplorer from "../../components/SelectDirectoryExplorer";
 import SelectTagExplorer from "../../components/SelectTagExplorer";
 import Layout from "../../Layout";
+import { createSearchParams, useNavigate, useSearchParams } from "react-router";
+
+type SearchCondition = SearchImagesRequest;
 
 interface SearchSidebarProps {
-  isDirectorySelected: boolean;
-  onSelect(
-    directoryId: number,
-    tagId: number,
-    isInvertedTagSearch: boolean
-  ): void;
+  condition: SearchCondition;
 }
 
-const SearchSidebar: FC<SearchSidebarProps> = ({
-  isDirectorySelected,
-  onSelect,
-}) => {
-  const [directory, setDirectory] = useState<Directory | null>(null);
-  const [tag, setTag] = useState<Tag | null>();
-  const [isInvertedTagSearch, setTagInvertedSearch] = useState<boolean>(false);
+const SearchSidebar: FC<SearchSidebarProps> = ({ condition }) => {
+  const navigate = useNavigate();
+
+  const onSelect = ({
+    directoryId,
+    tagId,
+    isInvertedTagSearch,
+  }: SearchCondition) => {
+    const params: any = { ...condition };
+    if (directoryId != null) {
+      params.directoryId = directoryId;
+    }
+    if (tagId != null) {
+      params.tagId = tagId;
+    }
+    if (isInvertedTagSearch != null) {
+      params.isInvertedTagSearch = isInvertedTagSearch;
+    }
+
+    navigate({
+      search: createSearchParams(params).toString(),
+    });
+  };
 
   return (
     <AccordionGroup>
@@ -52,9 +66,6 @@ const SearchSidebar: FC<SearchSidebarProps> = ({
           </Avatar>
           <ListItemContent>
             <Typography level="title-md">Directory</Typography>
-            <Typography level="body-sm">
-              {directory == null ? "Not selected" : directory.name}
-            </Typography>
           </ListItemContent>
         </AccordionSummary>
         <AccordionDetails>
@@ -68,10 +79,12 @@ const SearchSidebar: FC<SearchSidebarProps> = ({
             }}
           >
             <SelectDirectoryExplorer
+              selectedDirectoryId={condition.directoryId}
               isMultiSelect={false}
               onSelect={(directory) => {
-                setDirectory(directory);
-                onSelect(directory?.id ?? 0, tag?.id ?? 0, isInvertedTagSearch);
+                const req =
+                  directory == null ? {} : { directoryId: directory.id };
+                onSelect(req);
               }}
             />
           </Box>
@@ -84,9 +97,6 @@ const SearchSidebar: FC<SearchSidebarProps> = ({
           </Avatar>
           <ListItemContent>
             <Typography level="title-md">Tags</Typography>
-            <Typography level="body-sm">
-              {tag == null ? "Not selected" : tag.full_name}
-            </Typography>
           </ListItemContent>
         </AccordionSummary>
         <AccordionDetails>
@@ -107,23 +117,21 @@ const SearchSidebar: FC<SearchSidebarProps> = ({
             >
               <Typography>Search images without tags</Typography>
               <Switch
-                checked={isInvertedTagSearch}
-                disabled={!isDirectorySelected}
+                checked={condition.isInvertedTagSearch}
+                disabled={condition.directoryId == null}
                 onChange={(event) => {
-                  setTagInvertedSearch(event.target.checked);
-                  onSelect(
-                    directory?.id ?? 0,
-                    tag?.id ?? 0,
-                    event.target.checked
-                  );
+                  onSelect({
+                    isInvertedTagSearch: event.target.checked,
+                  });
                 }}
               />
             </Stack>
             <SelectTagExplorer
+              selectedTagId={condition.tagId}
               isMultiSelect={false}
               onSelect={(tag: Tag | null) => {
-                setTag(tag);
-                onSelect(directory?.id ?? 0, tag?.id ?? 0, isInvertedTagSearch);
+                const req = tag == null ? {} : { tagId: tag.id };
+                onSelect(req);
               }}
             />
           </Box>
@@ -161,8 +169,23 @@ const ImageListWithTags: FC<{
   );
 };
 
+function useRequest(): SearchCondition {
+  const [searchParams] = useSearchParams();
+  let params: any = {};
+  if (searchParams.has("directoryId")) {
+    params.directoryId = parseInt(searchParams.get("directoryId")!);
+  }
+  if (searchParams.has("tagId")) {
+    params.tagId = parseInt(searchParams.get("tagId")!);
+  }
+  if (searchParams.has("isInvertedTagSearch")) {
+    params.isInvertedTagSearch =
+      searchParams.get("isInvertedTagSearch") === "true";
+  }
+  return params as SearchCondition;
+}
 const SearchPage: FC = () => {
-  const [isDirectorySelected, setDirectorySelected] = useState<boolean>(false);
+  const condition: SearchCondition = useRequest();
   const [allTagMap, setAllTagMap] = useState<{
     [id: number]: Tag;
   }>({});
@@ -191,6 +214,7 @@ const SearchPage: FC = () => {
     allTagMap,
     images,
     taggedImageIds,
+    condition,
   });
 
   useEffect(() => {
@@ -202,6 +226,13 @@ const SearchPage: FC = () => {
       setAllTagMap(tagMap);
     });
   }, []);
+
+  useEffect(() => {
+    SearchService.SearchImages(condition).then(({ images, taggedImages }) => {
+      setImages(images.map((image) => ({ ...image, selected: false })));
+      setTaggedImageIds(taggedImages);
+    });
+  }, [condition.directoryId, condition.tagId, condition.isInvertedTagSearch]);
 
   return (
     <Box
@@ -223,34 +254,7 @@ const SearchPage: FC = () => {
           overflowY: "auto",
         }}
       >
-        <SearchSidebar
-          isDirectorySelected={isDirectorySelected}
-          onSelect={(
-            directoryId: number,
-            tagId: number,
-            isInvertedTagSearch: boolean
-          ) => {
-            if (directoryId === 0) {
-              setDirectorySelected(false);
-            } else {
-              setDirectorySelected(true);
-            }
-
-            console.debug("SearchSidebar", {
-              directoryId,
-              tagId,
-              isInvertedTagSearch,
-            });
-            SearchService.SearchImages({
-              directoryId,
-              tagId,
-              isInvertedTagSearch,
-            }).then(({ images, taggedImages }) => {
-              setImages(images.map((image) => ({ ...image, selected: false })));
-              setTaggedImageIds(taggedImages);
-            });
-          }}
-        />
+        <SearchSidebar condition={condition} />
       </Layout.SideNav>
       <ImageListMain images={images}>
         {Object.keys(taggedImageIds).length === 0 && (

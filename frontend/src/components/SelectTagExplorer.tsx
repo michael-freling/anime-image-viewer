@@ -83,6 +83,7 @@ type SelectTagExplorerProps =
   | {
       isMultiSelect: false;
       onSelect: (tag: Tag | null) => void;
+      selectedTagId?: number;
     };
 
 export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
@@ -212,12 +213,18 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
     return itemIds;
   };
 
-  const defaultSelectedItems =
-    tagStats != undefined
-      ? Object.keys(tagStats.TagCounts).filter((tagId) => {
-          return tagStats?.TagCounts[tagId] == fileIds.length;
-        })
-      : [];
+  let selectedTagIds: number[] = [];
+  if ("selectedTagId" in props && props.selectedTagId) {
+    selectedTagIds = [props.selectedTagId];
+  } else if (tagStats != undefined) {
+    for (let [tagId, count] of Object.entries(tagStats.TagCounts)) {
+      if (count == fileIds.length) {
+        selectedTagIds.push(parseInt(tagId));
+      }
+    }
+  }
+  const defaultSelectedItems = selectedTagIds.map((id) => String(id));
+
   // selected items should be visible as default.
   // So, we need to expand all parent items of selected items.
   let defaultExpandedItems: string[] = [];

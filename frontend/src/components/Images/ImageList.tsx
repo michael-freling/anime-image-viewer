@@ -9,7 +9,7 @@ import {
   Typography,
 } from "@mui/joy";
 import { FC, memo, PropsWithChildren } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { createSearchParams, useNavigate } from "react-router";
 import { Image } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 
 import LazyImage from "../../components/LazyImage";
@@ -102,8 +102,6 @@ const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
   children,
 }) => {
   const selectedImageCount = images.filter((image) => image.selected).length;
-
-  const [, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
   return (
@@ -118,13 +116,12 @@ const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
               const imageIds = images
                 .filter((image) => image.selected)
                 .map((image) => String(image.id));
-              setSearchParams({
-                imageIds: imageIds,
+              navigate({
+                pathname: "/images/edit/tags/suggestion",
+                search: createSearchParams({
+                  imageIds: imageIds,
+                }).toString(),
               });
-              navigate(
-                "/images/edit/tags/suggestion?imageIds=" +
-                  encodeURIComponent(imageIds.join(","))
-              );
             }}
           >
             Suggest tags
@@ -137,13 +134,12 @@ const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
               const imageIds = images
                 .filter((image) => image.selected)
                 .map((image) => String(image.id));
-              setSearchParams({
-                imageIds: imageIds,
+              navigate({
+                pathname: "/images/edit/tags",
+                search: createSearchParams({
+                  imageIds: imageIds,
+                }).toString(),
               });
-              navigate(
-                "/images/edit/tags?imageIds=" +
-                  encodeURIComponent(imageIds.join(","))
-              );
             }}
           >
             Edit tags manually

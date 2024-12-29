@@ -8,8 +8,7 @@ import Layout from "../../Layout";
 const ImageTagEditPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const imageIdsStr = searchParams.get("imageIds") || "";
-  const imageIds = imageIdsStr.split(",").map((id) => parseInt(id));
+  const imageIds = searchParams.getAll("imageIds").map((id) => parseInt(id));
 
   const [addedTagIds, setAddedTagIds] = useState<number[]>([]);
   const [deletedTagIds, setDeletedTagIds] = useState<number[]>([]);

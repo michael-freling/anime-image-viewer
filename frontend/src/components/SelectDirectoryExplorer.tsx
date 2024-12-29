@@ -44,12 +44,14 @@ type SelectDirectoryExplorerProps =
     }
   | {
       isMultiSelect: false;
+      selectedDirectoryId?: number;
       onSelect: (directory: Directory | null) => void;
     };
 
 const SelectDirectoryExplorer: FC<SelectDirectoryExplorerProps> = ({
   isMultiSelect,
   onSelect,
+  ...props
 }) => {
   const [rootDirectory, setRootDirectory] = useState<string>("");
   const [children, setChildren] = useState<Directory[]>([]);
@@ -110,13 +112,31 @@ const SelectDirectoryExplorer: FC<SelectDirectoryExplorerProps> = ({
     return <div>Loading...</div>;
   }
 
-  //   const defaultExpandedItems = Object.keys(directoryMap).map((directoryId) =>
-  //     String(directoryId)
-  //   );
-  const defaultExpandedItems = [];
+  let selectedDirectoryIds: number[] = [];
+  if ("selectedDirectoryId" in props && props.selectedDirectoryId) {
+    selectedDirectoryIds = [props.selectedDirectoryId];
+  }
+  const defaultSelectedItems = selectedDirectoryIds.map((id) => String(id));
+  let defaultExpandedItems: string[] = [];
+  for (let selectedDirectoryId of selectedDirectoryIds) {
+    let directoryId = selectedDirectoryId;
+    while (true) {
+      defaultExpandedItems.push(String(directoryId));
+      let directory = directoryMap[directoryId];
+      if (directory === undefined) {
+        break;
+      }
+      if (directory.parentId === 0) {
+        break;
+      }
+      directoryId = directory.parentId;
+    }
+  }
+
   return (
     <RichTreeView
       expansionTrigger="content"
+      defaultSelectedItems={defaultSelectedItems}
       defaultExpandedItems={defaultExpandedItems}
       slots={{
         // todo: RichTreeView doesn't allow to pass a type other than TreeItem2Props
