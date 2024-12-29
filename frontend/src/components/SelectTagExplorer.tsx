@@ -225,22 +225,33 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
   }
   const defaultSelectedItems = selectedTagIds.map((id) => String(id));
 
-  // selected items should be visible as default.
-  // So, we need to expand all parent items of selected items.
-  let defaultExpandedItems: string[] = [];
-  for (let selectedItemId of defaultSelectedItems) {
-    let selectedItemIdInt = parseInt(selectedItemId);
-    let selectedTag = tagMap[selectedItemIdInt];
-    while (true) {
-      defaultExpandedItems.push(String(selectedTag.id));
+  function getAncestorIds(id: number, tagMap: { [id: number]: Tag }): number[] {
+    const result: number[] = [];
+    let selectedTag = tagMap[id];
+    while (selectedTag != null) {
+      result.push(selectedTag.id);
       if (selectedTag.parentId == null) {
         break;
       }
-      let parentTag = tagMap[selectedTag.parentId];
-      if (parentTag == null) {
-        break;
+      selectedTag = tagMap[selectedTag.parentId];
+    }
+    return result;
+  }
+
+  // selected items should be visible as default.
+  // So, we need to expand all parent items of selected items.
+  let defaultExpandedItems: string[] = [];
+  for (let selectedItemId of selectedTagIds) {
+    const ancestorIds = getAncestorIds(selectedItemId, tagMap);
+    defaultExpandedItems.push(...ancestorIds.map((id) => String(id)));
+  }
+  // expand tags with indeterminate states
+  if (tagStats != undefined) {
+    for (let [tagId, count] of Object.entries(tagStats.TagCounts)) {
+      if (0 < count && count < fileIds.length) {
+        const ancestorIds = getAncestorIds(parseInt(tagId), tagMap);
+        defaultExpandedItems.push(...ancestorIds.map((id) => String(id)));
       }
-      selectedTag = parentTag;
     }
   }
 
