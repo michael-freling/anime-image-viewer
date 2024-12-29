@@ -110,6 +110,7 @@ const ImageTagSuggestionPage: React.FC = () => {
   }
 
   const cardHeight = 320;
+  const cardWidth = (cardHeight * 16) / 9;
   return (
     <Layout.Main
       actionHeader={
@@ -154,8 +155,8 @@ const ImageTagSuggestionPage: React.FC = () => {
               marginBottom: 1,
             }}
           >
-            <CardOverflow sx={{ width: cardHeight * (16 / 9) }}>
-              <LazyImage src={image.path} />
+            <CardOverflow sx={{ width: cardWidth }}>
+              <LazyImage src={image.path} width={cardWidth} />
             </CardOverflow>
             <CardOverflow
               sx={{

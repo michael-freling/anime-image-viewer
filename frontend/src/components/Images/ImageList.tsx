@@ -28,11 +28,12 @@ export const ImageList: FC<ImageListProps> = ({
   images,
   onSelect,
 }: ImageListProps) => {
+  const width = 240;
   return (
     <Box
       sx={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+        gridTemplateColumns: `repeat(auto-fit, minmax(${width}px, 1fr))`,
         gap: 1,
       }}
     >
@@ -70,7 +71,7 @@ export const ImageList: FC<ImageListProps> = ({
             </Typography>
           </CardActions>
           <CardOverflow>
-            <LazyImage src={image.path} />
+            <LazyImage src={image.path} width={width} />
           </CardOverflow>
         </Card>
       ))}

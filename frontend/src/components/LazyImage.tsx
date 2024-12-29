@@ -6,16 +6,25 @@ import { useInView } from "react-intersection-observer";
 const LazyImage: React.FC<
   {
     src: string;
+    width: number;
   } & ImgHTMLAttributes<HTMLImageElement>
-> = ({ src, ...imgProps }) => {
+> = ({ src, width, ...imgProps }) => {
   const { ref, inView } = useInView({
     triggerOnce: true,
     rootMargin: "200px 0px",
   });
+  var query = new URLSearchParams();
+  query.append("width", width.toFixed(0));
+  console.debug("LazyImage", {
+    src,
+    query: query.toString(),
+  });
 
   return (
     <AspectRatio ref={ref} ratio="16/9" objectFit="contain">
-      {inView ? <img {...imgProps} src={src} loading="lazy" /> : null}
+      {inView ? (
+        <img {...imgProps} src={src + "?" + query.toString()} loading="lazy" />
+      ) : null}
     </AspectRatio>
   );
 };

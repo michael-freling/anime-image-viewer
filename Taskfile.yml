@@ -500,3 +500,19 @@ tasks:
     summary: Reloads the application
     cmds:
       - task: run
+
+  train:prod:
+    summary: Export data and train a ML model
+    cmds:
+      - rm -rf datasets
+      - task: run:export:datasets:prod
+      - rm -rf ./plugins/tag-suggestion/source
+      - mv datasets ./plugins/tag-suggestion/source
+      - task: suggestion:train:prod
+
+  suggestion:train:prod:
+    dir: plugins/tag-suggestion
+    summary: Trains the model
+    cmds:
+      - pdm run preprocess
+      - pdm run train

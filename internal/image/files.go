@@ -273,30 +273,6 @@ func (service *ImageFileService) importImageFiles(ctx context.Context, destinati
 	return resultImageFiles, nil
 }
 
-type StaticFileService struct {
-	rootDirectory string
-	fileServer    http.Handler
-	logger        *slog.Logger
-}
-
-func NewStaticFileService(
-	logger *slog.Logger,
-	conf config.Config,
-) *StaticFileService {
-	return &StaticFileService{
-		rootDirectory: conf.ImageRootDirectory,
-		fileServer:    http.FileServer(http.Dir(conf.ImageRootDirectory)),
-		logger:        logger,
-	}
-}
-
-func (service *StaticFileService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	service.logger.Debug("StaticFileService.ServeHTTP",
-		"r.URL.Path", r.URL.Path,
-	)
-	service.fileServer.ServeHTTP(w, r)
-}
-
 type ImageFileConverter struct {
 	config config.Config
 }

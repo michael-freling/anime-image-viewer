@@ -167,7 +167,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 			application.NewService(legacyTagFrontendService),
 			application.NewService(configService),
 			application.NewService(
-				image.NewStaticFileService(logger, conf),
+				frontend.NewStaticFileService(logger, conf),
 				application.ServiceOptions{
 					Route: "/files/",
 				},
