@@ -153,8 +153,9 @@ func (service DirectoryService) ImportImages(ctx context.Context, directoryID ui
 		// CanChooseFiles(true).
 		// CanChooseDirectories(true).
 
-		// This doesn't work on WSL
-		// AddFilter("Images", "*.jpg;*.jpeg;*.png").
+		// This image filter doesn't work on WSL
+		AddFilter("Images", "*.jpg;*.jpeg;*.png").
+		AddFilter("All files", "*").
 		AttachToWindow(application.Get().CurrentWindow()).
 		PromptForMultipleSelection()
 	if err != nil {
