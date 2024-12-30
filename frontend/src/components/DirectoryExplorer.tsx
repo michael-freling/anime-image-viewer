@@ -15,7 +15,7 @@ export function directoriesToTreeViewBaseItems(
 ): TreeViewBaseItem<{}>[] {
   return directories.map((directory) => {
     return {
-      id: directory.id,
+      id: String(directory.id),
       label: directory.name,
       children: directoriesToTreeViewBaseItems(
         directory.children.filter((child) => child != null)
