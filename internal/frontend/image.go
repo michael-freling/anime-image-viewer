@@ -17,7 +17,11 @@ func NewImageService(imageReader *image.Reader) *ImageService {
 }
 
 func (service *ImageService) ReadImagesByIDs(ctx context.Context, imageIDs []uint) (map[uint]image.ImageFile, error) {
-	return service.imageReader.ReadImagesByIDs(imageIDs)
+	list, err := service.imageReader.ReadImagesByIDs(imageIDs)
+	if err != nil {
+		return nil, err
+	}
+	return list.ToMap(), nil
 }
 
 type Image struct {

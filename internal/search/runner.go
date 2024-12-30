@@ -10,6 +10,7 @@ import (
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"github.com/michael-freling/anime-image-viewer/internal/tag"
+	"github.com/michael-freling/anime-image-viewer/internal/xslices"
 )
 
 type SearchImageRunner struct {
@@ -40,7 +41,7 @@ func NewSearchRunner(
 }
 
 type ImageFinder struct {
-	Images map[uint]image.ImageFile
+	Images image.ImageFileList
 
 	TaggedImages map[uint][]uint
 }
@@ -154,17 +155,9 @@ func (runner SearchImageRunner) SearchImages(
 			}
 		} else {
 			fileIDs := fileTags.ToFileIDs()
-			imageFilesMap, err := runner.imageReader.ReadImagesByIDs(fileIDs)
+			imageFiles, err = runner.imageReader.ReadImagesByIDs(fileIDs)
 			if err != nil {
 				return result, fmt.Errorf("fileReader.ReadImagesByIDs: %w", err)
-			}
-			imageFiles = make([]image.ImageFile, 0)
-			for _, fileID := range fileIDs {
-				imageFile, ok := imageFilesMap[fileID]
-				if !ok {
-					continue
-				}
-				imageFiles = append(imageFiles, imageFile)
 			}
 		}
 
@@ -180,9 +173,13 @@ func (runner SearchImageRunner) SearchImages(
 		}
 	}
 
-	images := make(map[uint]image.ImageFile, 0)
-	for _, imageFile := range imageFiles {
-		images[imageFile.ID] = imageFile
+	// in order to sort images, re-read them from the database
+	imageFileIDs := xslices.Map(imageFiles, func(imageFile image.ImageFile) uint {
+		return imageFile.ID
+	})
+	images, err := runner.imageReader.ReadImagesByIDs(imageFileIDs)
+	if err != nil {
+		return result, fmt.Errorf("directoryReader.ReadImageFiles: %w", err)
 	}
 
 	// tag id to file id

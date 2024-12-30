@@ -122,8 +122,19 @@ func NewReader(
 	}
 }
 
-func (reader Reader) ReadImagesByIDs(imageFileIDs []uint) (map[uint]ImageFile, error) {
-	dbImageFiles, err := reader.dbClient.File().FindImageFilesByIDs(imageFileIDs)
+type ImageFileList []ImageFile
+
+func (list ImageFileList) ToMap() map[uint]ImageFile {
+	imageFiles := make(map[uint]ImageFile, 0)
+	for _, imageFile := range list {
+		imageFiles[imageFile.ID] = imageFile
+	}
+	return imageFiles
+}
+
+func (reader Reader) ReadImagesByIDs(imageFileIDs []uint) (ImageFileList, error) {
+	dbImageFiles, err := reader.dbClient.File().
+		FindImageFilesByIDs(imageFileIDs)
 	if err != nil {
 		return nil, fmt.Errorf("FindImageFilesByIDs: %w", err)
 	}
@@ -146,15 +157,15 @@ func (reader Reader) ReadImagesByIDs(imageFileIDs []uint) (map[uint]ImageFile, e
 		parentDirectoriesMap[parentDirectory.ID] = parentDirectory
 	}
 
-	imageFiles := make(map[uint]ImageFile, 0)
-	for _, dbImageFile := range dbImageFiles {
+	imageFiles := make(ImageFileList, len(dbImageFiles))
+	for index, dbImageFile := range dbImageFiles {
 		parentDirectory := parentDirectoriesMap[dbImageFile.ParentID]
 
 		imageFile, err := reader.imageFileConverter.ConvertImageFile(parentDirectory, dbImageFile)
 		if err != nil {
 			return nil, fmt.Errorf("convertImageFile: %w", err)
 		}
-		imageFiles[imageFile.ID] = imageFile
+		imageFiles[index] = imageFile
 	}
 	return imageFiles, nil
 }

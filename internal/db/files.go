@@ -29,7 +29,7 @@ func (client *Client) File() *FileClient {
 func (client *FileClient) FindImageFilesByParentID(parentID uint) ([]File, error) {
 	var images []File
 	err := client.connection.
-		Order("created_at asc").
+		Order("created_at desc").
 		Find(&images, File{
 			ParentID: parentID,
 			Type:     FileTypeImage,
@@ -41,7 +41,7 @@ func (client *FileClient) FindImageFilesByParentID(parentID uint) ([]File, error
 func (client *FileClient) FindImageFilesByParentIDs(parentIDs []uint) ([]File, error) {
 	var images []File
 	err := client.connection.
-		Order("created_at asc").
+		Order("created_at desc").
 		Where("parent_id IN ?", parentIDs).
 		Where("type = ?", FileTypeImage).
 		Find(&images).
@@ -52,7 +52,7 @@ func (client *FileClient) FindImageFilesByParentIDs(parentIDs []uint) ([]File, e
 func (client *FileClient) FindImageFilesByIDs(ids []uint) ([]File, error) {
 	var images []File
 	err := client.connection.
-		Order("created_at asc").
+		Order("created_at desc").
 		Where("id IN ?", ids).
 		Where("type = ?", FileTypeImage).
 		Find(&images).
@@ -63,7 +63,7 @@ func (client *FileClient) FindImageFilesByIDs(ids []uint) ([]File, error) {
 func (client *FileClient) FindDirectoriesByIDs(ids []uint) ([]File, error) {
 	var images []File
 	err := client.connection.
-		Order("created_at asc").
+		Order("created_at desc").
 		Where("id IN ?", ids).
 		Where("type = ?", FileTypeDirectory).
 		Find(&images).

@@ -3,6 +3,7 @@ package frontend
 import (
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 )
@@ -73,11 +74,14 @@ func (builder fileBuilder) buildImages() []Image {
 }
 
 func (builder fileBuilder) buildDBImage(id uint) db.File {
+	createdAt := time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, int(id))
+
 	image := builder.imageFiles[id]
 	return db.File{
-		ID:       image.ID,
-		Name:     image.Name,
-		Type:     db.FileTypeImage,
-		ParentID: image.parentID,
+		ID:        image.ID,
+		Name:      image.Name,
+		Type:      db.FileTypeImage,
+		ParentID:  image.parentID,
+		CreatedAt: uint(createdAt.Unix()),
 	}
 }

@@ -67,11 +67,7 @@ func TestSearchService_Search(t *testing.T) {
 				assert.Equal(t, tc.want, got)
 				return
 			}
-			// xassert.ElementsMatch(t, tc.want.Images, got.Images,
-			// 	cmpopts.SortSlices(func(a, b Image) bool { return a.ID < b.ID }),
-			// 	cmp.AllowUnexported(Image{}),
-			// )
-			assert.ElementsMatch(t, tc.want.Images, got.Images)
+			assert.Equal(t, tc.want.Images, got.Images)
 			for key := range tc.want.TaggedImages {
 				assert.ElementsMatch(t, tc.want.TaggedImages[key], got.TaggedImages[key],
 					"tagged images mismatch for tag %d", key,
@@ -93,8 +89,8 @@ func TestSearchService_Search(t *testing.T) {
 				},
 				want: SearchImagesResponse{
 					Images: []Image{
-						fileBuilder.buildImage(11),
 						fileBuilder.buildImage(12),
+						fileBuilder.buildImage(11),
 					},
 				},
 			},
@@ -144,9 +140,9 @@ func TestSearchService_Search(t *testing.T) {
 						100: {101},
 					},
 					Images: []Image{
-						fileBuilder.buildImage(11),
-						fileBuilder.buildImage(12),
 						fileBuilder.buildImage(101),
+						fileBuilder.buildImage(12),
+						fileBuilder.buildImage(11),
 					},
 				},
 			},
@@ -323,8 +319,8 @@ func TestSearchService_Search(t *testing.T) {
 						100: {101, 102},
 					},
 					Images: []Image{
-						fileBuilder.buildImage(101),
 						fileBuilder.buildImage(102),
+						fileBuilder.buildImage(101),
 					},
 				},
 			},

@@ -44,14 +44,15 @@ func NewSuggestionService(
 }
 
 func (service *SuggestionService) suggestTags(ctx context.Context, imageFileIDs []uint) (SuggestTagsResponse, error) {
-	imageFileMap, err := service.imageReader.ReadImagesByIDs(imageFileIDs)
+	imageFiles, err := service.imageReader.ReadImagesByIDs(imageFileIDs)
 	if err != nil {
 		return SuggestTagsResponse{}, fmt.Errorf("imageReader.getImagesByIDs: %w", err)
 	}
-	if len(imageFileMap) == 0 {
+	if len(imageFiles) == 0 {
 		return SuggestTagsResponse{}, fmt.Errorf("%w by IDs: %v", image.ErrImageFileNotFound, imageFileIDs)
 	}
 
+	imageFileMap := imageFiles.ToMap()
 	imageUrls := make([]string, len(imageFileMap))
 	for index, imageFileID := range imageFileIDs {
 		imageUrls[index] = imageFileMap[imageFileID].LocalFilePath
