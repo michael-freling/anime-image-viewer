@@ -19,7 +19,6 @@ import {
 } from "react";
 import { createSearchParams, useNavigate } from "react-router";
 import { Image } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
-
 import LazyImage from "../../components/LazyImage";
 import Layout from "../../Layout";
 
@@ -107,6 +106,133 @@ export const ImageList: FC<{
   );
 };
 
+const useChangeWithShirtKey = ({ loadedImages, toggleImageSelects }) => {
+  const [imageIndexes, setImageIndexes] = useState<{ [id: number]: number }>(
+    {}
+  );
+
+  const [, setSelectedElements] = useState<{
+    startElement: { id: number } | null;
+    endElement: { id: number } | null;
+  }>();
+  useEffect(() => {
+    if (loadedImages.length === 0) {
+      return;
+    }
+
+    setSelectedElements({
+      startElement: null,
+      endElement: null,
+    });
+    const indexes: { [id: number]: number } = {};
+    loadedImages.forEach((image, index) => {
+      indexes[image.id] = index;
+    });
+    setImageIndexes(indexes);
+  }, [loadedImages]);
+
+  return useCallback(
+    (checkboxEvent: ChangeEvent<HTMLInputElement>, image: ViewImageType) => {
+      // @ts-ignore
+      const isShiftKeyPressed: boolean = checkboxEvent.nativeEvent.shiftKey;
+
+      setSelectedElements((selectedElements) => {
+        if (
+          !isShiftKeyPressed ||
+          selectedElements == null ||
+          !selectedElements.startElement
+        ) {
+          toggleImageSelects([image.id]);
+          return {
+            startElement: {
+              id: image.id,
+            },
+            endElement: null,
+          };
+        }
+
+        const { startElement, endElement } = selectedElements;
+        let startIndex = imageIndexes[startElement.id];
+        let endIndex = imageIndexes[image.id];
+        if (startIndex === -1 || endIndex === -1) {
+          throw new Error(
+            "Image not found in the list while selecting with a shift key"
+          );
+        }
+
+        const getImageIds = (startIndex: number, endIndex: number) => {
+          if (startIndex > endIndex) {
+            [startIndex, endIndex] = [endIndex, startIndex - 1];
+          } else {
+            startIndex++;
+          }
+          let imageIds: number[] = [];
+          for (let i = startIndex; i <= endIndex; i++) {
+            for (const [id, index] of Object.entries(imageIndexes)) {
+              if (index === i) {
+                imageIds.push(parseInt(id));
+                break;
+              }
+            }
+          }
+          return imageIds;
+        };
+
+        let imageIds: any[] = [];
+        if (endElement != null) {
+          if (endElement.id === image.id) {
+            return selectedElements;
+          }
+
+          // if there is an image chosen at the last time, then
+          // 1. Select the images outside of the last selected range
+          // 2. Deselect the images inside of the last selected range if they are not selected by the current selection
+          // This can be achieved by exclusive OR operation on each index
+          // But exclude the image selected the first index
+          let previousEndIndex = imageIndexes[endElement.id];
+          const minIndex = Math.min(startIndex, endIndex, previousEndIndex);
+          const maxIndex = Math.max(startIndex, endIndex, previousEndIndex);
+          const selecteds: boolean[] = [];
+          for (let i = 0; i <= maxIndex - minIndex; i++) {
+            const imageIndex = minIndex + i;
+
+            const isSelected =
+              (startIndex < imageIndex && imageIndex <= endIndex) ||
+              (endIndex <= imageIndex && imageIndex < startIndex);
+            const isPreviousSelected =
+              (startIndex < imageIndex && imageIndex <= previousEndIndex) ||
+              (previousEndIndex <= imageIndex && imageIndex < startIndex);
+            selecteds.push(isSelected !== isPreviousSelected);
+          }
+          for (let i = 0; i <= maxIndex - minIndex; i++) {
+            const imageIndex = minIndex + i;
+            if (!selecteds[i]) {
+              continue;
+            }
+            for (const [id, index] of Object.entries(imageIndexes)) {
+              if (index === imageIndex) {
+                imageIds.push(parseInt(id));
+                break;
+              }
+            }
+          }
+        } else {
+          imageIds = getImageIds(startIndex, endIndex);
+        }
+
+        toggleImageSelects(imageIds);
+        return {
+          startElement,
+          endElement: {
+            id: image.id,
+          },
+        };
+      });
+    },
+    [loadedImages, imageIndexes, toggleImageSelects]
+  );
+};
+
 export interface ImageListContainerProps {
   loadedImages: Image[];
   withListWrappedComponent?: (children: JSX.Element) => JSX.Element[];
@@ -117,9 +243,6 @@ const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
   withListWrappedComponent,
 }) => {
   const [images, setImages] = useState<ViewImageType[]>([]);
-  const [imageIndexes, setImageIndexes] = useState<{ [id: number]: number }>(
-    {}
-  );
 
   useEffect(() => {
     if (!loadedImages) {
@@ -132,90 +255,32 @@ const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
         selected: false,
       }))
     );
-
-    const indexes: { [id: number]: number } = {};
-    loadedImages.forEach((image, index) => {
-      indexes[image.id] = index;
-    });
-    setImageIndexes(indexes);
   }, [loadedImages]);
 
   const selectedImageCount = images.filter((image) => image.selected).length;
   const navigate = useNavigate();
 
-  const toggleImageSelects = (selectedImageIds: number[]) => {
-    // https://alexsidorenko.com/blog/react-list-rerender
-    let result: { [id: number]: ViewImageType } = [];
-    const imageIdSet = new Set(selectedImageIds);
-    setImages((previousImages) =>
-      previousImages.map((image) => {
-        if (!imageIdSet.has(image.id)) {
-          return image;
-        }
-
-        const newImage = {
-          ...image,
-          selected: !image.selected,
-        };
-        result[image.id] = newImage;
-        return newImage;
-      })
-    );
-    return result;
-  };
-
-  // Enable to select images by a shirt key
-  const [, setStartElement] = useState<ViewImageType>();
-  useEffect(() => {
-    if (loadedImages.length === 0) {
-      return;
-    }
-
-    setStartElement(undefined);
-  }, [loadedImages]);
-
-  const onChange = useCallback(
-    (checkboxEvent: ChangeEvent<HTMLInputElement>, image: ViewImageType) => {
-      // @ts-ignore
-      const isShiftKeyPressed: boolean = checkboxEvent.nativeEvent.shiftKey;
-
-      setStartElement((startElement) => {
-        if (!isShiftKeyPressed || !startElement || !startElement.id) {
-          const results = toggleImageSelects([image.id]);
-          return {
-            ...results[image.id],
-          };
-        }
-
-        let startIndex = imageIndexes[startElement.id];
-        let endIndex = imageIndexes[image.id];
-        if (startIndex === -1 || endIndex === -1) {
-          throw new Error(
-            "Image not found in the list while selecting with a shift key"
-          );
-        }
-
-        if (startIndex > endIndex) {
-          [startIndex, endIndex] = [endIndex, startIndex - 1];
-        } else {
-          startIndex++;
-        }
-        const imageIds: number[] = [];
-        for (let i = startIndex; i <= endIndex; i++) {
-          for (const [id, index] of Object.entries(imageIndexes)) {
-            if (index === i) {
-              imageIds.push(parseInt(id));
-              break;
-            }
+  const toggleImageSelects = useCallback(
+    (selectedImageIds: number[]) => {
+      // https://alexsidorenko.com/blog/react-list-rerender
+      const imageIdSet = new Set(selectedImageIds);
+      setImages((previousImages) =>
+        previousImages.map((image) => {
+          if (!imageIdSet.has(image.id)) {
+            return image;
           }
-        }
-        toggleImageSelects(imageIds);
-        return startElement;
-      });
-    },
-    [loadedImages, imageIndexes]
-  );
 
+          const newImage = {
+            ...image,
+            selected: !image.selected,
+          };
+          return newImage;
+        })
+      );
+    },
+    [setImages]
+  );
+  const onChange = useChangeWithShirtKey({ loadedImages, toggleImageSelects });
   const children = withListWrappedComponent ? (
     withListWrappedComponent(<ImageList images={images} onChange={onChange} />)
   ) : (
