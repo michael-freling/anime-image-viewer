@@ -1,5 +1,4 @@
 import {
-  Box,
   Button,
   Card,
   CardOverflow,
@@ -20,6 +19,7 @@ import {
 } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
 import { ImageService } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import Layout from "../../Layout";
+import { useCallbackWithErrorHandler } from "../../components/errors/promise";
 
 const ImageTagSuggestionPage: React.FC = () => {
   const navigate = useNavigate();
@@ -37,41 +37,36 @@ const ImageTagSuggestionPage: React.FC = () => {
   const [tags, setTags] = useState<{ [id: number]: Tag }>({});
   const [isSubmitted, setSubmitted] = useState<boolean>(false);
 
-  const [error, setError] = useState<Error | null>(null);
-
   console.debug("ImageTagSuggestionPage", {
     imageFileIds,
     selectedScore,
     imageFiles,
   });
+
+  const initialize = useCallbackWithErrorHandler(async () => {
+    let response: any = await ImageService.ReadImagesByIDs(imageFileIds);
+    const imageFiles = imageFileIds.map((id) => response[id]);
+    setImageFiles(imageFiles);
+    setTagSuggestions(
+      imageFileIds.reduce((acc, id) => {
+        acc[id] = [];
+        return acc;
+      }, {} as { [id: number]: TagSuggestion[] })
+    );
+
+    response = await TagFrontendService.SuggestTags(imageFileIds);
+    // it's too slow to show image files from a suggestion's result
+    // setImageFiles(response.imageFiles);
+    setTagSuggestions(response.suggestions);
+    setTags(response.allTags);
+  });
+
   useEffect(() => {
     if (imageFileIds.length === 0) {
       return;
     }
-    if (error) {
-      return;
-    }
 
-    ImageService.ReadImagesByIDs(imageFileIds).then((response) => {
-      const imageFiles = imageFileIds.map((id) => response[id]);
-      setImageFiles(imageFiles);
-      setTagSuggestions(
-        imageFileIds.reduce((acc, id) => {
-          acc[id] = [];
-          return acc;
-        }, {} as { [id: number]: TagSuggestion[] })
-      );
-    });
-    TagFrontendService.SuggestTags(imageFileIds)
-      .then((response) => {
-        // it's too slow to show image files from a suggestion's result
-        // setImageFiles(response.imageFiles);
-        setTagSuggestions(response.suggestions);
-        setTags(response.allTags);
-      })
-      .catch((error) => {
-        setError(error);
-      });
+    initialize();
   }, [searchParams]);
 
   function handleSubmit() {
@@ -105,10 +100,6 @@ const ImageTagSuggestionPage: React.FC = () => {
     } finally {
       setSubmitted(false);
     }
-  }
-
-  if (error) {
-    return <Box>{error.message}</Box>;
   }
 
   const cardHeight = 320;
