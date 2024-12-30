@@ -1,34 +1,26 @@
 import os
 import shutil
-from PIL import Image
 from torchvision import datasets
 import multiprocessing as mp
 import json
+from ImageProcessor import ImageProcessor
 
 
 class Preprocessor:
     def __init__(self):
         pass
 
-    def resize_image(self, img, target_width):
-        w_percent = target_width / float(img.size[0])
-        target_height = int(float(img.size[1]) * float(w_percent))
-        return img.resize((target_width, target_height), Image.LANCZOS)
-
     def process_image(self, file_path, output_dir, target_width):
         try:
-            with Image.open(file_path) as img:
-                img.verify()
-
-            with Image.open(file_path) as img:
-                resized_img = self.resize_image(img, target_width)
-                file_name = os.path.basename(file_path)
-                file_path = os.path.join(output_dir, file_name)
-                resized_img.save(file_path)
-            return file_path
+            with ImageProcessor(file_path) as processor:
+                img = processor.preprocess(target_width)
+                output_file_path = os.path.join(
+                    output_dir, os.path.basename(file_path))
+                img.save(output_file_path)
+                return output_file_path
         except (IOError, SyntaxError) as e:
-            print(f"Corrupted image: {file_path} as {e}")
-            # os.remove(file_path)
+            print(f"Corrupted image: {file_path}")
+            print(e)
 
     def process_images(self, root_dir, root_destination_dir, target_width):
         splits = ['train', 'validation']

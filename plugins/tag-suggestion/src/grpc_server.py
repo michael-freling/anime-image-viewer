@@ -1,3 +1,4 @@
+import multiprocessing as mp
 import json
 import logging
 from typing import Any, Callable
@@ -10,8 +11,8 @@ import tag_suggestion.v1.service_pb2_grpc as suggestion_pb2_grpc
 
 
 class TagSuggestionService(suggestion_pb2_grpc.TagSuggestionServiceServicer):
-    def __init__(self, model_path: str):
-        self.inference = Inference(model_path)
+    def __init__(self, model_path: str, resize_image_width: int):
+        self.inference = Inference(model_path, resize_image_width)
 
     def Suggest(self, request: suggestion_pb2.SuggestRequest, context) -> suggestion_pb2.SuggestResponse:
         prediction_result = self.inference.predict(map(
@@ -59,12 +60,12 @@ class ErrorLogInterceptor(ServerInterceptor):
             raise
 
 
-def start_grpc_server(model_path: str):
+def start_grpc_server(model_path: str, resize_image_width: int):
     server = grpc.server(
-        futures.ThreadPoolExecutor(max_workers=10),
+        futures.ThreadPoolExecutor(max_workers=mp.cpu_count() * 2),
         interceptors=[ErrorLogInterceptor()],
     )
-    service = TagSuggestionService(model_path)
+    service = TagSuggestionService(model_path, resize_image_width)
     suggestion_pb2_grpc.add_TagSuggestionServiceServicer_to_server(
         service, server)
     port = 50051

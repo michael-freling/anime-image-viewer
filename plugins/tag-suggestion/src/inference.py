@@ -1,21 +1,32 @@
 from transformers import ViTImageProcessor, ViTForImageClassification
-from PIL import Image
 import torch
+import multiprocessing as mp
+from ImageProcessor import ImageProcessor
 
 
 class Inference:
-    def __init__(self, model_path: str):
+    def __init__(self, model_path: str, resize_image_width: int):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.processor = ViTImageProcessor.from_pretrained(
             model_path, device=device)
         self.model = ViTForImageClassification.from_pretrained(model_path)
+        self.resize_image_width = resize_image_width
+
+    def preprocess_image(self, image_path: str, target_width: int):
+        with ImageProcessor(image_path) as processor:
+            return processor.preprocess(target_width)
 
     def predict(self, image_paths: list[str]):
-        image = [
-            Image.open(image_path).convert('RGB') for image_path in image_paths
-        ]
+        images = []
+        with mp.Pool(processes=mp.cpu_count()) as pool:
+            images = pool.starmap(
+                self.preprocess_image,
+                [(image_path, self.resize_image_width)
+                 for image_path in image_paths]
+            )
+
         inputs = self.processor(
-            images=image, return_tensors="pt")
+            images=images, return_tensors="pt")
         outputs = self.model(**inputs)
 
         # https://iifx.dev/en/articles/345450710
