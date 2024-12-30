@@ -184,23 +184,23 @@ func (reader Reader) CreateBatchTagCheckerByFileIDs(
 			allTags:     allTagMap,
 		}
 
-		hasImageFileTag := make(map[uint]bool, 0)
+		hasImageFileTag := make(map[uint]db.FileTagAddedBy, 0)
 		for _, fileTag := range fileTags {
 			if fileID != fileTag.FileID {
 				continue
 			}
-			hasImageFileTag[fileTag.TagID] = true
+			hasImageFileTag[fileTag.TagID] = fileTag.AddedBy
 		}
 		imageTagChecker.imageFileTags = hasImageFileTag
 
-		tagsForAncestors := make(map[uint][]uint, 0)
+		tagsForAncestors := make(map[uint][]db.FileTagAddedBy, 0)
 		for _, fileTag := range fileTags {
 			for _, ancestor := range ancestors {
 				if ancestor.ID != fileTag.FileID {
 					continue
 				}
 				tagID := fileTag.TagID
-				tagsForAncestors[tagID] = append(tagsForAncestors[tagID], ancestor.ID)
+				tagsForAncestors[tagID] = append(tagsForAncestors[tagID], fileTag.AddedBy)
 			}
 		}
 		imageTagChecker.ancestorsTags = tagsForAncestors

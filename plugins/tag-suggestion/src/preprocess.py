@@ -3,6 +3,7 @@ import shutil
 from PIL import Image
 from torchvision import datasets
 import multiprocessing as mp
+import json
 
 
 class Preprocessor:
@@ -24,39 +25,52 @@ class Preprocessor:
                 file_name = os.path.basename(file_path)
                 file_path = os.path.join(output_dir, file_name)
                 resized_img.save(file_path)
-                return f"Processed and resized: {file_path}"
+            return file_path
         except (IOError, SyntaxError) as e:
-            os.remove(file_path)
-            return f"Removed corrupted image: {file_path}"
+            print(f"Corrupted image: {file_path} as {e}")
+            # os.remove(file_path)
 
     def process_images(self, root_dir, root_destination_dir, target_width):
-        image_paths = []
-        metadata_file_paths = []
-        for subdir, dirs, files in os.walk(root_dir):
-            for file in files:
-                if file.endswith('.jsonl') or file.endswith('.json'):
-                    metadata_file_paths.append(os.path.join(subdir, file))
-                    continue
+        splits = ['train', 'validation']
+        image_paths = {}
+        tags_file = os.path.join(root_dir, 'tags.json')
+        metadata_file_paths = {}
+        for split in splits:
+            metadata_file_paths[split] = os.path.join(
+                root_dir, split, 'metadata.jsonl',
+            )
+            image_paths[split] = []
+            for subdir, dirs, files in os.walk(os.path.join(root_dir, split)):
+                for file in files:
+                    if file.endswith('.jsonl') or file.endswith('.json'):
+                        continue
+                    file_path = os.path.join(subdir, file)
+                    image_paths[split].append(file_path)
 
-                file_path = os.path.join(subdir, file)
-                image_paths.append(file_path)
-
-        for split in ['train']:
+        for split in splits:
             image_destination_dir = os.path.join(root_destination_dir, split)
             os.makedirs(image_destination_dir)
-            print(f"Processing {len(image_paths)} images...")
+            split_image_paths = image_paths[split]
+            print(f"{split} dataset: Processing {
+                  len(split_image_paths)} images...")
+
+            metadata_file = metadata_file_paths[split]
             with mp.Pool(processes=mp.cpu_count()) as pool:
                 results = pool.starmap(
-                    self.process_image, [(path, image_destination_dir, target_width) for path in image_paths])
+                    self.process_image, [(path, image_destination_dir, target_width) for path in split_image_paths])
+                results = [os.path.basename(result)
+                           for result in results if result is not None]
 
-            for metadata_file in metadata_file_paths:
-                file_name = os.path.basename(metadata_file)
-                if file_name == 'tags.json':
-                    file_path = os.path.join(root_destination_dir, file_name)
-                else:
-                    file_path = os.path.join(image_destination_dir, file_name)
-                shutil.copy(metadata_file, file_path)
+                output_file_path = os.path.join(
+                    image_destination_dir, os.path.basename(metadata_file))
+                with open(metadata_file, 'r') as f, open(output_file_path, 'w') as f_out:
+                    for line in f:
+                        data = json.loads(line)
+                        if data['file_name'] in results:
+                            f_out.write(line)
 
-            dataset = datasets.ImageFolder(root=root_dir)
-            print(f"Processed {len(results)} images in {
-                  len(dataset)} classes.")
+        shutil.copy(tags_file, os.path.join(
+            root_destination_dir, os.path.basename(tags_file)))
+        dataset = datasets.ImageFolder(root=root_dir)
+        print(f"Processed {len(results)} images in {
+              len(dataset)} classes.")

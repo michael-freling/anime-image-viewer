@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -76,8 +77,9 @@ func (service ExportService) ExportAll(ctx context.Context, exportDirectory stri
 }
 
 func (service ExportService) ExportImages(ctx context.Context, rootExportDirectory string, allTags []tag.Tag) error {
-	// splits := []string{"train", "validation"}
-	splits := []string{"train"}
+	const trainSplit = "train"
+	const validationSplit = "validation"
+	splits := []string{trainSplit, validationSplit}
 	for _, split := range splits {
 		exportDirectory := filepath.Join(rootExportDirectory, split)
 		if err := os.MkdirAll(exportDirectory, 0755); err != nil {
@@ -135,7 +137,7 @@ func (service ExportService) ExportImages(ctx context.Context, rootExportDirecto
 
 	var copiedImageCount int64
 	eg, _ = errgroup.WithContext(ctx)
-	allMetadata := make([]Metadata, 0)
+	allMetadata := make(map[string][]Metadata, 0)
 	for directoryIndex := range rootDirectory.Children {
 		imageFiles := allImageFiles[directoryIndex]
 		for _, imageFile := range imageFiles {
@@ -143,21 +145,33 @@ func (service ExportService) ExportImages(ctx context.Context, rootExportDirecto
 				FileName: imageFile.Name,
 				Tags:     make([]float64, maxTagID+1),
 			}
-			for tagID := range batchTagChecker.GetTagCheckerForImageFileID(imageFile.ID).GetTagCounts() {
+
+			split := ""
+			for tagID, addedBy := range batchTagChecker.GetTagCheckerForImageFileID(imageFile.ID).GetTagMap() {
+				if addedBy == db.FileTagAddedBySuggestion {
+					split = trainSplit
+				}
 				metadata.Tags[tagID] = 1.0
 			}
-			allMetadata = append(allMetadata, metadata)
-
-			for _, split := range splits {
-				eg.Go(func() error {
-					err := service.exportImageFile(imageFile, filepath.Join(rootExportDirectory, split))
-					atomic.AddInt64(&copiedImageCount, 1)
-					if err != nil {
-						return fmt.Errorf("exportImageFile: %w", err)
-					}
-					return nil
-				})
+			if split == "" {
+				odd := rand.Intn(100)
+				if odd < 80 {
+					split = trainSplit
+				} else {
+					split = validationSplit
+				}
 			}
+
+			allMetadata[split] = append(allMetadata[split], metadata)
+			imageFile := imageFile
+			eg.Go(func() error {
+				err := service.exportImageFile(imageFile, filepath.Join(rootExportDirectory, split))
+				atomic.AddInt64(&copiedImageCount, 1)
+				if err != nil {
+					return fmt.Errorf("exportImageFile: %w", err)
+				}
+				return nil
+			})
 		}
 	}
 	for _, split := range splits {
@@ -175,7 +189,7 @@ func (service ExportService) ExportImages(ctx context.Context, rootExportDirecto
 
 			buffer := bufio.NewWriter(metadataFile)
 			metadataJsonEncoder := json.NewEncoder(buffer)
-			for _, metadata := range allMetadata {
+			for _, metadata := range allMetadata[split] {
 				if err := metadataJsonEncoder.Encode(metadata); err != nil {
 					return fmt.Errorf("json.Encode: %w", err)
 				}
@@ -187,7 +201,7 @@ func (service ExportService) ExportImages(ctx context.Context, rootExportDirecto
 		})
 	}
 	eg.Go(func() error {
-		totalCopyImageCount := len(allImageFileIDs) * len(splits)
+		totalCopyImageCount := len(allImageFileIDs)
 		for {
 			if atomic.LoadInt64(&copiedImageCount) == int64(totalCopyImageCount) {
 				break

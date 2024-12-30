@@ -138,13 +138,13 @@ type ImageTagChecker struct {
 	imageFileID uint
 
 	// tag id => bool (true if the image file has the tag)
-	imageFileTags map[uint]bool
+	imageFileTags map[uint]db.FileTagAddedBy
 
 	// directory id => an ancestor
 	ancestors map[uint]image.Directory
 
 	// tag id => an ids of ancestors
-	ancestorsTags map[uint][]uint
+	ancestorsTags map[uint][]db.FileTagAddedBy
 
 	allTags map[uint]Tag
 }
@@ -175,13 +175,21 @@ func (checker ImageTagChecker) hasTag(tagID uint) bool {
 	return false
 }
 
-func (checker ImageTagChecker) GetTagCounts() map[uint]bool {
-	tagCounts := make(map[uint]bool)
-	for tagID := range checker.imageFileTags {
-		tagCounts[tagID] = true
+func (checker ImageTagChecker) GetTagMap() map[uint]db.FileTagAddedBy {
+	tagCounts := make(map[uint]db.FileTagAddedBy)
+	for tagID, addedBy := range checker.imageFileTags {
+		tagCounts[tagID] = addedBy
 	}
-	for tagID := range checker.ancestorsTags {
-		tagCounts[tagID] = true
+	for tagID, addedBys := range checker.ancestorsTags {
+		var resultAddedBy db.FileTagAddedBy
+		for _, addedBy := range addedBys {
+			if addedBy == db.FileTagAddedByUser {
+				addedBy = db.FileTagAddedByUser
+				break
+			}
+			resultAddedBy = addedBy
+		}
+		tagCounts[tagID] = resultAddedBy
 	}
 	return tagCounts
 }
@@ -218,7 +226,7 @@ func (checker BatchImageTagChecker) getTagsMapFromAncestors() map[uint][]image.F
 func (checker BatchImageTagChecker) getTagCounts() map[uint]uint {
 	tagCounts := make(map[uint]uint)
 	for _, imageTagChecker := range checker.imageTagCheckers {
-		for tagID := range imageTagChecker.GetTagCounts() {
+		for tagID := range imageTagChecker.GetTagMap() {
 			tagCounts[tagID]++
 		}
 	}

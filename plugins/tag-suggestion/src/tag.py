@@ -4,21 +4,24 @@ import json
 class Tag:
     id: int
     name: str
+    parent_id: int
+    full_name: str
     children: list['Tag']
 
-    def __init__(self, id: int, name: str, children: list['Tag'] = [], path: str = ''):
+    def __init__(self, id: int, name: str, full_name: str, parentId: int = 0, children: list['Tag'] = []):
         self.id = id
         self.name = name
-        self.full_path = path + name
+        self.parent_id = parentId
+        self.full_name = full_name
         self.children = []
         for child in children:
-            self.children.append(Tag(**child, path=path + name + ' > '))
+            self.children.append(Tag(**child))
 
     def to_dict(self) -> dict[str, any]:
         return {
             'id': self.id,
             'name': self.name,
-            'full_path': self.full_path,
+            'full_name': self.full_name,
             'children': [child.to_dict() for child in self.children]
         }
 
@@ -52,7 +55,6 @@ class TagReader:
         # Convert dict to list
         result = ['' for _ in range(len(dict) + 1)]
         for key, value in dict.items():
-            # result[key] = value['full_path']
             result[key] = value['name']
 
         return result

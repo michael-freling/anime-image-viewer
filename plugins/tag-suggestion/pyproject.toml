@@ -93,11 +93,14 @@ distribution = false
 [tool.pdm.scripts]
 _.env = { DATA_DIR = 'source', PREPROCESSED_DATA_DIR = "datasets", MODEL_DIR = "model" }
 preprocess.composite = [
-    "mv ${PREPROCESSED_DATA_DIR} ${PREPROCESSED_DATA_DIR}.bak",
+    "rm -rf ${PREPROCESSED_DATA_DIR}",
     "python src/main.py preprocess ${DATA_DIR} ${PREPROCESSED_DATA_DIR}",
     "zip -rq ${PREPROCESSED_DATA_DIR}.zip ${PREPROCESSED_DATA_DIR}",
 ]
-train.cmd = "python src/main.py train ${PREPROCESSED_DATA_DIR} ${MODEL_DIR}"
+train.composite = [
+    "rm -rf ${MODEL_DIR}",
+    "python src/main.py train ${PREPROCESSED_DATA_DIR} ${MODEL_DIR}",
+]
 # _.env = { PYTHON_PATH = "../plugins-protos/gen/python/tag_suggestion" }
 server.cmd = "python src/main.py server ${MODEL_DIR}"
 client.cmd = "python src/grpc_client.py {args}"
