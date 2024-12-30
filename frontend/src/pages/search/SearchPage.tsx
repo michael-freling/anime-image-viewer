@@ -11,21 +11,19 @@ import {
   Switch,
   Typography,
 } from "@mui/joy";
-import { FC, useCallback, useEffect, useState } from "react";
+import { FC, useEffect, useState } from "react";
+import { createSearchParams, useNavigate, useSearchParams } from "react-router";
 import {
+  Image,
   SearchImagesRequest,
   SearchService,
   TagService,
 } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import { Tag } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
-import ImageListMain, {
-  ImageList,
-  ViewImage,
-} from "../../components/Images/ImageList";
+import ImageListMain from "../../components/Images/ImageList";
 import SelectDirectoryExplorer from "../../components/SelectDirectoryExplorer";
 import SelectTagExplorer from "../../components/SelectTagExplorer";
 import Layout from "../../Layout";
-import { createSearchParams, useNavigate, useSearchParams } from "react-router";
 
 type SearchCondition = SearchImagesRequest;
 
@@ -141,34 +139,6 @@ const SearchSidebar: FC<SearchSidebarProps> = ({ condition }) => {
   );
 };
 
-const ImageListWithTags: FC<{
-  images: ViewImage[];
-  taggedImageIds: { [tagId: number]: number[] };
-  allTagMap: { [id: number]: Tag };
-  onSelect: (selectedImageId: number) => void;
-}> = ({ images, taggedImageIds, allTagMap, onSelect }) => {
-  return (
-    <>
-      {Object.entries(taggedImageIds).map(([tagId, imageIds]) => {
-        const tag = allTagMap[tagId];
-        return (
-          <Box key={tagId} sx={{ gap: 2 }}>
-            <Box>
-              <Typography variant="soft" level="h4" sx={{ p: 2 }}>
-                {tag?.fullName}
-              </Typography>
-            </Box>
-            <ImageList
-              images={images.filter((image) => imageIds.includes(image.id))}
-              onSelect={onSelect}
-            />
-          </Box>
-        );
-      })}
-    </>
-  );
-};
-
 function useRequest(): SearchCondition {
   const [searchParams] = useSearchParams();
   let params: any = {};
@@ -184,31 +154,16 @@ function useRequest(): SearchCondition {
   }
   return params as SearchCondition;
 }
+
 const SearchPage: FC = () => {
   const condition: SearchCondition = useRequest();
   const [allTagMap, setAllTagMap] = useState<{
     [id: number]: Tag;
   }>({});
-  const [images, setImages] = useState<ViewImage[]>([]);
+  const [images, setImages] = useState<Image[]>([]);
   const [taggedImageIds, setTaggedImageIds] = useState<{
     [tagId: number]: number[];
   }>({});
-
-  const onSelect = useCallback((selectedImageId: number) => {
-    // https://alexsidorenko.com/blog/react-list-rerender
-    setImages((previousImages) =>
-      previousImages.map((image) => {
-        if (image.id !== selectedImageId) {
-          return image;
-        }
-
-        return {
-          ...image,
-          selected: !image.selected,
-        };
-      })
-    );
-  }, []);
 
   console.debug("SearchPage", {
     allTagMap,
@@ -256,19 +211,29 @@ const SearchPage: FC = () => {
       >
         <SearchSidebar condition={condition} />
       </Layout.SideNav>
-      <ImageListMain images={images}>
-        {Object.keys(taggedImageIds).length === 0 && (
-          <ImageList images={images} onSelect={onSelect} />
-        )}
-        {Object.keys(taggedImageIds).length > 0 && (
-          <ImageListWithTags
-            images={images}
-            taggedImageIds={taggedImageIds}
-            allTagMap={allTagMap}
-            onSelect={onSelect}
-          />
-        )}
-      </ImageListMain>
+      {Object.keys(taggedImageIds).length == 0 && (
+        <ImageListMain loadedImages={images} />
+      )}
+      {Object.keys(taggedImageIds).length > 0 && (
+        <ImageListMain
+          loadedImages={images}
+          withListWrappedComponent={(children) => {
+            return Object.entries(taggedImageIds).map(([tagId]) => {
+              const tag = allTagMap[tagId];
+              return (
+                <Box key={tagId} sx={{ gap: 2 }}>
+                  <Box>
+                    <Typography variant="soft" level="h4" sx={{ p: 2 }}>
+                      {tag?.fullName}
+                    </Typography>
+                  </Box>
+                  {children}
+                </Box>
+              );
+            });
+          }}
+        />
+      )}
     </Box>
   );
 };
