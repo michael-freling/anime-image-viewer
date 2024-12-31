@@ -29,6 +29,7 @@ import ImageTagEditPage from "./pages/tags/ImageTagEditPage";
 import ImageTagSuggestionPage from "./pages/tags/ImageTagSuggestionPage";
 import TagsListPage from "./pages/tags/TagsListPage";
 import RootErrorPage from "./RootErrorPage";
+import { ImportImageProgressProvider } from "./components/contexts/ImportImageContext";
 
 function Root() {
   const location = useLocation();
@@ -126,7 +127,10 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
       <MaterialThemeProvider theme={{ [MATERIAL_THEME_ID]: materialTheme }}>
         <CssVarsProvider theme={joyTheme}>
           <CssBaseline />
-          <RouterProvider router={router} />
+
+          <ImportImageProgressProvider>
+            <RouterProvider router={router} />
+          </ImportImageProgressProvider>
         </CssVarsProvider>
       </MaterialThemeProvider>
     </StyledEngineProvider>

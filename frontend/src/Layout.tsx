@@ -6,6 +6,7 @@ import HeaderComponent from "./components/Header";
 import Navigation from "./components/Navigation";
 import { Outlet } from "react-router";
 import { Card, Stack } from "@mui/joy";
+import Footer from "./components/Footer";
 
 function Header(props: BoxProps) {
   return (
@@ -85,6 +86,17 @@ const Main: React.FC<MainProps & React.PropsWithChildren> = ({
       >
         {children}
       </Box>
+      <Card
+        sx={{
+          position: "sticky",
+          bottom: 0,
+          zIndex: 1,
+
+          p: 0,
+        }}
+      >
+        <Footer />
+      </Card>
     </Box>
   );
 };

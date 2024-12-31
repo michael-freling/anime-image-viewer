@@ -2,95 +2,18 @@ package import_images
 
 import (
 	"context"
-	"io"
-	"log/slog"
-	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
-	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
-
-type Tester struct {
-	logger         *slog.Logger
-	config         config.Config
-	dbClient       db.TestClient
-	staticFilePath string
-}
-
-type testerOption struct {
-	gormLoggerOption db.ClientOption
-}
-
-type newTesterOption func(*testerOption)
-
-func newTester(t *testing.T, opts ...newTesterOption) Tester {
-	t.Helper()
-
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	defaultOption := &testerOption{
-		gormLoggerOption: db.WithNopLogger(),
-	}
-	for _, opt := range opts {
-		opt(defaultOption)
-	}
-
-	dbClient := db.NewTestClient(t)
-
-	cfg := config.Config{
-		ImageRootDirectory: t.TempDir(),
-	}
-
-	return Tester{
-		logger:         logger,
-		config:         cfg,
-		dbClient:       dbClient,
-		staticFilePath: "/files",
-	}
-}
-
-func (tester Tester) getBatchImageImporter() *BatchImageImporter {
-	return NewBatchImageImporter(
-		tester.logger,
-		tester.dbClient.Client,
-		tester.getDirectoryReader(),
-		tester.getImageFileConverter(),
-	)
-}
-
-func (tester Tester) getDirectoryReader() *image.DirectoryReader {
-	return image.NewDirectoryReader(tester.config, tester.dbClient.Client)
-}
-
-func (tester Tester) getImageFileConverter() *image.ImageFileConverter {
-	return image.NewImageFileConverter(tester.config)
-}
-
-func (tester Tester) createDirectoryInFS(t *testing.T, name string) string {
-	t.Helper()
-
-	path := filepath.Join(tester.config.ImageRootDirectory, name)
-	require.NoError(t, os.MkdirAll(path, 0755))
-	return path
-}
-
-func (tester Tester) getTestFilePath(filePath string) string {
-	return filepath.Join("..", "..", "testdata", filePath)
-}
-
-func (tester Tester) newFileCreator() *image.FileCreator {
-	return image.NewFileCreator(tester.config.ImageRootDirectory)
-}
 
 func TestImageFileService_importImageFiles(t *testing.T) {
 	tester := newTester(t)
 	dbClient := tester.dbClient
-
-	imageFileService := tester.getBatchImageImporter()
 
 	destinationDirectory := image.Directory{
 		ID:   1,
@@ -158,7 +81,19 @@ func TestImageFileService_importImageFiles(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, gotErrs := imageFileService.ImportImages(context.Background(), tc.destinationDirectory, tc.sourceFilePaths)
+			batchImporter := tester.getBatchImageImporter()
+			progressCalled := 0
+			got, gotErrs := batchImporter.ImportImages(context.Background(), tc.destinationDirectory, tc.sourceFilePaths, func(progressEvent ProgressEvent) {
+				if progressCalled == 0 {
+					assert.Equal(t, len(tc.sourceFilePaths), progressEvent.Total)
+					assert.Equal(t, len(tc.wantErrors), progressEvent.Failed)
+					assert.Equal(t, len(tc.wantErrors), len(progressEvent.FailedErrors))
+				}
+				if progressCalled == 1 {
+					assert.Equal(t, len(tc.want), progressEvent.Completed)
+				}
+				progressCalled++
+			})
 			if len(tc.wantErrors) > 0 {
 				uw, ok := gotErrs.(interface{ Unwrap() []error })
 				assert.True(t, ok)
@@ -184,6 +119,10 @@ func TestImageFileService_importImageFiles(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, want, got)
 			}
+
+			// wait for a go routine for a progress callback
+			<-time.After(time.Millisecond)
+			assert.Equal(t, 2, progressCalled)
 		})
 	}
 }

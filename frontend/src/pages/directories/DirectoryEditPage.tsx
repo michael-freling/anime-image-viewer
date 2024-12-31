@@ -4,13 +4,14 @@ import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import { IconButton, Typography } from "@mui/joy";
 import { RichTreeView } from "@mui/x-tree-view";
 import { FC, useEffect, useState } from "react";
-import { ImportService } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
+import { BatchImportImageService } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import {
   Directory,
   DirectoryService,
 } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
 import {
   directoriesToTreeViewBaseItems,
+  getDefaultExpandedItems,
   getDirectoryMap,
 } from "../../components/DirectoryExplorer";
 import {
@@ -22,7 +23,7 @@ import Layout from "../../Layout";
 const DirectoryEditPage: FC = () => {
   const [rootDirectory, setRootDirectory] = useState<string>("");
   const [children, setChildren] = useState<Directory[]>([]);
-  const [, setDirectoryMap] = useState<{
+  const [directoryMap, setDirectoryMap] = useState<{
     [id: number]: Directory;
   }>({});
 
@@ -42,8 +43,12 @@ const DirectoryEditPage: FC = () => {
   async function refresh() {
     // todo: stop hardcoding root directory ID 0
     const children = await DirectoryService.ReadChildDirectoriesRecursively(0);
-    await setChildren(children);
+    setChildren(children);
     setDirectoryMap(getDirectoryMap(children));
+  }
+
+  if (!rootDirectory || children.length === 0) {
+    return <Typography>Loading...</Typography>;
   }
 
   const newDirectoryName = "New Directory";
@@ -68,6 +73,7 @@ const DirectoryEditPage: FC = () => {
     >
       <RichTreeView
         expansionTrigger="content"
+        defaultExpandedItems={getDefaultExpandedItems([], directoryMap)}
         slots={{
           // todo: RichTreeView doesn't allow to pass a type other than TreeItem2Props
           item: ExplorerTreeItem as any,
@@ -87,7 +93,9 @@ const DirectoryEditPage: FC = () => {
               await refresh();
             },
             importImages: async (parentID: string) => {
-              await ImportService.ImportImages(parseInt(parentID, 10));
+              await BatchImportImageService.ImportImages(
+                parseInt(parentID, 10)
+              );
               await refresh();
             },
           } as ExplorerTreeItemProps,
