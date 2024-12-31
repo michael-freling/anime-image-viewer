@@ -23,10 +23,22 @@ var (
 type Directory struct {
 	ID              uint         `json:"id"`
 	Name            string       `json:"name"`
-	Path            string       `json:"path"`
 	ParentID        uint         `json:"parentId"`
 	Children        []*Directory `json:"children"`
 	ChildImageFiles []*ImageFile `json:"childImageFiles"`
+
+	// Path is the absolute path to the directory
+	Path string `json:"path"`
+
+	// RelativePath is the path relative to the root directory of images
+	RelativePath string `json:"-"`
+}
+
+func (directory *Directory) updateName(newName string) *Directory {
+	directory.Name = newName
+	directory.Path = filepath.Join(filepath.Dir(directory.Path), newName)
+	directory.RelativePath = newName
+	return directory
 }
 
 func (directory Directory) toFile() File {
@@ -271,7 +283,6 @@ func (service DirectoryService) UpdateName(id uint, name string) (Directory, err
 		return Directory{}, fmt.Errorf("db.NewTransaction: %w", err)
 	}
 
-	directory.Name = name
-	directory.Path = newDirectoryPath
+	directory.updateName(name)
 	return directory, nil
 }

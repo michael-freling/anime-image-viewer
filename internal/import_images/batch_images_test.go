@@ -18,7 +18,7 @@ import (
 type Tester struct {
 	logger         *slog.Logger
 	config         config.Config
-	dbClient       *db.Client
+	dbClient       db.TestClient
 	staticFilePath string
 }
 
@@ -39,12 +39,7 @@ func newTester(t *testing.T, opts ...newTesterOption) Tester {
 		opt(defaultOption)
 	}
 
-	dbClient, err := db.NewClient(db.DSNMemory, defaultOption.gormLoggerOption)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		dbClient.Close()
-	})
-	dbClient.Migrate()
+	dbClient := db.NewTestClient(t)
 
 	cfg := config.Config{
 		ImageRootDirectory: t.TempDir(),
@@ -61,14 +56,14 @@ func newTester(t *testing.T, opts ...newTesterOption) Tester {
 func (tester Tester) getBatchImageImporter() *BatchImageImporter {
 	return NewBatchImageImporter(
 		tester.logger,
-		tester.dbClient,
+		tester.dbClient.Client,
 		tester.getDirectoryReader(),
 		tester.getImageFileConverter(),
 	)
 }
 
 func (tester Tester) getDirectoryReader() *image.DirectoryReader {
-	return image.NewDirectoryReader(tester.config, tester.dbClient)
+	return image.NewDirectoryReader(tester.config, tester.dbClient.Client)
 }
 
 func (tester Tester) getImageFileConverter() *image.ImageFileConverter {
@@ -203,7 +198,7 @@ func TestImageFileService_importImageFiles(t *testing.T) {
 			assert.Equal(t, tc.want, got)
 
 			for _, want := range tc.wantInsert {
-				got, err := db.FindByValue(dbClient, want)
+				got, err := db.FindByValue(dbClient.Client, want)
 				want.ID = got.ID
 				want.CreatedAt = got.CreatedAt
 				want.UpdatedAt = got.UpdatedAt
