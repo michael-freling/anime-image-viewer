@@ -5,4 +5,4 @@ frontend/dist
 frontend/node_modules
 pluginctl-config.development.toml
 pluginctl-config.production.toml
-
+wails.syso
