@@ -82,8 +82,8 @@ func (tester Tester) getTestFilePath(filePath string) string {
 	return filepath.Join("..", "..", "testdata", filePath)
 }
 
-func (tester Tester) newFileBuilder() *image.FileBuilder {
-	return image.NewFileBuilder(tester.config.ImageRootDirectory)
+func (tester Tester) newFileCreator() *image.FileCreator {
+	return image.NewFileCreator(tester.config.ImageRootDirectory)
 }
 
 func TestImageFileService_importImageFiles(t *testing.T) {
@@ -97,18 +97,18 @@ func TestImageFileService_importImageFiles(t *testing.T) {
 		Name: "Directory 1",
 	}
 
-	fileBuilder := tester.newFileBuilder().
-		AddDirectory(t, destinationDirectory).
-		AddImageFile(t,
+	fileBuilder := tester.newFileCreator().
+		CreateDirectory(t, destinationDirectory).
+		CreateImage(t,
 			image.ImageFile{ID: 10, Name: "image2.jpg", ParentID: 1, ContentType: "image/jpeg"},
 			image.TestImageFileNone).
-		AddImageFile(t,
+		CreateImage(t,
 			image.ImageFile{ID: 11, Name: "image.jpg", ParentID: 1, ContentType: "image/jpeg"},
 			image.TestImageFileNone).
-		AddImageFile(t, image.ImageFile{ID: 99, Name: "other_image.jpg", ParentID: 1, ContentType: "image/jpeg"}, image.TestImageFileJpeg).
-		AddImageFile(t, image.ImageFile{ID: 98, Name: "other_image_in_db.jpg", ParentID: 1, ContentType: "image/jpeg"}, image.TestImageFileJpeg).
-		AddDirectory(t, image.Directory{ID: 2, Name: "testdata"}).
-		AddImageFile(t, image.ImageFile{Name: "image2.jpg", ParentID: 2, ContentType: "image/jpeg"}, image.TestImageFileJpeg)
+		CreateImage(t, image.ImageFile{ID: 99, Name: "other_image.jpg", ParentID: 1, ContentType: "image/jpeg"}, image.TestImageFileJpeg).
+		CreateImage(t, image.ImageFile{ID: 98, Name: "other_image_in_db.jpg", ParentID: 1, ContentType: "image/jpeg"}, image.TestImageFileJpeg).
+		CreateDirectory(t, image.Directory{ID: 2, Name: "testdata"}).
+		CreateImage(t, image.ImageFile{Name: "image2.jpg", ParentID: 2, ContentType: "image/jpeg"}, image.TestImageFileJpeg)
 
 	testCases := []struct {
 		name                 string

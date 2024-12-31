@@ -83,13 +83,6 @@ func (tester Tester) getImageFileConverter() *ImageFileConverter {
 	return NewImageFileConverter(tester.config)
 }
 
-func (tester Tester) newFileBuilder() *FileBuilder {
-	return &FileBuilder{
-		staticFilePrefix: tester.staticFilePath,
-		localFilePrefix:  tester.config.ImageRootDirectory,
-
-		directories:        map[uint]Directory{},
-		localDirectoryPath: map[uint]string{},
-		imageFiles:         map[uint]ImageFile{},
-	}
+func (tester Tester) newFileCreator() *FileCreator {
+	return NewFileCreator(tester.config.ImageRootDirectory)
 }

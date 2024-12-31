@@ -169,12 +169,12 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 	tester := newTester(t)
 	testDBClient := tester.dbClient
 
-	fileBuilder := tester.newFileBuilder().
-		AddDirectory(t, Directory{ID: 1, Name: "directory1"}).
-		AddDirectory(t, Directory{ID: 10, Name: "directory10", ParentID: 1}).
-		AddDirectory(t, Directory{ID: 100, Name: "directory100", ParentID: 10}).
-		AddDirectory(t, Directory{ID: 1001, Name: "directory 1001", ParentID: 100}).
-		AddDirectory(t, Directory{ID: 1002, Name: "directory 1002", ParentID: 100})
+	fileBuilder := tester.newFileCreator().
+		CreateDirectory(t, Directory{ID: 1, Name: "directory1"}).
+		CreateDirectory(t, Directory{ID: 10, Name: "directory10", ParentID: 1}).
+		CreateDirectory(t, Directory{ID: 100, Name: "directory100", ParentID: 10}).
+		CreateDirectory(t, Directory{ID: 1001, Name: "directory 1001", ParentID: 100}).
+		CreateDirectory(t, Directory{ID: 1002, Name: "directory 1002", ParentID: 100})
 
 	rootDirectory := tester.config.ImageRootDirectory
 	service := tester.getDirectoryService()

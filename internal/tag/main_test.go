@@ -129,6 +129,6 @@ func (tester Tester) getTagSuggestionService(
 	)
 }
 
-func (tester Tester) newFileBuilder() *image.FileBuilder {
-	return image.NewFileBuilder(tester.config.ImageRootDirectory)
+func (tester Tester) newFileCreator() *image.FileCreator {
+	return image.NewFileCreator(tester.config.ImageRootDirectory)
 }

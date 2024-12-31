@@ -14,20 +14,20 @@ func TestSearchService_Search(t *testing.T) {
 	tester := newTester(t)
 	dbClient := tester.dbClient
 
-	fileBuilder := tester.newFileBuilder()
+	fileBuilder := tester.newFileCreator()
 	// a root directory is Directory 1
-	fileBuilder.AddDirectory(t, image.Directory{ID: 1, Name: "Directory 1"})
-	fileBuilder.AddDirectory(t, image.Directory{ID: 10, Name: "Directory 10", ParentID: 1})
-	fileBuilder.AddImageFile(t, image.ImageFile{ID: 11, Name: "image file 11", ParentID: 1}, image.TestImageFileJpeg)
-	fileBuilder.AddImageFile(t, image.ImageFile{ID: 12, Name: "image file 12", ParentID: 1}, image.TestImageFileJpeg)
-	fileBuilder.AddDirectory(t, image.Directory{ID: 100, Name: "Directory 100", ParentID: 10})
-	fileBuilder.AddImageFile(t, image.ImageFile{ID: 101, Name: "image file 101", ParentID: 10}, image.TestImageFileJpeg)
-	fileBuilder.AddImageFile(t, image.ImageFile{ID: 102, Name: "image file 102", ParentID: 10}, image.TestImageFileJpeg)
-	fileBuilder.AddImageFile(t, image.ImageFile{ID: 1001, Name: "image file 1001", ParentID: 100}, image.TestImageFileJpeg)
+	fileBuilder.CreateDirectory(t, image.Directory{ID: 1, Name: "Directory 1"})
+	fileBuilder.CreateDirectory(t, image.Directory{ID: 10, Name: "Directory 10", ParentID: 1})
+	fileBuilder.CreateImage(t, image.ImageFile{ID: 11, Name: "image file 11", ParentID: 1}, image.TestImageFileJpeg)
+	fileBuilder.CreateImage(t, image.ImageFile{ID: 12, Name: "image file 12", ParentID: 1}, image.TestImageFileJpeg)
+	fileBuilder.CreateDirectory(t, image.Directory{ID: 100, Name: "Directory 100", ParentID: 10})
+	fileBuilder.CreateImage(t, image.ImageFile{ID: 101, Name: "image file 101", ParentID: 10}, image.TestImageFileJpeg)
+	fileBuilder.CreateImage(t, image.ImageFile{ID: 102, Name: "image file 102", ParentID: 10}, image.TestImageFileJpeg)
+	fileBuilder.CreateImage(t, image.ImageFile{ID: 1001, Name: "image file 1001", ParentID: 100}, image.TestImageFileJpeg)
 	// a root directory is Directory
-	fileBuilder.AddDirectory(t, image.Directory{ID: 2, Name: "Directory 2"})
-	fileBuilder.AddImageFile(t, image.ImageFile{ID: 21, Name: "image file 21", ParentID: 2}, image.TestImageFileJpeg)
-	fileBuilder.AddImageFile(t, image.ImageFile{ID: 22, Name: "image file 22", ParentID: 2}, image.TestImageFileJpeg)
+	fileBuilder.CreateDirectory(t, image.Directory{ID: 2, Name: "Directory 2"})
+	fileBuilder.CreateImage(t, image.ImageFile{ID: 21, Name: "image file 21", ParentID: 2}, image.TestImageFileJpeg)
+	fileBuilder.CreateImage(t, image.ImageFile{ID: 22, Name: "image file 22", ParentID: 2}, image.TestImageFileJpeg)
 
 	type testCase struct {
 		name    string

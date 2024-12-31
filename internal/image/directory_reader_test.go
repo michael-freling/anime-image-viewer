@@ -13,11 +13,11 @@ func TestDirectoryReader_ReadAncestors(t *testing.T) {
 	tester := newTester(t)
 	testDBClient := tester.dbClient
 
-	fileBuilder := tester.newFileBuilder().
-		AddDirectory(t, Directory{ID: 1, Name: "directory1"}).
-		AddDirectory(t, Directory{ID: 2, Name: "sub directory1", ParentID: 1}).
-		AddDirectory(t, Directory{ID: 3, Name: "sub directory2", ParentID: 2}).
-		AddImageFile(t, ImageFile{ID: 4, Name: "image file 1", ParentID: 2}, TestImageFileJpeg)
+	fileBuilder := tester.newFileCreator().
+		CreateDirectory(t, Directory{ID: 1, Name: "directory1"}).
+		CreateDirectory(t, Directory{ID: 2, Name: "sub directory1", ParentID: 1}).
+		CreateDirectory(t, Directory{ID: 3, Name: "sub directory2", ParentID: 2}).
+		CreateImage(t, ImageFile{ID: 4, Name: "image file 1", ParentID: 2}, TestImageFileJpeg)
 
 	testCases := []struct {
 		name              string
@@ -103,9 +103,9 @@ func TestDirectoryReader_readDirectory(t *testing.T) {
 	tester := newTester(t)
 	dbClient := tester.dbClient
 
-	fileBuilder := tester.newFileBuilder().
-		AddDirectory(t, Directory{ID: 1, Name: "directory1"}).
-		AddDirectory(t, Directory{ID: 2, Name: "sub directory1", ParentID: 1})
+	fileBuilder := tester.newFileCreator().
+		CreateDirectory(t, Directory{ID: 1, Name: "directory1"}).
+		CreateDirectory(t, Directory{ID: 2, Name: "sub directory1", ParentID: 1})
 
 	testCases := []struct {
 		name              string
