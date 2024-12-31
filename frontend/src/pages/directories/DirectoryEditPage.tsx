@@ -4,6 +4,7 @@ import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import { IconButton, Typography } from "@mui/joy";
 import { RichTreeView } from "@mui/x-tree-view";
 import { FC, useEffect, useState } from "react";
+import { ImportService } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import {
   Directory,
   DirectoryService,
@@ -86,7 +87,7 @@ const DirectoryEditPage: FC = () => {
               await refresh();
             },
             importImages: async (parentID: string) => {
-              await DirectoryService.ImportImages(parseInt(parentID, 10));
+              await ImportService.ImportImages(parseInt(parentID, 10));
               await refresh();
             },
           } as ExplorerTreeItemProps,

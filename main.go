@@ -13,6 +13,7 @@ import (
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/frontend"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
+	"github.com/michael-freling/anime-image-viewer/internal/import_images"
 	"github.com/michael-freling/anime-image-viewer/internal/search"
 	"github.com/michael-freling/anime-image-viewer/internal/tag"
 	tag_suggestionv1 "github.com/michael-freling/anime-image-viewer/plugins/plugins-protos/gen/go/tag_suggestion/v1"
@@ -173,6 +174,16 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 				},
 			),
 			application.NewService(searchService),
+			application.NewService(frontend.NewImportService(
+				logger,
+				directoryReader,
+				import_images.NewBatchImageImporter(
+					logger,
+					dbClient,
+					directoryReader,
+					imageFileConverter,
+				),
+			)),
 		},
 		Assets: application.AssetOptions{
 			Handler:        application.AssetFileServerFS(assets),
