@@ -12,8 +12,7 @@ import (
 
 func TestService_CreateDirectory(t *testing.T) {
 	tester := newTester(t)
-	dbClient := tester.dbClient
-	require.NoError(t, dbClient.Truncate(&db.File{}))
+	testDBClient := tester.dbClient
 
 	rootDirectory := tester.config.ImageRootDirectory
 
@@ -124,13 +123,9 @@ func TestService_CreateDirectory(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Cleanup(func() {
-				require.NoError(t, dbClient.Truncate(&db.File{}))
-			})
+			testDBClient.Truncate(t, &db.File{})
+			db.LoadTestData(t, testDBClient, tc.createDirectoriesInDB)
 
-			if len(tc.createDirectoriesInDB) > 0 {
-				require.NoError(t, db.BatchCreate(dbClient, tc.createDirectoriesInDB))
-			}
 			if len(tc.createDirectoriesInFS) > 0 {
 				for _, dir := range tc.createDirectoriesInFS {
 					require.NoError(t, os.Mkdir(rootDirectory+"/"+dir, 0755))
@@ -171,8 +166,12 @@ func TestService_CreateDirectory(t *testing.T) {
 
 func TestDirectoryService_UpdateName(t *testing.T) {
 	tester := newTester(t)
-	dbClient := tester.dbClient
-	require.NoError(t, dbClient.Truncate(&db.File{}))
+	testDBClient := tester.dbClient
+
+	fileBuilder := tester.newFileBuilder().
+		AddDirectory(Directory{ID: 1, Name: "directory1"}).
+		AddDirectory(Directory{ID: 10, Name: "directory10", ParentID: 1}).
+		AddDirectory(Directory{ID: 100, Name: "directory100", ParentID: 10})
 
 	rootDirectory := tester.config.ImageRootDirectory
 	service := tester.getDirectoryService()
@@ -189,55 +188,54 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 		{
 			name: "update a directory name",
 			insertDirectories: []db.File{
-				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
+				fileBuilder.BuildDBDirectory(t, 1),
 			},
 			makeDirectories: []string{
 				"directory1",
 			},
 			directoryID: 1,
 			newName:     "new_directory1",
-			want: Directory{
-				ID:   1,
-				Name: "new_directory1",
-				Path: rootDirectory + "/new_directory1",
-			},
+			want: func() Directory {
+				want := fileBuilder.BuildDirectory(1)
+				want.updateName("new_directory1")
+				return want
+			}(),
 		},
 		{
 			name: "update a directory name to the same name under different directory",
 			insertDirectories: []db.File{
-				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
-				{ID: 2, Name: "directory2", Type: db.FileTypeDirectory},
+				fileBuilder.BuildDBDirectory(t, 1),
+				fileBuilder.BuildDBDirectory(t, 10),
 				{ID: 11, Name: "same_name_under_different_directory", ParentID: 1, Type: db.FileTypeDirectory},
-				{ID: 12, Name: "directory21", ParentID: 2, Type: db.FileTypeDirectory},
+				fileBuilder.BuildDBDirectory(t, 100),
 			},
 			makeDirectories: []string{
 				"directory1",
-				"directory2",
+				"directory1/directory10",
 				"directory1/same_name_under_different_directory",
-				"directory2/directory21",
+				"directory1/directory10/directory100",
 			},
-			directoryID: 12,
+			directoryID: 100,
 			newName:     "same_name_under_different_directory",
-			want: Directory{
-				ID:       12,
-				Name:     "same_name_under_different_directory",
-				Path:     rootDirectory + "/directory2/same_name_under_different_directory",
-				ParentID: 2,
-			},
+			want: func() Directory {
+				dir := fileBuilder.BuildDirectory(100)
+				dir.updateName("same_name_under_different_directory")
+				return dir
+			}(),
 		},
 		{
 			name: "update a directory name to the same name with different cases",
 			insertDirectories: []db.File{
-				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
+				fileBuilder.BuildDBDirectory(t, 1),
 			},
 			makeDirectories: []string{"directory1"},
 			directoryID:     1,
 			newName:         "Directory1",
-			want: Directory{
-				ID:   1,
-				Name: "Directory1",
-				Path: rootDirectory + "/Directory1",
-			},
+			want: func() Directory {
+				dir := fileBuilder.BuildDirectory(1)
+				dir.updateName("Directory1")
+				return dir
+			}(),
 		},
 		{
 			name: "parent directory doesn't exist in the DB",
@@ -304,12 +302,9 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if len(tc.insertDirectories) > 0 {
-				require.NoError(t, db.BatchCreate(dbClient, tc.insertDirectories))
-				t.Cleanup(func() {
-					require.NoError(t, dbClient.Truncate(&db.File{}))
-				})
-			}
+			testDBClient.Truncate(t, &db.File{})
+			db.LoadTestData(t, testDBClient, tc.insertDirectories)
+
 			if len(tc.makeDirectories) > 0 {
 				for _, dir := range tc.makeDirectories {
 					require.NoError(t, os.Mkdir(rootDirectory+"/"+dir, 0755))

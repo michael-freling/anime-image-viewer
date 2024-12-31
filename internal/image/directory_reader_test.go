@@ -7,15 +7,17 @@ import (
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/xassert"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestDirectoryReader_ReadAncestors(t *testing.T) {
 	tester := newTester(t)
-	dbClient := tester.dbClient
+	testDBClient := tester.dbClient
 
-	rootDirectory := tester.config.ImageRootDirectory
-	reader := tester.getDirectoryReader()
+	fileBuilder := tester.newFileBuilder().
+		AddDirectory(Directory{ID: 1, Name: "directory1"}).
+		AddDirectory(Directory{ID: 2, Name: "sub directory1", ParentID: 1}).
+		AddDirectory(Directory{ID: 3, Name: "sub directory2", ParentID: 2}).
+		AddImageFile(ImageFile{ID: 4, Name: "image file 1", ParentID: 2})
 
 	testCases := []struct {
 		name              string
@@ -27,10 +29,10 @@ func TestDirectoryReader_ReadAncestors(t *testing.T) {
 		{
 			name: "read ancestors",
 			insertDirectories: []db.File{
-				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
-				{ID: 2, Name: "sub directory1", ParentID: 1, Type: db.FileTypeDirectory},
-				{ID: 3, Name: "sub directory2", ParentID: 2, Type: db.FileTypeDirectory},
-				{ID: 4, Name: "image file 1", ParentID: 2, Type: db.FileTypeImage},
+				fileBuilder.BuildDBDirectory(t, 1),
+				fileBuilder.BuildDBDirectory(t, 2),
+				fileBuilder.BuildDBDirectory(t, 3),
+				fileBuilder.BuildDBImageFile(t, 4),
 			},
 			fileIDs: []uint{
 				1,
@@ -40,23 +42,23 @@ func TestDirectoryReader_ReadAncestors(t *testing.T) {
 			},
 			want: map[uint][]Directory{
 				2: {
-					{ID: 1, Name: "directory1", Path: rootDirectory + "/directory1"},
+					fileBuilder.BuildDirectory(1),
 				},
 				3: {
-					{ID: 1, Name: "directory1", Path: rootDirectory + "/directory1"},
-					{ID: 2, Name: "sub directory1", ParentID: 1, Path: rootDirectory + "/directory1/sub directory1"},
+					fileBuilder.BuildDirectory(1),
+					fileBuilder.BuildDirectory(2),
 				},
 				4: {
-					{ID: 1, Name: "directory1", Path: rootDirectory + "/directory1"},
-					{ID: 2, Name: "sub directory1", ParentID: 1, Path: rootDirectory + "/directory1/sub directory1"},
+					fileBuilder.BuildDirectory(1),
+					fileBuilder.BuildDirectory(2),
 				},
 			},
 		},
 		{
 			name: "read ancestors from only one file",
 			insertDirectories: []db.File{
-				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
-				{ID: 2, Name: "sub directory1", ParentID: 1, Type: db.FileTypeDirectory},
+				fileBuilder.BuildDBDirectory(t, 1),
+				fileBuilder.BuildDBDirectory(t, 2),
 				{ID: 4, Name: "image file 1", ParentID: 2, Type: db.FileTypeImage},
 			},
 			fileIDs: []uint{
@@ -64,8 +66,8 @@ func TestDirectoryReader_ReadAncestors(t *testing.T) {
 			},
 			want: map[uint][]Directory{
 				4: {
-					{ID: 1, Name: "directory1", Path: rootDirectory + "/directory1"},
-					{ID: 2, Name: "sub directory1", ParentID: 1, Path: rootDirectory + "/directory1/sub directory1"},
+					fileBuilder.BuildDirectory(1),
+					fileBuilder.BuildDirectory(2),
 				},
 			},
 		},
@@ -73,11 +75,10 @@ func TestDirectoryReader_ReadAncestors(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			dbClient.Truncate(&db.File{})
-			if len(tc.insertDirectories) > 0 {
-				require.NoError(t, db.BatchCreate(dbClient, tc.insertDirectories))
-			}
+			testDBClient.Truncate(t, &db.File{})
+			db.LoadTestData(t, testDBClient, tc.insertDirectories)
 
+			reader := tester.getDirectoryReader()
 			got, gotErr := reader.ReadAncestors(tc.fileIDs)
 			assert.ErrorIs(t, gotErr, tc.wantErr)
 			if tc.wantErr != nil {
@@ -102,8 +103,9 @@ func TestDirectoryReader_readDirectory(t *testing.T) {
 	tester := newTester(t)
 	dbClient := tester.dbClient
 
-	rootDirectory := tester.config.ImageRootDirectory
-	reader := tester.getDirectoryReader()
+	fileBuilder := tester.newFileBuilder().
+		AddDirectory(Directory{ID: 1, Name: "directory1"}).
+		AddDirectory(Directory{ID: 2, Name: "sub directory1", ParentID: 1})
 
 	testCases := []struct {
 		name              string
@@ -115,28 +117,19 @@ func TestDirectoryReader_readDirectory(t *testing.T) {
 		{
 			name: "directory exists",
 			insertDirectories: []db.File{
-				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
+				fileBuilder.BuildDBDirectory(t, 1),
 			},
 			directoryID: 1,
-			want: Directory{
-				ID:   1,
-				Name: "directory1",
-				Path: rootDirectory + "/directory1",
-			},
+			want:        fileBuilder.BuildDirectory(1),
 		},
 		{
 			name: "sub directory exists",
 			insertDirectories: []db.File{
-				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
-				{ID: 2, Name: "sub directory1", ParentID: 1, Type: db.FileTypeDirectory},
+				fileBuilder.BuildDBDirectory(t, 1),
+				fileBuilder.BuildDBDirectory(t, 2),
 			},
 			directoryID: 2,
-			want: Directory{
-				ID:       2,
-				Name:     "sub directory1",
-				ParentID: 1,
-				Path:     rootDirectory + "/directory1/sub directory1",
-			},
+			want:        fileBuilder.BuildDirectory(2),
 		},
 		{
 			name:        "no directory has been created",
@@ -146,7 +139,7 @@ func TestDirectoryReader_readDirectory(t *testing.T) {
 		{
 			name: "a directory doesn't exist",
 			insertDirectories: []db.File{
-				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
+				fileBuilder.BuildDBDirectory(t, 1),
 			},
 			directoryID: 999,
 			wantErr:     ErrDirectoryNotFound,
@@ -163,11 +156,10 @@ func TestDirectoryReader_readDirectory(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			require.NoError(t, dbClient.Truncate(&db.File{}))
-			if len(tc.insertDirectories) > 0 {
-				require.NoError(t, db.BatchCreate(dbClient, tc.insertDirectories))
-			}
+			dbClient.Truncate(t, &db.File{})
+			db.LoadTestData(t, dbClient, tc.insertDirectories)
 
+			reader := tester.getDirectoryReader()
 			got, gotErr := reader.ReadDirectory(tc.directoryID)
 			assert.ErrorIs(t, gotErr, tc.wantErr)
 			if tc.wantErr != nil {

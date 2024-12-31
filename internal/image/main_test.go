@@ -16,7 +16,7 @@ import (
 type Tester struct {
 	logger         *slog.Logger
 	config         config.Config
-	dbClient       *db.Client
+	dbClient       db.TestClient
 	mockController *gomock.Controller
 	staticFilePath string
 }
@@ -44,12 +44,7 @@ func newTester(t *testing.T, opts ...newTesterOption) Tester {
 		opt(defaultOption)
 	}
 
-	dbClient, err := db.NewClient(db.DSNMemory, defaultOption.gormLoggerOption)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		dbClient.Close()
-	})
-	dbClient.Migrate()
+	dbClient := db.NewTestClient(t)
 
 	cfg := config.Config{
 		ImageRootDirectory: t.TempDir(),
@@ -66,7 +61,7 @@ func newTester(t *testing.T, opts ...newTesterOption) Tester {
 func (tester Tester) getFileService() *ImageFileService {
 	return NewFileService(
 		tester.logger,
-		tester.dbClient,
+		tester.dbClient.Client,
 		tester.getDirectoryReader(),
 		tester.getImageFileConverter(),
 	)
@@ -77,14 +72,14 @@ func (tester Tester) getDirectoryService() *DirectoryService {
 	return NewDirectoryService(
 		tester.logger,
 		tester.config,
-		tester.dbClient,
+		tester.dbClient.Client,
 		fileService,
 		tester.getDirectoryReader(),
 	)
 }
 
 func (tester Tester) getDirectoryReader() *DirectoryReader {
-	return NewDirectoryReader(tester.config, tester.dbClient)
+	return NewDirectoryReader(tester.config, tester.dbClient.Client)
 }
 
 func (tester Tester) getImageFileConverter() *ImageFileConverter {

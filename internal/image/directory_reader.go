@@ -137,10 +137,11 @@ func (service DirectoryReader) ReadDirectoryTree() (Directory, error) {
 	}
 	directoryMap := make(map[uint]*Directory)
 	directoryMap[db.RootDirectoryID] = &Directory{
-		ID:       db.RootDirectoryID,
-		Name:     service.readInitialDirectory(),
-		Path:     service.readInitialDirectory(),
-		ParentID: 0,
+		ID:           db.RootDirectoryID,
+		Name:         service.readInitialDirectory(),
+		Path:         service.readInitialDirectory(),
+		RelativePath: "",
+		ParentID:     0,
 	}
 	for _, dbFile := range allFiles {
 		if dbFile.Type == db.FileTypeDirectory {
@@ -160,8 +161,14 @@ func (service DirectoryReader) ReadDirectoryTree() (Directory, error) {
 		}
 	}
 
-	rootDirectoryPath := service.readInitialDirectory()
-	root := createDirectoryTree(directoryMap, childDirectoryMap, childImageFileMap, db.RootDirectoryID, rootDirectoryPath)
+	root := createDirectoryTree(
+		directoryMap,
+		childDirectoryMap,
+		childImageFileMap,
+		db.RootDirectoryID,
+		service.readInitialDirectory(),
+		"",
+	)
 	return *root, nil
 }
 
@@ -207,9 +214,14 @@ func createDirectoryTree(
 	childImageFileMap map[uint][]*ImageFile,
 	directoryID uint,
 	directoryPath string,
+	directoryRelativePath string,
 ) *Directory {
 	currentDirectory := directoryMap[directoryID]
+	// parentDirectory := directoryMap[currentDirectory.ParentID]
+	// currentDirectory.Path = filepath.Join(parentDirectory.Path, currentDirectory.Name)
+	// currentDirectory.RelativePath = filepath.Join(parentDirectory.RelativePath, currentDirectory.Name)
 	currentDirectory.Path = directoryPath
+	currentDirectory.RelativePath = directoryRelativePath
 	if _, ok := childImageFileMap[directoryID]; ok {
 		currentDirectory.ChildImageFiles = childImageFileMap[directoryID]
 	}
@@ -225,6 +237,7 @@ func createDirectoryTree(
 			childImageFileMap,
 			child.ID,
 			filepath.Join(directoryPath, child.Name),
+			filepath.Join(directoryRelativePath, child.Name),
 		)
 	}
 	sort.Slice(currentDirectory.Children, func(i, j int) bool {
