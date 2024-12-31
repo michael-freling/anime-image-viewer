@@ -4,11 +4,11 @@ import (
 	"github.com/michael-freling/anime-image-viewer/internal/image"
 )
 
-type fileBuilder struct {
-	*image.FileBuilder
+type fileCreator struct {
+	*image.FileCreator
 }
 
-func (builder fileBuilder) buildFrontendImage(id uint) Image {
+func (builder fileCreator) buildFrontendImage(id uint) Image {
 	image := builder.BuildImageFile(id)
 	return Image{
 		ID:   image.ID,

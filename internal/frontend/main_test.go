@@ -97,8 +97,8 @@ func (tester tester) getTagReader() *tag.Reader {
 	)
 }
 
-func (tester tester) newFileBuilder() *fileBuilder {
-	return &fileBuilder{
-		image.NewFileBuilder(tester.config.ImageRootDirectory),
+func (tester tester) newFileCreator() *fileCreator {
+	return &fileCreator{
+		image.NewFileCreator(tester.config.ImageRootDirectory),
 	}
 }

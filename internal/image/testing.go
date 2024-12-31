@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type FileBuilder struct {
+type FileCreator struct {
 	staticFilePrefix string
 	localFilePrefix  string
 
@@ -19,8 +19,8 @@ type FileBuilder struct {
 	imageFiles         map[uint]ImageFile
 }
 
-func NewFileBuilder(localFilePrefix string) *FileBuilder {
-	return &FileBuilder{
+func NewFileCreator(localFilePrefix string) *FileCreator {
+	return &FileCreator{
 		localFilePrefix:  localFilePrefix,
 		staticFilePrefix: "/files",
 
@@ -30,20 +30,20 @@ func NewFileBuilder(localFilePrefix string) *FileBuilder {
 	}
 }
 
-func (builder *FileBuilder) AddDirectory(t *testing.T, directory Directory) *FileBuilder {
+func (creator *FileCreator) CreateDirectory(t *testing.T, directory Directory) *FileCreator {
 	if directory.ParentID != 0 {
-		parent := builder.directories[directory.ParentID]
+		parent := creator.directories[directory.ParentID]
 		directory.Path = filepath.Join(parent.Path, directory.Name)
 		directory.RelativePath = filepath.Join(parent.RelativePath, directory.Name)
 	} else {
-		directory.Path = filepath.Join(builder.localFilePrefix, directory.Name)
+		directory.Path = filepath.Join(creator.localFilePrefix, directory.Name)
 		directory.RelativePath = directory.Name
 	}
 
 	require.NoError(t, os.MkdirAll(directory.Path, 0755))
 
-	builder.directories[directory.ID] = directory
-	return builder
+	creator.directories[directory.ID] = directory
+	return creator
 }
 
 type TestImageFile string
@@ -55,11 +55,11 @@ const (
 	TestImageFileNonImage TestImageFile = "image.txt"
 )
 
-func (builder *FileBuilder) AddImageFile(t *testing.T, imageFile ImageFile, source TestImageFile) *FileBuilder {
+func (creator *FileCreator) CreateImage(t *testing.T, imageFile ImageFile, source TestImageFile) *FileCreator {
 	require.NotZero(t, imageFile.ParentID)
-	parentDirectory := builder.directories[imageFile.ParentID]
+	parentDirectory := creator.directories[imageFile.ParentID]
 	imageFile.LocalFilePath = filepath.Join(parentDirectory.Path, imageFile.Name)
-	imageFile.Path = filepath.Join(builder.staticFilePrefix, parentDirectory.RelativePath, imageFile.Name)
+	imageFile.Path = filepath.Join(creator.staticFilePrefix, parentDirectory.RelativePath, imageFile.Name)
 
 	if source != TestImageFileNone {
 		_, err := Copy(
@@ -69,16 +69,16 @@ func (builder *FileBuilder) AddImageFile(t *testing.T, imageFile ImageFile, sour
 		require.NoError(t, err)
 	}
 
-	builder.imageFiles[imageFile.ID] = imageFile
-	return builder
+	creator.imageFiles[imageFile.ID] = imageFile
+	return creator
 }
 
-func (builder FileBuilder) BuildDirectory(id uint) Directory {
-	return builder.directories[id]
+func (creator FileCreator) BuildDirectory(id uint) Directory {
+	return creator.directories[id]
 }
 
-func (builder FileBuilder) BuildDBDirectory(t *testing.T, id uint) db.File {
-	directory, ok := builder.directories[id]
+func (creator FileCreator) BuildDBDirectory(t *testing.T, id uint) db.File {
+	directory, ok := creator.directories[id]
 	require.True(t, ok, "directory %d not found", id)
 	return db.File{
 		ID:       directory.ID,
@@ -88,14 +88,14 @@ func (builder FileBuilder) BuildDBDirectory(t *testing.T, id uint) db.File {
 	}
 }
 
-func (builder FileBuilder) BuildImageFile(id uint) ImageFile {
-	return builder.imageFiles[id]
+func (creator FileCreator) BuildImageFile(id uint) ImageFile {
+	return creator.imageFiles[id]
 }
 
-func (builder FileBuilder) BuildDBImageFile(t *testing.T, id uint) db.File {
+func (creator FileCreator) BuildDBImageFile(t *testing.T, id uint) db.File {
 	createdAt := time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, int(id))
 
-	imageFile, ok := builder.imageFiles[id]
+	imageFile, ok := creator.imageFiles[id]
 	require.True(t, ok, "image file %d not found", id)
 
 	return db.File{
