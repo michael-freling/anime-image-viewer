@@ -2,7 +2,6 @@ package tag
 
 import (
 	"context"
-	"path/filepath"
 	"slices"
 	"testing"
 
@@ -297,15 +296,15 @@ func TestTagFrontendService_SuggestTags(t *testing.T) {
 		add(Tag{ID: 100, Name: "tag 100", ParentID: 10}).
 		add(Tag{ID: 200, Name: "tag 110", ParentID: 20})
 
-	tester.copyImageFile(t, "image.jpg", filepath.Join("Directory 1", "Directory 10", "image11.jpg"))
-	tester.copyImageFile(t, "image.jpg", filepath.Join("Directory 1", "Directory 10", "Directory 100", "image101.jpg"))
+	// tester.copyImageFile(t, "image.jpg", filepath.Join("Directory 1", "Directory 10", "image11.jpg"))
+	// tester.copyImageFile(t, "image.jpg", filepath.Join("Directory 1", "Directory 10", "Directory 100", "image101.jpg"))
 
 	fileBuilder := tester.newFileBuilder().
-		addDirectory(image.Directory{ID: 1, Name: "Directory 1"}).
-		addDirectory(image.Directory{ID: 10, Name: "Directory 10", ParentID: 1}).
-		addImageFile(image.ImageFile{ID: 11, Name: "image11.jpg", ParentID: 10, ContentType: "image/jpeg"}).
-		addDirectory(image.Directory{ID: 100, Name: "Directory 100", ParentID: 10}).
-		addImageFile(image.ImageFile{ID: 101, Name: "image101.jpg", ParentID: 100, ContentType: "image/jpeg"})
+		AddDirectory(t, image.Directory{ID: 1, Name: "Directory 1"}).
+		AddDirectory(t, image.Directory{ID: 10, Name: "Directory 10", ParentID: 1}).
+		AddImageFile(t, image.ImageFile{ID: 11, Name: "image11.jpg", ParentID: 10, ContentType: "image/jpeg"}, image.TestImageFileJpeg).
+		AddDirectory(t, image.Directory{ID: 100, Name: "Directory 100", ParentID: 10}).
+		AddImageFile(t, image.ImageFile{ID: 101, Name: "image101.jpg", ParentID: 100, ContentType: "image/jpeg"}, image.TestImageFileJpeg)
 
 	// See the full list of how it should behave in /docs/features/tag_suggestion.md
 	testCases := []struct {
@@ -349,8 +348,8 @@ func TestTagFrontendService_SuggestTags(t *testing.T) {
 				mock.EXPECT().
 					Suggest(gomock.Any(), &tag_suggestionv1.SuggestRequest{
 						ImageUrls: []string{
-							fileBuilder.buildImageFile(11).LocalFilePath,
-							fileBuilder.buildImageFile(101).LocalFilePath,
+							fileBuilder.BuildImageFile(11).LocalFilePath,
+							fileBuilder.BuildImageFile(101).LocalFilePath,
 						},
 					}).
 					Return(&tag_suggestionv1.SuggestResponse{

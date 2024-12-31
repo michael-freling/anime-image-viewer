@@ -82,26 +82,12 @@ func (tester Tester) getTestFilePath(filePath string) string {
 	return filepath.Join("..", "..", "testdata", filePath)
 }
 
-func (tester Tester) copyImageFile(t *testing.T, source, destination string) {
-	t.Helper()
-
-	destination = filepath.Join(tester.config.ImageRootDirectory, destination)
-	require.NoError(t, os.MkdirAll(filepath.Dir(destination), 0755))
-
-	_, err := image.Copy(
-		filepath.Join("..", "..", "testdata", source),
-		destination,
-	)
-	require.NoError(t, err)
-}
-
 func (tester Tester) newFileBuilder() *image.FileBuilder {
 	return image.NewFileBuilder(tester.config.ImageRootDirectory)
 }
 
 func TestImageFileService_importImageFiles(t *testing.T) {
 	tester := newTester(t)
-	tempDir := tester.config.ImageRootDirectory
 	dbClient := tester.dbClient
 
 	imageFileService := tester.getBatchImageImporter()
@@ -110,26 +96,19 @@ func TestImageFileService_importImageFiles(t *testing.T) {
 		ID:   1,
 		Name: "Directory 1",
 	}
-	tester.createDirectoryInFS(t, "Directory 1")
-	duplicatedFileInFS := filepath.Join(destinationDirectory.Name, "other_image.jpg")
-	tester.copyImageFile(t, "image.jpg", duplicatedFileInFS)
-	duplicatedFileInDB := filepath.Join(destinationDirectory.Name, "other_image_in_db.jpg")
-	tester.copyImageFile(t, "image.jpg", duplicatedFileInDB)
-	tester.createDirectoryInFS(t, "testdata")
-	tester.copyImageFile(t, "image.jpg", filepath.Join("testdata", "image2.jpg"))
 
 	fileBuilder := tester.newFileBuilder().
-		AddDirectory(destinationDirectory).
-		AddImageFile(image.ImageFile{ID: 10, Name: "image2.jpg", ParentID: 1,
-			ContentType: "image/jpeg",
-			// Path:          "/files/image2.jpg",
-			// localFilePath: filepath.Join(tempDir, "image2.jpg"),
-		}).
-		AddImageFile(image.ImageFile{ID: 11, Name: "image.jpg", ParentID: 1,
-			ContentType: "image/jpeg",
-			// Path:          "/files/image.jpg",
-			// localFilePath: filepath.Join(tempDir, "image.jpg"),
-		})
+		AddDirectory(t, destinationDirectory).
+		AddImageFile(t,
+			image.ImageFile{ID: 10, Name: "image2.jpg", ParentID: 1, ContentType: "image/jpeg"},
+			image.TestImageFileNone).
+		AddImageFile(t,
+			image.ImageFile{ID: 11, Name: "image.jpg", ParentID: 1, ContentType: "image/jpeg"},
+			image.TestImageFileNone).
+		AddImageFile(t, image.ImageFile{ID: 99, Name: "other_image.jpg", ParentID: 1, ContentType: "image/jpeg"}, image.TestImageFileJpeg).
+		AddImageFile(t, image.ImageFile{ID: 98, Name: "other_image_in_db.jpg", ParentID: 1, ContentType: "image/jpeg"}, image.TestImageFileJpeg).
+		AddDirectory(t, image.Directory{ID: 2, Name: "testdata"}).
+		AddImageFile(t, image.ImageFile{Name: "image2.jpg", ParentID: 2, ContentType: "image/jpeg"}, image.TestImageFileJpeg)
 
 	testCases := []struct {
 		name                 string
@@ -158,8 +137,8 @@ func TestImageFileService_importImageFiles(t *testing.T) {
 			sourceFilePaths: []string{
 				tester.getTestFilePath("image.jpg"),
 				tester.getTestFilePath("image.txt"),
-				filepath.Join(tempDir, duplicatedFileInFS),
-				filepath.Join(tempDir, duplicatedFileInDB),
+				fileBuilder.BuildImageFile(99).LocalFilePath,
+				fileBuilder.BuildImageFile(98).LocalFilePath,
 			},
 			destinationDirectory: fileBuilder.BuildDirectory(1),
 			want: []image.ImageFile{

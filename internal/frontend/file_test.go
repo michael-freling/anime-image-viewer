@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -23,9 +24,11 @@ func TestStaticFileService_ServeHTTP(t *testing.T) {
 		Level: slog.LevelDebug,
 	}))
 
-	for _, file := range []string{"image.jpg", "image.png", "image.txt"} {
-		tester.copyImageFile(t, file, file)
-	}
+	tester.newFileBuilder().
+		AddDirectory(t, image.Directory{ID: 1, Name: "dir"}).
+		AddImageFile(t, image.ImageFile{ID: 2, Name: "image.jpg", ParentID: 1}, image.TestImageFileJpeg).
+		AddImageFile(t, image.ImageFile{ID: 2, Name: "image.png", ParentID: 1}, image.TestImageFilePng).
+		AddImageFile(t, image.ImageFile{ID: 2, Name: "image.txt", ParentID: 1}, image.TestImageFileNonImage)
 
 	testCases := []struct {
 		name         string
@@ -42,29 +45,29 @@ func TestStaticFileService_ServeHTTP(t *testing.T) {
 
 		{
 			name:         "a jpeg file",
-			fileFullPath: "image.jpg?width=1",
+			fileFullPath: "dir/image.jpg?width=1",
 			wantCode:     http.StatusOK,
 		},
 		{
 			name:         "a png file",
-			fileFullPath: "image.png?width=1",
+			fileFullPath: "dir/image.png?width=1",
 			wantCode:     http.StatusOK,
 		},
 		{
 			name:         "unsupported image file. It shouldn't be stored in the first place",
-			fileFullPath: "image.txt?width=1",
+			fileFullPath: "dir/image.txt?width=1",
 			wantCode:     http.StatusInternalServerError,
 			wantErr:      true,
 		},
 		{
 			name:         "invalid width parameter",
-			fileFullPath: "image.txt?width=100%",
+			fileFullPath: "dir/image.txt?width=100%",
 			wantCode:     http.StatusBadRequest,
 			wantErr:      true,
 		},
 		{
 			name:         "no width parameter",
-			fileFullPath: "image.txt",
+			fileFullPath: "dir/image.txt",
 			wantCode:     http.StatusBadRequest,
 			wantErr:      true,
 		},

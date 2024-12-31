@@ -3,9 +3,6 @@ package frontend
 import (
 	"io"
 	"log/slog"
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
@@ -100,16 +97,8 @@ func (tester tester) getTagReader() *tag.Reader {
 	)
 }
 
-func (tester tester) copyImageFile(t *testing.T, source, destination string) {
-	destination = strings.TrimPrefix(destination, "/files/")
-	destination = filepath.Join(tester.config.ImageRootDirectory, destination)
-	if err := os.MkdirAll(filepath.Dir(destination), 0755); err != nil {
-		t.Fatal(err)
+func (tester tester) newFileBuilder() *fileBuilder {
+	return &fileBuilder{
+		image.NewFileBuilder(tester.config.ImageRootDirectory),
 	}
-
-	_, err := image.Copy(
-		filepath.Join("..", "..", "testdata", source),
-		destination,
-	)
-	require.NoError(t, err)
 }
