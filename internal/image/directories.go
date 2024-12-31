@@ -1,7 +1,6 @@
 package image
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -13,7 +12,6 @@ import (
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/xerrors"
-	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 var (
@@ -141,36 +139,6 @@ func NewDirectoryService(
 
 func (service DirectoryService) ReadInitialDirectory() string {
 	return service.config.ImageRootDirectory
-}
-
-func (service DirectoryService) ImportImages(ctx context.Context, directoryID uint) ([]ImageFile, error) {
-	directory, err := service.reader.ReadDirectory(directoryID)
-	if err != nil {
-		return nil, fmt.Errorf("service.ReadDirectory: %w", err)
-	}
-
-	paths, err := application.OpenFileDialog().
-		// CanChooseFiles(true).
-		// CanChooseDirectories(true).
-
-		// This image filter doesn't work on WSL
-		AddFilter("Images", "*.jpg;*.jpeg;*.png").
-		AddFilter("All files", "*").
-		AttachToWindow(application.Get().CurrentWindow()).
-		PromptForMultipleSelection()
-	if err != nil {
-		return nil, fmt.Errorf("application.OpenFileDialog: %w", err)
-	}
-	if len(paths) == 0 {
-		return nil, nil
-	}
-
-	service.logger.DebugContext(ctx, "ImportImages",
-		"directory", directory.Path,
-		"selectedPaths", paths,
-	)
-
-	return service.imageFileService.importImageFiles(ctx, directory, paths)
 }
 
 func (service DirectoryService) ReadImageFiles(parentDirectoryID uint) ([]ImageFile, error) {

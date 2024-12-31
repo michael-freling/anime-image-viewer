@@ -116,8 +116,8 @@ func (tester Tester) copyImageFile(t *testing.T, source, destination string) {
 	require.NoError(t, err)
 }
 
-func (tester Tester) newFileBuilder() *fileBuilder {
-	return &fileBuilder{
+func (tester Tester) newFileBuilder() *FileBuilder {
+	return &FileBuilder{
 		staticFilePrefix: tester.staticFilePath,
 		localFilePrefix:  tester.config.ImageRootDirectory,
 

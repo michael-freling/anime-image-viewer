@@ -2,11 +2,9 @@ package image
 
 import (
 	"bufio"
-	"context"
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -77,7 +75,7 @@ var (
 	ErrFileAlreadyExists    = errors.New("file already exists")
 )
 
-func isSupportedImageFile(filePath string) error {
+func IsSupportedImageFile(filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return fmt.Errorf("os.Open: %w", err)
@@ -189,99 +187,6 @@ func NewFileService(
 
 		imageFileConverter: imageFileConverter,
 	}
-}
-
-func (service *ImageFileService) validateImportImageFile(sourceFilePath string, destinationDirectory Directory) error {
-	fileName := filepath.Base(sourceFilePath)
-	destinationFilePath := filepath.Join(destinationDirectory.Path, fileName)
-
-	if err := isSupportedImageFile(sourceFilePath); err != nil {
-		return fmt.Errorf("%w: %s", ErrUnsupportedImageFile, sourceFilePath)
-	}
-
-	if _, err := os.Stat(destinationFilePath); err == nil {
-		return fmt.Errorf("%w: %s", ErrFileAlreadyExists, destinationFilePath)
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("os.Stat: %w: %s", err, destinationFilePath)
-	}
-
-	record, err := db.FindByValue(service.dbClient, &db.File{
-		Name:     fileName,
-		ParentID: destinationDirectory.ID,
-	})
-	if err != nil && !errors.Is(err, db.ErrRecordNotFound) {
-		return fmt.Errorf("db.FindByValue: %w: %s/%s in DB", err, destinationDirectory.Path, fileName)
-	}
-	if record.ID != 0 {
-		return fmt.Errorf("%w: %s/%s in DB", ErrFileAlreadyExists, destinationDirectory.Path, fileName)
-	}
-
-	return nil
-}
-
-func (service *ImageFileService) importImageFiles(ctx context.Context, destinationParentDirectory Directory, paths []string) ([]ImageFile, error) {
-	imageErrors := make([]error, 0)
-	newImages := make([]db.File, 0)
-	newImagePaths := make([]string, 0)
-	for _, sourceFilePath := range paths {
-		fileName := filepath.Base(sourceFilePath)
-		pathStat, err := os.Stat(sourceFilePath)
-		if err != nil {
-			imageErrors = append(imageErrors, fmt.Errorf("os.Stat: %w: %s", err, sourceFilePath))
-			continue
-		}
-		if pathStat.IsDir() {
-			// if it's a directory, import it recursively
-			// todo
-			continue
-		}
-		if err := service.validateImportImageFile(sourceFilePath, destinationParentDirectory); err != nil {
-			imageErrors = append(imageErrors, err)
-			continue
-		}
-
-		newImages = append(newImages, db.File{
-			Name:     fileName,
-			ParentID: destinationParentDirectory.ID,
-			Type:     db.FileTypeImage,
-		})
-		newImagePaths = append(newImagePaths, sourceFilePath)
-	}
-	service.logger.DebugContext(ctx, "importImageFiles",
-		"directory", destinationParentDirectory,
-		"paths", paths,
-		"newImages", newImages,
-		"imageErrors", imageErrors,
-	)
-	if len(newImages) == 0 {
-		return nil, errors.Join(imageErrors...)
-	}
-
-	if err := db.BatchCreate(service.dbClient, newImages); err != nil {
-		imageErrors = append(imageErrors, fmt.Errorf("BatchCreate: %w", err))
-		return nil, errors.Join(imageErrors...)
-	}
-
-	resultImageFiles := make([]ImageFile, 0)
-	for index, image := range newImages {
-		sourceFilePath := newImagePaths[index]
-		destinationFilePath := filepath.Join(destinationParentDirectory.Path, image.Name)
-		if _, err := Copy(sourceFilePath, destinationFilePath); err != nil {
-			imageErrors = append(imageErrors, fmt.Errorf("copy: %w", err))
-			continue
-		}
-		resultImage, err := service.imageFileConverter.ConvertImageFile(destinationParentDirectory, image)
-		if err != nil {
-			imageErrors = append(imageErrors, fmt.Errorf("convertImageFile: %w", err))
-			continue
-		}
-		resultImageFiles = append(resultImageFiles, resultImage)
-	}
-	if len(imageErrors) > 0 {
-		return resultImageFiles, errors.Join(imageErrors...)
-	}
-
-	return resultImageFiles, nil
 }
 
 type ImageFileConverter struct {
