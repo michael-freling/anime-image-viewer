@@ -2,6 +2,7 @@ package image
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
@@ -169,9 +170,11 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 	testDBClient := tester.dbClient
 
 	fileBuilder := tester.newFileBuilder().
-		AddDirectory(Directory{ID: 1, Name: "directory1"}).
-		AddDirectory(Directory{ID: 10, Name: "directory10", ParentID: 1}).
-		AddDirectory(Directory{ID: 100, Name: "directory100", ParentID: 10})
+		AddDirectory(t, Directory{ID: 1, Name: "directory1"}).
+		AddDirectory(t, Directory{ID: 10, Name: "directory10", ParentID: 1}).
+		AddDirectory(t, Directory{ID: 100, Name: "directory100", ParentID: 10}).
+		AddDirectory(t, Directory{ID: 1001, Name: "directory 1001", ParentID: 100}).
+		AddDirectory(t, Directory{ID: 1002, Name: "directory 1002", ParentID: 100})
 
 	rootDirectory := tester.config.ImageRootDirectory
 	service := tester.getDirectoryService()
@@ -189,14 +192,14 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 			name: "update a directory name",
 			insertDirectories: []db.File{
 				fileBuilder.BuildDBDirectory(t, 1),
+				fileBuilder.BuildDBDirectory(t, 10),
+				fileBuilder.BuildDBDirectory(t, 100),
+				fileBuilder.BuildDBDirectory(t, 1001),
 			},
-			makeDirectories: []string{
-				"directory1",
-			},
-			directoryID: 1,
+			directoryID: 1001,
 			newName:     "new_directory1",
 			want: func() Directory {
-				want := fileBuilder.BuildDirectory(1)
+				want := fileBuilder.BuildDirectory(1001)
 				want.updateName("new_directory1")
 				return want
 			}(),
@@ -208,17 +211,15 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 				fileBuilder.BuildDBDirectory(t, 10),
 				{ID: 11, Name: "same_name_under_different_directory", ParentID: 1, Type: db.FileTypeDirectory},
 				fileBuilder.BuildDBDirectory(t, 100),
+				fileBuilder.BuildDBDirectory(t, 1002),
 			},
 			makeDirectories: []string{
-				"directory1",
-				"directory1/directory10",
-				"directory1/same_name_under_different_directory",
-				"directory1/directory10/directory100",
+				filepath.Join(fileBuilder.BuildDirectory(1).Name, "same_name_under_different_directory"),
 			},
-			directoryID: 100,
+			directoryID: 1002,
 			newName:     "same_name_under_different_directory",
 			want: func() Directory {
-				dir := fileBuilder.BuildDirectory(100)
+				dir := fileBuilder.BuildDirectory(1002)
 				dir.updateName("same_name_under_different_directory")
 				return dir
 			}(),
@@ -227,76 +228,91 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 			name: "update a directory name to the same name with different cases",
 			insertDirectories: []db.File{
 				fileBuilder.BuildDBDirectory(t, 1),
+				fileBuilder.BuildDBDirectory(t, 10),
+				fileBuilder.BuildDBDirectory(t, 100),
+				{ID: 1003, Name: "directory1", ParentID: 100, Type: db.FileTypeDirectory},
 			},
-			makeDirectories: []string{"directory1"},
-			directoryID:     1,
-			newName:         "Directory1",
-			want: func() Directory {
-				dir := fileBuilder.BuildDirectory(1)
-				dir.updateName("Directory1")
-				return dir
-			}(),
+			makeDirectories: []string{
+				filepath.Join(
+					fileBuilder.BuildDirectory(1).Name,
+					fileBuilder.BuildDirectory(10).Name,
+					fileBuilder.BuildDirectory(100).Name,
+					"directory1",
+				),
+			},
+			directoryID: 1003,
+			newName:     "Directory1",
+			want: Directory{
+				ID:           1003,
+				Name:         "Directory1",
+				Path:         filepath.Join(fileBuilder.BuildDirectory(100).Path, "Directory1"),
+				ParentID:     100,
+				RelativePath: filepath.Join(fileBuilder.BuildDirectory(100).RelativePath, "Directory1"),
+			},
 		},
 		{
 			name: "parent directory doesn't exist in the DB",
 			insertDirectories: []db.File{
-				{ID: 1, Name: "directory1", ParentID: 2, Type: db.FileTypeDirectory},
+				{ID: 9, Name: "directory 9", ParentID: 999, Type: db.FileTypeDirectory},
 			},
-			makeDirectories: []string{"directory1"},
-			directoryID:     1,
+			makeDirectories: []string{"directory 9"},
+			directoryID:     9,
 			newName:         "new_directory",
 			wantErr:         ErrDirectoryNotFound,
 		},
 		{
 			name: "A directory doesn't exist in the DB",
 			insertDirectories: []db.File{
-				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
+				{ID: 9, Name: "directory 999", Type: db.FileTypeDirectory},
 			},
-			makeDirectories: []string{"directory1"},
+			makeDirectories: []string{"directory 999"},
 			directoryID:     999,
-			newName:         "directory2",
+			newName:         "something new",
 			wantErr:         ErrDirectoryNotFound,
 		},
 		{
 			name: "A directory doesn't exist in the FS",
 			insertDirectories: []db.File{
-				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
+				{ID: 9, Name: "directory 9", Type: db.FileTypeDirectory},
 			},
-			makeDirectories: []string{"directory2"},
-			directoryID:     1,
-			newName:         "directory3",
-			wantErr:         ErrDirectoryNotFound,
+			directoryID: 9,
+			newName:     "something new",
+			wantErr:     ErrDirectoryNotFound,
 		},
 		{
 			name: "update a directory name to the same name with other directory in the DB",
 			insertDirectories: []db.File{
-				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
-				{ID: 2, Name: "new_directory", Type: db.FileTypeDirectory},
+				fileBuilder.BuildDBDirectory(t, 1),
+				fileBuilder.BuildDBDirectory(t, 10),
+				{ID: 99, Name: "directory 99", ParentID: 1, Type: db.FileTypeDirectory},
 			},
-			makeDirectories: []string{"directory1"},
-			directoryID:     1,
-			newName:         "new_directory",
-			wantErr:         ErrDirectoryAlreadyExists,
+			makeDirectories: []string{
+				filepath.Join(fileBuilder.BuildDirectory(1).Name, "directory 99"),
+			},
+			directoryID: 10,
+			newName:     "directory 99",
+			wantErr:     ErrDirectoryAlreadyExists,
 		},
 		{
 			name: "update a directory name to the same name with other directory in the FS",
 			insertDirectories: []db.File{
-				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
+				fileBuilder.BuildDBDirectory(t, 1),
 			},
-			makeDirectories: []string{"directory1", "new_directory"},
-			directoryID:     1,
-			newName:         "new_directory",
-			wantErr:         ErrDirectoryAlreadyExists,
+			makeDirectories: []string{
+				"new_directory",
+			},
+			directoryID: 1,
+			newName:     "new_directory",
+			wantErr:     ErrDirectoryAlreadyExists,
 		},
 		{
 			name: "Updates a directory with the same directory name",
 			insertDirectories: []db.File{
-				{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
+				fileBuilder.BuildDBDirectory(t, 1),
 			},
-			makeDirectories: []string{"directory1"},
-			directoryID:     1,
-			newName:         "directory1",
-			wantErr:         xerrors.ErrInvalidArgument,
+			directoryID: 1,
+			newName:     fileBuilder.BuildDBDirectory(t, 1).Name,
+			wantErr:     xerrors.ErrInvalidArgument,
 		},
 	}
 
@@ -307,11 +323,18 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 
 			if len(tc.makeDirectories) > 0 {
 				for _, dir := range tc.makeDirectories {
-					require.NoError(t, os.Mkdir(rootDirectory+"/"+dir, 0755))
+					require.NoError(t, os.Mkdir(
+						filepath.Join(rootDirectory, dir), 0755),
+					)
 				}
 				t.Cleanup(func() {
 					for _, dir := range tc.makeDirectories {
-						require.NoError(t, os.RemoveAll(rootDirectory+"/"+dir))
+						require.NoError(t, os.RemoveAll(
+							filepath.Join(
+								rootDirectory,
+								dir,
+							),
+						))
 					}
 				})
 			}

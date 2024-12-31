@@ -28,9 +28,6 @@ type Image struct {
 	ID   uint   `json:"id"`
 	Name string `json:"name"`
 	Path string `json:"path"`
-
-	// legacy fields: May not necessary
-	parentID uint
 }
 
 type imageConverter struct {
@@ -43,8 +40,6 @@ func newImageConverterFromImageFiles(imageFile image.ImageFile) *imageConverter 
 			ID:   imageFile.ID,
 			Name: imageFile.Name,
 			Path: imageFile.Path,
-
-			parentID: imageFile.ParentID,
 		},
 	}
 }

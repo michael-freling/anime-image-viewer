@@ -37,7 +37,12 @@ type Directory struct {
 func (directory *Directory) updateName(newName string) *Directory {
 	directory.Name = newName
 	directory.Path = filepath.Join(filepath.Dir(directory.Path), newName)
-	directory.RelativePath = newName
+	if directory.ParentID == 0 {
+		directory.RelativePath = newName
+	} else {
+		directory.RelativePath = filepath.Join(filepath.Dir(directory.RelativePath), newName)
+	}
+
 	return directory
 }
 
@@ -228,7 +233,7 @@ func (service DirectoryService) CreateTopDirectory(name string) (Directory, erro
 func (service DirectoryService) UpdateName(id uint, name string) (Directory, error) {
 	directory, err := service.reader.ReadDirectory(id)
 	if err != nil {
-		return Directory{}, fmt.Errorf("service.readDirectory: %w", err)
+		return Directory{}, fmt.Errorf("service.readDirectory: %w %d", err, id)
 	}
 	if directory.ID == 0 {
 		return Directory{}, fmt.Errorf("%w for id: %d", ErrDirectoryNotFound, id)

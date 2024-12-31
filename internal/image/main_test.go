@@ -3,13 +3,10 @@ package image
 import (
 	"io"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
-	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -84,31 +81,6 @@ func (tester Tester) getDirectoryReader() *DirectoryReader {
 
 func (tester Tester) getImageFileConverter() *ImageFileConverter {
 	return NewImageFileConverter(tester.config)
-}
-
-func (tester Tester) createDirectoryInFS(t *testing.T, name string) string {
-	t.Helper()
-
-	path := filepath.Join(tester.config.ImageRootDirectory, name)
-	require.NoError(t, os.MkdirAll(path, 0755))
-	return path
-}
-
-func (tester Tester) getTestFilePath(filePath string) string {
-	return filepath.Join("..", "..", "testdata", filePath)
-}
-
-func (tester Tester) copyImageFile(t *testing.T, source, destination string) {
-	t.Helper()
-
-	destination = filepath.Join(tester.config.ImageRootDirectory, destination)
-	require.NoError(t, os.MkdirAll(filepath.Dir(destination), 0755))
-
-	_, err := Copy(
-		filepath.Join("..", "..", "testdata", source),
-		destination,
-	)
-	require.NoError(t, err)
 }
 
 func (tester Tester) newFileBuilder() *FileBuilder {

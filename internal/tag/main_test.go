@@ -3,9 +3,6 @@ package tag
 import (
 	"io"
 	"log/slog"
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
@@ -132,80 +129,6 @@ func (tester Tester) getTagSuggestionService(
 	)
 }
 
-func (tester Tester) createDirectoryInFS(t *testing.T, name string) string {
-	t.Helper()
-
-	path := filepath.Join(tester.config.ImageRootDirectory, name)
-	require.NoError(t, os.MkdirAll(path, 0755))
-	return path
-}
-
-func (tester Tester) copyImageFile(t *testing.T, source, destination string) {
-	t.Helper()
-
-	destination = filepath.Join(tester.config.ImageRootDirectory, destination)
-	if err := os.MkdirAll(filepath.Dir(destination), 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	_, err := image.Copy(
-		filepath.Join("..", "..", "testdata", source),
-		destination,
-	)
-	require.NoError(t, err)
-}
-
-// todo: consolidate fileBuilder with internal/image/files_test.go
-func (tester Tester) newFileBuilder() *fileBuilder {
-	return &fileBuilder{
-		staticFilePrefix: tester.staticFilePath,
-		localFilePrefix:  tester.config.ImageRootDirectory,
-
-		directories:        map[uint]image.Directory{},
-		localDirectoryPath: map[uint]string{},
-		imageFiles:         map[uint]image.ImageFile{},
-	}
-}
-
-type fileBuilder struct {
-	staticFilePrefix string
-	localFilePrefix  string
-
-	directories        map[uint]image.Directory
-	localDirectoryPath map[uint]string
-	imageFiles         map[uint]image.ImageFile
-}
-
-func (builder *fileBuilder) addDirectory(directory image.Directory) *fileBuilder {
-	if directory.ParentID != 0 {
-		parent := builder.directories[directory.ParentID]
-		directory.Path = filepath.Join(parent.Path, directory.Name)
-
-		parentLocalFilePath := builder.localDirectoryPath[directory.ParentID]
-		builder.localDirectoryPath[directory.ID] = filepath.Join(parentLocalFilePath, directory.Name)
-	} else {
-		directory.Path = filepath.Join(builder.localFilePrefix, directory.Name)
-		builder.localDirectoryPath[directory.ID] = filepath.Join(builder.localFilePrefix, directory.Name)
-	}
-
-	builder.directories[directory.ID] = directory
-	return builder
-}
-
-func (builder *fileBuilder) addImageFile(imageFile image.ImageFile) *fileBuilder {
-	if imageFile.ParentID != 0 {
-		parentLocalFilePath := builder.localDirectoryPath[imageFile.ParentID]
-		imageFile.LocalFilePath = filepath.Join(parentLocalFilePath, imageFile.Name)
-
-		// todo: workaround
-		imageFile.Path = "/files" + strings.TrimPrefix(imageFile.LocalFilePath, builder.localFilePrefix)
-		// filepath.Join(parent.Path, imageFile.Name)
-	}
-
-	builder.imageFiles[imageFile.ID] = imageFile
-	return builder
-}
-
-func (builder fileBuilder) buildImageFile(id uint) image.ImageFile {
-	return builder.imageFiles[id]
+func (tester Tester) newFileBuilder() *image.FileBuilder {
+	return image.NewFileBuilder(tester.config.ImageRootDirectory)
 }
