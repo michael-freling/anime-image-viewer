@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
@@ -34,19 +35,31 @@ func NewBatchImageImporter(
 	}
 }
 
+type ProgressEvent struct {
+	Total        int
+	Completed    int
+	Failed       int
+	FailedPath   []string
+	FailedErrors []error
+}
+
 func (batchImporter *BatchImageImporter) ImportImages(
 	ctx context.Context,
 	destinationParentDirectory image.Directory,
 	paths []string,
+	progressCallback func(ProgressEvent),
 ) ([]image.ImageFile, error) {
 	imageErrors := make([]error, 0)
 	newImages := make([]db.File, 0)
 	newImagePaths := make([]string, 0)
+
+	failedPaths := make([]string, 0)
 	for _, sourceFilePath := range paths {
 		fileName := filepath.Base(sourceFilePath)
 		pathStat, err := os.Stat(sourceFilePath)
 		if err != nil {
 			imageErrors = append(imageErrors, fmt.Errorf("os.Stat: %w: %s", err, sourceFilePath))
+			failedPaths = append(failedPaths, sourceFilePath)
 			continue
 		}
 		if pathStat.IsDir() {
@@ -56,6 +69,7 @@ func (batchImporter *BatchImageImporter) ImportImages(
 		}
 		if err := batchImporter.validateImportImageFile(sourceFilePath, destinationParentDirectory); err != nil {
 			imageErrors = append(imageErrors, err)
+			failedPaths = append(failedPaths, sourceFilePath)
 			continue
 		}
 
@@ -81,21 +95,54 @@ func (batchImporter *BatchImageImporter) ImportImages(
 		return nil, errors.Join(imageErrors...)
 	}
 
+	total, completed, failed := len(paths), 0, len(failedPaths)
+	progressCallback(ProgressEvent{
+		Total:        total,
+		Completed:    completed,
+		Failed:       failed,
+		FailedErrors: imageErrors,
+	})
+
+	done := make(chan struct{})
+	go func() {
+		isEnded := false
+		for !isEnded {
+			select {
+			case <-done:
+				isEnded = true
+			case <-time.After(1 * time.Second):
+			}
+			progressCallback(ProgressEvent{
+				Total:        total,
+				Completed:    completed,
+				Failed:       failed,
+				FailedPath:   failedPaths,
+				FailedErrors: imageErrors,
+			})
+		}
+	}()
 	resultImageFiles := make([]image.ImageFile, 0)
 	for index, newImage := range newImages {
 		sourceFilePath := newImagePaths[index]
 		destinationFilePath := filepath.Join(destinationParentDirectory.Path, newImage.Name)
 		if _, err := image.Copy(sourceFilePath, destinationFilePath); err != nil {
 			imageErrors = append(imageErrors, fmt.Errorf("copy: %w", err))
+			failedPaths = append(failedPaths, sourceFilePath)
+			failed++
 			continue
 		}
 		resultImage, err := batchImporter.imageFileConverter.ConvertImageFile(destinationParentDirectory, newImage)
 		if err != nil {
 			imageErrors = append(imageErrors, fmt.Errorf("convertImageFile: %w", err))
+			failedPaths = append(failedPaths, sourceFilePath)
+			failed++
 			continue
 		}
 		resultImageFiles = append(resultImageFiles, resultImage)
+		completed++
+
 	}
+	close(done)
 	if len(imageErrors) > 0 {
 		return resultImageFiles, errors.Join(imageErrors...)
 	}

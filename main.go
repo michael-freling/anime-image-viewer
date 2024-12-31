@@ -174,7 +174,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 				},
 			),
 			application.NewService(searchService),
-			application.NewService(frontend.NewImportService(
+			application.NewService(frontend.NewBatchImportImageService(
 				logger,
 				directoryReader,
 				import_images.NewBatchImageImporter(
