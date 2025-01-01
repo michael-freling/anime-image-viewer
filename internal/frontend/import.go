@@ -70,22 +70,28 @@ func (service BatchImportImageService) ImportImages(ctx context.Context, directo
 		"directory", directory.Path,
 		"selectedPaths", paths,
 	)
-	images, err := service.batchImageImporter.ImportImages(ctx, directory, paths, func(progressEvent import_images.ProgressEvent) {
+
+	total := len(paths)
+	progressNotifier := import_images.NewProgressNotifier()
+	done := make(chan struct{})
+	defer close(done)
+	go progressNotifier.Run(done, func() {
 		failures := make([]ImportProgressEventFailure, 0)
-		for i, path := range progressEvent.FailedPath {
+		for i, path := range progressNotifier.FailedPaths {
 			failures = append(failures, ImportProgressEventFailure{
 				Path:  path,
-				Error: progressEvent.FailedErrors[i].Error(),
+				Error: progressNotifier.FailedErrors[i].Error(),
 			})
 		}
 
 		app.EmitEvent("ImportImages:progress", ImportProgressEvent{
-			Total:     progressEvent.Total,
-			Completed: progressEvent.Completed,
-			Failed:    progressEvent.Failed,
+			Total:     total,
+			Completed: progressNotifier.Completed,
+			Failed:    progressNotifier.Failed,
 			Failures:  failures,
 		})
 	})
+	images, err := service.batchImageImporter.ImportImages(ctx, directory, paths, progressNotifier)
 	if err != nil {
 		return nil, fmt.Errorf("service.batchImageImporter.ImportImages: %w", err)
 	}

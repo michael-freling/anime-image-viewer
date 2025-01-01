@@ -2,9 +2,9 @@ package import_images
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
@@ -82,26 +82,29 @@ func TestImageFileService_importImageFiles(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			batchImporter := tester.getBatchImageImporter()
-			progressCalled := 0
-			got, gotErrs := batchImporter.ImportImages(context.Background(), tc.destinationDirectory, tc.sourceFilePaths, func(progressEvent ProgressEvent) {
-				if progressCalled == 0 {
-					assert.Equal(t, len(tc.sourceFilePaths), progressEvent.Total)
-					assert.Equal(t, len(tc.wantErrors), progressEvent.Failed)
-					assert.Equal(t, len(tc.wantErrors), len(progressEvent.FailedErrors))
-				}
-				if progressCalled == 1 {
-					assert.Equal(t, len(tc.want), progressEvent.Completed)
-				}
-				progressCalled++
-			})
+
+			progressNotifier := NewProgressNotifier()
+			got, gotErrs := batchImporter.ImportImages(context.Background(), tc.destinationDirectory, tc.sourceFilePaths, progressNotifier)
 			if len(tc.wantErrors) > 0 {
 				uw, ok := gotErrs.(interface{ Unwrap() []error })
 				assert.True(t, ok)
 				assert.Len(t, uw.Unwrap(), len(tc.wantErrors))
 				unwrappedErrors := uw.Unwrap()
-				for index, wantErr := range tc.wantErrors {
-					gotErr := unwrappedErrors[index]
-					assert.ErrorIs(t, gotErr, wantErr)
+				for _, wantErr := range tc.wantErrors {
+					isFound := false
+					for _, gotErr := range unwrappedErrors {
+						if errors.Is(gotErr, wantErr) {
+							isFound = true
+							break
+						}
+					}
+					if !isFound {
+						assert.Failf(t, "expected error not found",
+							"error not found, want: %+v, got %+v",
+							wantErr,
+							unwrappedErrors,
+						)
+					}
 				}
 			} else {
 				assert.NoError(t, gotErrs)
@@ -120,9 +123,9 @@ func TestImageFileService_importImageFiles(t *testing.T) {
 				assert.Equal(t, want, got)
 			}
 
-			// wait for a go routine for a progress callback
-			<-time.After(time.Millisecond)
-			assert.Equal(t, 2, progressCalled)
+			assert.Equal(t, len(tc.wantInsert), progressNotifier.Completed)
+			assert.Equal(t, len(tc.wantErrors), progressNotifier.Failed)
+			assert.Len(t, progressNotifier.FailedPaths, len(tc.wantErrors))
 		})
 	}
 }
