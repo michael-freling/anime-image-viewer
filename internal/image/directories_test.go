@@ -1,6 +1,7 @@
 package image
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -138,7 +139,8 @@ func TestService_CreateDirectory(t *testing.T) {
 				})
 			}
 
-			got, gotErr := service.CreateDirectory(tc.directoryName, tc.parentID)
+			ctx := context.Background()
+			got, gotErr := service.CreateDirectory(ctx, tc.directoryName, tc.parentID)
 			assert.ErrorIs(t, gotErr, tc.wantErr)
 
 			if tc.wantErr != nil {
@@ -339,7 +341,8 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 				})
 			}
 
-			got, gotErr := service.UpdateName(tc.directoryID, tc.newName)
+			ctx := context.Background()
+			got, gotErr := service.UpdateName(ctx, tc.directoryID, tc.newName)
 			assert.ErrorIs(t, gotErr, tc.wantErr)
 			if tc.wantErr != nil {
 				return

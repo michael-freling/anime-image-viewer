@@ -1,6 +1,7 @@
 package image
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -166,7 +167,7 @@ func (service DirectoryService) ReadChildDirectoriesRecursively(directoryID uint
 	return service.reader.ReadChildDirectoriesRecursively(directoryID)
 }
 
-func (service DirectoryService) CreateDirectory(name string, parentID uint) (Directory, error) {
+func (service DirectoryService) CreateDirectory(ctx context.Context, name string, parentID uint) (Directory, error) {
 	rootDirectory := service.ReadInitialDirectory()
 	if parentID != 0 {
 		currentDirectory, err := service.reader.ReadDirectory(parentID)
@@ -187,8 +188,9 @@ func (service DirectoryService) CreateDirectory(name string, parentID uint) (Dir
 	}
 
 	var directory db.File
-	err := db.NewTransaction(service.dbClient, func(ormClient *db.ORMClient[db.File]) error {
-		record, err := ormClient.FindByValue(&db.File{
+	err := db.NewTransaction(ctx, service.dbClient, func(ctx context.Context) error {
+		ormClient := service.dbClient.File()
+		record, err := ormClient.FindByValue(ctx, &db.File{
 			Name:     name,
 			ParentID: parentID,
 		})
@@ -204,7 +206,7 @@ func (service DirectoryService) CreateDirectory(name string, parentID uint) (Dir
 			ParentID: parentID,
 			Type:     db.FileTypeDirectory,
 		}
-		if err := ormClient.Create(&directory); err != nil {
+		if err := ormClient.Create(ctx, &directory); err != nil {
 			return fmt.Errorf("ormClient.Create: %w", err)
 		}
 
@@ -226,11 +228,11 @@ func (service DirectoryService) CreateDirectory(name string, parentID uint) (Dir
 	}, nil
 }
 
-func (service DirectoryService) CreateTopDirectory(name string) (Directory, error) {
-	return service.CreateDirectory(name, db.RootDirectoryID)
+func (service DirectoryService) CreateTopDirectory(ctx context.Context, name string) (Directory, error) {
+	return service.CreateDirectory(ctx, name, db.RootDirectoryID)
 }
 
-func (service DirectoryService) UpdateName(id uint, name string) (Directory, error) {
+func (service DirectoryService) UpdateName(ctx context.Context, id uint, name string) (Directory, error) {
 	directory, err := service.reader.ReadDirectory(id)
 	if err != nil {
 		return Directory{}, fmt.Errorf("service.readDirectory: %w %d", err, id)
@@ -265,8 +267,9 @@ func (service DirectoryService) UpdateName(id uint, name string) (Directory, err
 		return Directory{}, fmt.Errorf("os.Stat: %w", err)
 	}
 
-	err = db.NewTransaction(service.dbClient, func(ormClient *db.ORMClient[db.File]) error {
-		record, err := ormClient.FindByValue(&db.File{
+	err = db.NewTransaction(ctx, service.dbClient, func(ctx context.Context) error {
+		ormClient := service.dbClient.File()
+		record, err := ormClient.FindByValue(ctx, &db.File{
 			ID: id,
 		})
 		if err != nil {
@@ -274,7 +277,7 @@ func (service DirectoryService) UpdateName(id uint, name string) (Directory, err
 		}
 
 		record.Name = name
-		if err := ormClient.Update(&record); err != nil {
+		if err := ormClient.Update(ctx, &record); err != nil {
 			return fmt.Errorf("ormClient.Save: %w", err)
 		}
 

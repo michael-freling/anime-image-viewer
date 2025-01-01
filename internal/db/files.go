@@ -18,11 +18,15 @@ type File struct {
 	UpdatedAt uint
 }
 
-type FileClient ORMClient[File]
+type FileClient struct {
+	*ORMClient[File]
+}
 
 func (client *Client) File() *FileClient {
 	return &FileClient{
-		connection: client.connection,
+		ORMClient: &ORMClient[File]{
+			connection: client.connection,
+		},
 	}
 }
 

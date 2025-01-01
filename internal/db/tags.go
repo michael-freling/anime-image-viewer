@@ -22,11 +22,15 @@ type Tag struct {
 
 type TagList []Tag
 
-type TagClient ORMClient[Tag]
+type TagClient struct {
+	*ORMClient[Tag]
+}
 
 func (client *Client) Tag() *TagClient {
 	return &TagClient{
-		connection: client.connection,
+		ORMClient: &ORMClient[Tag]{
+			connection: client.connection,
+		},
 	}
 }
 

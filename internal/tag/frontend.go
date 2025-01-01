@@ -56,7 +56,7 @@ type TagInput struct {
 	ParentID uint
 }
 
-func (service TagFrontendService) Create(input TagInput) (Tag, error) {
+func (service TagFrontendService) Create(ctx context.Context, input TagInput) (Tag, error) {
 	parentTag, err := db.FindByValue(service.dbClient, &db.Tag{
 		ID: input.ParentID,
 	})
@@ -78,15 +78,16 @@ func (service TagFrontendService) Create(input TagInput) (Tag, error) {
 		tag.Type = db.TagTypeSeries
 	}
 
-	err = db.NewTransaction(service.dbClient, func(ormClient *db.ORMClient[db.Tag]) error {
-		_, err := ormClient.FindByValue(&db.Tag{
+	err = db.NewTransaction(ctx, service.dbClient, func(ctx context.Context) error {
+		ormClient := service.dbClient.Tag()
+		_, err := ormClient.FindByValue(ctx, &db.Tag{
 			ID: input.ParentID,
 		})
 		if err != nil {
 			return fmt.Errorf("ormClient.FindByValue: %w", err)
 		}
 
-		if err := ormClient.Create(&tag); err != nil {
+		if err := ormClient.Create(ctx, &tag); err != nil {
 			return fmt.Errorf("ormClient.Create: %w", err)
 		}
 
@@ -96,12 +97,12 @@ func (service TagFrontendService) Create(input TagInput) (Tag, error) {
 				{Name: "Main Character", ParentID: tag.ID, Type: db.TagTypeCharacter},
 				{Name: "Season 1", ParentID: tag.ID, Type: db.TagTypeSeason},
 			}
-			if err := ormClient.BatchCreate(seriesTags); err != nil {
+			if err := ormClient.BatchCreate(ctx, seriesTags); err != nil {
 				return fmt.Errorf("ormClient.BatchCreate: %w", err)
 			}
 		}
 		if parentTag.Type == db.TagTypeSeason && parentTag.ParentID == 0 {
-			err = ormClient.BatchCreate([]db.Tag{
+			err = ormClient.BatchCreate(ctx, []db.Tag{
 				{Name: "Winter", ParentID: tag.ID},
 				{Name: "Spring", ParentID: tag.ID},
 				{Name: "Summer", ParentID: tag.ID},
@@ -124,11 +125,12 @@ func (service TagFrontendService) Create(input TagInput) (Tag, error) {
 	}, nil
 }
 
-func (service TagFrontendService) UpdateName(id uint, name string) (Tag, error) {
+func (service TagFrontendService) UpdateName(ctx context.Context, id uint, name string) (Tag, error) {
 	var newTag db.Tag
-	err := db.NewTransaction(service.dbClient, func(ormClient *db.ORMClient[db.Tag]) error {
+	err := db.NewTransaction(ctx, service.dbClient, func(ctx context.Context) error {
+		ormClient := service.dbClient.Tag()
 		var err error
-		newTag, err = ormClient.FindByValue(&db.Tag{
+		newTag, err = ormClient.FindByValue(ctx, &db.Tag{
 			ID: id,
 		})
 		if err != nil {
@@ -136,7 +138,7 @@ func (service TagFrontendService) UpdateName(id uint, name string) (Tag, error) 
 		}
 
 		newTag.Name = name
-		if err := ormClient.Update(&newTag); err != nil {
+		if err := ormClient.Update(ctx, &newTag); err != nil {
 			return fmt.Errorf("ormClient.Update: %w", err)
 		}
 		return nil

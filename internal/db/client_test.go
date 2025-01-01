@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -60,7 +61,8 @@ func TestORMClient_FindByValue(t *testing.T) {
 			ormClient := &ORMClient[Table]{
 				connection: dbClient.connection,
 			}
-			got, gotErr := ormClient.FindByValue(&Table{
+			ctx := context.Background()
+			got, gotErr := ormClient.FindByValue(ctx, &Table{
 				ID: tc.args.value.ID,
 			})
 			if tc.wantErr != nil {

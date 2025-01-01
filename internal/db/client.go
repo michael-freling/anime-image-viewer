@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -154,17 +155,19 @@ func BatchCreate[Model any](client *Client, values []Model) error {
 	return client.connection.Create(values).Error
 }
 
-func NewTransaction[Model any](client *Client, f func(*ORMClient[Model]) error) error {
-	return client.connection.Transaction(func(tx *gorm.DB) error {
-		return f(&ORMClient[Model]{
-			connection: tx,
-		})
-	})
+func (ormClient *ORMClient[Model]) getTransaction(ctx context.Context) *gorm.DB {
+	tx := transactionFromContext(ctx)
+	if tx == nil {
+		return ormClient.connection
+	}
+	return tx
 }
 
-func (ormClient *ORMClient[Model]) FindByValue(value *Model) (Model, error) {
+func (ormClient *ORMClient[Model]) FindByValue(ctx context.Context, value *Model) (Model, error) {
 	var result Model
-	err := ormClient.connection.Take(&result, *value).Error
+	err := ormClient.getTransaction(ctx).
+		Take(&result, *value).
+		Error
 	return result, err
 }
 
@@ -174,14 +177,20 @@ func (ormClient *ORMClient[Model]) GetAll() ([]Model, error) {
 	return values, err
 }
 
-func (ormClient *ORMClient[Model]) Create(value *Model) error {
-	return ormClient.connection.Create(value).Error
+func (ormClient *ORMClient[Model]) Create(ctx context.Context, value *Model) error {
+	return ormClient.getTransaction(ctx).
+		Create(value).
+		Error
 }
 
-func (ormClient *ORMClient[Model]) Update(value *Model) error {
-	return ormClient.connection.Save(value).Error
+func (ormClient *ORMClient[Model]) Update(ctx context.Context, value *Model) error {
+	return ormClient.getTransaction(ctx).
+		Save(value).
+		Error
 }
 
-func (ormClient *ORMClient[Model]) BatchCreate(values []Model) error {
-	return ormClient.connection.Create(values).Error
+func (ormClient *ORMClient[Model]) BatchCreate(ctx context.Context, values []Model) error {
+	return ormClient.getTransaction(ctx).
+		Create(values).
+		Error
 }
