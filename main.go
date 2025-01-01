@@ -180,8 +180,8 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 				import_images.NewBatchImageImporter(
 					logger,
 					dbClient,
-					directoryReader,
 					imageFileConverter,
+					import_images.NewXMPReader(),
 				),
 			)),
 		},

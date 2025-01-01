@@ -36,13 +36,13 @@ func (tester Tester) getBatchImageImporter() *BatchImageImporter {
 	return NewBatchImageImporter(
 		tester.logger,
 		tester.dbClient.Client,
-		tester.getDirectoryReader(),
 		tester.getImageFileConverter(),
+		tester.getXMPReader(),
 	)
 }
 
-func (tester Tester) getDirectoryReader() *image.DirectoryReader {
-	return image.NewDirectoryReader(tester.config, tester.dbClient.Client)
+func (tester Tester) getXMPReader() *XMPReader {
+	return NewXMPReader()
 }
 
 func (tester Tester) getImageFileConverter() *image.ImageFileConverter {

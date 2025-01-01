@@ -21,20 +21,74 @@ type BatchImageImporter struct {
 	dbClient *db.Client
 
 	imageFileConverter *image.ImageFileConverter
+	xmpReader          *XMPReader
 }
 
 func NewBatchImageImporter(
 	logger *slog.Logger,
 	dbClient *db.Client,
-	directoryReader *image.DirectoryReader,
 	imageFileConverter *image.ImageFileConverter,
+	xmpReader *XMPReader,
 ) *BatchImageImporter {
 	return &BatchImageImporter{
 		logger:   logger,
 		dbClient: dbClient,
 
 		imageFileConverter: imageFileConverter,
+		xmpReader:          xmpReader,
 	}
+}
+
+func (batchImporter *BatchImageImporter) readImageFilePaths(ctx context.Context, paths []string, progressNotifier *ProgressNotifier) ([]string, error) {
+	sourceFilePaths := make([]string, len(paths))
+
+	eg, _ := errgroup.WithContext(ctx)
+	for index, sourceFilePath := range paths {
+		eg.Go(func() error {
+			pathStat, err := os.Stat(sourceFilePath)
+			if err != nil {
+				progressNotifier.addFailure(sourceFilePath,
+					fmt.Errorf("os.Stat: %w: %s", err, sourceFilePath),
+				)
+				return nil
+			}
+			if pathStat.IsDir() {
+				// if it's a directory, import it recursively
+				// todo
+				return nil
+			}
+
+			// read XMP files
+			_, err = batchImporter.xmpReader.read(sourceFilePath + ".xmp")
+			if err != nil && !os.IsNotExist(err) {
+				batchImporter.logger.InfoContext(ctx, "failed to read a XMP file for an image",
+					"error", err,
+					"image", sourceFilePath,
+				)
+			}
+			sourceFilePaths[index] = sourceFilePath
+
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		// this is unexpected error and shouldn't happen
+		return nil, errors.Join(
+			fmt.Errorf("errgroup.Wait: %w", err),
+			errors.Join(progressNotifier.FailedErrors...),
+		)
+	}
+
+	// filter failed images
+	resultSourceFilePaths := make([]string, 0, len(sourceFilePaths))
+	for index := range sourceFilePaths {
+		if sourceFilePaths[index] == "" {
+			continue
+		}
+		resultSourceFilePaths = append(resultSourceFilePaths, sourceFilePaths[index])
+	}
+	return resultSourceFilePaths, nil
+
 }
 
 func (batchImporter *BatchImageImporter) ImportImages(
@@ -43,13 +97,18 @@ func (batchImporter *BatchImageImporter) ImportImages(
 	paths []string,
 	progressNotifier *ProgressNotifier,
 ) ([]image.ImageFile, error) {
+	imageFilePaths, err := batchImporter.readImageFilePaths(ctx, paths, progressNotifier)
+	if err != nil {
+		return nil, fmt.Errorf("readImageFilePaths: %w", err)
+	}
+
 	validator := newBatchImportImageValidator(
 		batchImporter.dbClient,
 		progressNotifier,
 	)
 	newImages, newImagePaths, err := validator.validateImages(
 		ctx,
-		paths,
+		imageFilePaths,
 		destinationParentDirectory,
 	)
 	if err != nil {
@@ -58,7 +117,7 @@ func (batchImporter *BatchImageImporter) ImportImages(
 	}
 	batchImporter.logger.DebugContext(ctx, "importImageFiles",
 		"directory", destinationParentDirectory,
-		"paths", paths,
+		"imageFilePaths", imageFilePaths,
 		"newImages", newImages,
 	)
 	if len(newImages) == 0 {
@@ -165,32 +224,20 @@ func newBatchImportImageValidator(dbClient *db.Client, progressNotifier *Progres
 
 func (batchValidator batchImportImageValidator) validateImages(
 	ctx context.Context,
-	paths []string,
+	sourceImageFilePaths []string,
 	destinationParentDirectory image.Directory,
 ) (
 	[]db.File,
 	[]string,
 	error,
 ) {
-	newImages := make([]db.File, len(paths))
-	newImagePaths := make([]string, len(paths))
+	newImages := make([]db.File, len(sourceImageFilePaths))
+	newImagePaths := make([]string, len(sourceImageFilePaths))
 
 	eg, _ := errgroup.WithContext(ctx)
-	for index, sourceFilePath := range paths {
+	for index, sourceFilePath := range sourceImageFilePaths {
 		eg.Go(func() error {
 			fileName := filepath.Base(sourceFilePath)
-			pathStat, err := os.Stat(sourceFilePath)
-			if err != nil {
-				batchValidator.progressNotifier.addFailure(sourceFilePath,
-					fmt.Errorf("os.Stat: %w: %s", err, sourceFilePath),
-				)
-				return nil
-			}
-			if pathStat.IsDir() {
-				// if it's a directory, import it recursively
-				// todo
-				return nil
-			}
 			if err := batchValidator.validateImportImageFile(sourceFilePath, destinationParentDirectory); err != nil {
 				batchValidator.progressNotifier.addFailure(sourceFilePath, err)
 				return nil
