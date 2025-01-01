@@ -5,6 +5,9 @@ import {
   CardActions,
   CardOverflow,
   Checkbox,
+  Modal,
+  ModalDialog,
+  ModalOverflow,
   ToggleButtonGroup,
   //  Link,
   Typography,
@@ -22,16 +25,15 @@ import { createSearchParams, useNavigate } from "react-router";
 import { Image } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import LazyImage from "../../components/LazyImage";
 import Layout from "../../Layout";
-
-export type ViewImageType = Image & {
-  selected: boolean;
-};
+import ImageWindow from "./ImageWindow";
+import { ViewImageType } from "./ViewImage";
 
 const ImageCard = memo(function ImageCard({
   mode,
   image,
   width,
   onChange,
+  onView,
 }: {
   mode: Mode;
   image: ViewImageType;
@@ -40,6 +42,7 @@ const ImageCard = memo(function ImageCard({
     event: ChangeEvent<HTMLInputElement>,
     image: ViewImageType
   ) => void;
+  onView: (image: ViewImageType) => void;
 }) {
   return (
     <Card
@@ -53,6 +56,11 @@ const ImageCard = memo(function ImageCard({
           borderWidth: 2,
           opacity: 0.8,
         },
+      }}
+      onClick={() => {
+        if (mode === "view") {
+          onView(image);
+        }
       }}
     >
       <CardActions
@@ -90,7 +98,8 @@ export const ImageList: FC<{
     checkboxEvent: ChangeEvent<HTMLInputElement>,
     image: ViewImageType
   ) => void;
-}> = ({ mode, images, onChange }) => {
+  onView: (image: ViewImageType) => void;
+}> = ({ mode, images, onChange, onView }) => {
   const width = 240;
   return (
     <Box
@@ -107,6 +116,7 @@ export const ImageList: FC<{
           image={image}
           width={width}
           onChange={onChange}
+          onView={onView}
         />
       ))}
     </Box>
@@ -239,8 +249,7 @@ const useChangeWithShirtKey = ({ loadedImages, toggleImageSelects }) => {
     [loadedImages, imageIndexes, toggleImageSelects]
   );
 };
-
-type Mode = "view" | "edit";
+type Mode = "view" | "edit" | "detail";
 
 export interface ImageListContainerProps {
   loadedImages: Image[];
@@ -291,14 +300,41 @@ const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
   );
 
   const [mode, setMode] = useState<Mode>("view");
+  const [selectedViewImageId, setSelectedViewImageId] = useState<number | null>(
+    null
+  );
+
+  const onView = useCallback(
+    (image: ViewImageType) => {
+      console.debug("onView", {
+        image,
+        images,
+      });
+      setSelectedViewImageId(() => {
+        return image.id;
+      });
+      setMode("detail");
+    },
+    [setMode]
+  );
 
   const onChange = useChangeWithShirtKey({ loadedImages, toggleImageSelects });
   const children = withListWrappedComponent ? (
     withListWrappedComponent(
-      <ImageList mode={mode} images={images} onChange={onChange} />
+      <ImageList
+        mode={mode}
+        images={images}
+        onChange={onChange}
+        onView={onView}
+      />
     )
   ) : (
-    <ImageList mode={mode} images={images} onChange={onChange} />
+    <ImageList
+      mode={mode}
+      images={images}
+      onChange={onChange}
+      onView={onView}
+    />
   );
 
   return (
@@ -376,7 +412,21 @@ const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
       }
     >
       {children}
+      {selectedViewImageId && (
+        <Modal open={mode == "detail"} onClose={() => setMode("view")}>
+          <ModalOverflow>
+            <ModalDialog
+              aria-labelledby="modal-dialog-overflow"
+              layout="fullscreen"
+              sx={{ p: 0, m: 0 }}
+            >
+              <ImageWindow images={images} initialId={selectedViewImageId} />
+            </ModalDialog>
+          </ModalOverflow>
+        </Modal>
+      )}
     </Layout.Main>
   );
 };
+
 export default ImageListMain;

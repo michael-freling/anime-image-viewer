@@ -16,9 +16,9 @@ import (
 
 type StaticFileService struct {
 	rootDirectory string
-	// fileServer    http.Handler
-	logger       *slog.Logger
-	imageResizer *image.Resizer
+	fileServer    http.Handler
+	logger        *slog.Logger
+	imageResizer  *image.Resizer
 }
 
 func NewStaticFileService(
@@ -27,9 +27,9 @@ func NewStaticFileService(
 ) *StaticFileService {
 	return &StaticFileService{
 		rootDirectory: conf.ImageRootDirectory,
-		// fileServer:    http.FileServer(http.Dir(conf.ImageRootDirectory)),
-		logger:       logger,
-		imageResizer: image.NewResizer(logger),
+		fileServer:    http.FileServer(http.Dir(conf.ImageRootDirectory)),
+		logger:        logger,
+		imageResizer:  image.NewResizer(logger),
 	}
 }
 
@@ -37,6 +37,10 @@ func (service StaticFileService) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	localImageFilePath, width, err := service.validateRequest(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if width == 0 {
+		service.fileServer.ServeHTTP(w, r)
 		return
 	}
 
@@ -67,18 +71,6 @@ func (service StaticFileService) ServeHTTP(w http.ResponseWriter, r *http.Reques
 }
 
 func (service StaticFileService) validateRequest(r *http.Request) (string, int, error) {
-	widthStr := r.URL.Query().Get("width")
-	if widthStr == "" {
-		return "", 0, fmt.Errorf("width parameter is required")
-	}
-	width, err := strconv.ParseInt(widthStr, 10, 64)
-	if err != nil {
-		return "", 0, fmt.Errorf("invalid width: %w", err)
-	}
-	if width > 4000 {
-		return "", 0, fmt.Errorf("width must be less than 4000")
-	}
-
 	// check if a localImageFilePath is under the root directory
 	localImageFilePath := filepath.Join(service.rootDirectory, r.URL.Path)
 	if !strings.HasPrefix(localImageFilePath, service.rootDirectory) {
@@ -88,5 +80,17 @@ func (service StaticFileService) validateRequest(r *http.Request) (string, int, 
 		return "", 0, fmt.Errorf("image was not found")
 	}
 
+	widthStr := r.URL.Query().Get("width")
+	var width int64
+	if widthStr == "" {
+		return localImageFilePath, 0, nil
+	}
+	width, err := strconv.ParseInt(widthStr, 10, 64)
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid width: %w", err)
+	}
+	if width > 4000 {
+		return "", 0, fmt.Errorf("width must be less than 4000")
+	}
 	return localImageFilePath, int(width), nil
 }
