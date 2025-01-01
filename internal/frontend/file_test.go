@@ -61,15 +61,14 @@ func TestStaticFileService_ServeHTTP(t *testing.T) {
 		},
 		{
 			name:         "invalid width parameter",
-			fileFullPath: "dir/image.txt?width=100%",
+			fileFullPath: "dir/image.jpg?width=auto",
 			wantCode:     http.StatusBadRequest,
 			wantErr:      true,
 		},
 		{
 			name:         "no width parameter",
-			fileFullPath: "dir/image.txt",
-			wantCode:     http.StatusBadRequest,
-			wantErr:      true,
+			fileFullPath: "dir/image.jpg",
+			wantCode:     http.StatusOK,
 		},
 		{
 			name:         "file path is not under the image directory",
