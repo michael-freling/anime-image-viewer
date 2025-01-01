@@ -24,6 +24,33 @@ export function directoriesToTreeViewBaseItems(
   });
 }
 
+export function getDefaultExpandedItems(
+  _: number[],
+  directoryMap: { [id: number]: Directory }
+) {
+  let defaultExpandedItems: string[] = [];
+  for (let directoryId of Object.keys(directoryMap)) {
+    defaultExpandedItems.push(directoryId);
+  }
+  return defaultExpandedItems;
+  //   expand only selected items
+  //   let defaultExpandedItems: string[] = [];
+  //   for (let selectedDirectoryId of selectedDirectoryIds) {
+  //     let directoryId = selectedDirectoryId;
+  //     while (true) {
+  //       defaultExpandedItems.push(String(directoryId));
+  //       let directory = directoryMap[directoryId];
+  //       if (directory === undefined) {
+  //         break;
+  //       }
+  //       if (directory.parentId === 0) {
+  //         break;
+  //       }
+  //       directoryId = directory.parentId;
+  //     }
+  //   }
+}
+
 export const getDirectoryMap = (
   directories: Directory[]
 ): { [id: number]: Directory } => {
@@ -41,6 +68,9 @@ export const getDirectoryMap = (
 const DirectoryExplorer: FC = () => {
   const [rootDirectory, setRootDirectory] = useState<string>("");
   const [children, setChildren] = useState<Directory[]>([]);
+  const [directoryMap, setDirectoryMap] = useState<{ [id: number]: Directory }>(
+    {}
+  );
 
   const navigate = useNavigate();
   useEffect(() => {
@@ -60,6 +90,7 @@ const DirectoryExplorer: FC = () => {
     // todo: stop hardcoding root directory ID 0
     const children = await DirectoryService.ReadChildDirectoriesRecursively(0);
     await setChildren(children);
+    setDirectoryMap(getDirectoryMap(children));
   }
 
   const otherProps = {
@@ -78,13 +109,14 @@ const DirectoryExplorer: FC = () => {
     },
   };
 
-  if (rootDirectory === "") {
+  if (rootDirectory === "" || children.length === 0) {
     return null;
   }
 
   return (
     <RichTreeView
       expansionTrigger="content"
+      defaultExpandedItems={getDefaultExpandedItems([], directoryMap)}
       slots={{
         // todo: RichTreeView doesn't allow to pass a type other than TreeItem2Props
         item: ExplorerTreeItem as any,

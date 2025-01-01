@@ -8,6 +8,7 @@ import {
   TagFrontendService,
 } from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
 import { ExplorerTreeItemWithCheckbox } from "./ExplorerTreeItem";
+import { getDefaultExpandedItems, getTagMap } from "./TagExplorer";
 
 const tagsToTreeViewBaseItems = (
   tags: Tag[],
@@ -60,18 +61,6 @@ const tagsToTreeViewBaseItems = (
       disabled,
     };
   });
-};
-
-const getTagMap = (tags: Tag[]): { [id: number]: Tag } => {
-  const map: { [id: number]: Tag } = {};
-  tags.forEach((tag) => {
-    map[tag.id] = tag;
-    Object.assign(
-      map,
-      getTagMap((tag.children || []).filter((child) => child != null))
-    );
-  });
-  return map;
 };
 
 type SelectTagExplorerProps =
@@ -224,36 +213,9 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
     }
   }
   const defaultSelectedItems = selectedTagIds.map((id) => String(id));
-
-  function getAncestorIds(id: number, tagMap: { [id: number]: Tag }): number[] {
-    const result: number[] = [];
-    let selectedTag = tagMap[id];
-    while (selectedTag != null) {
-      result.push(selectedTag.id);
-      if (selectedTag.parentId == null) {
-        break;
-      }
-      selectedTag = tagMap[selectedTag.parentId];
-    }
-    return result;
-  }
-
   // selected items should be visible as default.
   // So, we need to expand all parent items of selected items.
-  let defaultExpandedItems: string[] = [];
-  for (let selectedItemId of selectedTagIds) {
-    const ancestorIds = getAncestorIds(selectedItemId, tagMap);
-    defaultExpandedItems.push(...ancestorIds.map((id) => String(id)));
-  }
-  // expand tags with indeterminate states
-  if (tagStats != undefined) {
-    for (let [tagId, count] of Object.entries(tagStats.TagCounts)) {
-      if (0 < count && count < fileIds.length) {
-        const ancestorIds = getAncestorIds(parseInt(tagId), tagMap);
-        defaultExpandedItems.push(...ancestorIds.map((id) => String(id)));
-      }
-    }
-  }
+  const defaultExpandedItems = getDefaultExpandedItems(selectedTagIds, tagMap);
 
   return (
     <RichTreeView

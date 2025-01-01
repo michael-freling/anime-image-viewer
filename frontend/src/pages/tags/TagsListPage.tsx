@@ -9,12 +9,17 @@ import {
   ExplorerTreeItem,
   ExplorerTreeItemProps,
 } from "../../components/ExplorerTreeItem";
-import { tagsToTreeViewBaseItems } from "../../components/TagExplorer";
+import {
+  getTagMap,
+  tagsToTreeViewBaseItems,
+} from "../../components/TagExplorer";
 import Layout from "../../Layout";
 import { Add } from "@mui/icons-material";
+import { getDefaultExpandedItems } from "../../components/TagExplorer";
 
 export const TagsListPage: FC = () => {
   const [tags, setTags] = useState<Tag[]>([]);
+  const [tagMap, setTagMap] = useState<{ [id: number]: Tag }>({});
 
   useEffect(() => {
     if (tags.length > 0) {
@@ -27,6 +32,7 @@ export const TagsListPage: FC = () => {
   async function refresh() {
     const tags = await TagFrontendService.GetAll();
     setTags(tags);
+    setTagMap(getTagMap(tags));
   }
 
   if (tags.length === 0) {
@@ -44,7 +50,6 @@ export const TagsListPage: FC = () => {
     await refresh();
   };
 
-  const rootID = "0";
   return (
     <Layout.Main
       actionHeader={
@@ -66,7 +71,7 @@ export const TagsListPage: FC = () => {
     >
       <RichTreeView
         expansionTrigger="content"
-        defaultExpandedItems={[rootID]}
+        defaultExpandedItems={getDefaultExpandedItems([], tagMap)}
         slots={{
           // todo: RichTreeView doesn't allow to pass a type other than TreeItem2Props
           item: ExplorerTreeItem as any,

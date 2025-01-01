@@ -8,6 +8,7 @@ import {
   DirectoryService,
 } from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
 import { ExplorerTreeItemWithCheckbox } from "./ExplorerTreeItem";
+import { getDefaultExpandedItems, getDirectoryMap } from "./DirectoryExplorer";
 
 function directoriesToTreeViewBaseItems(
   directories: Directory[]
@@ -22,20 +23,6 @@ function directoriesToTreeViewBaseItems(
     };
   });
 }
-
-const getDirectoryMap = (
-  directories: Directory[]
-): { [id: number]: Directory } => {
-  const map: { [id: number]: Directory } = {};
-  directories.forEach((directory) => {
-    map[directory.id] = directory;
-    Object.assign(
-      map,
-      getDirectoryMap(directory.children.filter((child) => child != null))
-    );
-  });
-  return map;
-};
 
 type SelectDirectoryExplorerProps =
   | {
@@ -117,21 +104,10 @@ const SelectDirectoryExplorer: FC<SelectDirectoryExplorerProps> = ({
     selectedDirectoryIds = [props.selectedDirectoryId];
   }
   const defaultSelectedItems = selectedDirectoryIds.map((id) => String(id));
-  let defaultExpandedItems: string[] = [];
-  for (let selectedDirectoryId of selectedDirectoryIds) {
-    let directoryId = selectedDirectoryId;
-    while (true) {
-      defaultExpandedItems.push(String(directoryId));
-      let directory = directoryMap[directoryId];
-      if (directory === undefined) {
-        break;
-      }
-      if (directory.parentId === 0) {
-        break;
-      }
-      directoryId = directory.parentId;
-    }
-  }
+  const defaultExpandedItems = getDefaultExpandedItems(
+    selectedDirectoryIds,
+    directoryMap
+  );
 
   return (
     <RichTreeView
