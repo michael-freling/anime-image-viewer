@@ -261,7 +261,8 @@ func TestTagFrontendService_BatchUpdateTagsForFiles(t *testing.T) {
 			service := &TagFrontendService{
 				dbClient: dbClient,
 			}
-			gotErr := service.BatchUpdateTagsForFiles(tc.fileIDs, tc.addedTagIDs, tc.deletedTagIDs)
+			ctx := context.Background()
+			gotErr := service.BatchUpdateTagsForFiles(ctx, tc.fileIDs, tc.addedTagIDs, tc.deletedTagIDs)
 			if tc.wantErr != nil {
 				assert.ErrorIs(t, gotErr, tc.wantErr)
 				return

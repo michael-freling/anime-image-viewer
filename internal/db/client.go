@@ -194,3 +194,9 @@ func (ormClient *ORMClient[Model]) BatchCreate(ctx context.Context, values []Mod
 		Create(values).
 		Error
 }
+
+func (ormClient *ORMClient[Model]) BatchDelete(ctx context.Context, values []Model) error {
+	return ormClient.getTransaction(ctx).
+		Delete(values).
+		Error
+}

@@ -1,6 +1,8 @@
 package db
 
-import "gorm.io/gorm"
+import (
+	"context"
+)
 
 type TagType string
 
@@ -56,24 +58,20 @@ type FileTag struct {
 	CreatedAt uint `gorm:"autoCreateTime"`
 }
 
-type FileTagClient ORMClient[FileTag]
+type FileTagClient struct {
+	*ORMClient[FileTag]
+}
 
 func newFileTagClient(client *Client) *FileTagClient {
 	return &FileTagClient{
-		connection: client.connection,
+		&ORMClient[FileTag]{
+			connection: client.connection,
+		},
 	}
 }
 
 func (client Client) FileTag() *FileTagClient {
 	return newFileTagClient(&client)
-}
-
-func (client FileTagClient) WithTransaction(f func(*FileTagClient) error) error {
-	return client.connection.Transaction(func(tx *gorm.DB) error {
-		return f(&FileTagClient{
-			connection: tx,
-		})
-	})
 }
 
 type FileTagList []FileTag
@@ -142,11 +140,7 @@ func (client *FileTagClient) FindAllByTagIDs(tagIDs []uint) (FileTagList, error)
 	return values, err
 }
 
-func (client *FileTagClient) BatchCreate(values []FileTag) error {
-	return client.connection.Create(values).Error
-}
-
-func (client *FileTagClient) BatchDelete(tagIDs []uint, fileIDs []uint) error {
+func (client *FileTagClient) BatchDelete(ctx context.Context, tagIDs []uint, fileIDs []uint) error {
 	fileTags := make([]FileTag, 0, len(tagIDs)*len(fileIDs))
 	for _, tagID := range tagIDs {
 		for _, fileID := range fileIDs {
@@ -157,5 +151,5 @@ func (client *FileTagClient) BatchDelete(tagIDs []uint, fileIDs []uint) error {
 		}
 	}
 
-	return client.connection.Delete(fileTags).Error
+	return client.ORMClient.BatchDelete(ctx, fileTags)
 }
