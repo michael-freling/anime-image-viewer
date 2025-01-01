@@ -14,7 +14,7 @@ const LazyImage: React.FC<
     rootMargin: "200px 0px",
   });
   var query = new URLSearchParams();
-  query.append("width", width.toFixed(0));
+  query.append("width", (width * 2).toFixed(0));
 
   return (
     <AspectRatio ref={ref} ratio="16/9" objectFit="contain">
