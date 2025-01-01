@@ -206,7 +206,7 @@ func (service TagFrontendService) ReadTagsByFileIDs(
 	return response, nil
 }
 
-func (service TagFrontendService) BatchUpdateTagsForFiles(fileIDs []uint, addedTagIDs []uint, deletedTagIDs []uint) error {
+func (service TagFrontendService) BatchUpdateTagsForFiles(ctx context.Context, fileIDs []uint, addedTagIDs []uint, deletedTagIDs []uint) error {
 	fileTagClient := service.dbClient.FileTag()
 	fileTags, err := fileTagClient.FindAllByFileID(fileIDs)
 	if err != nil {
@@ -232,14 +232,15 @@ func (service TagFrontendService) BatchUpdateTagsForFiles(fileIDs []uint, addedT
 		return nil
 	}
 
-	err = fileTagClient.WithTransaction(func(ormClient *db.FileTagClient) error {
+	err = db.NewTransaction(ctx, service.dbClient, func(ctx context.Context) error {
+		ormClient := service.dbClient.FileTag()
 		if len(deletedTagIDs) > 0 {
-			if err := ormClient.BatchDelete(deletedTagIDs, fileIDs); err != nil {
+			if err := ormClient.BatchDelete(ctx, deletedTagIDs, fileIDs); err != nil {
 				return fmt.Errorf("ormClient.DeleteByFileIDs: %w", err)
 			}
 		}
 		if len(createdFileTags) > 0 {
-			if err := ormClient.BatchCreate(createdFileTags); err != nil {
+			if err := ormClient.BatchCreate(ctx, createdFileTags); err != nil {
 				return fmt.Errorf("ormClient.BatchCreate: %w", err)
 			}
 		}
