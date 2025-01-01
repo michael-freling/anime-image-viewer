@@ -5,6 +5,7 @@ import {
   CardActions,
   CardOverflow,
   Checkbox,
+  ToggleButtonGroup,
   //  Link,
   Typography,
 } from "@mui/joy";
@@ -27,10 +28,12 @@ export type ViewImageType = Image & {
 };
 
 const ImageCard = memo(function ImageCard({
+  mode,
   image,
   width,
   onChange,
 }: {
+  mode: Mode;
   image: ViewImageType;
   width: number;
   onChange: (
@@ -59,13 +62,15 @@ const ImageCard = memo(function ImageCard({
           alignItems: "center",
         }}
       >
-        <Checkbox
-          overlay
-          checked={image.selected}
-          onChange={(event: ChangeEvent<HTMLInputElement>) => {
-            onChange(event, image);
-          }}
-        />
+        {mode == "edit" && (
+          <Checkbox
+            overlay
+            checked={image.selected}
+            onChange={(event: ChangeEvent<HTMLInputElement>) => {
+              onChange(event, image);
+            }}
+          />
+        )}
         <Typography level="title-sm">
           {image.name.substring(0, 10)}...
           {image.name.substring(image.name.length - 10)}
@@ -79,12 +84,13 @@ const ImageCard = memo(function ImageCard({
 });
 
 export const ImageList: FC<{
+  mode: Mode;
   images: ViewImageType[];
   onChange: (
     checkboxEvent: ChangeEvent<HTMLInputElement>,
     image: ViewImageType
   ) => void;
-}> = ({ images, onChange }) => {
+}> = ({ mode, images, onChange }) => {
   const width = 240;
   return (
     <Box
@@ -97,6 +103,7 @@ export const ImageList: FC<{
       {images.map((image) => (
         <ImageCard
           key={image.id}
+          mode={mode}
           image={image}
           width={width}
           onChange={onChange}
@@ -233,6 +240,8 @@ const useChangeWithShirtKey = ({ loadedImages, toggleImageSelects }) => {
   );
 };
 
+type Mode = "view" | "edit";
+
 export interface ImageListContainerProps {
   loadedImages: Image[];
   withListWrappedComponent?: (children: JSX.Element) => JSX.Element[];
@@ -280,11 +289,16 @@ const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
     },
     [setImages]
   );
+
+  const [mode, setMode] = useState<Mode>("view");
+
   const onChange = useChangeWithShirtKey({ loadedImages, toggleImageSelects });
   const children = withListWrappedComponent ? (
-    withListWrappedComponent(<ImageList images={images} onChange={onChange} />)
+    withListWrappedComponent(
+      <ImageList mode={mode} images={images} onChange={onChange} />
+    )
   ) : (
-    <ImageList images={images} onChange={onChange} />
+    <ImageList mode={mode} images={images} onChange={onChange} />
   );
 
   return (
@@ -292,41 +306,72 @@ const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
       actionHeader={
         <>
           <Typography>Selected {selectedImageCount} images</Typography>
-          <Button
-            color="primary"
-            disabled={selectedImageCount === 0}
-            onClick={() => {
-              const imageIds = images
-                .filter((image) => image.selected)
-                .map((image) => String(image.id));
-              navigate({
-                pathname: "/images/edit/tags/suggestion",
-                search: createSearchParams({
-                  imageIds: imageIds,
-                }).toString(),
-              });
+          <ToggleButtonGroup
+            value={mode}
+            onChange={(event, newMode) => {
+              if (newMode === null || mode === newMode) {
+                return;
+              }
+              setMode(newMode);
+              if (newMode === "view") {
+                setImages(
+                  images.map((image) => {
+                    if (!image.selected) {
+                      return image;
+                    }
+
+                    return {
+                      ...image,
+                      selected: false,
+                    };
+                  })
+                );
+              }
             }}
           >
-            Suggest tags
-          </Button>
-          <Button
-            variant="outlined"
-            color="primary"
-            disabled={selectedImageCount === 0}
-            onClick={() => {
-              const imageIds = images
-                .filter((image) => image.selected)
-                .map((image) => String(image.id));
-              navigate({
-                pathname: "/images/edit/tags",
-                search: createSearchParams({
-                  imageIds: imageIds,
-                }).toString(),
-              });
-            }}
-          >
-            Edit tags manually
-          </Button>
+            <Button value="view">View</Button>
+            <Button value="edit">Edit</Button>
+          </ToggleButtonGroup>
+
+          {mode == "edit" && (
+            <>
+              <Button
+                color="primary"
+                disabled={selectedImageCount === 0}
+                onClick={() => {
+                  const imageIds = images
+                    .filter((image) => image.selected)
+                    .map((image) => String(image.id));
+                  navigate({
+                    pathname: "/images/edit/tags/suggestion",
+                    search: createSearchParams({
+                      imageIds: imageIds,
+                    }).toString(),
+                  });
+                }}
+              >
+                Suggest tags
+              </Button>
+              <Button
+                variant="outlined"
+                color="primary"
+                disabled={selectedImageCount === 0}
+                onClick={() => {
+                  const imageIds = images
+                    .filter((image) => image.selected)
+                    .map((image) => String(image.id));
+                  navigate({
+                    pathname: "/images/edit/tags",
+                    search: createSearchParams({
+                      imageIds: imageIds,
+                    }).toString(),
+                  });
+                }}
+              >
+                Edit tags manually
+              </Button>
+            </>
+          )}
         </>
       }
     >
