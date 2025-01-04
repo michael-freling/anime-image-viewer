@@ -28,20 +28,34 @@ type TestClient struct {
 	mockNow time.Time
 }
 
+// The sqlite_sequence table is used by sqlite to store the autoincrement value for each table.
+type SqliteSequence struct {
+	Name string `gorm:"column:name"`
+	Seq  int    `gorm:"column:seq"`
+}
+
+func (SqliteSequence) TableName() string {
+	return "sqlite_sequence"
+}
+
 func NewTestClient(t *testing.T) TestClient {
 	client, err := NewClient(DSNMemory, WithNopLogger())
 	mockTime := time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)
-	client.connection = client.connection.Session(&gorm.Session{
-		NowFunc: func() time.Time {
-			return mockTime
-		},
-	})
 
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, client.Close())
 	})
-	client.Migrate()
+	require.NoError(t, client.Migrate())
+	// delete auto created records and reset auto increment values
+	require.NoError(t, client.Truncate(Tag{}))
+	client.Truncate(SqliteSequence{})
+
+	client.connection = client.connection.Session(&gorm.Session{
+		NowFunc: func() time.Time {
+			return mockTime
+		},
+	})
 
 	return TestClient{
 		client,
@@ -74,6 +88,37 @@ func (client *TestClient) Truncate(t *testing.T, models ...interface{}) {
 		}).Delete(&model).Error
 		require.NoError(t, err)
 	}
+}
+
+type FileBuilder struct {
+	mockNow time.Time
+	images  map[uint]File
+}
+
+func (client *TestClient) NewFileBuilder() *FileBuilder {
+	return &FileBuilder{
+		mockNow: client.mockNow,
+		images:  make(map[uint]File),
+	}
+}
+
+func (builder *FileBuilder) AddImage(t *testing.T, image File) *FileBuilder {
+	require.NotEmpty(t, image.ID)
+
+	image.Type = FileTypeImage
+	if image.CreatedAt == 0 {
+		image.CreatedAt = uint(builder.mockNow.Unix())
+	}
+	if image.UpdatedAt == 0 {
+		image.UpdatedAt = uint(builder.mockNow.Unix())
+	}
+	builder.images[image.ID] = image
+	return builder
+}
+
+func (builder FileBuilder) BuildImage(t *testing.T, id uint) File {
+	require.Contains(t, builder.images, id)
+	return builder.images[id]
 }
 
 type TagBuilder struct {

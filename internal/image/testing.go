@@ -55,11 +55,15 @@ const (
 	TestImageFileNonImage TestImageFile = "image.txt"
 )
 
+func (creator *FileCreator) GetImagePath(parentDirectory Directory, imageFile ImageFile) string {
+	return filepath.Join(creator.staticFilePrefix, parentDirectory.RelativePath, imageFile.Name)
+}
+
 func (creator *FileCreator) CreateImage(t *testing.T, imageFile ImageFile, source TestImageFile) *FileCreator {
 	require.NotZero(t, imageFile.ParentID)
 	parentDirectory := creator.directories[imageFile.ParentID]
 	imageFile.LocalFilePath = filepath.Join(parentDirectory.Path, imageFile.Name)
-	imageFile.Path = filepath.Join(creator.staticFilePrefix, parentDirectory.RelativePath, imageFile.Name)
+	imageFile.Path = creator.GetImagePath(parentDirectory, imageFile)
 
 	if source != TestImageFileNone {
 		_, err := Copy(

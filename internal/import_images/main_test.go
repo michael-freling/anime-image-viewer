@@ -35,17 +35,31 @@ func newTester(t *testing.T) Tester {
 	}
 }
 
+func (tester Tester) copyXMPFile(t *testing.T, imageFile image.TestImageFile, destinationFilePath string) {
+	sourceFilePath := tester.getTestFilePath(string(imageFile) + ".xmp")
+	_, err := os.Stat(sourceFilePath)
+	require.NoError(t, err)
+
+	sourceFile, err := os.Open(sourceFilePath)
+	require.NoError(t, err)
+	defer sourceFile.Close()
+
+	destinationFile, err := os.Create(destinationFilePath)
+	require.NoError(t, err)
+	defer destinationFile.Close()
+
+	_, err = io.Copy(destinationFile, sourceFile)
+	require.NoError(t, err)
+
+}
+
 func (tester Tester) getBatchImageImporter() *BatchImageImporter {
 	return NewBatchImageImporter(
 		tester.logger,
 		tester.dbClient.Client,
 		tester.getImageFileConverter(),
-		tester.getXMPReader(),
+		tester.getTagReader(),
 	)
-}
-
-func (tester Tester) getXMPReader() *XMPReader {
-	return NewXMPReader()
 }
 
 func (tester Tester) getImageFileConverter() *image.ImageFileConverter {

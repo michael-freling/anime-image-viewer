@@ -12,9 +12,9 @@ import (
 func TestBatchTagImporter_importTags(t *testing.T) {
 	tester := newTester(t)
 	dbTagBuilder := tester.dbClient.NewTagBuilder().
-		AddTag(t, db.Tag{ID: 3, Name: "New Tag 1"}).
-		AddTag(t, db.Tag{ID: 4, Name: "New Tag 10", ParentID: 3}).
-		AddTag(t, db.Tag{ID: 5, Name: "New Tag 100", ParentID: 4})
+		AddTag(t, db.Tag{ID: 1, Name: "New Tag 1"}).
+		AddTag(t, db.Tag{ID: 2, Name: "New Tag 10", ParentID: 1}).
+		AddTag(t, db.Tag{ID: 3, Name: "New Tag 100", ParentID: 2})
 
 	testCases := []struct {
 		name string
@@ -38,12 +38,12 @@ func TestBatchTagImporter_importTags(t *testing.T) {
 				},
 			},
 			wantInsertTags: []db.Tag{
+				dbTagBuilder.Build(t, 1),
+				dbTagBuilder.Build(t, 2),
 				dbTagBuilder.Build(t, 3),
-				dbTagBuilder.Build(t, 4),
-				dbTagBuilder.Build(t, 5),
 			},
 			wantInsertFileTags: []db.FileTag{
-				dbTagBuilder.AddFileTag(t, db.FileTag{FileID: 1, TagID: 5, AddedBy: db.FileTagAddedByImport}).BuildFileTag(t, 1, 5),
+				dbTagBuilder.AddFileTag(t, db.FileTag{FileID: 1, TagID: 3, AddedBy: db.FileTagAddedByImport}).BuildFileTag(t, 1, 3),
 			},
 		},
 		{

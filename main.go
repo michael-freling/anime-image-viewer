@@ -181,7 +181,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 					logger,
 					dbClient,
 					imageFileConverter,
-					import_images.NewXMPReader(),
+					tagReader,
 				),
 			)),
 		},
