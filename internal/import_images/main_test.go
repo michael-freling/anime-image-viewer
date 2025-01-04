@@ -85,6 +85,13 @@ func (tester Tester) getTestFilePath(filePath string) string {
 	return filepath.Join("..", "..", "testdata", filePath)
 }
 
+func (tester Tester) getFileStat(t *testing.T, imageFilePath image.TestImageFile) os.FileInfo {
+	filePath := tester.getTestFilePath(string(imageFilePath))
+	stat, err := os.Stat(filePath)
+	require.NoError(t, err)
+	return stat
+}
+
 func (tester Tester) newFileCreator() *image.FileCreator {
 	return image.NewFileCreator(tester.config.ImageRootDirectory)
 }

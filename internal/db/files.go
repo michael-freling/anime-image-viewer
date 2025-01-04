@@ -10,10 +10,16 @@ const (
 )
 
 type File struct {
-	ID        uint
-	ParentID  uint   `gorm:"uniqueIndex:parent_id_name,index:parent_id_created_at"`
-	Name      string `gorm:"uniqueIndex:parent_id_name"`
-	Type      FileType
+	ID       uint
+	ParentID uint   `gorm:"uniqueIndex:parent_id_name,index:parent_id_created_at"`
+	Name     string `gorm:"uniqueIndex:parent_id_name"`
+	Type     FileType
+
+	// ImageCreatedAt is a creation timestamp of an image file
+	// when an image is imported, a timestamp is copied from the source image file
+	ImageCreatedAt uint `gorm:"index:parent_id_image_created_at"`
+
+	// CreatedAt is a timestamp of the record creation
 	CreatedAt uint `gorm:"autoCreateTime,index:parent_id_created_at"`
 	UpdatedAt uint
 }

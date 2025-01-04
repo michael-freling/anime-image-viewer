@@ -3,7 +3,9 @@ package import_images
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
@@ -31,7 +33,8 @@ func TestBatchImageImporter_importImageFiles(t *testing.T) {
 		CreateImage(t, image.ImageFile{ID: 98, Name: "other_image_in_db.jpg", ParentID: destinationDirectory.ID, ContentType: "image/jpeg"}, image.TestImageFileJpeg).
 		CreateDirectory(t, image.Directory{ID: 2, Name: "testdata"}).
 		CreateImage(t, image.ImageFile{Name: "image2.jpg", ParentID: 2, ContentType: "image/jpeg"}, image.TestImageFileJpeg).
-		CreateImage(t, image.ImageFile{ID: 20, Name: "image2.png", ParentID: 2, ContentType: "image/png"}, image.TestImageFilePng)
+		CreateImage(t, image.ImageFile{ID: 20, Name: "image2.png", ParentID: 2, ContentType: "image/png"}, image.TestImageFilePng).
+		CreateImage(t, image.ImageFile{ID: 21, Name: "image21.png", ParentID: 2, ContentType: "image/png"}, image.TestImageFilePng)
 
 	directoryForUploadingTestImages := fileBuilder.BuildDirectory(2)
 	tester.copyXMPFile(t,
@@ -43,18 +46,22 @@ func TestBatchImageImporter_importImageFiles(t *testing.T) {
 		filepath.Join(directoryForUploadingTestImages.Path, "image2.jpg.xmp"),
 	)
 
+	jpegFileStat := tester.getFileStat(t, image.TestImageFileJpeg)
+	pngFileStat := tester.getFileStat(t, image.TestImageFilePng)
 	dbFileBuilder := tester.dbClient.NewFileBuilder()
 	dbTagBuilder := tester.dbClient.NewTagBuilder()
 
 	testCases := []struct {
-		name                 string
+		name string
+
 		sourceFilePaths      []string
 		destinationDirectory image.Directory
-		want                 []image.ImageFile
-		wantInsertFiles      []db.File
-		wantInsertTags       []db.Tag
-		wantInsertFileTags   []db.FileTag
-		wantErrors           []error
+
+		want               []image.ImageFile
+		wantInsertFiles    []db.File
+		wantInsertTags     []db.Tag
+		wantInsertFileTags []db.FileTag
+		wantErrors         []error
 	}{
 		{
 			name: "succeed to import image files without an error",
@@ -78,8 +85,8 @@ func TestBatchImageImporter_importImageFiles(t *testing.T) {
 				return []image.ImageFile{image10, image20}
 			}(),
 			wantInsertFiles: []db.File{
-				dbFileBuilder.AddImage(t, db.File{ID: 1, Name: "image2.jpg", ParentID: 1}).BuildImage(t, 1),
-				dbFileBuilder.AddImage(t, db.File{ID: 2, Name: "image2.png", ParentID: 1}).BuildImage(t, 2),
+				dbFileBuilder.AddImage(t, db.File{ID: 1, Name: "image2.jpg", ParentID: 1, ImageCreatedAt: uint(jpegFileStat.ModTime().Unix())}).BuildImage(t, 1),
+				dbFileBuilder.AddImage(t, db.File{ID: 2, Name: "image2.png", ParentID: 1, ImageCreatedAt: uint(pngFileStat.ModTime().Unix())}).BuildImage(t, 2),
 			},
 			wantInsertTags: dbTagBuilder.BuildTags(t,
 				db.Tag{ID: 1, Name: "Test 1"},
@@ -97,26 +104,25 @@ func TestBatchImageImporter_importImageFiles(t *testing.T) {
 		{
 			name: "succeed to import image files with errors",
 			sourceFilePaths: []string{
-				tester.getTestFilePath(string(image.TestImageFilePng)),
+				fileBuilder.BuildImageFile(21).LocalFilePath,
+				// tester.getTestFilePath(string(image.TestImageFilePng)),
 				tester.getTestFilePath("image.txt"),
 				fileBuilder.BuildImageFile(99).LocalFilePath,
 				fileBuilder.BuildImageFile(98).LocalFilePath,
 			},
 			destinationDirectory: fileBuilder.BuildDirectory(1),
-			want: []image.ImageFile{
+			want: func() []image.ImageFile {
+				destinationDirectory := fileBuilder.BuildDirectory(1)
 				// id will be overwritten
-				fileBuilder.BuildImageFile(11),
-			},
+				image21 := fileBuilder.BuildImageFile(21)
+				image21.ParentID = 1
+				image21.Path = fileBuilder.GetImagePath(destinationDirectory, image21)
+				image21.LocalFilePath = filepath.Join(fileBuilder.BuildDirectory(1).Path, image21.Name)
+
+				return []image.ImageFile{image21}
+			}(),
 			wantInsertFiles: []db.File{
-				dbFileBuilder.AddImage(t, db.File{ID: 3, Name: "image.png", ParentID: 1}).BuildImage(t, 3),
-			},
-			wantInsertTags: dbTagBuilder.BuildTags(t,
-				db.Tag{ID: 6, Name: "Test 2"},
-				db.Tag{ID: 7, Name: "Test 20", ParentID: 6},
-			),
-			wantInsertFileTags: []db.FileTag{
-				dbTagBuilder.AddFileTag(t, db.FileTag{FileID: 3, TagID: 6, AddedBy: db.FileTagAddedByImport}).BuildFileTag(t, 3, 6),
-				dbTagBuilder.AddFileTag(t, db.FileTag{FileID: 3, TagID: 7, AddedBy: db.FileTagAddedByImport}).BuildFileTag(t, 3, 7),
+				dbFileBuilder.AddImage(t, db.File{ID: 3, Name: "image21.png", ParentID: 1, ImageCreatedAt: uint(pngFileStat.ModTime().Unix())}).BuildImage(t, 3),
 			},
 			wantErrors: []error{
 				image.ErrUnsupportedImageFile,
@@ -165,6 +171,22 @@ func TestBatchImageImporter_importImageFiles(t *testing.T) {
 				tc.want[i].ID = got[i].ID
 			}
 			assert.Equal(t, tc.want, got)
+
+			for index, want := range tc.want {
+				wantImageFilePath := want.LocalFilePath
+				assert.FileExists(t, wantImageFilePath)
+
+				sourceFilePath := tc.sourceFilePaths[index]
+				sourceStat, err := os.Stat(sourceFilePath)
+				assert.NoError(t, err)
+				destinationStat, err := os.Stat(wantImageFilePath)
+				assert.NoError(t, err)
+
+				assert.Equal(t, sourceStat.ModTime(), destinationStat.ModTime())
+				sourceSysStat := sourceStat.Sys().(*syscall.Stat_t)
+				dstSysStat := destinationStat.Sys().(*syscall.Stat_t)
+				assert.Equal(t, sourceSysStat.Atim, dstSysStat.Atim)
+			}
 
 			gotFiles := db.MustGetAll[db.File](t, dbClient)
 			assert.Equal(t, tc.wantInsertFiles, gotFiles)

@@ -17,6 +17,8 @@ type FileCreator struct {
 	directories        map[uint]Directory
 	localDirectoryPath map[uint]string
 	imageFiles         map[uint]ImageFile
+
+	imageStats map[uint]os.FileInfo
 }
 
 func NewFileCreator(localFilePrefix string) *FileCreator {
@@ -27,6 +29,7 @@ func NewFileCreator(localFilePrefix string) *FileCreator {
 		localDirectoryPath: map[uint]string{},
 		directories:        map[uint]Directory{},
 		imageFiles:         map[uint]ImageFile{},
+		imageStats:         map[uint]os.FileInfo{},
 	}
 }
 
@@ -66,11 +69,20 @@ func (creator *FileCreator) CreateImage(t *testing.T, imageFile ImageFile, sourc
 	imageFile.Path = creator.GetImagePath(parentDirectory, imageFile)
 
 	if source != TestImageFileNone {
+		sourceFilePath := filepath.Join("..", "..", "testdata", string(source))
+		destinationFilePath := imageFile.LocalFilePath
 		_, err := Copy(
-			filepath.Join("..", "..", "testdata", string(source)),
-			imageFile.LocalFilePath,
+			sourceFilePath,
+			destinationFilePath,
 		)
 		require.NoError(t, err)
+		sourceStat, err := os.Stat(imageFile.LocalFilePath)
+		require.NoError(t, err)
+		destinationStat, err := os.Stat(destinationFilePath)
+		require.NoError(t, err)
+		require.Equal(t, sourceStat, destinationStat)
+
+		creator.imageStats[imageFile.ID] = sourceStat
 	}
 
 	creator.imageFiles[imageFile.ID] = imageFile
@@ -97,16 +109,23 @@ func (creator FileCreator) BuildImageFile(id uint) ImageFile {
 }
 
 func (creator FileCreator) BuildDBImageFile(t *testing.T, id uint) db.File {
+	require.Contains(t, creator.imageFiles, id, "image file %d not found", id)
+
 	createdAt := time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, int(id))
 
 	imageFile, ok := creator.imageFiles[id]
 	require.True(t, ok, "image file %d not found", id)
 
-	return db.File{
+	result := db.File{
 		ID:        imageFile.ID,
 		Name:      imageFile.Name,
 		ParentID:  imageFile.ParentID,
 		Type:      db.FileTypeImage,
 		CreatedAt: uint(createdAt.Unix()),
 	}
+	if imageStat, ok := creator.imageStats[id]; ok {
+		result.ImageCreatedAt = uint(imageStat.ModTime().Unix())
+	}
+
+	return result
 }

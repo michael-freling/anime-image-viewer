@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
@@ -47,6 +49,11 @@ var (
 )
 
 func Copy(sourceFilePath, destinationFilePath string) (int64, error) {
+	sourceMeta, err := os.Stat(sourceFilePath)
+	if err != nil {
+		return 0, fmt.Errorf("os.Stat: %w", err)
+	}
+
 	source, err := os.Open(sourceFilePath)
 	if err != nil {
 		return 0, fmt.Errorf("os.Open > %W", err)
@@ -67,6 +74,18 @@ func Copy(sourceFilePath, destinationFilePath string) (int64, error) {
 	if err = bufferWriter.Flush(); err != nil {
 		return nBytes, fmt.Errorf("bufferWriter.Flush: %w", err)
 	}
+
+	// Copy a permission of a source
+	if err = os.Chmod(destinationFilePath, sourceMeta.Mode()); err != nil {
+		return 0, fmt.Errorf("os.Chmod: %w", err)
+	}
+	// Copy a access time and modification time of a source
+	detailedSourceStat := sourceMeta.Sys().(*syscall.Stat_t)
+	atime := time.Unix(detailedSourceStat.Atim.Sec, detailedSourceStat.Atim.Nsec)
+	if err = os.Chtimes(destinationFilePath, atime, sourceMeta.ModTime()); err != nil {
+		return 0, fmt.Errorf("os.Chtimes: %w", err)
+	}
+
 	return nBytes, nil
 }
 

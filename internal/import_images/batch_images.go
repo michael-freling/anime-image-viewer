@@ -85,9 +85,10 @@ func (batchImporter *BatchImageImporter) readImageFilePaths(
 
 			importImage := importImage{
 				image: db.File{
-					Name:     filepath.Base(sourceFilePath),
-					ParentID: destinationParentDirectory.ID,
-					Type:     db.FileTypeImage,
+					Name:           filepath.Base(sourceFilePath),
+					ParentID:       destinationParentDirectory.ID,
+					Type:           db.FileTypeImage,
+					ImageCreatedAt: uint(pathStat.ModTime().Unix()),
 				},
 				sourceFilePath: sourceFilePath,
 				xmp:            xmpFile,
