@@ -10,13 +10,12 @@ import (
 	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"github.com/michael-freling/anime-image-viewer/internal/search"
 	"github.com/michael-freling/anime-image-viewer/internal/tag"
-	"github.com/stretchr/testify/require"
 )
 
 type tester struct {
 	logger   *slog.Logger
 	config   config.Config
-	dbClient *db.Client
+	dbClient db.TestClient
 }
 
 type testerOption struct {
@@ -42,13 +41,7 @@ func newTester(t *testing.T, opts ...newTesterOption) tester {
 		opt(defaultOption)
 	}
 
-	dbClient, err := db.NewClient(db.DSNMemory, defaultOption.gormLoggerOption)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		dbClient.Close()
-	})
-	dbClient.Migrate()
-
+	dbClient := db.NewTestClient(t)
 	cfg := config.Config{
 		ImageRootDirectory: t.TempDir(),
 	}
@@ -64,7 +57,7 @@ func (tester tester) getSearchService() *SearchService {
 	return NewSearchService(
 		search.NewSearchRunner(
 			tester.logger,
-			tester.dbClient,
+			tester.dbClient.Client,
 			tester.getDirectoryReader(),
 			tester.getFileReader(),
 			tester.getTagReader(),
@@ -80,19 +73,19 @@ func (tester tester) getImageConverter() *image.ImageFileConverter {
 
 func (tester tester) getFileReader() *image.Reader {
 	return image.NewReader(
-		tester.dbClient,
+		tester.dbClient.Client,
 		tester.getDirectoryReader(),
 		tester.getImageConverter(),
 	)
 }
 
 func (tester tester) getDirectoryReader() *image.DirectoryReader {
-	return image.NewDirectoryReader(tester.config, tester.dbClient)
+	return image.NewDirectoryReader(tester.config, tester.dbClient.Client)
 }
 
 func (tester tester) getTagReader() *tag.Reader {
 	return tag.NewReader(
-		tester.dbClient,
+		tester.dbClient.Client,
 		tester.getDirectoryReader(),
 	)
 }

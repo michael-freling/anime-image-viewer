@@ -18,7 +18,7 @@ type FileCreator struct {
 	localDirectoryPath map[uint]string
 	imageFiles         map[uint]ImageFile
 
-	imageStats map[uint]os.FileInfo
+	imageCreatedAtMap map[uint]time.Time
 }
 
 func NewFileCreator(localFilePrefix string) *FileCreator {
@@ -29,7 +29,7 @@ func NewFileCreator(localFilePrefix string) *FileCreator {
 		localDirectoryPath: map[uint]string{},
 		directories:        map[uint]Directory{},
 		imageFiles:         map[uint]ImageFile{},
-		imageStats:         map[uint]os.FileInfo{},
+		imageCreatedAtMap:  map[uint]time.Time{},
 	}
 }
 
@@ -82,7 +82,7 @@ func (creator *FileCreator) CreateImage(t *testing.T, imageFile ImageFile, sourc
 		require.NoError(t, err)
 		require.Equal(t, sourceStat, destinationStat)
 
-		creator.imageStats[imageFile.ID] = sourceStat
+		creator.imageCreatedAtMap[imageFile.ID] = sourceStat.ModTime()
 	}
 
 	creator.imageFiles[imageFile.ID] = imageFile
@@ -108,6 +108,11 @@ func (creator FileCreator) BuildImageFile(id uint) ImageFile {
 	return creator.imageFiles[id]
 }
 
+func (creator FileCreator) AddImageCreatedAt(t *testing.T, id uint, imageCreatedAt time.Time) {
+	require.Contains(t, creator.imageFiles, id, "image file %d not found", id)
+	creator.imageCreatedAtMap[id] = imageCreatedAt
+}
+
 func (creator FileCreator) BuildDBImageFile(t *testing.T, id uint) db.File {
 	require.Contains(t, creator.imageFiles, id, "image file %d not found", id)
 
@@ -123,8 +128,8 @@ func (creator FileCreator) BuildDBImageFile(t *testing.T, id uint) db.File {
 		Type:      db.FileTypeImage,
 		CreatedAt: uint(createdAt.Unix()),
 	}
-	if imageStat, ok := creator.imageStats[id]; ok {
-		result.ImageCreatedAt = uint(imageStat.ModTime().Unix())
+	if imageStat, ok := creator.imageCreatedAtMap[id]; ok {
+		result.ImageCreatedAt = uint(imageStat.Unix())
 	}
 
 	return result

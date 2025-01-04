@@ -3,11 +3,11 @@ package frontend
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSearchService_Search(t *testing.T) {
@@ -15,19 +15,31 @@ func TestSearchService_Search(t *testing.T) {
 	dbClient := tester.dbClient
 
 	fileBuilder := tester.newFileCreator()
-	// a root directory is Directory 1
-	fileBuilder.CreateDirectory(t, image.Directory{ID: 1, Name: "Directory 1"})
-	fileBuilder.CreateDirectory(t, image.Directory{ID: 10, Name: "Directory 10", ParentID: 1})
-	fileBuilder.CreateImage(t, image.ImageFile{ID: 11, Name: "image file 11", ParentID: 1}, image.TestImageFileJpeg)
-	fileBuilder.CreateImage(t, image.ImageFile{ID: 12, Name: "image file 12", ParentID: 1}, image.TestImageFileJpeg)
-	fileBuilder.CreateDirectory(t, image.Directory{ID: 100, Name: "Directory 100", ParentID: 10})
-	fileBuilder.CreateImage(t, image.ImageFile{ID: 101, Name: "image file 101", ParentID: 10}, image.TestImageFileJpeg)
-	fileBuilder.CreateImage(t, image.ImageFile{ID: 102, Name: "image file 102", ParentID: 10}, image.TestImageFileJpeg)
-	fileBuilder.CreateImage(t, image.ImageFile{ID: 1001, Name: "image file 1001", ParentID: 100}, image.TestImageFileJpeg)
-	// a root directory is Directory
-	fileBuilder.CreateDirectory(t, image.Directory{ID: 2, Name: "Directory 2"})
-	fileBuilder.CreateImage(t, image.ImageFile{ID: 21, Name: "image file 21", ParentID: 2}, image.TestImageFileJpeg)
-	fileBuilder.CreateImage(t, image.ImageFile{ID: 22, Name: "image file 22", ParentID: 2}, image.TestImageFileJpeg)
+	for _, dir := range []image.Directory{
+		{ID: 1, Name: "Directory 1"},
+		{ID: 10, Name: "Directory 10", ParentID: 1},
+		{ID: 100, Name: "Directory 100", ParentID: 10},
+
+		// a root directory is Directory 2
+		{ID: 2, Name: "Directory 2"},
+	} {
+		fileBuilder.CreateDirectory(t, dir)
+	}
+	for _, imageFile := range []image.ImageFile{
+		// a root directory is Directory 1
+		{ID: 11, Name: "image file 11", ParentID: 1},
+		{ID: 12, Name: "image file 12", ParentID: 1},
+		{ID: 101, Name: "image file 101", ParentID: 10},
+		{ID: 102, Name: "image file 102", ParentID: 10},
+		{ID: 1001, Name: "image file 1001", ParentID: 100},
+
+		// a root directory is Directory 2
+		{ID: 21, Name: "image file 21", ParentID: 2},
+		{ID: 22, Name: "image file 22", ParentID: 2},
+	} {
+		fileBuilder.CreateImage(t, imageFile, image.TestImageFileJpeg)
+		fileBuilder.AddImageCreatedAt(t, imageFile.ID, time.Date(2021, 1, 1, 0, 0, int(imageFile.ID), 0, time.UTC))
+	}
 
 	type testCase struct {
 		name    string
@@ -42,16 +54,10 @@ func TestSearchService_Search(t *testing.T) {
 	}
 	runTest := func(t *testing.T, tc testCase) {
 		t.Run(tc.name, func(t *testing.T) {
-			require.NoError(t, dbClient.Truncate(&db.FileTag{}, &db.File{}, &db.Tag{}))
-			if len(tc.insertFiles) > 0 {
-				require.NoError(t, db.BatchCreate(dbClient, tc.insertFiles))
-			}
-			if len(tc.insertTags) > 0 {
-				require.NoError(t, db.BatchCreate(dbClient, tc.insertTags))
-			}
-			if len(tc.insertFileTags) > 0 {
-				require.NoError(t, db.BatchCreate(dbClient, tc.insertFileTags))
-			}
+			dbClient.Truncate(t, &db.FileTag{}, &db.File{}, &db.Tag{})
+			db.LoadTestData(t, dbClient, tc.insertFiles)
+			db.LoadTestData(t, dbClient, tc.insertTags)
+			db.LoadTestData(t, dbClient, tc.insertFileTags)
 
 			got, gotErr := tester.getSearchService().
 				SearchImages(context.Background(), tc.request)
