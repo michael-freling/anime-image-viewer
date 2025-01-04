@@ -11,8 +11,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"syscall"
-	"time"
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
@@ -80,9 +78,11 @@ func Copy(sourceFilePath, destinationFilePath string) (int64, error) {
 		return 0, fmt.Errorf("os.Chmod: %w", err)
 	}
 	// Copy a access time and modification time of a source
-	detailedSourceStat := sourceMeta.Sys().(*syscall.Stat_t)
-	atime := time.Unix(detailedSourceStat.Atim.Sec, detailedSourceStat.Atim.Nsec)
-	if err = os.Chtimes(destinationFilePath, atime, sourceMeta.ModTime()); err != nil {
+	// todo: this cannot be compiled with mingw (windows)
+	// detailedSourceStat := sourceMeta.Sys().(*syscall.Stat_t)
+	// atime := time.Unix(detailedSourceStat.Atim.Sec, detailedSourceStat.Atim.Nsec)
+
+	if err = os.Chtimes(destinationFilePath, sourceMeta.ModTime(), sourceMeta.ModTime()); err != nil {
 		return 0, fmt.Errorf("os.Chtimes: %w", err)
 	}
 

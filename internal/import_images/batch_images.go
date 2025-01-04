@@ -144,7 +144,8 @@ func (batchImporter *BatchImageImporter) ImportImages(
 	}
 	batchImporter.logger.DebugContext(ctx, "importImageFiles",
 		"directory", destinationParentDirectory,
-		"newImages", newImportedImages,
+		// newImages do not have exported fields
+		// "newImages", newImportedImages,
 	)
 	if len(newImportedImages) == 0 {
 		return nil, errors.Join(progressNotifier.FailedErrors...)
