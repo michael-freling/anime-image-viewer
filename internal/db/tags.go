@@ -48,6 +48,7 @@ type FileTagAddedBy string
 
 const (
 	FileTagAddedByUser       FileTagAddedBy = "user"
+	FileTagAddedByImport     FileTagAddedBy = "imported"
 	FileTagAddedBySuggestion FileTagAddedBy = "tag-suggestion"
 )
 

@@ -3,12 +3,15 @@ package import_images
 import (
 	"io"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
+	"github.com/michael-freling/anime-image-viewer/internal/tag"
+	"github.com/stretchr/testify/require"
 )
 
 type Tester struct {
@@ -47,6 +50,21 @@ func (tester Tester) getXMPReader() *XMPReader {
 
 func (tester Tester) getImageFileConverter() *image.ImageFileConverter {
 	return image.NewImageFileConverter(tester.config)
+}
+
+func (tester Tester) getBatchTagImporter() batchTagImporter {
+	return newBatchTagImporter(
+		tester.dbClient.Client,
+		tester.getTagReader(),
+	)
+}
+
+func (tester Tester) getDirectoryReader() *image.DirectoryReader {
+	return image.NewDirectoryReader(tester.config, tester.dbClient.Client)
+}
+
+func (tester Tester) getTagReader() *tag.Reader {
+	return tag.NewReader(tester.dbClient.Client, tester.getDirectoryReader())
 }
 
 func (tester Tester) getTestFilePath(filePath string) string {

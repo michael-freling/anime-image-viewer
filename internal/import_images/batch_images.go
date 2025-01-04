@@ -16,6 +16,12 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type importImage struct {
+	image          db.File
+	sourceFilePath string
+	xmp            *XMP
+}
+
 type BatchImageImporter struct {
 	logger   *slog.Logger
 	dbClient *db.Client
