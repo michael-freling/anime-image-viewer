@@ -25,13 +25,13 @@ func NewReader(
 	}
 }
 
-func (reader Reader) ReadAllTagTree() (Tree, error) {
+func (reader Reader) ReadRootNode() (Tag, error) {
 	allTags, err := db.GetAll[db.Tag](reader.dbClient)
 	if err != nil {
-		return Tree{}, fmt.Errorf("db.GetAll: %w", err)
+		return Tag{}, fmt.Errorf("db.GetAll: %w", err)
 	}
 	if len(allTags) == 0 {
-		return Tree{}, nil
+		return Tag{}, nil
 	}
 
 	childMap := make(map[uint][]Tag)
@@ -53,7 +53,7 @@ func (reader Reader) ReadAllTagTree() (Tree, error) {
 	}
 
 	root := buildTagTree(tagMap, childMap, 0, nil)
-	return newTree(*root), nil
+	return *root, nil
 }
 
 // depercated. Use ReadAllTagTree

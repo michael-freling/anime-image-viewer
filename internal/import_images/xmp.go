@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/michael-freling/anime-image-viewer/internal/db"
 )
 
 // trimmer-io/go-xmp doesn't support DigiKam files, so use pure XML library
@@ -18,13 +20,17 @@ type RDF struct {
 }
 
 type XMPReader struct {
+	dbClient *db.Client
 }
 
-func NewXMPReader() *XMPReader {
-	return &XMPReader{}
+// This is not concurrent safe. Initialize only inside a method
+func newXMPReader(dbClient *db.Client) *XMPReader {
+	return &XMPReader{
+		dbClient: dbClient,
+	}
 }
 
-func (r *XMPReader) read(filePath string) (*XMP, error) {
+func (reader *XMPReader) read(filePath string) (*XMP, error) {
 	if _, err := os.Stat(filePath); err != nil {
 		return nil, fmt.Errorf("os.Stat: %w", err)
 	}
@@ -42,5 +48,6 @@ func (r *XMPReader) read(filePath string) (*XMP, error) {
 	if err := xml.Unmarshal(contents, &xmp); err != nil {
 		return nil, fmt.Errorf("xml.Unmarshal: %w", err)
 	}
+
 	return &xmp, nil
 }

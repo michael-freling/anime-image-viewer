@@ -27,6 +27,10 @@ func (tag Tag) fullName() string {
 	return fmt.Sprintf("%s > %s", tag.parent.fullName(), tag.Name)
 }
 
+func (tag *Tag) AddChild(child *Tag) {
+	tag.Children = append(tag.Children, child)
+}
+
 func (tag Tag) findChildByID(ID uint) Tag {
 	if tag.ID == ID {
 		return tag
@@ -59,15 +63,18 @@ func (tag Tag) convertToFlattenMap() map[uint]Tag {
 	return result
 }
 
-type Tree Tag
-
-func newTree(root Tag) Tree {
-	return Tree(root)
+func (node Tag) FindChildByName(name string) *Tag {
+	for _, tag := range node.Children {
+		if tag.Name == name {
+			return tag
+		}
+	}
+	return nil
 }
 
-func (tree Tree) ConvertToFlattenMap() map[uint]Tag {
+func (node Tag) ConvertToFlattenMap() map[uint]Tag {
 	result := make(map[uint]Tag)
-	for _, tag := range tree.Children {
+	for _, tag := range node.Children {
 		// root is not a correct tag. Will be ignored
 		for id, t := range tag.convertToFlattenMap() {
 			result[id] = t
