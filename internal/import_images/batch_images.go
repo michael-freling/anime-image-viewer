@@ -13,6 +13,7 @@ import (
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
+	"github.com/michael-freling/anime-image-viewer/internal/tag"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -27,27 +28,36 @@ type BatchImageImporter struct {
 	dbClient *db.Client
 
 	imageFileConverter *image.ImageFileConverter
-	xmpReader          *XMPReader
+	tagReader          *tag.Reader
 }
 
 func NewBatchImageImporter(
 	logger *slog.Logger,
 	dbClient *db.Client,
 	imageFileConverter *image.ImageFileConverter,
-	xmpReader *XMPReader,
+	tagReader *tag.Reader,
 ) *BatchImageImporter {
 	return &BatchImageImporter{
 		logger:   logger,
 		dbClient: dbClient,
 
 		imageFileConverter: imageFileConverter,
-		xmpReader:          xmpReader,
+		tagReader:          tagReader,
 	}
 }
 
-func (batchImporter *BatchImageImporter) readImageFilePaths(ctx context.Context, paths []string, progressNotifier *ProgressNotifier) ([]string, error) {
-	sourceFilePaths := make([]string, len(paths))
+func (batchImporter *BatchImageImporter) readImageFilePaths(
+	ctx context.Context,
+	paths []string,
+	destinationParentDirectory image.Directory,
+	progressNotifier *ProgressNotifier,
+) (
+	[]importImage,
+	error,
+) {
+	importImages := make([]importImage, len(paths))
 
+	xmpReader := newXMPReader(batchImporter.dbClient)
 	eg, _ := errgroup.WithContext(ctx)
 	for index, sourceFilePath := range paths {
 		eg.Go(func() error {
@@ -65,15 +75,24 @@ func (batchImporter *BatchImageImporter) readImageFilePaths(ctx context.Context,
 			}
 
 			// read XMP files
-			_, err = batchImporter.xmpReader.read(sourceFilePath + ".xmp")
+			xmpFile, err := xmpReader.read(sourceFilePath + ".xmp")
 			if err != nil && !os.IsNotExist(err) {
 				batchImporter.logger.InfoContext(ctx, "failed to read a XMP file for an image",
 					"error", err,
 					"image", sourceFilePath,
 				)
 			}
-			sourceFilePaths[index] = sourceFilePath
 
+			importImage := importImage{
+				image: db.File{
+					Name:     filepath.Base(sourceFilePath),
+					ParentID: destinationParentDirectory.ID,
+					Type:     db.FileTypeImage,
+				},
+				sourceFilePath: sourceFilePath,
+				xmp:            xmpFile,
+			}
+			importImages[index] = importImage
 			return nil
 		})
 	}
@@ -86,14 +105,15 @@ func (batchImporter *BatchImageImporter) readImageFilePaths(ctx context.Context,
 	}
 
 	// filter failed images
-	resultSourceFilePaths := make([]string, 0, len(sourceFilePaths))
-	for index := range sourceFilePaths {
-		if sourceFilePaths[index] == "" {
+	result := make([]importImage, 0, len(importImages))
+	for _, importImage := range importImages {
+		if importImage.sourceFilePath == "" {
 			continue
 		}
-		resultSourceFilePaths = append(resultSourceFilePaths, sourceFilePaths[index])
+
+		result = append(result, importImage)
 	}
-	return resultSourceFilePaths, nil
+	return result, nil
 
 }
 
@@ -103,7 +123,7 @@ func (batchImporter *BatchImageImporter) ImportImages(
 	paths []string,
 	progressNotifier *ProgressNotifier,
 ) ([]image.ImageFile, error) {
-	imageFilePaths, err := batchImporter.readImageFilePaths(ctx, paths, progressNotifier)
+	importedImages, err := batchImporter.readImageFilePaths(ctx, paths, destinationParentDirectory, progressNotifier)
 	if err != nil {
 		return nil, fmt.Errorf("readImageFilePaths: %w", err)
 	}
@@ -112,9 +132,9 @@ func (batchImporter *BatchImageImporter) ImportImages(
 		batchImporter.dbClient,
 		progressNotifier,
 	)
-	newImages, newImagePaths, err := validator.validateImages(
+	newImportedImages, err := validator.validateImages(
 		ctx,
-		imageFilePaths,
+		importedImages,
 		destinationParentDirectory,
 	)
 	if err != nil {
@@ -123,32 +143,51 @@ func (batchImporter *BatchImageImporter) ImportImages(
 	}
 	batchImporter.logger.DebugContext(ctx, "importImageFiles",
 		"directory", destinationParentDirectory,
-		"imageFilePaths", imageFilePaths,
-		"newImages", newImages,
+		"newImages", newImportedImages,
 	)
-	if len(newImages) == 0 {
+	if len(newImportedImages) == 0 {
 		return nil, errors.Join(progressNotifier.FailedErrors...)
 	}
 
-	if err := db.BatchCreate(batchImporter.dbClient, newImages); err != nil {
+	if err := db.NewTransaction(ctx, batchImporter.dbClient, func(ctx context.Context) error {
+		files := make([]db.File, len(newImportedImages))
+		for index, newImage := range newImportedImages {
+			files[index] = newImage.image
+		}
+
+		if err := batchImporter.dbClient.File().BatchCreate(ctx, files); err != nil {
+			return fmt.Errorf("BatchCreate: %w", err)
+		}
+		// set an id back
+		for index := range newImportedImages {
+			newImportedImages[index].image.ID = files[index].ID
+		}
+
+		tagImporter := newBatchTagImporter(batchImporter.dbClient, batchImporter.tagReader)
+		if err := tagImporter.importTags(ctx, newImportedImages); err != nil {
+			return fmt.Errorf("importTags: %w", err)
+		}
+
+		return nil
+	}); err != nil {
 		return nil, errors.Join(
-			fmt.Errorf("BatchCreate: %w", err),
+			fmt.Errorf("NewTransaction: %w", err),
 			errors.Join(progressNotifier.FailedErrors...),
 		)
 	}
 
 	eg, _ := errgroup.WithContext(ctx)
-	resultImageFiles := make([]image.ImageFile, len(newImages))
-	for index, newImage := range newImages {
-		sourceFilePath := newImagePaths[index]
-		destinationFilePath := filepath.Join(destinationParentDirectory.Path, newImage.Name)
+	resultImageFiles := make([]image.ImageFile, len(newImportedImages))
+	for index, newImage := range newImportedImages {
+		sourceFilePath := newImportedImages[index].sourceFilePath
+		destinationFilePath := filepath.Join(destinationParentDirectory.Path, newImage.image.Name)
 
 		eg.Go(func() error {
 			if _, err := image.Copy(sourceFilePath, destinationFilePath); err != nil {
 				progressNotifier.addFailure(sourceFilePath, fmt.Errorf("image.copy: %w", err))
 				return nil
 			}
-			resultImage, err := batchImporter.imageFileConverter.ConvertImageFile(destinationParentDirectory, newImage)
+			resultImage, err := batchImporter.imageFileConverter.ConvertImageFile(destinationParentDirectory, newImage.image)
 			if err != nil {
 				progressNotifier.addFailure(sourceFilePath, fmt.Errorf("convertImageFile: %w", err))
 				return nil
@@ -230,53 +269,43 @@ func newBatchImportImageValidator(dbClient *db.Client, progressNotifier *Progres
 
 func (batchValidator batchImportImageValidator) validateImages(
 	ctx context.Context,
-	sourceImageFilePaths []string,
+	sourceImageFilePaths []importImage,
 	destinationParentDirectory image.Directory,
 ) (
-	[]db.File,
-	[]string,
+	[]importImage,
 	error,
 ) {
-	newImages := make([]db.File, len(sourceImageFilePaths))
-	newImagePaths := make([]string, len(sourceImageFilePaths))
-
+	validatedImages := make([]importImage, len(sourceImageFilePaths))
 	eg, _ := errgroup.WithContext(ctx)
-	for index, sourceFilePath := range sourceImageFilePaths {
+	for index, importImage := range sourceImageFilePaths {
 		eg.Go(func() error {
-			fileName := filepath.Base(sourceFilePath)
+			sourceFilePath := importImage.sourceFilePath
 			if err := batchValidator.validateImportImageFile(sourceFilePath, destinationParentDirectory); err != nil {
 				batchValidator.progressNotifier.addFailure(sourceFilePath, err)
 				return nil
 			}
 
-			newImages[index] = db.File{
-				Name:     fileName,
-				ParentID: destinationParentDirectory.ID,
-				Type:     db.FileTypeImage,
-			}
-			newImagePaths[index] = sourceFilePath
+			validatedImages[index] = importImage
 			return nil
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		return nil, nil, errors.Join(
+		return nil, errors.Join(
 			fmt.Errorf("errgroup.Wait: %w", err),
 			errors.Join(batchValidator.progressNotifier.FailedErrors...),
 		)
 	}
 
 	// filter failed images
-	resultImages := make([]db.File, 0, len(newImages))
-	resultImagePaths := make([]string, 0, len(newImagePaths))
-	for index := range newImages {
-		if newImagePaths[index] == "" {
+	resultImages := make([]importImage, 0, len(validatedImages))
+	for index := range validatedImages {
+		if validatedImages[index].sourceFilePath == "" {
 			continue
 		}
 
-		resultImages = append(resultImages, newImages[index])
-		resultImagePaths = append(resultImagePaths, newImagePaths[index])
+		resultImages = append(resultImages, validatedImages[index])
 	}
-	return resultImages, resultImagePaths, nil
+	return resultImages, nil
 }
 
 func (validator *batchImportImageValidator) validateImportImageFile(
