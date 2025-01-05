@@ -49,3 +49,21 @@ tasks:
       - docker create --name {{ .APP_NAME }} {{ .IMAGE_TAG }}
       - defer: docker rm {{ .APP_NAME }}
       - docker cp {{ .APP_NAME }}:/app/bin/{{ .BINARY }} ./dist/{{ .ENV }}/{{ .RESULT }}
+
+  docker:build:wsl:prod:amd64:
+    summary: Builds the Docker image for WSL
+    cmds:
+      - task: docker:build
+        vars:
+          OS: 'wsl'
+          ARCH: 'amd64'
+          ENV: 'prod'
+
+  docker:build:linux:prod:amd64:
+    summary: Builds the Docker image for Linux
+    cmds:
+      - task: docker:build
+        vars:
+          OS: 'linux'
+          ARCH: 'amd64'
+          ENV: 'prod'

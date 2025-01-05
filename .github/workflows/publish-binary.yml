@@ -1,0 +1,58 @@
+name: Publish binaries
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ "wsl", "linux" ]
+        arch: [ "amd64" ]
+        env: [ "prod" ]
+    steps:
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          # Avoid API rate limit: https://github.com/arduino/setup-protoc
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v4
+
+      - name: Build the Docker image
+        run: |
+          task --taskfile Taskfile.docker.yml \
+              docker:build:${{ matrix.os }}:${{ matrix.env }}:${{ matrix.arch }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: anime-image-viewer-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.env }}
+          path: dist/**/*
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+    environment: production
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: anime-image-viewer-*
+          path: dist
+          merge-multiple: true
+
+      - run: ls -lRa dist
+
+      # Create a GitHub release from the dist and a tag
+      # https://github.com/ncipollo/release-action
+      # https://earthly.dev/blog/github-action-artifacts/
+      - uses: ncipollo/release-action@v1
+        with:
+          artifacts: "dist/*"
+          # Following fields are for debugging
+          allowUpdates: true
+          # tag: "v0.3.0"
