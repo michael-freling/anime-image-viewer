@@ -7,21 +7,20 @@ import { useNavigate } from "react-router";
 import {
   Directory,
   DirectoryService,
-} from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
+} from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import { ExplorerTreeItem } from "./ExplorerTreeItem";
+import { Typography } from "@mui/joy";
 
-export function directoriesToTreeViewBaseItems(
-  directories: Directory[]
-): TreeViewBaseItem<{}>[] {
-  return directories.map((directory) => {
-    return {
-      id: String(directory.id),
-      label: directory.name,
-      children: directoriesToTreeViewBaseItems(
-        directory.children.filter((child) => child != null)
-      ),
-    };
-  });
+export function directoryToTreeViewBaseItems(
+  directory: Directory
+): TreeViewBaseItem {
+  return {
+    id: String(directory.id),
+    label: directory.name,
+    children: directory.children.map((child) => {
+      return directoryToTreeViewBaseItems(child);
+    }),
+  };
 }
 
 export function getDefaultExpandedItems(
@@ -33,64 +32,38 @@ export function getDefaultExpandedItems(
     defaultExpandedItems.push(directoryId);
   }
   return defaultExpandedItems;
-  //   expand only selected items
-  //   let defaultExpandedItems: string[] = [];
-  //   for (let selectedDirectoryId of selectedDirectoryIds) {
-  //     let directoryId = selectedDirectoryId;
-  //     while (true) {
-  //       defaultExpandedItems.push(String(directoryId));
-  //       let directory = directoryMap[directoryId];
-  //       if (directory === undefined) {
-  //         break;
-  //       }
-  //       if (directory.parentId === 0) {
-  //         break;
-  //       }
-  //       directoryId = directory.parentId;
-  //     }
-  //   }
 }
 
 export const getDirectoryMap = (
-  directories: Directory[]
+  directory: Directory
 ): { [id: number]: Directory } => {
   const map: { [id: number]: Directory } = {};
-  directories.forEach((directory) => {
-    map[directory.id] = directory;
-    Object.assign(
-      map,
-      getDirectoryMap(directory.children.filter((child) => child != null))
-    );
+  map[directory.id] = directory;
+  directory.children.forEach((child) => {
+    Object.assign(map, getDirectoryMap(child));
   });
   return map;
 };
 
 const DirectoryExplorer: FC = () => {
-  const [rootDirectory, setRootDirectory] = useState<string>("");
-  const [children, setChildren] = useState<Directory[]>([]);
+  const [rootDirectory, setRootDirectory] = useState<Directory>();
   const [directoryMap, setDirectoryMap] = useState<{ [id: number]: Directory }>(
     {}
   );
 
   const navigate = useNavigate();
   useEffect(() => {
-    DirectoryService.ReadInitialDirectory().then(async (directory) => {
-      setRootDirectory(directory);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!rootDirectory) {
-      return;
-    }
     refresh();
-  }, [rootDirectory]);
+  }, []);
 
   async function refresh() {
     // todo: stop hardcoding root directory ID 0
-    const children = await DirectoryService.ReadChildDirectoriesRecursively(0);
-    await setChildren(children);
-    setDirectoryMap(getDirectoryMap(children));
+    const directory = await DirectoryService.ReadDirectoryTree();
+    if (!directory) {
+      return;
+    }
+    setRootDirectory(directory);
+    setDirectoryMap(getDirectoryMap(directory));
   }
 
   const otherProps = {
@@ -109,8 +82,8 @@ const DirectoryExplorer: FC = () => {
     },
   };
 
-  if (rootDirectory === "" || children.length === 0) {
-    return null;
+  if (!rootDirectory) {
+    return <Typography>Loading...</Typography>;
   }
 
   return (
@@ -124,7 +97,7 @@ const DirectoryExplorer: FC = () => {
         collapseIcon: (props) => <FolderOpenIcon color="primary" {...props} />,
         endIcon: (props) => <FolderOpenIcon color="primary" {...props} />,
       }}
-      items={directoriesToTreeViewBaseItems(children)}
+      items={[directoryToTreeViewBaseItems(rootDirectory)]}
       {...otherProps}
     />
   );

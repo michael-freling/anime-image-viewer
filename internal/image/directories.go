@@ -155,20 +155,12 @@ func NewDirectoryService(
 	return service
 }
 
-func (service DirectoryService) ReadInitialDirectory() string {
-	return service.config.ImageRootDirectory
-}
-
 func (service DirectoryService) ReadImageFiles(parentDirectoryID uint) ([]ImageFile, error) {
 	return service.reader.ReadImageFiles(parentDirectoryID)
 }
 
-func (service DirectoryService) ReadChildDirectoriesRecursively(directoryID uint) ([]Directory, error) {
-	return service.reader.ReadChildDirectoriesRecursively(directoryID)
-}
-
 func (service DirectoryService) CreateDirectory(ctx context.Context, name string, parentID uint) (Directory, error) {
-	rootDirectory := service.ReadInitialDirectory()
+	rootDirectory := service.reader.readInitialDirectory()
 	if parentID != 0 {
 		currentDirectory, err := service.reader.ReadDirectory(parentID)
 		if err != nil {
@@ -226,10 +218,6 @@ func (service DirectoryService) CreateDirectory(ctx context.Context, name string
 		Path:     directoryPath,
 		ParentID: directory.ParentID,
 	}, nil
-}
-
-func (service DirectoryService) CreateTopDirectory(ctx context.Context, name string) (Directory, error) {
-	return service.CreateDirectory(ctx, name, db.RootDirectoryID)
 }
 
 func (service DirectoryService) UpdateName(ctx context.Context, id uint, name string) (Directory, error) {

@@ -118,11 +118,14 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 		directoryReader,
 		imageFileConverter,
 	)
-	directoryService := image.NewDirectoryService(
+	legacyDirectoryService := image.NewDirectoryService(
 		logger,
 		conf,
 		dbClient,
 		legacyImageService,
+		directoryReader,
+	)
+	directoryService := frontend.NewDirectoryService(
 		directoryReader,
 	)
 	tagReader := tag.NewReader(dbClient, directoryReader)
@@ -164,6 +167,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 			application.NewService(imageService),
 			application.NewService(legacyImageService),
 			application.NewService(directoryService),
+			application.NewService(legacyDirectoryService),
 			application.NewService(tagService),
 			application.NewService(legacyTagFrontendService),
 			application.NewService(configService),

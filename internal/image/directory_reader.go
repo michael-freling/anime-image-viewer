@@ -8,7 +8,6 @@ import (
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
-	"github.com/michael-freling/anime-image-viewer/internal/xslices"
 )
 
 type DirectoryReader struct {
@@ -76,16 +75,6 @@ func (service DirectoryReader) ReadImageFilesRecursively(directory Directory) ([
 		imageFiles = append(imageFiles, childImageFiles...)
 	}
 	return imageFiles, nil
-}
-
-func (service DirectoryReader) ReadChildDirectoriesRecursively(directoryID uint) ([]Directory, error) {
-	directory, err := service.ReadDirectory(directoryID)
-	if err != nil {
-		return nil, fmt.Errorf("service.ReadDirectory: %w", err)
-	}
-	return xslices.Map(directory.dropChildImageFiles().Children, func(dir *Directory) Directory {
-		return *dir
-	}), nil
 }
 
 // ReadAncestors reads the ancestors of the given file IDs, including the file itself.
