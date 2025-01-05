@@ -2,10 +2,14 @@ version: '3'
 
 vars:
   APP_NAME: "anime-image-viewer"
+  GO_VERSION: 1.23.4
+  NODE_VERSION: 22.11
 
 tasks:
   docker:build:all:
     summary: Builds all Docker images
+    deps:
+      - task: docker:build:wails3
     cmds:
       - for:
           matrix:
@@ -18,23 +22,27 @@ tasks:
           ARCH: '{{ .ITEM.ARCH }}'
           ENV: '{{ .ITEM.ENV }}'
 
-  docker:build:
-    summary: Builds the Docker image
+  docker:build:wails3:
+    summary: Builds the Docker image for Wails 3
     vars:
-      GO_VERSION: 1.23.4
-      NODE_VERSION: 22.11
-      BASE_TAG: 'wails:3-go-{{ .GO_VERSION }}-node-{{ .NODE_VERSION }}'
-      IMAGE_TAG: '{{ .APP_NAME }}-{{ .ENV }}:{{ .OS }}-{{ .ARCH }}'
-      BINARY: '{{ .APP_NAME }}{{ if eq .OS "wsl" }}.exe{{ end }}'
-      RESULT: '{{ .APP_NAME }}-{{ if eq .OS "wsl" }}windows{{ else }}{{ .OS }}{{ end }}-{{ .ARCH }}{{ if eq .OS "wsl" }}.exe{{ end }}'
+      # https://hub.docker.com/r/michaelfreling/wails
+      BASE_TAG: 'michaelfreling/wails:3-go-{{ .GO_VERSION }}-node-{{ .NODE_VERSION }}'
     cmds:
-      - |
+      - cmd: |
           docker build \
             --tag {{ .BASE_TAG }} \
             --build-arg GO_VERSION={{ .GO_VERSION }} \
             --build-arg NODE_VERSION={{ .NODE_VERSION }} \
             --file Dockerfile.base \
             .
+
+  docker:build:
+    summary: Builds the Docker image
+    vars:
+      IMAGE_TAG: '{{ .APP_NAME }}-{{ .ENV }}:{{ .OS }}-{{ .ARCH }}'
+      BINARY: '{{ .APP_NAME }}{{ if eq .OS "wsl" }}.exe{{ end }}'
+      RESULT: '{{ .APP_NAME }}-{{ if eq .OS "wsl" }}windows{{ else }}{{ .OS }}{{ end }}-{{ .ARCH }}{{ if eq .OS "wsl" }}.exe{{ end }}'
+    cmds:
       - |
           docker build \
             --tag {{ .IMAGE_TAG }} \
