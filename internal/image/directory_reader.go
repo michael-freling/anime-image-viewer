@@ -97,16 +97,22 @@ func (service DirectoryReader) ReadAncestors(fileIDs []uint) (map[uint][]Directo
 }
 
 func (service DirectoryReader) ReadDirectoryTree() (Directory, error) {
-	// todo: cache the result of the list of directories
-	result := Directory{}
+	// todo: cache the rootDirectory of the list of directories
+	rootDirectory := Directory{
+		ID:           db.RootDirectoryID,
+		Name:         service.ReadInitialDirectory(),
+		Path:         service.ReadInitialDirectory(),
+		RelativePath: "",
+		ParentID:     0,
+	}
 
 	// todo: this query fetches both of directories and images
 	allFiles, err := db.GetAll[db.File](service.dbClient)
 	if err != nil {
-		return result, fmt.Errorf("db.GetAll: %w", err)
+		return rootDirectory, fmt.Errorf("db.GetAll: %w", err)
 	}
 	if len(allFiles) == 0 {
-		return result, fmt.Errorf("db.GetAll: %w", ErrDirectoryNotFound)
+		return rootDirectory, nil
 	}
 
 	childDirectoryMap := make(map[uint][]*Directory)
@@ -125,13 +131,7 @@ func (service DirectoryReader) ReadDirectoryTree() (Directory, error) {
 		}
 	}
 	directoryMap := make(map[uint]*Directory)
-	directoryMap[db.RootDirectoryID] = &Directory{
-		ID:           db.RootDirectoryID,
-		Name:         service.ReadInitialDirectory(),
-		Path:         service.ReadInitialDirectory(),
-		RelativePath: "",
-		ParentID:     0,
-	}
+	directoryMap[db.RootDirectoryID] = &rootDirectory
 	for _, dbFile := range allFiles {
 		if dbFile.Type == db.FileTypeDirectory {
 			directoryMap[dbFile.ID] = &Directory{

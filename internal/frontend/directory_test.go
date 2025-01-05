@@ -13,6 +13,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestService_ReadDirectoryTree(t *testing.T) {
+	tester := newTester(t)
+
+	testCases := []struct {
+		name      string
+		want      Directory
+		wantError error
+	}{
+		{
+			name: "read an initial directory tree",
+			want: Directory{
+				Name: tester.config.ImageRootDirectory,
+				Path: tester.config.ImageRootDirectory,
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tester.dbClient.Truncate(t, &db.File{})
+			service := tester.getDirectoryService()
+
+			got, gotErr := service.ReadDirectoryTree()
+			assert.ErrorIs(t, gotErr, tc.wantError)
+			if tc.wantError != nil {
+				return
+			}
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestService_CreateDirectory(t *testing.T) {
 	tester := newTester(t)
 	testDBClient := tester.dbClient
