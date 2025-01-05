@@ -1,4 +1,4 @@
-package image
+package frontend
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
+	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"github.com/michael-freling/anime-image-viewer/internal/xerrors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -36,9 +37,8 @@ func TestService_CreateDirectory(t *testing.T) {
 			name:          "create a directory",
 			directoryName: "directory1",
 			want: Directory{
-				Name:     "directory1",
-				Path:     rootDirectory + "/directory1",
-				ParentID: db.RootDirectoryID,
+				Name: "directory1",
+				Path: rootDirectory + "/directory1",
 			},
 			wantInsert: db.File{
 				Name: "directory1",
@@ -51,13 +51,13 @@ func TestService_CreateDirectory(t *testing.T) {
 				{Name: "directory1", Type: db.FileTypeDirectory},
 			},
 			directoryName: "directory1",
-			wantErr:       ErrDirectoryAlreadyExists,
+			wantErr:       image.ErrDirectoryAlreadyExists,
 		},
 		{
 			name:                  "create a directory not exists in a db but as a file",
 			createDirectoriesInFS: []string{"directory1"},
 			directoryName:         "directory1",
-			wantErr:               ErrDirectoryAlreadyExists,
+			wantErr:               image.ErrDirectoryAlreadyExists,
 		},
 		{
 			name: "create a directory exists in a db but not as a file",
@@ -65,7 +65,7 @@ func TestService_CreateDirectory(t *testing.T) {
 				{Name: "directory1", Type: db.FileTypeDirectory},
 			},
 			directoryName: "directory1",
-			wantErr:       ErrDirectoryAlreadyExists,
+			wantErr:       image.ErrDirectoryAlreadyExists,
 		},
 
 		// directory under a parent
@@ -79,9 +79,8 @@ func TestService_CreateDirectory(t *testing.T) {
 			parentID:              1,
 
 			want: Directory{
-				Name:     "child directory1",
-				Path:     rootDirectory + "/directory1/child directory1",
-				ParentID: 1,
+				Name: "child directory1",
+				Path: rootDirectory + "/directory1/child directory1",
 			},
 			wantInsert: db.File{
 				Name:     "child directory1",
@@ -98,7 +97,7 @@ func TestService_CreateDirectory(t *testing.T) {
 			createDirectoriesInFS: []string{"directory1"},
 			directoryName:         "child directory1",
 			parentID:              1,
-			wantErr:               ErrDirectoryAlreadyExists,
+			wantErr:               image.ErrDirectoryAlreadyExists,
 		},
 		{
 			name: "create a directory under a parent not exists in a db but as a file",
@@ -108,7 +107,7 @@ func TestService_CreateDirectory(t *testing.T) {
 			createDirectoriesInFS: []string{"directory1", "directory1/child directory1"},
 			directoryName:         "child directory1",
 			parentID:              1,
-			wantErr:               ErrDirectoryAlreadyExists,
+			wantErr:               image.ErrDirectoryAlreadyExists,
 		},
 		{
 			name: "create a directory under a parent exists in a db but not as a file",
@@ -119,7 +118,7 @@ func TestService_CreateDirectory(t *testing.T) {
 			createDirectoriesInFS: []string{"directory1"},
 			directoryName:         "child directory1",
 			parentID:              1,
-			wantErr:               ErrDirectoryAlreadyExists,
+			wantErr:               image.ErrDirectoryAlreadyExists,
 		},
 	}
 
@@ -172,11 +171,11 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 	testDBClient := tester.dbClient
 
 	fileBuilder := tester.newFileCreator().
-		CreateDirectory(t, Directory{ID: 1, Name: "directory1"}).
-		CreateDirectory(t, Directory{ID: 10, Name: "directory10", ParentID: 1}).
-		CreateDirectory(t, Directory{ID: 100, Name: "directory100", ParentID: 10}).
-		CreateDirectory(t, Directory{ID: 1001, Name: "directory 1001", ParentID: 100}).
-		CreateDirectory(t, Directory{ID: 1002, Name: "directory 1002", ParentID: 100})
+		CreateDirectory(t, image.Directory{ID: 1, Name: "directory1"}).
+		CreateDirectory(t, image.Directory{ID: 10, Name: "directory10", ParentID: 1}).
+		CreateDirectory(t, image.Directory{ID: 100, Name: "directory100", ParentID: 10}).
+		CreateDirectory(t, image.Directory{ID: 1001, Name: "directory 1001", ParentID: 100}).
+		CreateDirectory(t, image.Directory{ID: 1002, Name: "directory 1002", ParentID: 100})
 
 	rootDirectory := tester.config.ImageRootDirectory
 	service := tester.getDirectoryService()
@@ -202,8 +201,8 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 			newName:     "new_directory1",
 			want: func() Directory {
 				want := fileBuilder.BuildDirectory(1001)
-				want.updateName("new_directory1")
-				return want
+				want.UpdateName("new_directory1")
+				return newDirectoryConverter().convertDirectory(want)
 			}(),
 		},
 		{
@@ -222,8 +221,8 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 			newName:     "same_name_under_different_directory",
 			want: func() Directory {
 				dir := fileBuilder.BuildDirectory(1002)
-				dir.updateName("same_name_under_different_directory")
-				return dir
+				dir.UpdateName("same_name_under_different_directory")
+				return newDirectoryConverter().convertDirectory(dir)
 			}(),
 		},
 		{
@@ -245,11 +244,9 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 			directoryID: 1003,
 			newName:     "Directory1",
 			want: Directory{
-				ID:           1003,
-				Name:         "Directory1",
-				Path:         filepath.Join(fileBuilder.BuildDirectory(100).Path, "Directory1"),
-				ParentID:     100,
-				RelativePath: filepath.Join(fileBuilder.BuildDirectory(100).RelativePath, "Directory1"),
+				ID:   1003,
+				Name: "Directory1",
+				Path: filepath.Join(fileBuilder.BuildDirectory(100).Path, "Directory1"),
 			},
 		},
 		{
@@ -260,7 +257,7 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 			makeDirectories: []string{"directory 9"},
 			directoryID:     9,
 			newName:         "new_directory",
-			wantErr:         ErrDirectoryNotFound,
+			wantErr:         image.ErrDirectoryNotFound,
 		},
 		{
 			name: "A directory doesn't exist in the DB",
@@ -270,7 +267,7 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 			makeDirectories: []string{"directory 999"},
 			directoryID:     999,
 			newName:         "something new",
-			wantErr:         ErrDirectoryNotFound,
+			wantErr:         image.ErrDirectoryNotFound,
 		},
 		{
 			name: "A directory doesn't exist in the FS",
@@ -279,7 +276,7 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 			},
 			directoryID: 9,
 			newName:     "something new",
-			wantErr:     ErrDirectoryNotFound,
+			wantErr:     image.ErrDirectoryNotFound,
 		},
 		{
 			name: "update a directory name to the same name with other directory in the DB",
@@ -293,7 +290,7 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 			},
 			directoryID: 10,
 			newName:     "directory 99",
-			wantErr:     ErrDirectoryAlreadyExists,
+			wantErr:     image.ErrDirectoryAlreadyExists,
 		},
 		{
 			name: "update a directory name to the same name with other directory in the FS",
@@ -305,7 +302,7 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 			},
 			directoryID: 1,
 			newName:     "new_directory",
-			wantErr:     ErrDirectoryAlreadyExists,
+			wantErr:     image.ErrDirectoryAlreadyExists,
 		},
 		{
 			name: "Updates a directory with the same directory name",
