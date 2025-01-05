@@ -14,7 +14,7 @@ export interface ExplorerTreeItemLabelProps
   extends UseTreeItem2LabelSlotOwnProps {
   editable: boolean;
   addNewChild: () => Promise<void>;
-  toggleItemEditing: () => void;
+  toggleItemEditing: (() => void) | null;
   importImages: () => Promise<void> | null;
 }
 
@@ -64,16 +64,18 @@ export function ExplorerTreeItemLabel({
           >
             <Add />
           </IconButton>
-          <IconButton
-            variant="outlined"
-            color="primary"
-            onClick={(event: SyntheticEvent) => {
-              event.stopPropagation();
-              toggleItemEditing();
-            }}
-          >
-            <EditOutlined fontSize="small" />
-          </IconButton>
+          {toggleItemEditing == null ? null : (
+            <IconButton
+              variant="outlined"
+              color="primary"
+              onClick={(event: SyntheticEvent) => {
+                event.stopPropagation();
+                toggleItemEditing();
+              }}
+            >
+              <EditOutlined fontSize="small" />
+            </IconButton>
+          )}
         </Stack>
       )}
     </TreeItem2Label>
@@ -111,6 +113,7 @@ export function ExplorerTreeItemLabelWithCount({
 }
 
 interface ExplorerCheckboxProps {
+  itemId: string;
   selectable: boolean;
   checked: boolean;
   indeterminate: boolean;
@@ -119,9 +122,13 @@ interface ExplorerCheckboxProps {
 }
 
 const ExplorerCheckbox = React.forwardRef(function CustomCheckbox(
-  props: ExplorerCheckboxProps,
+  { itemId, ...props }: ExplorerCheckboxProps,
   ref: React.Ref<HTMLInputElement>
 ) {
+  if (itemId == "0") {
+    return null;
+  }
+
   return <Checkbox ref={ref} {...props} />;
 });
 
@@ -157,9 +164,9 @@ export const ExplorerTreeItemWithCheckbox = React.forwardRef(
             count: item.count,
           } as ExplorerTreeItemLabelWithCountProps,
           checkbox: {
+            itemId,
             indeterminate: item.indeterminate,
             checked: status.selected,
-            disabled: item.disabled,
             onChange: interactions.handleCheckboxSelection,
           } as ExplorerCheckboxProps,
         }}
@@ -188,6 +195,15 @@ export const ExplorerTreeItem = React.forwardRef(function CustomTreeItem(
 
   const { addNewChild, importImages } = props as ExplorerTreeItemProps;
 
+  const onImportImages =
+    importImages == null || itemId == "0"
+      ? null
+      : () => {
+          importImages(itemId);
+        };
+  const onToggleItemEditing =
+    !status.editable || itemId == "0" ? null : interactions.toggleItemEditing;
+
   return (
     <TreeItem2
       {...props}
@@ -205,13 +221,8 @@ export const ExplorerTreeItem = React.forwardRef(function CustomTreeItem(
           addNewChild: () => {
             addNewChild(itemId);
           },
-          toggleItemEditing: interactions.toggleItemEditing,
-          importImages:
-            importImages == null
-              ? null
-              : () => {
-                  importImages(itemId);
-                },
+          toggleItemEditing: onToggleItemEditing,
+          importImages: onImportImages,
         } as ExplorerTreeItemLabelProps,
       }}
     />

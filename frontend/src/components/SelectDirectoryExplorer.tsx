@@ -6,22 +6,19 @@ import React, { FC, useEffect, useState } from "react";
 import {
   Directory,
   DirectoryService,
-} from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
+} from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import { ExplorerTreeItemWithCheckbox } from "./ExplorerTreeItem";
 import { getDefaultExpandedItems, getDirectoryMap } from "./DirectoryExplorer";
+import { Typography } from "@mui/joy";
 
-function directoriesToTreeViewBaseItems(
-  directories: Directory[]
-): TreeViewBaseItem<{}>[] {
-  return directories.map((directory) => {
-    return {
-      id: String(directory.id),
-      label: directory.name,
-      children: directoriesToTreeViewBaseItems(
-        directory.children.filter((child) => child != null)
-      ),
-    };
-  });
+function directoryToTreeViewBaseItems(directory: Directory): TreeViewBaseItem {
+  return {
+    id: String(directory.id),
+    label: directory.name,
+    children: directory.children.map((child) =>
+      directoryToTreeViewBaseItems(child)
+    ),
+  };
 }
 
 type SelectDirectoryExplorerProps =
@@ -40,33 +37,19 @@ const SelectDirectoryExplorer: FC<SelectDirectoryExplorerProps> = ({
   onSelect,
   ...props
 }) => {
-  const [rootDirectory, setRootDirectory] = useState<string>("");
-  const [children, setChildren] = useState<Directory[]>([]);
+  const [rootDirectory, setRootDirectory] = useState<Directory>();
   const [directoryMap, setDirectoryMap] = useState<{
     [id: number]: Directory;
   }>({});
-  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    DirectoryService.ReadInitialDirectory().then(async (directory) => {
-      setRootDirectory(directory);
-    });
+    refresh();
   }, []);
 
-  useEffect(() => {
-    if (!rootDirectory) {
-      return;
-    }
-    refresh().then(() => {
-      setIsLoaded(true);
-    });
-  }, [rootDirectory]);
-
   async function refresh() {
-    // todo: stop hardcoding root directory ID 0
-    const children = await DirectoryService.ReadChildDirectoriesRecursively(0);
-    await setChildren(children);
-    setDirectoryMap(getDirectoryMap(children));
+    const directory = await DirectoryService.ReadDirectoryTree();
+    setRootDirectory(directory);
+    setDirectoryMap(getDirectoryMap(directory));
   }
 
   let onSelectedItemsChange;
@@ -95,8 +78,8 @@ const SelectDirectoryExplorer: FC<SelectDirectoryExplorerProps> = ({
     };
   }
 
-  if (!isLoaded) {
-    return <div>Loading...</div>;
+  if (!rootDirectory) {
+    return <Typography>Loading...</Typography>;
   }
 
   let selectedDirectoryIds: number[] = [];
@@ -121,7 +104,7 @@ const SelectDirectoryExplorer: FC<SelectDirectoryExplorerProps> = ({
         collapseIcon: (props) => <FolderOpenIcon color="primary" {...props} />,
         endIcon: (props) => <FolderOpenIcon color="primary" {...props} />,
       }}
-      items={directoriesToTreeViewBaseItems(children)}
+      items={[directoryToTreeViewBaseItems(rootDirectory)]}
       onSelectedItemsChange={onSelectedItemsChange}
       multiSelect={isMultiSelect}
       checkboxSelection={true}

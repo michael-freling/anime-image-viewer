@@ -1,16 +1,16 @@
-import { Add } from "@mui/icons-material";
 import FolderIcon from "@mui/icons-material/Folder";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
-import { IconButton, Typography } from "@mui/joy";
+import { Typography } from "@mui/joy";
 import { RichTreeView } from "@mui/x-tree-view";
 import { FC, useEffect, useState } from "react";
-import { BatchImportImageService } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import {
+  BatchImportImageService,
   Directory,
   DirectoryService,
-} from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
+} from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
+import { DirectoryService as LegacyDirectoryService } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
 import {
-  directoriesToTreeViewBaseItems,
+  directoryToTreeViewBaseItems,
   getDefaultExpandedItems,
   getDirectoryMap,
 } from "../../components/DirectoryExplorer";
@@ -21,56 +21,29 @@ import {
 import Layout from "../../Layout";
 
 const DirectoryEditPage: FC = () => {
-  const [rootDirectory, setRootDirectory] = useState<string>("");
-  const [children, setChildren] = useState<Directory[]>([]);
+  const [rootDirectory, setRootDirectory] = useState<Directory>();
   const [directoryMap, setDirectoryMap] = useState<{
     [id: number]: Directory;
   }>({});
 
   useEffect(() => {
-    DirectoryService.ReadInitialDirectory().then(async (directory) => {
-      setRootDirectory(directory);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!rootDirectory) {
-      return;
-    }
     refresh();
-  }, [rootDirectory]);
+  }, []);
 
   async function refresh() {
     // todo: stop hardcoding root directory ID 0
-    const children = await DirectoryService.ReadChildDirectoriesRecursively(0);
-    setChildren(children);
-    setDirectoryMap(getDirectoryMap(children));
+    const rootDirectory = await DirectoryService.ReadDirectoryTree();
+    setRootDirectory(rootDirectory);
+    setDirectoryMap(getDirectoryMap(rootDirectory));
   }
 
-  if (!rootDirectory || children.length === 0) {
+  if (!rootDirectory) {
     return <Typography>Loading...</Typography>;
   }
 
   const newDirectoryName = "New Directory";
   return (
-    <Layout.Main
-      actionHeader={
-        <>
-          <Typography>Edit directories</Typography>
-          <IconButton
-            variant="outlined"
-            color="primary"
-            onClick={async (event) => {
-              await DirectoryService.CreateTopDirectory(newDirectoryName);
-              // todo: don't reload all directories
-              await refresh();
-            }}
-          >
-            <Add />
-          </IconButton>
-        </>
-      }
-    >
+    <Layout.Main actionHeader={<Typography>Edit directories</Typography>}>
       <RichTreeView
         expansionTrigger="content"
         defaultExpandedItems={getDefaultExpandedItems([], directoryMap)}
@@ -86,7 +59,7 @@ const DirectoryEditPage: FC = () => {
         slotProps={{
           item: {
             addNewChild: async (parentID: string) => {
-              await DirectoryService.CreateDirectory(
+              await LegacyDirectoryService.CreateDirectory(
                 newDirectoryName,
                 parseInt(parentID, 10)
               );
@@ -100,7 +73,7 @@ const DirectoryEditPage: FC = () => {
             },
           } as ExplorerTreeItemProps,
         }}
-        items={directoriesToTreeViewBaseItems(children)}
+        items={[directoryToTreeViewBaseItems(rootDirectory)]}
         isItemEditable={() => true}
         experimentalFeatures={{ labelEditing: true }}
         onItemLabelChange={async (itemId, newLabel) => {
@@ -109,7 +82,7 @@ const DirectoryEditPage: FC = () => {
             directoryID,
             newLabel,
           });
-          await DirectoryService.UpdateName(directoryID, newLabel);
+          await LegacyDirectoryService.UpdateName(directoryID, newLabel);
           await refresh();
           // The label doesn't add a child tag correctly
         }}
