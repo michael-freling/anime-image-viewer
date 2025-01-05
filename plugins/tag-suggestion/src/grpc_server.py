@@ -61,15 +61,16 @@ class ErrorLogInterceptor(ServerInterceptor):
 
 
 def start_grpc_server(model_path: str, resize_image_width: int):
-    server = grpc.server(
-        futures.ThreadPoolExecutor(max_workers=mp.cpu_count() * 2),
-        interceptors=[ErrorLogInterceptor()],
-    )
-    service = TagSuggestionService(model_path, resize_image_width)
-    suggestion_pb2_grpc.add_TagSuggestionServiceServicer_to_server(
-        service, server)
-    port = 50051
-    server.add_insecure_port(f'[::]:{port}')
-    print(f'Starting server. Listening on port {port}.')
-    server.start()
-    server.wait_for_termination()
+    with futures.ThreadPoolExecutor(max_workers=mp.cpu_count() * 2) as executor:
+        server = grpc.server(
+            executor,
+            interceptors=[ErrorLogInterceptor()],
+        )
+        service = TagSuggestionService(model_path, resize_image_width)
+        suggestion_pb2_grpc.add_TagSuggestionServiceServicer_to_server(
+            service, server)
+        port = 50051
+        server.add_insecure_port(f'[::]:{port}')
+        print(f'Starting server. Listening on port {port}.')
+        server.start()
+        server.wait_for_termination()
