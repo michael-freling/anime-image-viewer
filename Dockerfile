@@ -1,7 +1,8 @@
 ARG GO_VERSION=1.23.4
 ARG NODE_VERSION=22.11
 
-FROM wails:3-go-${GO_VERSION}-node-${NODE_VERSION}
+# https://hub.docker.com/r/michaelfreling/wails
+FROM michaelfreling/wails:3-go-${GO_VERSION}-node-${NODE_VERSION}
 
 ARG OS=windows
 ARG ARCH=amd64
