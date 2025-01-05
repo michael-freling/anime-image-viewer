@@ -1,18 +1,12 @@
 package image
 
 import (
-	"context"
 	"errors"
-	"fmt"
-	"io/fs"
 	"log/slog"
-	"os"
-	"path"
 	"path/filepath"
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
-	"github.com/michael-freling/anime-image-viewer/internal/xerrors"
 )
 
 var (
@@ -35,7 +29,7 @@ type Directory struct {
 	RelativePath string `json:"-"`
 }
 
-func (directory *Directory) updateName(newName string) *Directory {
+func (directory *Directory) UpdateName(newName string) *Directory {
 	directory.Name = newName
 	directory.Path = filepath.Join(filepath.Dir(directory.Path), newName)
 	if directory.ParentID == 0 {
@@ -157,128 +151,4 @@ func NewDirectoryService(
 
 func (service DirectoryService) ReadImageFiles(parentDirectoryID uint) ([]ImageFile, error) {
 	return service.reader.ReadImageFiles(parentDirectoryID)
-}
-
-func (service DirectoryService) CreateDirectory(ctx context.Context, name string, parentID uint) (Directory, error) {
-	rootDirectory := service.reader.readInitialDirectory()
-	if parentID != 0 {
-		currentDirectory, err := service.reader.ReadDirectory(parentID)
-		if err != nil {
-			return Directory{}, fmt.Errorf("service.readDirectory: %w", err)
-		}
-		if currentDirectory.ID == 0 {
-			return Directory{}, fmt.Errorf("%w: parent id %d", ErrDirectoryNotFound, parentID)
-		}
-		rootDirectory = currentDirectory.Path
-	}
-
-	directoryPath := filepath.Join(rootDirectory, name)
-	if _, err := os.Stat(directoryPath); err == nil {
-		return Directory{}, fmt.Errorf("%w: %s", ErrDirectoryAlreadyExists, name)
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return Directory{}, fmt.Errorf("os.Stat: %w", err)
-	}
-
-	var directory db.File
-	err := db.NewTransaction(ctx, service.dbClient, func(ctx context.Context) error {
-		ormClient := service.dbClient.File()
-		record, err := ormClient.FindByValue(ctx, &db.File{
-			Name:     name,
-			ParentID: parentID,
-		})
-		if err != nil && err != db.ErrRecordNotFound {
-			return fmt.Errorf("ormClient.FindByValue: %w", err)
-		}
-		if record.ID != 0 && record.ParentID == parentID {
-			return fmt.Errorf("%w: %s", ErrDirectoryAlreadyExists, record.Name)
-		}
-
-		directory = db.File{
-			Name:     name,
-			ParentID: parentID,
-			Type:     db.FileTypeDirectory,
-		}
-		if err := ormClient.Create(ctx, &directory); err != nil {
-			return fmt.Errorf("ormClient.Create: %w", err)
-		}
-
-		// trying to create a directory
-		if err := os.Mkdir(directoryPath, 0755); err != nil {
-			return fmt.Errorf("os.Mkdir: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
-		return Directory{}, fmt.Errorf("db.NewTransaction: %w", err)
-	}
-
-	return Directory{
-		ID:       directory.ID,
-		Name:     directory.Name,
-		Path:     directoryPath,
-		ParentID: directory.ParentID,
-	}, nil
-}
-
-func (service DirectoryService) UpdateName(ctx context.Context, id uint, name string) (Directory, error) {
-	directory, err := service.reader.ReadDirectory(id)
-	if err != nil {
-		return Directory{}, fmt.Errorf("service.readDirectory: %w %d", err, id)
-	}
-	if directory.ID == 0 {
-		return Directory{}, fmt.Errorf("%w for id: %d", ErrDirectoryNotFound, id)
-	}
-	if directory.Name == name {
-		return directory, fmt.Errorf("%w: directory name hasn't been changed: %s", xerrors.ErrInvalidArgument, name)
-	}
-	if _, err := os.Stat(directory.Path); err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return Directory{}, fmt.Errorf("%w in %s", ErrDirectoryNotFound, directory.Path)
-		}
-		return Directory{}, fmt.Errorf("os.Stat: %w", err)
-	}
-
-	_, err = db.FindByValue(service.dbClient, db.File{
-		Name:     name,
-		ParentID: directory.ParentID,
-	})
-	if err == nil && directory.ID != 0 {
-		return Directory{}, fmt.Errorf("%w for %s under parent directory id %d", ErrDirectoryAlreadyExists, name, directory.ParentID)
-	} else if !errors.Is(err, db.ErrRecordNotFound) {
-		return Directory{}, fmt.Errorf("db.FindValue: (%w)", err)
-	}
-
-	newDirectoryPath := path.Join(filepath.Dir(directory.Path), name)
-	if _, err := os.Stat(newDirectoryPath); err == nil {
-		return Directory{}, fmt.Errorf("%w for a path: %s", ErrDirectoryAlreadyExists, newDirectoryPath)
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return Directory{}, fmt.Errorf("os.Stat: %w", err)
-	}
-
-	err = db.NewTransaction(ctx, service.dbClient, func(ctx context.Context) error {
-		ormClient := service.dbClient.File()
-		record, err := ormClient.FindByValue(ctx, &db.File{
-			ID: id,
-		})
-		if err != nil {
-			return fmt.Errorf("ormClient.FindByValue: %w", err)
-		}
-
-		record.Name = name
-		if err := ormClient.Update(ctx, &record); err != nil {
-			return fmt.Errorf("ormClient.Save: %w", err)
-		}
-
-		// trying to create a directory
-		if err := os.Rename(directory.Path, newDirectoryPath); err != nil {
-			return fmt.Errorf("os.Rename: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
-		return Directory{}, fmt.Errorf("db.NewTransaction: %w", err)
-	}
-
-	directory.updateName(name)
-	return directory, nil
 }

@@ -25,7 +25,7 @@ func NewDirectoryReader(config config.Config, dbClient *db.Client) *DirectoryRea
 	}
 }
 
-func (service DirectoryReader) readInitialDirectory() string {
+func (service DirectoryReader) ReadInitialDirectory() string {
 	return service.config.ImageRootDirectory
 }
 
@@ -127,8 +127,8 @@ func (service DirectoryReader) ReadDirectoryTree() (Directory, error) {
 	directoryMap := make(map[uint]*Directory)
 	directoryMap[db.RootDirectoryID] = &Directory{
 		ID:           db.RootDirectoryID,
-		Name:         service.readInitialDirectory(),
-		Path:         service.readInitialDirectory(),
+		Name:         service.ReadInitialDirectory(),
+		Path:         service.ReadInitialDirectory(),
 		RelativePath: "",
 		ParentID:     0,
 	}
@@ -155,7 +155,7 @@ func (service DirectoryReader) ReadDirectoryTree() (Directory, error) {
 		childDirectoryMap,
 		childImageFileMap,
 		db.RootDirectoryID,
-		service.readInitialDirectory(),
+		service.ReadInitialDirectory(),
 		"",
 	)
 	return *root, nil

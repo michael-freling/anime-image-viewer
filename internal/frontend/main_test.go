@@ -53,6 +53,13 @@ func newTester(t *testing.T, opts ...newTesterOption) tester {
 	}
 }
 
+func (tester tester) getDirectoryService() *DirectoryService {
+	return NewDirectoryService(
+		tester.dbClient.Client,
+		tester.getDirectoryReader(),
+	)
+}
+
 func (tester tester) getSearchService() *SearchService {
 	return NewSearchService(
 		search.NewSearchRunner(

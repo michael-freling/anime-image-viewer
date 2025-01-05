@@ -8,7 +8,6 @@ import {
   Directory,
   DirectoryService,
 } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
-import { DirectoryService as LegacyDirectoryService } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
 import {
   directoryToTreeViewBaseItems,
   getDefaultExpandedItems,
@@ -59,7 +58,7 @@ const DirectoryEditPage: FC = () => {
         slotProps={{
           item: {
             addNewChild: async (parentID: string) => {
-              await LegacyDirectoryService.CreateDirectory(
+              await DirectoryService.CreateDirectory(
                 newDirectoryName,
                 parseInt(parentID, 10)
               );
@@ -82,7 +81,7 @@ const DirectoryEditPage: FC = () => {
             directoryID,
             newLabel,
           });
-          await LegacyDirectoryService.UpdateName(directoryID, newLabel);
+          await DirectoryService.UpdateName(directoryID, newLabel);
           await refresh();
           // The label doesn't add a child tag correctly
         }}
