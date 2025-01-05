@@ -55,32 +55,8 @@ func newTester(t *testing.T, opts ...newTesterOption) Tester {
 	}
 }
 
-func (tester Tester) getFileService() *ImageFileService {
-	return NewFileService(
-		tester.logger,
-		tester.dbClient.Client,
-		tester.getDirectoryReader(),
-		tester.getImageFileConverter(),
-	)
-}
-
-func (tester Tester) getDirectoryService() *DirectoryService {
-	fileService := tester.getFileService()
-	return NewDirectoryService(
-		tester.logger,
-		tester.config,
-		tester.dbClient.Client,
-		fileService,
-		tester.getDirectoryReader(),
-	)
-}
-
 func (tester Tester) getDirectoryReader() *DirectoryReader {
 	return NewDirectoryReader(tester.config, tester.dbClient.Client)
-}
-
-func (tester Tester) getImageFileConverter() *ImageFileConverter {
-	return NewImageFileConverter(tester.config)
 }
 
 func (tester Tester) newFileCreator() *FileCreator {

@@ -2,11 +2,7 @@ package image
 
 import (
 	"errors"
-	"log/slog"
 	"path/filepath"
-
-	"github.com/michael-freling/anime-image-viewer/internal/config"
-	"github.com/michael-freling/anime-image-viewer/internal/db"
 )
 
 var (
@@ -121,34 +117,4 @@ func (parent Directory) GetDescendants() []Directory {
 		result = append(result, child.GetDescendants()...)
 	}
 	return result
-}
-
-type DirectoryService struct {
-	logger   *slog.Logger
-	config   config.Config
-	dbClient *db.Client
-
-	reader           *DirectoryReader
-	imageFileService *ImageFileService
-}
-
-func NewDirectoryService(
-	logger *slog.Logger,
-	conf config.Config,
-	dbClient *db.Client,
-	imageFileService *ImageFileService,
-	directoryReader *DirectoryReader,
-) *DirectoryService {
-	service := &DirectoryService{
-		logger:           logger,
-		config:           conf,
-		dbClient:         dbClient,
-		imageFileService: imageFileService,
-		reader:           directoryReader,
-	}
-	return service
-}
-
-func (service DirectoryService) ReadImageFiles(parentDirectoryID uint) ([]ImageFile, error) {
-	return service.reader.ReadImageFiles(parentDirectoryID)
 }
