@@ -52,7 +52,7 @@ jobs:
       # https://earthly.dev/blog/github-action-artifacts/
       - uses: ncipollo/release-action@v1
         with:
-          artifacts: "dist/*"
+          artifacts: "dist/prod/*"
           # Following fields are for debugging
           allowUpdates: true
           # tag: "v0.3.0"
