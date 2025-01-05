@@ -1,7 +1,10 @@
+from concurrent import futures
 from transformers import ViTImageProcessor, ViTForImageClassification
 import torch
 import multiprocessing as mp
 from ImageProcessor import ImageProcessor
+
+import functools
 
 
 class Inference:
@@ -18,12 +21,13 @@ class Inference:
 
     def predict(self, image_paths: list[str]):
         images = []
-        with mp.Pool(processes=mp.cpu_count()) as pool:
-            images = pool.starmap(
-                self.preprocess_image,
-                [(image_path, self.resize_image_width)
-                 for image_path in image_paths]
-            )
+
+        # https://miguendes.me/how-to-pass-multiple-arguments-to-a-map-function-in-python#problem-3-how-to-pass-multiple-arguments-to-a-concurrent-futures-processpoolexecutor-or-threadpoolexecutor
+        partial_preprocess_image = functools.partial(
+            self.preprocess_image, target_width=self.resize_image_width)
+        with futures.ThreadPoolExecutor(max_workers=mp.cpu_count()) as thread:
+            images = list(thread.map(partial_preprocess_image,
+                          image_paths))
 
         inputs = self.processor(
             images=images, return_tensors="pt")
