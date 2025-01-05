@@ -89,11 +89,6 @@ func main() {
 }
 
 func runMain(conf config.Config, logger *slog.Logger) error {
-	configService, err := config.NewService(conf)
-	if err != nil {
-		return fmt.Errorf("config.NewService: %w", err)
-	}
-
 	dbClient, err := db.FromConfig(conf, logger)
 	if err != nil {
 		return fmt.Errorf("db.NewClient: %w", err)
@@ -113,12 +108,6 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 	tagReader := tag.NewReader(dbClient, directoryReader)
 	imageReader := image.NewReader(dbClient, directoryReader, imageFileConverter)
 	imageService := frontend.NewImageService(imageReader)
-	legacyImageService := image.NewFileService(
-		logger,
-		dbClient,
-		directoryReader,
-		imageFileConverter,
-	)
 	directoryService := frontend.NewDirectoryService(
 		dbClient,
 		directoryReader,
@@ -160,11 +149,9 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 		Logger:      logger,
 		Services: []application.Service{
 			application.NewService(imageService),
-			application.NewService(legacyImageService),
 			application.NewService(directoryService),
 			application.NewService(tagService),
 			application.NewService(legacyTagFrontendService),
-			application.NewService(configService),
 			application.NewService(
 				frontend.NewStaticFileService(logger, conf),
 				application.ServiceOptions{

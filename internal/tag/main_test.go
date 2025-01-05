@@ -63,15 +63,6 @@ func newTester(t *testing.T, opts ...newTesterOption) Tester {
 	}
 }
 
-func (tester Tester) getFileService() *image.ImageFileService {
-	return image.NewFileService(
-		tester.logger,
-		tester.dbClient,
-		tester.getDirectoryReader(),
-		tester.getImageFileConverter(),
-	)
-}
-
 func (tester Tester) getDirectoryReader() *image.DirectoryReader {
 	return image.NewDirectoryReader(tester.config, tester.dbClient)
 }
