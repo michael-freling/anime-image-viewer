@@ -16,7 +16,6 @@ type Tag struct {
 	FullName string `json:"full_name,omitempty"`
 	ParentID uint   `json:"parentId,omitempty"`
 	parent   *Tag   `json:"-"`
-	tagType  db.TagType
 	Children []*Tag `json:"children,omitempty"`
 }
 

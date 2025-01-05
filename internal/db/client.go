@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"path/filepath"
@@ -102,26 +101,6 @@ func (client *Client) Migrate() error {
 		return fmt.Errorf("AutoMigrate: %w", err)
 	}
 
-	// hardcode a tag until UI shows a tag to create
-	initialTags := []Tag{
-		{Name: "Series", Type: TagTypeSeries},
-		{Name: "Seasons", Type: TagTypeSeason},
-	}
-	nweTags := make([]Tag, 0, len(initialTags))
-	for _, tag := range initialTags {
-		_, err := FindByValue(client, tag)
-		if err == nil {
-			continue
-		}
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			nweTags = append(nweTags, tag)
-			continue
-		}
-		return fmt.Errorf("FindByValue: %w", err)
-	}
-	if err := BatchCreate(client, nweTags); err != nil {
-		return fmt.Errorf("BatchCreate: %w", err)
-	}
 	return nil
 }
 

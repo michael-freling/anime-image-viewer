@@ -57,28 +57,12 @@ type TagInput struct {
 }
 
 func (service TagFrontendService) Create(ctx context.Context, input TagInput) (Tag, error) {
-	parentTag, err := db.FindByValue(service.dbClient, &db.Tag{
-		ID: input.ParentID,
-	})
-	if err != nil {
-		return Tag{}, fmt.Errorf("db.FindByValue: %w", err)
-	}
-
 	tag := db.Tag{
 		Name:     input.Name,
 		ParentID: input.ParentID,
 	}
-	if parentTag.Type == db.TagTypeSeason {
-		tag.Type = db.TagTypeSeason
-	}
-	if parentTag.Type == db.TagTypeSeries && parentTag.ParentID == 0 {
-		// series tags are only the first level, for example
-		// Series > Attack on Titan, but not
-		// Series > Attack on Titan > Season 1
-		tag.Type = db.TagTypeSeries
-	}
 
-	err = db.NewTransaction(ctx, service.dbClient, func(ctx context.Context) error {
+	err := db.NewTransaction(ctx, service.dbClient, func(ctx context.Context) error {
 		ormClient := service.dbClient.Tag()
 		_, err := ormClient.FindByValue(ctx, &db.Tag{
 			ID: input.ParentID,
@@ -89,28 +73,6 @@ func (service TagFrontendService) Create(ctx context.Context, input TagInput) (T
 
 		if err := ormClient.Create(ctx, &tag); err != nil {
 			return fmt.Errorf("ormClient.Create: %w", err)
-		}
-
-		// create some tags automatically
-		if parentTag.Type == db.TagTypeSeries && parentTag.ParentID == 0 {
-			seriesTags := []db.Tag{
-				{Name: "Main Character", ParentID: tag.ID, Type: db.TagTypeCharacter},
-				{Name: "Season 1", ParentID: tag.ID, Type: db.TagTypeSeason},
-			}
-			if err := ormClient.BatchCreate(ctx, seriesTags); err != nil {
-				return fmt.Errorf("ormClient.BatchCreate: %w", err)
-			}
-		}
-		if parentTag.Type == db.TagTypeSeason && parentTag.ParentID == 0 {
-			err = ormClient.BatchCreate(ctx, []db.Tag{
-				{Name: "Winter", ParentID: tag.ID},
-				{Name: "Spring", ParentID: tag.ID},
-				{Name: "Summer", ParentID: tag.ID},
-				{Name: "Fall", ParentID: tag.ID},
-			})
-			if err != nil {
-				return fmt.Errorf("ormClient.BatchCreate: %w", err)
-			}
 		}
 
 		return nil
@@ -154,29 +116,10 @@ func (service TagFrontendService) UpdateName(ctx context.Context, id uint, name 
 }
 
 func (service TagFrontendService) GetAll() ([]Tag, error) {
-	tags, err := service.reader.ReadAllTags()
+	result, err := service.reader.ReadAllTags()
 	if err != nil {
 		return nil, fmt.Errorf("ReadAllTags: %w", err)
 	}
-
-	// sort tags based on a tag type
-	result := make([]Tag, 0)
-	seriesTags := make([]Tag, 0)
-	seasonTags := make([]Tag, 0)
-	otherTags := make([]Tag, 0)
-	for _, tag := range tags {
-		switch tag.tagType {
-		case db.TagTypeSeries:
-			seriesTags = append(seriesTags, tag)
-		case db.TagTypeSeason:
-			seasonTags = append(seasonTags, tag)
-		default:
-			otherTags = append(otherTags, tag)
-		}
-	}
-	result = append(result, seriesTags...)
-	result = append(result, seasonTags...)
-	result = append(result, otherTags...)
 	if len(result) == 0 {
 		return nil, nil
 	}

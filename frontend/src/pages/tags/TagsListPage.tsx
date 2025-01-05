@@ -20,6 +20,7 @@ import { getDefaultExpandedItems } from "../../components/TagExplorer";
 export const TagsListPage: FC = () => {
   const [tags, setTags] = useState<Tag[]>([]);
   const [tagMap, setTagMap] = useState<{ [id: number]: Tag }>({});
+  const [isTagLoaded, setTagLoaded] = useState(false);
 
   useEffect(() => {
     if (tags.length > 0) {
@@ -33,10 +34,7 @@ export const TagsListPage: FC = () => {
     const tags = await TagFrontendService.GetAll();
     setTags(tags);
     setTagMap(getTagMap(tags));
-  }
-
-  if (tags.length === 0) {
-    return <Typography>Loading...</Typography>;
+    setTagLoaded(true);
   }
 
   const treeItems = tagsToTreeViewBaseItems(tags, 0);
@@ -69,27 +67,30 @@ export const TagsListPage: FC = () => {
         </>
       }
     >
-      <RichTreeView
-        expansionTrigger="content"
-        defaultExpandedItems={getDefaultExpandedItems([], tagMap)}
-        slots={{
-          // todo: RichTreeView doesn't allow to pass a type other than TreeItem2Props
-          item: ExplorerTreeItem as any,
-        }}
-        slotProps={{
-          item: {
-            addNewChild,
-          } as ExplorerTreeItemProps,
-        }}
-        isItemEditable={() => true}
-        experimentalFeatures={{ labelEditing: true }}
-        items={treeItems}
-        onItemLabelChange={async (itemId, newLabel) => {
-          await TagFrontendService.UpdateName(parseInt(itemId, 10), newLabel);
-          // todo: Update only changed tag
-          await refresh();
-        }}
-      />
+      {!isTagLoaded && <Typography>Loading...</Typography>}
+      {isTagLoaded && (
+        <RichTreeView
+          expansionTrigger="content"
+          defaultExpandedItems={getDefaultExpandedItems([], tagMap)}
+          slots={{
+            // todo: RichTreeView doesn't allow to pass a type other than TreeItem2Props
+            item: ExplorerTreeItem as any,
+          }}
+          slotProps={{
+            item: {
+              addNewChild,
+            } as ExplorerTreeItemProps,
+          }}
+          isItemEditable={() => true}
+          experimentalFeatures={{ labelEditing: true }}
+          items={treeItems}
+          onItemLabelChange={async (itemId, newLabel) => {
+            await TagFrontendService.UpdateName(parseInt(itemId, 10), newLabel);
+            // todo: Update only changed tag
+            await refresh();
+          }}
+        />
+      )}
     </Layout.Main>
   );
 };

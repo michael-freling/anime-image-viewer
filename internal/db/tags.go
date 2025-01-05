@@ -4,20 +4,11 @@ import (
 	"context"
 )
 
-type TagType string
-
-const (
-	TagTypeSeries    TagType = "series"
-	TagTypeSeason    TagType = "seasons"
-	TagTypeCharacter TagType = "character"
-)
-
 type Tag struct {
 	// gorm.Model
 	ID        uint `gorm:"primarykey"`
 	Name      string
 	ParentID  uint
-	Type      TagType
 	CreatedAt uint
 	UpdatedAt uint
 }

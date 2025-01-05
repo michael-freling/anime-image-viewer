@@ -44,9 +44,8 @@ func (reader Reader) ReadRootNode() (Tag, error) {
 	tagMap := make(map[uint]Tag)
 	for _, t := range allTags {
 		tagMap[t.ID] = Tag{
-			ID:      t.ID,
-			Name:    t.Name,
-			tagType: t.Type,
+			ID:   t.ID,
+			Name: t.Name,
 		}
 
 		childMap[t.ParentID] = append(childMap[t.ParentID], tagMap[t.ID])
@@ -76,9 +75,8 @@ func (reader Reader) ReadAllTags() ([]Tag, error) {
 	tagMap := make(map[uint]Tag)
 	for _, t := range allTags {
 		tagMap[t.ID] = Tag{
-			ID:      t.ID,
-			Name:    t.Name,
-			tagType: t.Type,
+			ID:   t.ID,
+			Name: t.Name,
 		}
 
 		childMap[t.ParentID] = append(childMap[t.ParentID], tagMap[t.ID])
