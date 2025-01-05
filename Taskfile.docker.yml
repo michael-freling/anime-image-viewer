@@ -1,0 +1,51 @@
+version: '3'
+
+vars:
+  APP_NAME: "anime-image-viewer"
+
+tasks:
+  docker:build:all:
+    summary: Builds all Docker images
+    cmds:
+      - for:
+          matrix:
+            OS: ["wsl", "linux"]
+            ARCH: ["amd64"]
+            ENV: ["prod", "debug"]
+        task: docker:build
+        vars:
+          OS: '{{ .ITEM.OS }}'
+          ARCH: '{{ .ITEM.ARCH }}'
+          ENV: '{{ .ITEM.ENV }}'
+
+  docker:build:
+    summary: Builds the Docker image
+    vars:
+      GO_VERSION: 1.23.4
+      NODE_VERSION: 22.11
+      BASE_TAG: 'wails:3-go-{{ .GO_VERSION }}-node-{{ .NODE_VERSION }}'
+      IMAGE_TAG: '{{ .APP_NAME }}-{{ .ENV }}:{{ .OS }}-{{ .ARCH }}'
+      BINARY: '{{ .APP_NAME }}{{ if eq .OS "wsl" }}.exe{{ end }}'
+      RESULT: '{{ .APP_NAME }}-{{ if eq .OS "wsl" }}windows{{ else }}{{ .OS }}{{ end }}-{{ .ARCH }}{{ if eq .OS "wsl" }}.exe{{ end }}'
+    cmds:
+      - |
+          docker build \
+            --tag {{ .BASE_TAG }} \
+            --build-arg GO_VERSION={{ .GO_VERSION }} \
+            --build-arg NODE_VERSION={{ .NODE_VERSION }} \
+            --file Dockerfile.base \
+            .
+      - |
+          docker build \
+            --tag {{ .IMAGE_TAG }} \
+            --build-arg GO_VERSION={{ .GO_VERSION }} \
+            --build-arg NODE_VERSION={{ .NODE_VERSION }} \
+            --build-arg OS={{ .OS }} \
+            --build-arg ARCH={{ .ARCH }} \
+            --build-arg ENV={{ .ENV }} \
+            .
+      # Copy binary files from images into a local: https://stackoverflow.com/questions/48265608/is-it-possible-to-copy-a-file-out-of-a-docker-image-without-actually-running-the
+      - mkdir -p ./dist/{{ .ENV }}
+      - docker create --name {{ .APP_NAME }} {{ .IMAGE_TAG }}
+      - defer: docker rm {{ .APP_NAME }}
+      - docker cp {{ .APP_NAME }}:/app/bin/{{ .BINARY }} ./dist/{{ .ENV }}/{{ .RESULT }}

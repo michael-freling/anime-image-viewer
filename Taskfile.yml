@@ -47,7 +47,22 @@ tasks:
       GOARCH: '{{.ARCH | default ARCH}}'
       PRODUCTION: '{{.PRODUCTION | default "false"}}'
 
+  build:wsl:debug:amd64:
+    summary: Creates a debug build of the application
+    cmds:
+      - task: build:wsl
+        vars:
+          ARCH: amd64
+
   build:wsl:prod:
+    summary: Creates a production build of the application
+    cmds:
+      - task: build:wsl
+        vars:
+          ARCH: '{{.ARCH | default ARCH}}'
+          PRODUCTION: "true"
+
+  build:wsl:prod:amd64:
     summary: Creates a production build of the application
     cmds:
       - task: build:wsl

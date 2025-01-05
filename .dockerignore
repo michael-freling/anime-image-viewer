@@ -1,0 +1,10 @@
+.git
+**/node_modules
+Taskfile.docker.yml
+
+# For tag-suggestion
+**/__pycache__
+**/.venv
+**/datasets*
+plugins/tag-suggestion/model*
+plugins/tag-suggestion/source*
