@@ -170,6 +170,9 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
   }
 
   if (children.length === 0) {
+    if (tagStatsLoaded) {
+      return <Typography>Please create a tag at first</Typography>;
+    }
     return <Typography>Loading...</Typography>;
   }
 
