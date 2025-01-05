@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -185,27 +184,6 @@ func (reader Reader) ReadImagesByIDs(imageFileIDs []uint) (ImageFileList, error)
 		imageFiles[index] = imageFile
 	}
 	return imageFiles, nil
-}
-
-type ImageFileService struct {
-	logger   *slog.Logger
-	dbClient *db.Client
-
-	imageFileConverter *ImageFileConverter
-}
-
-func NewFileService(
-	logger *slog.Logger,
-	dbClient *db.Client,
-	directoryReader *DirectoryReader,
-	imageFileConverter *ImageFileConverter,
-) *ImageFileService {
-	return &ImageFileService{
-		logger:   logger,
-		dbClient: dbClient,
-
-		imageFileConverter: imageFileConverter,
-	}
 }
 
 type ImageFileConverter struct {
