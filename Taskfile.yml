@@ -2,6 +2,7 @@ version: '3'
 
 vars:
   APP_NAME: "anime-image-viewer"
+  VERSION: 0.1.0
   BIN_DIR: "bin"
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
 
@@ -274,6 +275,23 @@ tasks:
       - wails3 generate syso -arch {{.ARCH}} -icon icon.ico -manifest wails.exe.manifest -info info.json -out ../wails.syso
     vars:
       ARCH: '{{.ARCH | default ARCH}}'
+
+  generate:assets:
+    summary: Generates assets
+    cmds:
+      - |
+        wails3 generate build-assets \
+          -name "{{.APP_NAME}}" \
+          -productname "{{.APP_NAME}}" \
+          -productcomments "The viewer for anime images" \
+          -productdescription "" \
+          -productidentifier "io.michael-freling.{{.APP_NAME}}" \
+          -productcompany "" \
+          -productcopyright "Copyright © 2025" \
+          -productversion "{{ .VERSION }}"
+      # For some reasons, icons were reset
+      - git checkout build/appicon.png
+      - task: generate:icons
 
   create:nsis:installer:
     summary: Creates an NSIS installer
