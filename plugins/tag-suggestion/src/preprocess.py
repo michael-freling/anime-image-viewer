@@ -46,6 +46,11 @@ class Preprocessor:
             print(f"{split} dataset: Processing {
                   len(split_image_paths)} images...")
 
+            if len(split_image_paths) == 0:
+                print(
+                    f"Warning: No images found in {split} dataset. Skipping...")
+                continue
+
             metadata_file = metadata_file_paths[split]
             with mp.Pool(processes=mp.cpu_count()) as pool:
                 results = pool.starmap(
