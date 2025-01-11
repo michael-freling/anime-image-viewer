@@ -8,6 +8,8 @@ import {
   BatchImportImageService,
   Directory,
   DirectoryService,
+  Tag,
+  TagService,
 } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import {
   directoryToTreeViewBaseItems,
@@ -43,10 +45,6 @@ function useRequest(): Request {
       .getAll("directoryIds")
       .map((id) => parseInt(id));
   }
-  console.debug("request", {
-    params,
-    searchParams,
-  });
 
   return params as Request;
 }
@@ -56,12 +54,16 @@ const DirectoryEditPage: FC = () => {
   const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>(request.mode);
   const [rootDirectory, setRootDirectory] = useState<Directory>();
+  const [allTagMap, setAllTagMap] = useState<{ [id: number]: Tag }>({});
   const [directoryMap, setDirectoryMap] = useState<{
     [id: number]: Directory;
   }>({});
   const [directoryIds, setDirectoriesIds] = useState<number[]>(
     request.selectedDirectoryIds
   );
+  const [directoryTagMap, setDirectoryTagMap] = useState<{
+    [id: number]: number[];
+  }>({});
 
   function onSelect(directoryIds: number[]) {
     setDirectoriesIds(directoryIds);
@@ -87,10 +89,15 @@ const DirectoryEditPage: FC = () => {
   }
 
   async function refresh() {
-    // todo: stop hardcoding root directory ID 0
-    const rootDirectory = await DirectoryService.ReadDirectoryTree();
+    TagService.ReadAllMap().then((tagMap) => {
+      setAllTagMap(tagMap);
+    });
+
+    const { rootDirectory, tagMap } =
+      await DirectoryService.ReadDirectoryTree();
     setRootDirectory(rootDirectory);
     setDirectoryMap(getDirectoryMap(rootDirectory));
+    setDirectoryTagMap(tagMap);
   }
 
   if (!rootDirectory) {
@@ -161,7 +168,13 @@ const DirectoryEditPage: FC = () => {
               },
             } as ExplorerTreeItemProps,
           }}
-          items={[directoryToTreeViewBaseItems(rootDirectory)]}
+          items={[
+            directoryToTreeViewBaseItems(
+              rootDirectory,
+              allTagMap,
+              directoryTagMap
+            ),
+          ]}
           isItemEditable={() => true}
           experimentalFeatures={{ labelEditing: true }}
           onItemLabelChange={async (itemId, newLabel) => {

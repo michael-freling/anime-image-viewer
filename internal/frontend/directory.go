@@ -11,6 +11,7 @@ import (
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
+	"github.com/michael-freling/anime-image-viewer/internal/tag"
 	"github.com/michael-freling/anime-image-viewer/internal/xerrors"
 )
 
@@ -48,26 +49,54 @@ func (converter directoryConverter) convertDirectory(directory image.Directory) 
 type DirectoryService struct {
 	dbClient *db.Client
 
-	reader *image.DirectoryReader
+	reader    *image.DirectoryReader
+	tagReader *tag.Reader
 }
 
 func NewDirectoryService(
 	dbClient *db.Client,
 	directoryReader *image.DirectoryReader,
+	tagReader *tag.Reader,
 ) *DirectoryService {
 	return &DirectoryService{
-		dbClient: dbClient,
-		reader:   directoryReader,
+		dbClient:  dbClient,
+		reader:    directoryReader,
+		tagReader: tagReader,
 	}
 }
 
-func (service DirectoryService) ReadDirectoryTree() (Directory, error) {
+type ReadDirectoryTreeResponse struct {
+	RootDirectory Directory `json:"rootDirectory"`
+
+	// TagMap is a map of tag id to directory id, which doesn't include a parent-child relationships of
+	// directories and tags.
+	TagMap map[uint][]uint `json:"tagMap"`
+}
+
+func (service DirectoryService) ReadDirectoryTree(ctx context.Context) (ReadDirectoryTreeResponse, error) {
 	directory, err := service.reader.ReadDirectoryTree()
 	if err != nil {
-		return Directory{}, fmt.Errorf("service.directoryReader.ReadDirectoryTree: %w", err)
+		return ReadDirectoryTreeResponse{}, fmt.Errorf("service.directoryReader.ReadDirectoryTree: %w", err)
+	}
+	fileTags, err := service.tagReader.ReadDirectoryTags(ctx, directory)
+	if err != nil {
+		return ReadDirectoryTreeResponse{}, fmt.Errorf("service.tagReader.ReadDirectoryTags: %w", err)
+	}
+	resultTagMap := make(map[uint][]uint)
+	for _, fileTag := range fileTags {
+		if _, ok := resultTagMap[fileTag.FileID]; !ok {
+			resultTagMap[fileTag.FileID] = make([]uint, 0)
+		}
+		resultTagMap[fileTag.FileID] = append(resultTagMap[fileTag.FileID], fileTag.TagID)
+	}
+	if len(resultTagMap) == 0 {
+		resultTagMap = nil
 	}
 
-	return newDirectoryConverter().convertDirectory(directory), nil
+	return ReadDirectoryTreeResponse{
+		RootDirectory: newDirectoryConverter().convertDirectory(directory),
+		TagMap:        resultTagMap,
+	}, nil
 }
 
 func (service DirectoryService) CreateDirectory(ctx context.Context, name string, parentID uint) (Directory, error) {

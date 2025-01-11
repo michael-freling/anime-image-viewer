@@ -7,18 +7,29 @@ import { useNavigate } from "react-router";
 import {
   Directory,
   DirectoryService,
+  Tag,
 } from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import { ExplorerTreeItem } from "./ExplorerTreeItem";
 import { Typography } from "@mui/joy";
 
 export function directoryToTreeViewBaseItems(
-  directory: Directory
-): TreeViewBaseItem {
+  directory: Directory,
+  allTags: { [id: number]: Tag },
+  directoryTagMap: { [id: number]: number[] }
+): TreeViewBaseItem<{
+  id: string;
+  label: string;
+  tags: string[];
+}> {
+  const tagsMap = directoryTagMap[directory.id];
+
   return {
     id: String(directory.id),
     label: directory.name,
+    tags: tagsMap ? tagsMap.map((tagId) => allTags[tagId].fullName) : [],
+
     children: directory.children.map((child) => {
-      return directoryToTreeViewBaseItems(child);
+      return directoryToTreeViewBaseItems(child, allTags, directoryTagMap);
     }),
   };
 }
@@ -57,13 +68,12 @@ const DirectoryExplorer: FC = () => {
   }, []);
 
   async function refresh() {
-    // todo: stop hardcoding root directory ID 0
-    const directory = await DirectoryService.ReadDirectoryTree();
-    if (!directory) {
+    const { rootDirectory } = await DirectoryService.ReadDirectoryTree();
+    if (!rootDirectory) {
       return;
     }
-    setRootDirectory(directory);
-    setDirectoryMap(getDirectoryMap(directory));
+    setRootDirectory(rootDirectory);
+    setDirectoryMap(getDirectoryMap(rootDirectory));
   }
 
   const otherProps = {
@@ -97,7 +107,7 @@ const DirectoryExplorer: FC = () => {
         collapseIcon: (props) => <FolderOpenIcon color="primary" {...props} />,
         endIcon: (props) => <FolderOpenIcon color="primary" {...props} />,
       }}
-      items={[directoryToTreeViewBaseItems(rootDirectory)]}
+      items={[directoryToTreeViewBaseItems(rootDirectory, {}, {})]}
       {...otherProps}
     />
   );

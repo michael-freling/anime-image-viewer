@@ -119,6 +119,22 @@ func (reader Reader) ReadDBTagRecursively(tagID uint) (db.FileTagList, error) {
 	return fileTags, nil
 }
 
+func (reader Reader) ReadDirectoryTags(ctx context.Context, directory image.Directory) ([]db.FileTag, error) {
+	fileIDs := make([]uint, 0)
+	fileIDs = append(fileIDs, directory.ID)
+	for _, descendant := range directory.GetDescendants() {
+		fileIDs = append(fileIDs, descendant.ID)
+	}
+
+	dbFileTagClient := reader.dbClient.FileTag()
+	fileTags, err := dbFileTagClient.FindAllByFileID(fileIDs)
+	if err != nil {
+		return nil, fmt.Errorf("db.FindAllByFileID: %w", err)
+	}
+
+	return fileTags, nil
+}
+
 func (reader Reader) CreateBatchTagCheckerByFileIDs(
 	ctx context.Context,
 	fileIDs []uint,

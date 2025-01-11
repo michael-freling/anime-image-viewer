@@ -57,6 +57,7 @@ func (tester tester) getDirectoryService() *DirectoryService {
 	return NewDirectoryService(
 		tester.dbClient.Client,
 		tester.getDirectoryReader(),
+		tester.getTagReader(),
 	)
 }
 
@@ -99,6 +100,8 @@ func (tester tester) getTagReader() *tag.Reader {
 
 func (tester tester) newFileCreator() *fileCreator {
 	return &fileCreator{
-		image.NewFileCreator(tester.config.ImageRootDirectory),
+		FileCreator: image.NewFileCreator(tester.config.ImageRootDirectory),
+
+		directoryChildrenMap: make(map[uint][]image.Directory),
 	}
 }
