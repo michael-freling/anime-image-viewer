@@ -25,6 +25,7 @@ type SelectDirectoryExplorerProps =
   | {
       isMultiSelect: true;
       onSelect: (directoryIds: number[]) => void;
+      selectedDirectoryIds: number[];
     }
   | {
       isMultiSelect: false;
@@ -83,7 +84,9 @@ const SelectDirectoryExplorer: FC<SelectDirectoryExplorerProps> = ({
   }
 
   let selectedDirectoryIds: number[] = [];
-  if ("selectedDirectoryId" in props && props.selectedDirectoryId) {
+  if ("selectedDirectoryIds" in props && props.selectedDirectoryIds) {
+    selectedDirectoryIds = props.selectedDirectoryIds;
+  } else if ("selectedDirectoryId" in props && props.selectedDirectoryId) {
     selectedDirectoryIds = [props.selectedDirectoryId];
   }
   const defaultSelectedItems = selectedDirectoryIds.map((id) => String(id));

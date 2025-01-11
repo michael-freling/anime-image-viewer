@@ -3,6 +3,7 @@ import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import { Button, Typography } from "@mui/joy";
 import { RichTreeView } from "@mui/x-tree-view";
 import { FC, useEffect, useState } from "react";
+import { createSearchParams, useNavigate, useSearchParams } from "react-router";
 import {
   BatchImportImageService,
   Directory,
@@ -17,29 +18,73 @@ import {
   ExplorerTreeItem,
   ExplorerTreeItemProps,
 } from "../../components/ExplorerTreeItem";
-import Layout from "../../Layout";
 import ModeButtons from "../../components/ModeButtons";
-import { createSearchParams, useNavigate } from "react-router";
 import SelectDirectoryExplorer from "../../components/SelectDirectoryExplorer";
+import Layout from "../../Layout";
 
 type Mode = "edit" | "selectTags";
 
+interface Request {
+  mode: Mode;
+  selectedDirectoryIds: number[];
+}
+
+function useRequest(): Request {
+  const [searchParams] = useSearchParams();
+  let params: Request = {
+    mode: "edit",
+    selectedDirectoryIds: [],
+  };
+  if (searchParams.has("mode")) {
+    params.mode = searchParams.get("mode") as Mode;
+  }
+  if (searchParams.has("directoryIds")) {
+    params.selectedDirectoryIds = searchParams
+      .getAll("directoryIds")
+      .map((id) => parseInt(id));
+  }
+  console.debug("request", {
+    params,
+    searchParams,
+  });
+
+  return params as Request;
+}
+
 const DirectoryEditPage: FC = () => {
+  const request = useRequest();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<Mode>("edit");
+  const [mode, setMode] = useState<Mode>(request.mode);
   const [rootDirectory, setRootDirectory] = useState<Directory>();
   const [directoryMap, setDirectoryMap] = useState<{
     [id: number]: Directory;
   }>({});
-  const [directoriesIds, setDirectoriesIds] = useState<number[]>([]);
+  const [directoryIds, setDirectoriesIds] = useState<number[]>(
+    request.selectedDirectoryIds
+  );
 
   function onSelect(directoryIds: number[]) {
     setDirectoriesIds(directoryIds);
+    updatePage(mode, directoryIds);
   }
 
   useEffect(() => {
     refresh();
   }, []);
+
+  function updatePage(mode: Mode, directoryIds: number[]) {
+    navigate(
+      {
+        search: createSearchParams({
+          mode,
+          directoryIds: directoryIds.map((id) => id.toString()),
+        }).toString(),
+      },
+      {
+        replace: true,
+      }
+    );
+  }
 
   async function refresh() {
     // todo: stop hardcoding root directory ID 0
@@ -58,7 +103,10 @@ const DirectoryEditPage: FC = () => {
       actionHeader={
         <>
           <ModeButtons
-            onChange={setMode}
+            onChange={(newMode) => {
+              setMode(newMode);
+              updatePage(newMode, directoryIds);
+            }}
             defaultMode={mode}
             enabledModes={[
               { value: "edit", text: "Edit" },
@@ -67,10 +115,10 @@ const DirectoryEditPage: FC = () => {
           />
           <Button
             variant="outlined"
-            disabled={mode != "selectTags" || directoriesIds.length === 0}
+            disabled={mode != "selectTags" || directoryIds.length === 0}
             onClick={() => {
               const searchParams = createSearchParams({
-                directoryIds: directoriesIds.join(","),
+                directoryIds: directoryIds.join(","),
               }).toString();
               navigate({
                 pathname: "/directories/tags/edit",
@@ -129,7 +177,11 @@ const DirectoryEditPage: FC = () => {
         />
       )}
       {mode === "selectTags" && (
-        <SelectDirectoryExplorer isMultiSelect={true} onSelect={onSelect} />
+        <SelectDirectoryExplorer
+          selectedDirectoryIds={directoryIds}
+          isMultiSelect={true}
+          onSelect={onSelect}
+        />
       )}
     </Layout.Main>
   );
