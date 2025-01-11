@@ -14,7 +14,6 @@ export enum Menu {
   Search = "Search",
 
   Directories = "Directories",
-  TagsForDirectories = "TagsForDirectories",
   Tags = "List",
 }
 
@@ -23,7 +22,7 @@ const Navigation: React.FC = () => {
 
   const menus = [
     {
-      text: "Anime",
+      text: "Menu",
       menuItems: [
         {
           id: Menu.Series,
@@ -37,24 +36,12 @@ const Navigation: React.FC = () => {
           icon: <Icons.Search />,
           url: "/search",
         },
-      ],
-    },
-    {
-      text: "Manage images",
-      menuItems: [
         {
           id: Menu.Directories,
-          text: "Images",
+          text: "Directories",
           icon: <Icons.Folder color="primary" />,
           url: "/directories/edit",
         },
-        {
-          id: Menu.TagsForDirectories,
-          text: "Tags for directories",
-          icon: <Icons.SnippetFolder color="primary" />,
-          url: "/directories/tags/select",
-        },
-
         {
           id: Menu.Tags,
           text: "Tags",
