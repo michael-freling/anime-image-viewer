@@ -22,7 +22,6 @@ import DirectoryExplorer from "./components/DirectoryExplorer";
 import Layout from "./Layout";
 import DirectoryEditPage from "./pages/directories/DirectoryEditPage";
 import DirectoryImageListPage from "./pages/directories/DirectoryImageListPage";
-import DirectorySelectPage from "./pages/directories/DirectorySelectPage";
 import SearchPage from "./pages/search/SearchPage";
 import DirectoryTagsEditPage from "./pages/tags/DirectoryTagEditPage";
 import ImageTagEditPage from "./pages/tags/ImageTagEditPage";
@@ -60,7 +59,6 @@ function Root() {
             <Route path="edit" element={<DirectoryEditPage />} />
           </Route>
           <Route element={<Layout.TwoColumnLayout />}>
-            <Route path="tags/select" element={<DirectorySelectPage />} />
             <Route path="tags/edit" element={<DirectoryTagsEditPage />} />
           </Route>
           <Route
