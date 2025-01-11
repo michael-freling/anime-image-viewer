@@ -8,7 +8,6 @@ import {
   Modal,
   ModalDialog,
   ModalOverflow,
-  ToggleButtonGroup,
   //  Link,
   Typography,
 } from "@mui/joy";
@@ -27,6 +26,7 @@ import LazyImage from "../../components/LazyImage";
 import Layout from "../../Layout";
 import ImageWindow from "./ImageWindow";
 import { ViewImageType } from "./ViewImage";
+import ModeButtons from "../ModeButtons";
 
 const ImageCard = memo(function ImageCard({
   mode,
@@ -342,12 +342,13 @@ const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
       actionHeader={
         <>
           <Typography>Selected {selectedImageCount} images</Typography>
-          <ToggleButtonGroup
-            value={mode}
-            onChange={(event, newMode) => {
-              if (newMode === null || mode === newMode) {
-                return;
-              }
+          <ModeButtons
+            defaultMode="view"
+            enabledModes={[
+              { value: "view", text: "View" },
+              { value: "edit", text: "Edit" },
+            ]}
+            onChange={(newMode) => {
               setMode(newMode);
               if (newMode === "view") {
                 setImages(
@@ -364,10 +365,7 @@ const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
                 );
               }
             }}
-          >
-            <Button value="view">View</Button>
-            <Button value="edit">Edit</Button>
-          </ToggleButtonGroup>
+          />
 
           {mode == "edit" && (
             <>
