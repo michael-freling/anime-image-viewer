@@ -13,6 +13,7 @@ import React, { SyntheticEvent } from "react";
 export interface ExplorerTreeItemLabelProps
   extends UseTreeItem2LabelSlotOwnProps {
   editable: boolean;
+  tags: string[];
   addNewChild: () => Promise<void>;
   toggleItemEditing: (() => void) | null;
   importImages: () => Promise<void> | null;
@@ -22,6 +23,7 @@ export function ExplorerTreeItemLabel({
   children,
 
   editable,
+  tags,
   toggleItemEditing, // only for editable
   addNewChild, // only for editable
   importImages, // only for editable
@@ -35,11 +37,29 @@ export function ExplorerTreeItemLabel({
         alignItems: "center",
         gap: 2,
         justifyContent: "space-between",
+        width: "100%",
       }}
     >
-      {children}
-      {editable == false ? null : (
-        <Stack direction="row" spacing={2}>
+      {tags == null ? (
+        children
+      ) : (
+        <>
+          <Stack
+            direction="row"
+            sx={{ alignItems: "center", overflow: "auto" }}
+          >
+            {children}
+            <Stack direction="column" spacing={1} sx={{ pl: 1 }}>
+              {tags.map((tag) => (
+                <Chip key={tag}>{tag}</Chip>
+              ))}
+            </Stack>
+          </Stack>
+        </>
+      )}
+
+      {!editable ? null : (
+        <Stack direction="row" spacing={1}>
           {/* Only DirectoryExplorer */}
           {importImages == null ? null : (
             <IconButton
@@ -84,11 +104,13 @@ export function ExplorerTreeItemLabel({
 
 export interface ExplorerTreeItemLabelWithCountProps
   extends UseTreeItem2LabelSlotOwnProps {
+  tags?: string[];
   count?: number;
 }
 
 export function ExplorerTreeItemLabelWithCount({
   children,
+  tags,
   count,
   ...other
 }: ExplorerTreeItemLabelWithCountProps) {
@@ -102,7 +124,18 @@ export function ExplorerTreeItemLabelWithCount({
         justifyContent: "space-between",
       }}
     >
-      {children}
+      {tags == null ? (
+        children
+      ) : (
+        <Stack direction="row" sx={{ alignItems: "center", overflow: "auto" }}>
+          {children}
+          <Stack spacing={1} sx={{ pl: 1 }}>
+            {tags.map((tag) => (
+              <Chip key={tag}>{tag}</Chip>
+            ))}
+          </Stack>
+        </Stack>
+      )}
       {count == null ? null : (
         <Stack direction="row" spacing={2}>
           <Chip>{count}</Chip>
@@ -161,6 +194,7 @@ export const ExplorerTreeItemWithCheckbox = React.forwardRef(
         slotProps={{
           label: {
             onDoubleClick: handleContentDoubleClick,
+            tags: item.tags,
             count: item.count,
           } as ExplorerTreeItemLabelWithCountProps,
           checkbox: {
@@ -183,10 +217,11 @@ export const ExplorerTreeItem = React.forwardRef(function CustomTreeItem(
   { itemId, ...props }: TreeItem2Props & ExplorerTreeItemProps,
   ref: React.Ref<HTMLLIElement>
 ) {
-  const { interactions, status } = useTreeItem2Utils({
+  const { interactions, status, publicAPI } = useTreeItem2Utils({
     itemId: itemId,
     children: props.children,
   });
+  const item = publicAPI.getItem(itemId);
 
   const handleContentDoubleClick: UseTreeItem2LabelSlotOwnProps["onDoubleClick"] =
     (event) => {
@@ -218,6 +253,7 @@ export const ExplorerTreeItem = React.forwardRef(function CustomTreeItem(
 
           // editable
           editable: status.editable,
+          tags: item.tags,
           addNewChild: () => {
             addNewChild(itemId);
           },

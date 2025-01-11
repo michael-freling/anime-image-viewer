@@ -15,27 +15,68 @@ import (
 
 func TestService_ReadDirectoryTree(t *testing.T) {
 	tester := newTester(t)
+	fileCreator := tester.newFileCreator().
+		CreateDirectory(t, image.Directory{ID: 1, Name: "directory1"}).
+		CreateDirectory(t, image.Directory{ID: 2, Name: "directory2"}).
+		CreateDirectory(t, image.Directory{ID: 10, Name: "directory10", ParentID: 1}).
+		CreateDirectory(t, image.Directory{ID: 100, Name: "directory100", ParentID: 10})
 
 	testCases := []struct {
-		name      string
-		want      Directory
+		name              string
+		insertDirectories []db.File
+		insertFileTags    []db.FileTag
+
+		want      ReadDirectoryTreeResponse
 		wantError error
 	}{
 		{
 			name: "read an initial directory tree",
-			want: Directory{
-				Name: tester.config.ImageRootDirectory,
-				Path: tester.config.ImageRootDirectory,
+			want: ReadDirectoryTreeResponse{
+				RootDirectory: Directory{
+					Name: tester.config.ImageRootDirectory,
+					Path: tester.config.ImageRootDirectory,
+				},
+			},
+		},
+		{
+			name: "read a directory tree",
+			insertDirectories: []db.File{
+				fileCreator.BuildDBDirectory(t, 1),
+				fileCreator.BuildDBDirectory(t, 2),
+				fileCreator.BuildDBDirectory(t, 10),
+				fileCreator.BuildDBDirectory(t, 100),
+			},
+			insertFileTags: []db.FileTag{
+				{FileID: 1, TagID: 10},
+				{FileID: 2, TagID: 20},
+				{FileID: 10, TagID: 30},
+			},
+			want: ReadDirectoryTreeResponse{
+				RootDirectory: Directory{
+					Name: tester.config.ImageRootDirectory,
+					Path: tester.config.ImageRootDirectory,
+					Children: []Directory{
+						fileCreator.buildFrontendDirectory(1),
+						fileCreator.buildFrontendDirectory(2),
+					},
+				},
+				TagMap: map[uint][]uint{
+					1:  {10},
+					2:  {20},
+					10: {30},
+				},
 			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tester.dbClient.Truncate(t, &db.File{})
-			service := tester.getDirectoryService()
+			tester.dbClient.Truncate(t, &db.File{}, &db.FileTag{})
+			db.LoadTestData(t, tester.dbClient, tc.insertDirectories)
+			db.LoadTestData(t, tester.dbClient, tc.insertFileTags)
 
-			got, gotErr := service.ReadDirectoryTree()
+			service := tester.getDirectoryService()
+			got, gotErr := service.ReadDirectoryTree(context.Background())
 			assert.ErrorIs(t, gotErr, tc.wantError)
 			if tc.wantError != nil {
 				return

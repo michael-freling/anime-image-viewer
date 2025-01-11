@@ -79,6 +79,7 @@ const SearchSidebar: FC<SearchSidebarProps> = ({ condition }) => {
             <SelectDirectoryExplorer
               selectedDirectoryId={condition.directoryId}
               isMultiSelect={false}
+              isOnlyDirectoryShown={true}
               onSelect={(directory) => {
                 const req =
                   directory == null ? {} : { directoryId: directory.id };

@@ -1,25 +1,21 @@
 // TreeView hasn't been supported by a Joy UI yet: https://github.com/mui/mui-x/issues/14687
 import FolderIcon from "@mui/icons-material/Folder";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
-import { RichTreeView, TreeViewBaseItem } from "@mui/x-tree-view";
+import { RichTreeView } from "@mui/x-tree-view";
 import React, { FC, useEffect, useState } from "react";
 import {
   Directory,
   DirectoryService,
+  Tag,
+  TagService,
 } from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import { ExplorerTreeItemWithCheckbox } from "./ExplorerTreeItem";
-import { getDefaultExpandedItems, getDirectoryMap } from "./DirectoryExplorer";
+import {
+  directoryToTreeViewBaseItems,
+  getDefaultExpandedItems,
+  getDirectoryMap,
+} from "./DirectoryExplorer";
 import { Typography } from "@mui/joy";
-
-function directoryToTreeViewBaseItems(directory: Directory): TreeViewBaseItem {
-  return {
-    id: String(directory.id),
-    label: directory.name,
-    children: directory.children.map((child) =>
-      directoryToTreeViewBaseItems(child)
-    ),
-  };
-}
 
 type SelectDirectoryExplorerProps =
   | {
@@ -31,6 +27,7 @@ type SelectDirectoryExplorerProps =
       isMultiSelect: false;
       selectedDirectoryId?: number;
       onSelect: (directory: Directory | null) => void;
+      isOnlyDirectoryShown: boolean;
     };
 
 const SelectDirectoryExplorer: FC<SelectDirectoryExplorerProps> = ({
@@ -42,15 +39,28 @@ const SelectDirectoryExplorer: FC<SelectDirectoryExplorerProps> = ({
   const [directoryMap, setDirectoryMap] = useState<{
     [id: number]: Directory;
   }>({});
+  const [directoryTagMap, setDirectoryTagMap] = useState<{
+    [id: number]: number[];
+  }>({});
+  const [allTagMap, setAllTagMap] = useState<{ [id: number]: Tag }>({});
 
   useEffect(() => {
+    TagService.ReadAllMap().then((tagMap) => {
+      setAllTagMap(tagMap);
+    });
+
     refresh();
   }, []);
 
   async function refresh() {
-    const directory = await DirectoryService.ReadDirectoryTree();
-    setRootDirectory(directory);
-    setDirectoryMap(getDirectoryMap(directory));
+    const { rootDirectory, tagMap } =
+      await DirectoryService.ReadDirectoryTree();
+    setRootDirectory(rootDirectory);
+    setDirectoryMap(getDirectoryMap(rootDirectory));
+
+    if (!("isOnlyDirectoryShown" in props) || !props.isOnlyDirectoryShown) {
+      setDirectoryTagMap(tagMap);
+    }
   }
 
   let onSelectedItemsChange;
@@ -107,7 +117,9 @@ const SelectDirectoryExplorer: FC<SelectDirectoryExplorerProps> = ({
         collapseIcon: (props) => <FolderOpenIcon color="primary" {...props} />,
         endIcon: (props) => <FolderOpenIcon color="primary" {...props} />,
       }}
-      items={[directoryToTreeViewBaseItems(rootDirectory)]}
+      items={[
+        directoryToTreeViewBaseItems(rootDirectory, allTagMap, directoryTagMap),
+      ]}
       onSelectedItemsChange={onSelectedItemsChange}
       multiSelect={isMultiSelect}
       checkboxSelection={true}
