@@ -37,7 +37,7 @@ class Trainer:
         transformers.utils.logging.set_verbosity(log_level)
         return logger
 
-    def train(self, data_dir: str, model_dir: str):
+    def train(self, data_dir: str, training_args: transformers.TrainingArguments):
         tag_reader = TagReader(f'{data_dir}/tags.json')
         tags = tag_reader.read_flatten_tags()
 
@@ -89,27 +89,6 @@ class Trainer:
         )
 
         has_validation_dataset = 'validation' in prepared_ds
-        training_args = transformers.TrainingArguments(
-            output_dir=model_dir,
-            # logging_dir='./logs',
-            # log_level='debug',
-            fp16=True,
-
-            # For testing
-            # save_steps=2,
-            # eval_steps=2,
-            # logging_steps=1,
-            # learning_rate=2e-4,
-            # save_total_limit=2,
-
-            remove_unused_columns=False,
-            #   push_to_hub=False,
-            #   report_to='tensorboard',
-            load_best_model_at_end=True,
-            eval_strategy="steps",
-            # Data Preloading parameters: https://huggingface.co/docs/transformers/perf_train_gpu_one
-            dataloader_num_workers=4,
-        )
         self.set_logger(training_args)
 
         trainer = transformers.Trainer(
