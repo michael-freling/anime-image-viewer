@@ -1,0 +1,22 @@
+{
+    "folders": [
+        {
+            "path": ".."
+        },
+        {
+            "path": "../frontend"
+        },
+        {
+            "path": "../plugins/tag-suggestion"
+        },
+        {
+            "path": "../plugins/plugins-protos"
+        }
+    ],
+    "settings": {
+        "files.exclude": {
+            "frontend": true,
+            "plugins": true
+        }
+    }
+}
