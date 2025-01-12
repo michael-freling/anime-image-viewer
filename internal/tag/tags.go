@@ -171,7 +171,15 @@ func (checker ImageTagChecker) hasDecendantTag(tagID uint) bool {
 	return false
 }
 
-func (checker ImageTagChecker) hasTag(tagID uint) bool {
+func (checker ImageTagChecker) HasDirectTag() bool {
+	return len(checker.imageFileTags) > 0
+}
+
+func (checker ImageTagChecker) HasAnyTag() bool {
+	return len(checker.imageFileTags) > 0 || len(checker.ancestorsTags) > 0
+}
+
+func (checker ImageTagChecker) HasTag(tagID uint) bool {
 	if _, ok := checker.imageFileTags[tagID]; ok {
 		return true
 	}

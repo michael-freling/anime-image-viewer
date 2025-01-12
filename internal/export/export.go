@@ -24,20 +24,30 @@ type BatchImageExporter struct {
 	dbClient        *db.Client
 	directoryReader *image.DirectoryReader
 	tagReader       *tag.Reader
+	options         BatchImageExporterOptions
 }
 
-func NewBatchImageExporter(logger *slog.Logger, conf config.Config, dbClient *db.Client) *BatchImageExporter {
+type BatchImageExporterOptions struct {
+	IsDirectoryTagExcluded bool
+	progressSleepDuration  time.Duration
+}
+
+func NewBatchImageExporter(logger *slog.Logger, conf config.Config, dbClient *db.Client, options BatchImageExporterOptions) *BatchImageExporter {
 	directoryReader := image.NewDirectoryReader(conf, dbClient)
 	tagReader := tag.NewReader(
 		dbClient,
 		directoryReader,
 	)
 
+	if options.progressSleepDuration == 0 {
+		options.progressSleepDuration = 10 * time.Second
+	}
 	return &BatchImageExporter{
 		logger:          logger,
 		dbClient:        dbClient,
 		directoryReader: directoryReader,
 		tagReader:       tagReader,
+		options:         options,
 	}
 }
 
@@ -48,10 +58,10 @@ type Metadata struct {
 	Tags     []float64 `json:"tags"`
 }
 
-func (service BatchImageExporter) ExportAll(ctx context.Context, exportDirectory string) error {
+func (batchExporter BatchImageExporter) Export(ctx context.Context, exportDirectory string) error {
 	// imageFileService := image.NewFileService(logger, dbClient)
 	// imageDirectoryService := image.NewDirectoryService(logger, conf, dbClient, imageFileService)
-	allTags, err := service.tagReader.ReadAllTags()
+	allTags, err := batchExporter.tagReader.ReadAllTags()
 	if err != nil {
 		return fmt.Errorf("tagReader.ReadAllTags: %w", err)
 	}
@@ -60,7 +70,7 @@ func (service BatchImageExporter) ExportAll(ctx context.Context, exportDirectory
 		return fmt.Errorf("json.Marshal: %w", err)
 	}
 
-	if err := service.ExportImages(ctx, exportDirectory, allTags); err != nil {
+	if err := batchExporter.ExportImages(ctx, exportDirectory, allTags); err != nil {
 		return fmt.Errorf("service.ExportImages: %w", err)
 	}
 
@@ -76,7 +86,7 @@ func (service BatchImageExporter) ExportAll(ctx context.Context, exportDirectory
 	return nil
 }
 
-func (service BatchImageExporter) ExportImages(ctx context.Context, rootExportDirectory string, allTags []tag.Tag) error {
+func (batchExporter BatchImageExporter) ExportImages(ctx context.Context, rootExportDirectory string, allTags []tag.Tag) error {
 	const trainSplit = "train"
 	const validationSplit = "validation"
 	splits := []string{trainSplit, validationSplit}
@@ -88,7 +98,7 @@ func (service BatchImageExporter) ExportImages(ctx context.Context, rootExportDi
 	}
 
 	maxTagID := tag.GetMaxTagID(allTags)
-	rootDirectory, err := service.directoryReader.ReadDirectoryTree()
+	rootDirectory, err := batchExporter.directoryReader.ReadDirectoryTree()
 	if err != nil {
 		return fmt.Errorf("readDirectoryTree: %w", err)
 	}
@@ -97,31 +107,17 @@ func (service BatchImageExporter) ExportImages(ctx context.Context, rootExportDi
 	allImageFiles := make(map[int][]image.ImageFile, len(rootDirectory.Children))
 	for index, directory := range rootDirectory.Children {
 		eg.Go(func() error {
-			imageFiles, err := service.directoryReader.ReadImageFilesRecursively(*directory)
+			imageFiles, err := batchExporter.directoryReader.ReadImageFilesRecursively(*directory)
 			if err != nil {
 				return fmt.Errorf("readImageFilesRecursively: %w", err)
 			}
 			allImageFiles[index] = imageFiles
-
-			for _, imageFile := range imageFiles {
-				if _, err := os.Stat(imageFile.LocalFilePath); err != nil {
-					return fmt.Errorf("os.Stat: %w for %s", err, imageFile.LocalFilePath)
-				}
-				for _, split := range splits {
-					destinationFilePath := filepath.Join(rootExportDirectory, split, imageFile.Name)
-					if _, err := os.Stat(destinationFilePath); err == nil {
-						return fmt.Errorf("file already exists: %s", destinationFilePath)
-					}
-				}
-			}
 			return nil
 		})
 	}
 	if err := eg.Wait(); err != nil {
 		return fmt.Errorf("validation errors: %w", err)
 	}
-	service.logger.Info("Validation completed successfully. Start exporting images",
-		"exportDirectory", rootExportDirectory)
 
 	allImageFileIDs := make([]uint, 0)
 	for _, imageFiles := range allImageFiles {
@@ -129,50 +125,88 @@ func (service BatchImageExporter) ExportImages(ctx context.Context, rootExportDi
 			allImageFileIDs = append(allImageFileIDs, imageFile.ID)
 		}
 	}
-
-	batchTagChecker, err := service.tagReader.CreateBatchTagCheckerByFileIDs(ctx, allImageFileIDs)
+	batchTagChecker, err := batchExporter.tagReader.CreateBatchTagCheckerByFileIDs(ctx, allImageFileIDs)
 	if err != nil {
 		return fmt.Errorf("ReadTagsByFileIDs: %w", err)
 	}
 
+	allImages := make([]image.ImageFile, 0)
+	allImageFileIDs = make([]uint, 0)
+	for _, imageFiles := range allImageFiles {
+		for _, imageFile := range imageFiles {
+			tagChecker := batchTagChecker.GetTagCheckerForImageFileID(imageFile.ID)
+			if !tagChecker.HasAnyTag() {
+				// remove an image without any tag is removed from the dataset
+				continue
+			}
+			if batchExporter.options.IsDirectoryTagExcluded && !tagChecker.HasDirectTag() {
+				// prevent not to export an image if it is not tagged or a tag is added by an ancestor
+				continue
+			}
+
+			allImages = append(allImages, imageFile)
+			allImageFileIDs = append(allImageFileIDs, imageFile.ID)
+		}
+	}
+
+	eg, _ = errgroup.WithContext(ctx)
+	for _, imageFile := range allImages {
+		eg.Go(func() error {
+			if _, err := os.Stat(imageFile.LocalFilePath); err != nil {
+				return fmt.Errorf("os.Stat: %w for %s", err, imageFile.LocalFilePath)
+			}
+			for _, split := range splits {
+				destinationFilePath := filepath.Join(rootExportDirectory, split, imageFile.Name)
+				if _, err := os.Stat(destinationFilePath); err == nil {
+					return fmt.Errorf("file already exists: %s", destinationFilePath)
+				}
+			}
+
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return fmt.Errorf("validation errors: %w", err)
+	}
+
+	batchExporter.logger.Info("Validation completed successfully. Start exporting images",
+		"exportDirectory", rootExportDirectory)
+
 	var copiedImageCount int64
 	eg, _ = errgroup.WithContext(ctx)
 	allMetadata := make(map[string][]Metadata, 0)
-	for directoryIndex := range rootDirectory.Children {
-		imageFiles := allImageFiles[directoryIndex]
-		for _, imageFile := range imageFiles {
-			metadata := Metadata{
-				FileName: imageFile.Name,
-				Tags:     make([]float64, maxTagID+1),
-			}
-
-			split := ""
-			for tagID, addedBy := range batchTagChecker.GetTagCheckerForImageFileID(imageFile.ID).GetTagMap() {
-				if addedBy == db.FileTagAddedBySuggestion {
-					split = trainSplit
-				}
-				metadata.Tags[tagID] = 1.0
-			}
-			if split == "" {
-				odd := rand.Intn(100)
-				if odd < 80 {
-					split = trainSplit
-				} else {
-					split = validationSplit
-				}
-			}
-
-			allMetadata[split] = append(allMetadata[split], metadata)
-			imageFile := imageFile
-			eg.Go(func() error {
-				err := service.exportImageFile(imageFile, filepath.Join(rootExportDirectory, split))
-				atomic.AddInt64(&copiedImageCount, 1)
-				if err != nil {
-					return fmt.Errorf("exportImageFile: %w", err)
-				}
-				return nil
-			})
+	for _, imageFile := range allImages {
+		metadata := Metadata{
+			FileName: imageFile.Name,
+			Tags:     make([]float64, maxTagID+1),
 		}
+
+		split := ""
+		for tagID, addedBy := range batchTagChecker.GetTagCheckerForImageFileID(imageFile.ID).GetTagMap() {
+			if addedBy == db.FileTagAddedBySuggestion {
+				split = trainSplit
+			}
+			metadata.Tags[tagID] = 1.0
+		}
+		if split == "" {
+			odd := rand.Intn(100)
+			if odd < 80 {
+				split = trainSplit
+			} else {
+				split = validationSplit
+			}
+		}
+
+		allMetadata[split] = append(allMetadata[split], metadata)
+		imageFile := imageFile
+		eg.Go(func() error {
+			err := batchExporter.exportImageFile(imageFile, filepath.Join(rootExportDirectory, split))
+			atomic.AddInt64(&copiedImageCount, 1)
+			if err != nil {
+				return fmt.Errorf("exportImageFile: %w", err)
+			}
+			return nil
+		})
 	}
 	for _, split := range splits {
 		exportDirectory := filepath.Join(rootExportDirectory, split)
@@ -210,8 +244,8 @@ func (service BatchImageExporter) ExportImages(ctx context.Context, rootExportDi
 			select {
 			case <-ctx.Done():
 				return nil
-			case <-time.After(10 * time.Second):
-				service.logger.Info("Copying images is in progress",
+			case <-time.After(batchExporter.options.progressSleepDuration):
+				batchExporter.logger.Info("Copying images is in progress",
 					"completed", atomic.LoadInt64(&copiedImageCount),
 					"total", totalCopyImageCount,
 					"percentage", float64(atomic.LoadInt64(&copiedImageCount))/float64(totalCopyImageCount)*100,
@@ -227,7 +261,7 @@ func (service BatchImageExporter) ExportImages(ctx context.Context, rootExportDi
 	return nil
 }
 
-func (service *BatchImageExporter) exportImageFile(imageFile image.ImageFile, exportDirectory string) error {
+func (batchExporter *BatchImageExporter) exportImageFile(imageFile image.ImageFile, exportDirectory string) error {
 	destinationFilePath := fmt.Sprintf("%s/%s", exportDirectory, imageFile.Name)
 	if _, err := image.Copy(imageFile.LocalFilePath, destinationFilePath); err != nil {
 		return fmt.Errorf("copy: %w", err)

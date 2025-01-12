@@ -23,12 +23,17 @@ func main() {
 	os.Exit(0)
 }
 
+type exportCLIOptions struct {
+	configPath             string
+	isDirectoryTagExcluded bool
+}
+
 func runMain(logger *slog.Logger) error {
 	rootCommand := cobra.Command{
 		Use: "pluginctl",
 	}
 
-	var configPath string
+	var exportOptions exportCLIOptions
 	exportCommand := cobra.Command{
 		Use:   "export [exportDirectory]",
 		Short: "Export images and tags",
@@ -36,8 +41,8 @@ func runMain(logger *slog.Logger) error {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			exportDirectory := args[0]
 
-			fmt.Printf("configPath: %s\n", configPath)
-			conf, err := config.ReadConfig(configPath)
+			fmt.Printf("configPath: %s\n", exportOptions.configPath)
+			conf, err := config.ReadConfig(exportOptions.configPath)
 			if err != nil {
 				return fmt.Errorf("config.ReadConfig: %w", err)
 			}
@@ -47,8 +52,10 @@ func runMain(logger *slog.Logger) error {
 				return fmt.Errorf("db.FromConfig: %w", err)
 			}
 
-			service := export.NewBatchImageExporter(logger, conf, dbClient)
-			if err := service.ExportAll(context.Background(), exportDirectory); err != nil {
+			service := export.NewBatchImageExporter(logger, conf, dbClient, export.BatchImageExporterOptions{
+				IsDirectoryTagExcluded: exportOptions.isDirectoryTagExcluded,
+			})
+			if err := service.Export(context.Background(), exportDirectory); err != nil {
 				return fmt.Errorf("service.ExportAll: %w", err)
 			}
 			logger.Info("Exported images and tags", "exportDirectory", exportDirectory)
@@ -56,7 +63,14 @@ func runMain(logger *slog.Logger) error {
 			return nil
 		},
 	}
-	exportCommand.Flags().StringVar(&configPath, "config", "", "path to the configuration file")
+	exportFlags := exportCommand.Flags()
+	exportFlags.StringVar(&exportOptions.configPath, "config", "", "path to the configuration file")
+	exportFlags.BoolVar(
+		&exportOptions.isDirectoryTagExcluded,
+		"exclude-directory-tag",
+		true,
+		"Exclude images from directory tags. If this is true, images without their own tags are NOT exported. default: true",
+	)
 	rootCommand.AddCommand(&exportCommand)
 
 	return rootCommand.Execute()
