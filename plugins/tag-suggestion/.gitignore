@@ -1,3 +1,4 @@
 datasets
-model
+model*
 source
+!.env
