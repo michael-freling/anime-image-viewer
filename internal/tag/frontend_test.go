@@ -17,139 +17,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestTagFrontendService_GetAll(t *testing.T) {
-	tester := newTester(t)
-	dbClient := tester.dbClient
-
-	builder := newTagBuilder().
-		add(Tag{ID: 1, Name: "tag1"}).
-		add(Tag{ID: 2, Name: "tag2"}).
-		add(Tag{ID: 11, Name: "child1 tag under tag1", ParentID: 1}).
-		add(Tag{ID: 12, Name: "child2 tag under tag1", ParentID: 1}).
-		add(Tag{ID: 111, Name: "child tag under child1", ParentID: 11})
-
-	testCases := []struct {
-		name     string
-		tagsInDB []db.Tag
-		want     []Tag
-	}{
-		{
-			name: "Some tags exist",
-			tagsInDB: []db.Tag{
-				{ID: 1, Name: "tag1"},
-				{ID: 2, Name: "tag2"},
-				{ID: 11, Name: "child1 tag under tag1", ParentID: 1},
-				{ID: 12, Name: "child2 tag under tag1", ParentID: 1},
-				{ID: 111, Name: "child tag under child1", ParentID: 11},
-			},
-			want: []Tag{
-				builder.build(1),
-				builder.build(2),
-			},
-		},
-		{
-			name: "No tag exists",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			dbClient.Truncate(&db.Tag{})
-			if len(tc.tagsInDB) > 0 {
-				require.NoError(t, db.BatchCreate(dbClient, tc.tagsInDB))
-			}
-			allTags, err := db.GetAll[db.Tag](dbClient)
-			if err != nil {
-				require.NoError(t, err)
-			}
-			require.Equal(t, len(tc.tagsInDB), len(allTags))
-			for i := range allTags {
-				require.EqualExportedValues(t, tc.tagsInDB[i], allTags[i])
-			}
-
-			service := tester.getFrontendService(frontendServiceMocks{})
-			got, gotErr := service.GetAll()
-			require.NoError(t, gotErr)
-			assert.Equal(t, tc.want, got)
-		})
-	}
-}
-
-func TestTagFrontendService_ReadTagsByFileIDs(t *testing.T) {
-	tester := newTester(t)
-	dbClient := tester.dbClient
-
-	testCases := []struct {
-		name           string
-		fileIDs        []uint
-		insertFiles    []db.File
-		insertFileTags []db.FileTag
-		want           ReadTagsByFileIDsResponse
-		wantErr        error
-	}{
-		{
-			name:    "No file tags",
-			fileIDs: []uint{1, 2},
-			insertFiles: []db.File{
-				{ID: 1, Type: db.FileTypeDirectory, Name: "File 1"},
-				{ID: 2, Type: db.FileTypeDirectory, Name: "File 2"},
-			},
-			want: ReadTagsByFileIDsResponse{},
-		},
-		{
-			name:    "Some file tags",
-			fileIDs: []uint{2, 100},
-			insertFiles: []db.File{
-				{ID: 1, Type: db.FileTypeDirectory, Name: "Directory 1"},
-				{ID: 2, Type: db.FileTypeImage, ParentID: 1, Name: "image file 2"},
-				{ID: 3, Type: db.FileTypeImage, ParentID: 1, Name: "image file 3"},
-				{ID: 10, Type: db.FileTypeDirectory, ParentID: 1, Name: "Directory 10"},
-				{ID: 100, Type: db.FileTypeImage, ParentID: 10, Name: "image file 100"},
-			},
-			insertFileTags: []db.FileTag{
-				{FileID: 1, TagID: 1},     // a tag for a top directory
-				{FileID: 2, TagID: 2},     // tag in directory 1 and 2
-				{FileID: 3, TagID: 1},     // a file isn't included in a query
-				{FileID: 10, TagID: 11},   // a tag for a parent directory
-				{FileID: 100, TagID: 111}, // a tag for a direct file
-			},
-			want: ReadTagsByFileIDsResponse{
-				AncestorMap: map[uint][]image.File{
-					1:  {{ID: 2}, {ID: 100}},
-					11: {{ID: 100}}, // a tag from a parent directory
-				},
-				TagCounts: map[uint]uint{
-					1:   2,
-					2:   1,
-					11:  1,
-					111: 1,
-				},
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			require.NoError(t, dbClient.Truncate(&db.FileTag{}, &db.File{}))
-			if len(tc.insertFiles) > 0 {
-				require.NoError(t, db.BatchCreate(dbClient, tc.insertFiles))
-			}
-			if len(tc.insertFileTags) > 0 {
-				require.NoError(t, db.BatchCreate(dbClient, tc.insertFileTags))
-			}
-
-			service := tester.getFrontendService(frontendServiceMocks{})
-			got, gotErr := service.ReadTagsByFileIDs(context.Background(), tc.fileIDs)
-			if tc.wantErr != nil {
-				assert.ErrorIs(t, gotErr, tc.wantErr)
-				return
-			}
-			assert.NoError(t, gotErr)
-			assert.Equal(t, tc.want, got)
-		})
-	}
-}
-
 func TestTagFrontendService_BatchUpdateTagsForFiles(t *testing.T) {
 	tester := newTester(t)
 	dbClient := tester.dbClient
@@ -289,13 +156,13 @@ func TestTagFrontendService_BatchUpdateTagsForFiles(t *testing.T) {
 func TestTagFrontendService_SuggestTags(t *testing.T) {
 	tester := newTester(t)
 
-	tagBuilder := newTagBuilder().
-		add(Tag{ID: 1, Name: "tag1"}).
-		add(Tag{ID: 2, Name: "tag2"}).
-		add(Tag{ID: 10, Name: "tag 10", ParentID: 1}).
-		add(Tag{ID: 20, Name: "tag 11", ParentID: 2}).
-		add(Tag{ID: 100, Name: "tag 100", ParentID: 10}).
-		add(Tag{ID: 200, Name: "tag 110", ParentID: 20})
+	tagBuilder := NewTestTagBuilder().
+		Add(Tag{ID: 1, Name: "tag1"}).
+		Add(Tag{ID: 2, Name: "tag2"}).
+		Add(Tag{ID: 10, Name: "tag 10", ParentID: 1}).
+		Add(Tag{ID: 20, Name: "tag 11", ParentID: 2}).
+		Add(Tag{ID: 100, Name: "tag 100", ParentID: 10}).
+		Add(Tag{ID: 200, Name: "tag 110", ParentID: 20})
 
 	// tester.copyImageFile(t, "image.jpg", filepath.Join("Directory 1", "Directory 10", "image11.jpg"))
 	// tester.copyImageFile(t, "image.jpg", filepath.Join("Directory 1", "Directory 10", "Directory 100", "image101.jpg"))
@@ -412,12 +279,12 @@ func TestTagFrontendService_SuggestTags(t *testing.T) {
 					},
 				},
 				AllTags: map[uint]Tag{
-					1:   tagBuilder.build(1),
-					2:   tagBuilder.build(2),
-					10:  tagBuilder.build(10),
-					20:  tagBuilder.build(20),
-					100: tagBuilder.build(100),
-					200: tagBuilder.build(200),
+					1:   tagBuilder.Build(1),
+					2:   tagBuilder.Build(2),
+					10:  tagBuilder.Build(10),
+					20:  tagBuilder.Build(20),
+					100: tagBuilder.Build(100),
+					200: tagBuilder.Build(200),
 				},
 			},
 		},

@@ -5,8 +5,8 @@ import React, { FC, useEffect, useState } from "react";
 import {
   ReadTagsByFileIDsResponse,
   Tag,
-  TagFrontendService,
-} from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
+  TagService,
+} from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import { ExplorerTreeItemWithCheckbox } from "./ExplorerTreeItem";
 import { getDefaultExpandedItems, getTagMap } from "./TagExplorer";
 
@@ -153,7 +153,7 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
   }
 
   async function refresh() {
-    const tags = await TagFrontendService.GetAll();
+    const tags = await TagService.GetAll();
     setChildren(tags);
     setTagMap(getTagMap(tags));
 
@@ -162,7 +162,7 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
     }
 
     if (isMultiSelect) {
-      const response = await TagFrontendService.ReadTagsByFileIDs(fileIds);
+      const response = await TagService.ReadTagsByFileIDs(fileIds);
       setTagStats(response);
     }
     setTagStatsLoaded(true);

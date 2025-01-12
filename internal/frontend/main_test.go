@@ -105,3 +105,14 @@ func (tester tester) newFileCreator() *fileCreator {
 		directoryChildrenMap: make(map[uint][]image.Directory),
 	}
 }
+
+func (tester tester) getTagService() *TagService {
+	return NewTagService(tester.getTagReader())
+}
+
+func (tester tester) newTagBuilder(t *testing.T) *tagBuilder {
+	return &tagBuilder{
+		TestTagBuilder: tag.NewTestTagBuilder(),
+		t:              t,
+	}
+}

@@ -213,7 +213,7 @@ func (checker BatchImageTagChecker) GetTagCheckerForImageFileID(imageFileID uint
 	return ImageTagChecker{}
 }
 
-func (checker BatchImageTagChecker) getTagsMapFromAncestors() map[uint][]image.File {
+func (checker BatchImageTagChecker) GetTagsMapFromAncestors() map[uint][]image.File {
 	ancestorMap := make(map[uint][]image.File)
 	for _, imageTagChecker := range checker.imageTagCheckers {
 		for tagID := range imageTagChecker.ancestorsTags {
@@ -229,7 +229,7 @@ func (checker BatchImageTagChecker) getTagsMapFromAncestors() map[uint][]image.F
 	return ancestorMap
 }
 
-func (checker BatchImageTagChecker) getTagCounts() map[uint]uint {
+func (checker BatchImageTagChecker) GetTagCounts() map[uint]uint {
 	tagCounts := make(map[uint]uint)
 	for _, imageTagChecker := range checker.imageTagCheckers {
 		for tagID := range imageTagChecker.GetTagMap() {

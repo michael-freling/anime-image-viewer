@@ -115,40 +115,6 @@ func (service TagFrontendService) UpdateName(ctx context.Context, id uint, name 
 	}, nil
 }
 
-func (service TagFrontendService) GetAll() ([]Tag, error) {
-	result, err := service.reader.ReadAllTags()
-	if err != nil {
-		return nil, fmt.Errorf("ReadAllTags: %w", err)
-	}
-	if len(result) == 0 {
-		return nil, nil
-	}
-	return result, nil
-}
-
-type ReadTagsByFileIDsResponse struct {
-	// AncestorMap maps tag IDs to their ancestors
-	AncestorMap map[uint][]image.File
-
-	// TagCounts maps tag IDs to the number of files that have the tag
-	TagCounts map[uint]uint
-}
-
-func (service TagFrontendService) ReadTagsByFileIDs(
-	ctx context.Context,
-	fileIDs []uint,
-) (ReadTagsByFileIDsResponse, error) {
-	batchImageTagChecker, err := service.reader.CreateBatchTagCheckerByFileIDs(ctx, fileIDs)
-	if err != nil {
-		return ReadTagsByFileIDsResponse{}, fmt.Errorf("service.createBatchTagCheckerByFileIDs: %w", err)
-	}
-	response := ReadTagsByFileIDsResponse{
-		AncestorMap: batchImageTagChecker.getTagsMapFromAncestors(),
-		TagCounts:   batchImageTagChecker.getTagCounts(),
-	}
-	return response, nil
-}
-
 func (service TagFrontendService) BatchUpdateTagsForFiles(ctx context.Context, fileIDs []uint, addedTagIDs []uint, deletedTagIDs []uint) error {
 	fileTagClient := service.dbClient.FileTag()
 	fileTags, err := fileTagClient.FindAllByFileID(fileIDs)
