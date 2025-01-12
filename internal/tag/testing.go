@@ -1,16 +1,16 @@
 package tag
 
-type tagBuilder struct {
+type TestTagBuilder struct {
 	tags map[uint]*Tag
 }
 
-func newTagBuilder() *tagBuilder {
-	return &tagBuilder{
+func NewTestTagBuilder() *TestTagBuilder {
+	return &TestTagBuilder{
 		tags: make(map[uint]*Tag),
 	}
 }
 
-func (b *tagBuilder) add(tag Tag) *tagBuilder {
+func (b *TestTagBuilder) Add(tag Tag) *TestTagBuilder {
 	if tag.ParentID != 0 {
 		parent := b.tags[tag.ParentID]
 		tag.parent = parent
@@ -29,6 +29,6 @@ func (b *tagBuilder) add(tag Tag) *tagBuilder {
 	return b
 }
 
-func (b tagBuilder) build(id uint) Tag {
+func (b TestTagBuilder) Build(id uint) Tag {
 	return *b.tags[id]
 }

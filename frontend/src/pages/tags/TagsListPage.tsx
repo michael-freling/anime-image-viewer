@@ -3,8 +3,9 @@ import { RichTreeView } from "@mui/x-tree-view";
 import { FC, useEffect, useState } from "react";
 import {
   Tag,
-  TagFrontendService,
-} from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
+  TagService,
+} from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
+import { TagFrontendService as LegacyTagFrontendService } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
 import {
   ExplorerTreeItem,
   ExplorerTreeItemProps,
@@ -31,7 +32,7 @@ export const TagsListPage: FC = () => {
   }, []);
 
   async function refresh() {
-    const tags = await TagFrontendService.GetAll();
+    const tags = await TagService.GetAll();
     setTags(tags);
     setTagMap(getTagMap(tags));
     setTagLoaded(true);
@@ -40,7 +41,7 @@ export const TagsListPage: FC = () => {
   const treeItems = tagsToTreeViewBaseItems(tags, 0);
 
   const addNewChild = async (parentID: string) => {
-    await TagFrontendService.Create({
+    await LegacyTagFrontendService.Create({
       Name: "New Tag",
       ParentID: parseInt(parentID, 10),
     });
@@ -57,7 +58,7 @@ export const TagsListPage: FC = () => {
             variant="outlined"
             color="primary"
             onClick={async () => {
-              await TagFrontendService.CreateTopTag("New Tag");
+              await LegacyTagFrontendService.CreateTopTag("New Tag");
               // todo: Update only added tag
               await refresh();
             }}
@@ -85,7 +86,10 @@ export const TagsListPage: FC = () => {
           experimentalFeatures={{ labelEditing: true }}
           items={treeItems}
           onItemLabelChange={async (itemId, newLabel) => {
-            await TagFrontendService.UpdateName(parseInt(itemId, 10), newLabel);
+            await LegacyTagFrontendService.UpdateName(
+              parseInt(itemId, 10),
+              newLabel
+            );
             // todo: Update only changed tag
             await refresh();
           }}

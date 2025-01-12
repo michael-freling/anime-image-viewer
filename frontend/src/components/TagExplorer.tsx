@@ -5,8 +5,8 @@ import React, { FC, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Tag,
-  TagFrontendService,
-} from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
+  TagService as TagFrontendService,
+} from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import { ExplorerTreeItem } from "./ExplorerTreeItem";
 
 export const tagsToTreeViewBaseItems = (
