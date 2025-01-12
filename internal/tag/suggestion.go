@@ -123,7 +123,7 @@ func (service *SuggestionService) suggestTags(ctx context.Context, imageFileIDs 
 			suggestions = append(suggestions, TagSuggestion{
 				TagID:            uint(score.TagId),
 				Score:            score.Score,
-				HasTag:           batchTagChecker.hasTag(tag.ID),
+				HasTag:           batchTagChecker.HasTag(tag.ID),
 				HasDescendantTag: batchTagChecker.hasDecendantTag(tag.ID),
 			})
 		}
@@ -152,7 +152,7 @@ func (service *SuggestionService) addSuggestedTags(ctx context.Context, selected
 	for fileID, tags := range selectedTags {
 		tagChecker := batchTagChecker.GetTagCheckerForImageFileID(fileID)
 		for _, tagID := range tags {
-			if tagChecker.hasTag(tagID) || tagChecker.hasDecendantTag(tagID) {
+			if tagChecker.HasTag(tagID) || tagChecker.hasDecendantTag(tagID) {
 				if _, ok := duplicatedTags[fileID]; !ok {
 					duplicatedTags[fileID] = make([]uint, 0)
 				}
