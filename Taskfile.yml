@@ -485,7 +485,7 @@ tasks:
   run:export:datasets:
     summary: Exports
     cmds:
-      - go run {{ .BUILD_FLAGS }} ./cmd/pluginctl/ -config pluginctl-config.{{.ENVIRONMENT}}.toml datasets
+      - go run {{ .BUILD_FLAGS }} ./cmd/pluginctl/ export --config pluginctl-config.{{.ENVIRONMENT}}.toml datasets
     vars:
       BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags production{{end}}'
       ENVIRONMENT: '{{if eq .PRODUCTION "true"}}production{{else}}development{{end}}'
