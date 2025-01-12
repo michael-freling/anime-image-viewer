@@ -3,7 +3,7 @@ import { Typography } from "@mui/joy";
 import { RichTreeView, TreeViewBaseItem } from "@mui/x-tree-view";
 import React, { FC, useEffect, useState } from "react";
 import {
-  ReadTagsByFileIDsResponse,
+  TagStat,
   Tag,
   TagService,
 } from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
@@ -15,7 +15,7 @@ const tagsToTreeViewBaseItems = (
   fileCount: number,
   addedTagIds: { [key: number]: boolean },
   deletedTagIds: { [key: number]: boolean },
-  tagStats?: ReadTagsByFileIDsResponse
+  tagStats?: { [id: number]: TagStat }
 ): TreeViewBaseItem<{
   id: string;
   label: string;
@@ -30,18 +30,18 @@ const tagsToTreeViewBaseItems = (
     let count: number | undefined = undefined;
     let disabled = false;
     let indeterminate = false;
+
     if (tagStats != undefined) {
       count = 0;
-      const tagCount = tagStats.TagCounts[child.id];
-      if (tagCount != null && tagCount > 0) {
-        count = tagCount;
-        indeterminate =
-          isAdded == undefined &&
-          isDeleted == undefined &&
-          tagCount < fileCount;
-      }
-      if (tagStats.AncestorMap[child.id] != undefined) {
-        disabled = true;
+      const tagStat: TagStat = tagStats[child.id];
+      if (tagStat != null) {
+        if (tagStat.fileCount > 0) {
+          count = tagStat.fileCount;
+          indeterminate =
+            isAdded == undefined && isDeleted == undefined && count < fileCount;
+        }
+
+        disabled = !tagStat.isAddedBySelectedFiles && tagStat.isAddedByAncestor;
       }
     }
 
@@ -82,7 +82,7 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
 }) => {
   const [children, setChildren] = useState<Tag[]>([]);
   const [tagMap, setTagMap] = useState<{ [id: number]: Tag }>({});
-  const [tagStats, setTagStats] = useState<ReadTagsByFileIDsResponse>();
+  const [tagStats, setTagStats] = useState<{ [id: number]: TagStat }>();
   const [tagStatsLoaded, setTagStatsLoaded] = useState(false);
   const [addedTagIds, setAddedTagIds] = useState<{ [key: number]: boolean }>(
     {}
@@ -163,7 +163,7 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
 
     if (isMultiSelect) {
       const response = await TagService.ReadTagsByFileIDs(fileIds);
-      setTagStats(response);
+      setTagStats(response.tagStats);
     }
     setTagStatsLoaded(true);
   }
@@ -208,8 +208,8 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
   if ("selectedTagId" in props && props.selectedTagId) {
     selectedTagIds = [props.selectedTagId];
   } else if (tagStats != undefined) {
-    for (let [tagId, count] of Object.entries(tagStats.TagCounts)) {
-      if (count == fileIds.length) {
+    for (let [tagId, stats] of Object.entries(tagStats)) {
+      if (stats.isAddedBySelectedFiles || stats.isAddedByAncestor) {
         selectedTagIds.push(parseInt(tagId));
       }
     }

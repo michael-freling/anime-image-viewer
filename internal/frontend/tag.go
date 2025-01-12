@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"github.com/michael-freling/anime-image-viewer/internal/tag"
 )
 
@@ -104,12 +103,15 @@ func (service TagService) GetAll() ([]Tag, error) {
 	return newBatchTagConverterFromTagTree(result).convert(), nil
 }
 
-type ReadTagsByFileIDsResponse struct {
-	// AncestorMap maps tag IDs to their ancestors
-	AncestorMap map[uint][]image.File
+type TagStat struct {
+	FileCount              uint `json:"fileCount"`
+	IsAddedByAncestor      bool `json:"isAddedByAncestor"`
+	IsAddedBySelectedFiles bool `json:"isAddedBySelectedFiles"`
+}
 
-	// TagCounts maps tag IDs to the number of files that have the tag
-	TagCounts map[uint]uint
+type ReadTagsByFileIDsResponse struct {
+	// TagStats maps tag IDs to their selectable tag
+	TagStats map[uint]TagStat `json:"tagStats"`
 }
 
 func (service TagService) ReadTagsByFileIDs(
@@ -120,9 +122,21 @@ func (service TagService) ReadTagsByFileIDs(
 	if err != nil {
 		return ReadTagsByFileIDsResponse{}, fmt.Errorf("service.createBatchTagCheckerByFileIDs: %w", err)
 	}
+
+	tagStats := make(map[uint]TagStat, 0)
+	for tagID, tagStat := range batchImageTagChecker.GetStats() {
+		tagStats[tagID] = TagStat{
+			FileCount:              tagStat.Count,
+			IsAddedByAncestor:      tagStat.IsAddedByAncestor,
+			IsAddedBySelectedFiles: tagStat.IsAddedBySelectedFiles,
+		}
+	}
+	if len(tagStats) == 0 {
+		tagStats = nil
+	}
+
 	response := ReadTagsByFileIDsResponse{
-		AncestorMap: batchImageTagChecker.GetTagsMapFromAncestors(),
-		TagCounts:   batchImageTagChecker.GetTagCounts(),
+		TagStats: tagStats,
 	}
 	return response, nil
 }
