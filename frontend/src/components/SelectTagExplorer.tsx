@@ -101,42 +101,41 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
 
   let fileIds: number[];
   let onSelectedItemsChange;
+  let onItemSelectionToggle;
   if (isMultiSelect) {
     fileIds = (props as { fileIds: number[] }).fileIds;
-    onSelectedItemsChange = (event: React.SyntheticEvent, tagIds: string[]) => {
-      if (!tagIds) {
-        return;
-      }
-      let initialSelectedTagIds: string[] = [];
-      let initialAllTagIds: string[] = [];
-      if (tagStats) {
-        for (let [tagId, count] of Object.entries(tagStats.TagCounts)) {
-          if (count == fileIds.length) {
-            initialSelectedTagIds.push(tagId);
-          }
-          initialAllTagIds.push(tagId);
+    onItemSelectionToggle = (
+      event: React.SyntheticEvent,
+      itemId: string,
+      isSelected: boolean
+    ) => {
+      let newAddedTagIds = {
+        ...addedTagIds,
+      };
+      let newDeletedTagIds = {
+        ...deletedTagIds,
+      };
+      if (isSelected) {
+        if (deletedTagIds[itemId]) {
+          delete newDeletedTagIds[itemId];
         }
+        newAddedTagIds[itemId] = true;
+      } else {
+        if (addedTagIds[itemId]) {
+          delete newAddedTagIds[itemId];
+        }
+        newDeletedTagIds[itemId] = true;
       }
-
-      const addedTagIds = tagIds
-        .filter((tagId) => !initialSelectedTagIds.includes(tagId))
-        .map((tagId) => parseInt(tagId, 10));
-      const deletedTagIds = initialAllTagIds
-        .filter((tagId) => !tagIds.includes(tagId))
-        .map((tagId) => parseInt(tagId, 10));
-      setAddedTagIds(
-        addedTagIds.reduce((acc, tagId) => {
-          acc[tagId] = true;
-          return acc;
-        }, {} as { [key: number]: boolean })
+      console.debug("onItemSelectionToggle", {
+        newAddedTagIds,
+        newDeletedTagIds,
+      });
+      setAddedTagIds(newAddedTagIds);
+      setDeletedTagIds(newDeletedTagIds);
+      onSelect(
+        Object.keys(newAddedTagIds).map((id) => parseInt(id)),
+        Object.keys(newDeletedTagIds).map((id) => parseInt(id))
       );
-      setDeletedTagIds(
-        deletedTagIds.reduce((acc, tagId) => {
-          acc[tagId] = true;
-          return acc;
-        }, {} as { [key: number]: boolean })
-      );
-      onSelect(addedTagIds, deletedTagIds);
     };
   } else {
     fileIds = [];
@@ -230,6 +229,7 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
         item: ExplorerTreeItemWithCheckbox as any,
       }}
       onSelectedItemsChange={onSelectedItemsChange}
+      onItemSelectionToggle={onItemSelectionToggle}
       items={treeItems}
       multiSelect={isMultiSelect}
       checkboxSelection={true}
