@@ -19,21 +19,21 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type ExportService struct {
+type BatchImageExporter struct {
 	logger          *slog.Logger
 	dbClient        *db.Client
 	directoryReader *image.DirectoryReader
 	tagReader       *tag.Reader
 }
 
-func NewExportService(logger *slog.Logger, conf config.Config, dbClient *db.Client) *ExportService {
+func NewBatchImageExporter(logger *slog.Logger, conf config.Config, dbClient *db.Client) *BatchImageExporter {
 	directoryReader := image.NewDirectoryReader(conf, dbClient)
 	tagReader := tag.NewReader(
 		dbClient,
 		directoryReader,
 	)
 
-	return &ExportService{
+	return &BatchImageExporter{
 		logger:          logger,
 		dbClient:        dbClient,
 		directoryReader: directoryReader,
@@ -48,7 +48,7 @@ type Metadata struct {
 	Tags     []float64 `json:"tags"`
 }
 
-func (service ExportService) ExportAll(ctx context.Context, exportDirectory string) error {
+func (service BatchImageExporter) ExportAll(ctx context.Context, exportDirectory string) error {
 	// imageFileService := image.NewFileService(logger, dbClient)
 	// imageDirectoryService := image.NewDirectoryService(logger, conf, dbClient, imageFileService)
 	allTags, err := service.tagReader.ReadAllTags()
@@ -76,7 +76,7 @@ func (service ExportService) ExportAll(ctx context.Context, exportDirectory stri
 	return nil
 }
 
-func (service ExportService) ExportImages(ctx context.Context, rootExportDirectory string, allTags []tag.Tag) error {
+func (service BatchImageExporter) ExportImages(ctx context.Context, rootExportDirectory string, allTags []tag.Tag) error {
 	const trainSplit = "train"
 	const validationSplit = "validation"
 	splits := []string{trainSplit, validationSplit}
@@ -227,7 +227,7 @@ func (service ExportService) ExportImages(ctx context.Context, rootExportDirecto
 	return nil
 }
 
-func (service *ExportService) exportImageFile(imageFile image.ImageFile, exportDirectory string) error {
+func (service *BatchImageExporter) exportImageFile(imageFile image.ImageFile, exportDirectory string) error {
 	destinationFilePath := fmt.Sprintf("%s/%s", exportDirectory, imageFile.Name)
 	if _, err := image.Copy(imageFile.LocalFilePath, destinationFilePath); err != nil {
 		return fmt.Errorf("copy: %w", err)
