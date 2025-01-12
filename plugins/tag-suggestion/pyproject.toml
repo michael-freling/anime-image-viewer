@@ -91,18 +91,18 @@ dev = ["-e file:///${PROJECT_ROOT}/../plugins-protos/gen/python"]
 distribution = false
 
 [tool.pdm.scripts]
-_.env = { DATA_DIR = 'source', PREPROCESSED_DATA_DIR = "datasets", MODEL_DIR = "model" }
+_.env = { DATA_DIR = 'source', PREPROCESSED_DATA_DIR = "datasets", MODEL_DIR = "model", TRAIN_IMAGE_SIZE = "224", INFERENCE_IMAGE_SIZE = "224" }
 preprocess.composite = [
     "rm -rf ${PREPROCESSED_DATA_DIR}",
-    "python src/main.py preprocess ${DATA_DIR} ${PREPROCESSED_DATA_DIR}",
+    "python src/main.py preprocess ${DATA_DIR} ${PREPROCESSED_DATA_DIR} --target-image-width=${TRAIN_IMAGE_SIZE}",
     "zip -rq ${PREPROCESSED_DATA_DIR}.zip ${PREPROCESSED_DATA_DIR}",
 ]
 train.composite = [
     "rm -rf ${MODEL_DIR}",
     # dataloader_num_workers: https://huggingface.co/docs/transformers/perf_train_gpu_one
-    "python src/main.py train ${PREPROCESSED_DATA_DIR} --output_dir ${MODEL_DIR} --remove-unused-columns=False --eval_strategy=epoch --num_train_epochs=1 --fp16=True --dataloader_num_workers=4",
+    "python src/main.py train ${PREPROCESSED_DATA_DIR} --output-dir ${MODEL_DIR} --remove-unused-columns=False --eval-strategy=epoch --num-train-epochs=1 --fp16=True --dataloader-num-workers=4",
 ]
 # _.env = { PYTHON_PATH = "../plugins-protos/gen/python/tag_suggestion" }
-server.cmd = "python src/main.py server ${MODEL_DIR}"
+server.cmd = "python src/main.py server ${MODEL_DIR} --resize-image-width=${INFERENCE_IMAGE_SIZE}"
 client.cmd = "python src/grpc_client.py {args}"
-predict.cmd = "python src/main.py predict ${MODEL_DIR} {args}"
+predict.cmd = "python src/main.py predict ${MODEL_DIR} {args} --resize-image-width=${INFERENCE_IMAGE_SIZE}"
