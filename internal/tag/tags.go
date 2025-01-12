@@ -213,32 +213,34 @@ func (checker BatchImageTagChecker) GetTagCheckerForImageFileID(imageFileID uint
 	return ImageTagChecker{}
 }
 
-func (checker BatchImageTagChecker) GetTagsMapFromAncestors() map[uint][]image.File {
-	ancestorMap := make(map[uint][]image.File)
-	for _, imageTagChecker := range checker.imageTagCheckers {
-		for tagID := range imageTagChecker.ancestorsTags {
-			ancestorMap[tagID] = append(ancestorMap[tagID], image.File{
-				ID: imageTagChecker.imageFileID,
-			})
-		}
-	}
-	if len(ancestorMap) == 0 {
-		return nil
-	}
-
-	return ancestorMap
+type TagStatsForFiles struct {
+	Count                  uint
+	IsAddedByAncestor      bool
+	IsAddedBySelectedFiles bool
 }
 
-func (checker BatchImageTagChecker) GetTagCounts() map[uint]uint {
-	tagCounts := make(map[uint]uint)
+func (checker BatchImageTagChecker) GetStats() map[uint]TagStatsForFiles {
+	result := make(map[uint]TagStatsForFiles, 0)
 	for _, imageTagChecker := range checker.imageTagCheckers {
 		for tagID := range imageTagChecker.GetTagMap() {
-			tagCounts[tagID]++
+			if _, ok := result[tagID]; !ok {
+				result[tagID] = TagStatsForFiles{}
+			}
+
+			newStat := result[tagID]
+			newStat.Count = result[tagID].Count + 1
+			if _, ok := imageTagChecker.imageFileTags[tagID]; ok {
+				newStat.IsAddedBySelectedFiles = true
+			}
+			if _, ok := imageTagChecker.ancestorsTags[tagID]; ok {
+				newStat.IsAddedByAncestor = true
+			}
+			result[tagID] = newStat
 		}
 	}
-	if len(tagCounts) == 0 {
+	if len(result) == 0 {
 		return nil
 	}
 
-	return tagCounts
+	return result
 }

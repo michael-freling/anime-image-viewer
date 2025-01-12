@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
-	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"github.com/michael-freling/anime-image-viewer/internal/tag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -57,11 +56,11 @@ func TestTagService_GetAll(t *testing.T) {
 		{
 			name: "Some tags exist",
 			tagsInDB: []db.Tag{
-				{ID: 1, Name: "tag1"},
-				{ID: 2, Name: "tag2"},
-				{ID: 11, Name: "child1 tag under tag1", ParentID: 1},
-				{ID: 12, Name: "child2 tag under tag1", ParentID: 1},
-				{ID: 111, Name: "child tag under child1", ParentID: 11},
+				builder.BuildDBTag(1),
+				builder.BuildDBTag(2),
+				builder.BuildDBTag(11),
+				builder.BuildDBTag(12),
+				builder.BuildDBTag(111),
 			},
 			want: []Tag{
 				builder.BuildFrontendTag(1),
@@ -134,15 +133,11 @@ func TestTagService_ReadTagsByFileIDs(t *testing.T) {
 				{FileID: 100, TagID: 111}, // a tag for a direct file
 			},
 			want: ReadTagsByFileIDsResponse{
-				AncestorMap: map[uint][]image.File{
-					1:  {{ID: 2}, {ID: 100}},
-					11: {{ID: 100}}, // a tag from a parent directory
-				},
-				TagCounts: map[uint]uint{
-					1:   2,
-					2:   1,
-					11:  1,
-					111: 1,
+				TagStats: map[uint]TagStat{
+					1:   {FileCount: 2, IsAddedByAncestor: true, IsAddedBySelectedFiles: false},
+					2:   {FileCount: 1, IsAddedByAncestor: false, IsAddedBySelectedFiles: true},
+					11:  {FileCount: 1, IsAddedByAncestor: true, IsAddedBySelectedFiles: false},
+					111: {FileCount: 1, IsAddedByAncestor: false, IsAddedBySelectedFiles: true},
 				},
 			},
 		},
