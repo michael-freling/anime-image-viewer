@@ -92,6 +92,7 @@ distribution = false
 
 [tool.pdm.scripts]
 _.env = { DATA_DIR = 'source', PREPROCESSED_DATA_DIR = "datasets", MODEL_DIR = "model", TRAIN_IMAGE_SIZE = "224", INFERENCE_IMAGE_SIZE = "224" }
+test.cmd = "python -m unittest discover -s src"
 preprocess.composite = [
     "rm -rf ${PREPROCESSED_DATA_DIR}",
     "python src/main.py preprocess ${DATA_DIR} ${PREPROCESSED_DATA_DIR} --target-image-width=${TRAIN_IMAGE_SIZE}",
