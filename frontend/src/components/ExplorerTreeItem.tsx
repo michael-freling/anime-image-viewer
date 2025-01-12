@@ -199,6 +199,7 @@ export const ExplorerTreeItemWithCheckbox = React.forwardRef(
           } as ExplorerTreeItemLabelWithCountProps,
           checkbox: {
             itemId,
+            disabled: item.disabled,
             indeterminate: item.indeterminate,
             checked: status.selected,
             onChange: interactions.handleCheckboxSelection,
