@@ -63,7 +63,7 @@ const SearchSidebar: FC<SearchSidebarProps> = ({ condition }) => {
             <Folder />
           </Avatar>
           <ListItemContent>
-            <Typography level="title-md">Directory</Typography>
+            <Typography level="title-md">Folders</Typography>
           </ListItemContent>
         </AccordionSummary>
         <AccordionDetails>

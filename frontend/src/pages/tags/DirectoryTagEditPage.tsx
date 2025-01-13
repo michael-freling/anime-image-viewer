@@ -27,9 +27,7 @@ const DirectoryTagsEditPage = () => {
     <Layout.Main
       actionHeader={
         <>
-          <Typography>
-            Select tags for {directoryIds.length} directories
-          </Typography>
+          <Typography>Select tags for {directoryIds.length} folders</Typography>
           <Button
             color="primary"
             onClick={() => {

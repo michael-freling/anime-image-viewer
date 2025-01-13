@@ -104,7 +104,7 @@ const DirectoryEditPage: FC = () => {
     return <Typography>Loading...</Typography>;
   }
 
-  const newDirectoryName = "New Directory";
+  const newDirectoryName = "New Folder";
   return (
     <Layout.Main
       actionHeader={

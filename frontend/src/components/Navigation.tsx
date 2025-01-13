@@ -38,7 +38,7 @@ const Navigation: React.FC = () => {
         },
         {
           id: Menu.Directories,
-          text: "Directories",
+          text: "Folders",
           icon: <Icons.Folder color="primary" />,
           url: "/directories/edit",
         },
