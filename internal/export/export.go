@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -88,8 +87,7 @@ func (batchExporter BatchImageExporter) Export(ctx context.Context, exportDirect
 
 func (batchExporter BatchImageExporter) ExportImages(ctx context.Context, rootExportDirectory string, allTags []tag.Tag) error {
 	const trainSplit = "train"
-	const validationSplit = "validation"
-	splits := []string{trainSplit, validationSplit}
+	splits := []string{trainSplit}
 	for _, split := range splits {
 		exportDirectory := filepath.Join(rootExportDirectory, split)
 		if err := os.MkdirAll(exportDirectory, 0755); err != nil {
@@ -181,20 +179,9 @@ func (batchExporter BatchImageExporter) ExportImages(ctx context.Context, rootEx
 			Tags:     make([]float64, maxTagID+1),
 		}
 
-		split := ""
-		for tagID, addedBy := range batchTagChecker.GetTagCheckerForImageFileID(imageFile.ID).GetTagMap() {
-			if addedBy == db.FileTagAddedBySuggestion {
-				split = trainSplit
-			}
+		split := trainSplit
+		for tagID := range batchTagChecker.GetTagCheckerForImageFileID(imageFile.ID).GetTagMap() {
 			metadata.Tags[tagID] = 1.0
-		}
-		if split == "" {
-			odd := rand.Intn(100)
-			if odd < 80 {
-				split = trainSplit
-			} else {
-				split = validationSplit
-			}
 		}
 
 		allMetadata[split] = append(allMetadata[split], metadata)

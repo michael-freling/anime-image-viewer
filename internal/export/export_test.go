@@ -2,10 +2,12 @@ package export
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -80,9 +82,9 @@ func TestBatchImageExporter_Export(t *testing.T) {
 	for _, t := range []tag.Tag{
 		{ID: 1, Name: "tag1"},
 		{ID: 2, Name: "tag2"},
-		{ID: 10, Name: "tag10", ParentID: 1},
-		{ID: 11, Name: "tag11", ParentID: 1},
-		{ID: 100, Name: "tag100", ParentID: 10},
+		{ID: 3, Name: "tag10", ParentID: 1},
+		{ID: 4, Name: "tag11", ParentID: 1},
+		{ID: 5, Name: "tag100", ParentID: 3},
 	} {
 		tagBuilder.Add(t)
 	}
@@ -105,8 +107,9 @@ func TestBatchImageExporter_Export(t *testing.T) {
 		insertTags     []db.Tag
 		insertFileTags []db.FileTag
 
-		wantImages []string
-		wantErr    bool
+		wantImages    []string
+		wantErr       bool
+		wantMetadatas []Metadata
 	}{
 		{
 			name: "is a tag added to a directory excluded",
@@ -131,14 +134,14 @@ func TestBatchImageExporter_Export(t *testing.T) {
 			insertTags: []db.Tag{
 				tagBuilder.BuildDBTag(1),
 				tagBuilder.BuildDBTag(2),
-				tagBuilder.BuildDBTag(10),
-				tagBuilder.BuildDBTag(11),
-				tagBuilder.BuildDBTag(100),
+				tagBuilder.BuildDBTag(3),
+				tagBuilder.BuildDBTag(4),
+				tagBuilder.BuildDBTag(5),
 			},
 			insertFileTags: []db.FileTag{
-				{FileID: 1, TagID: 10},    // tag to a directory. Should be ignored
-				{FileID: 11, TagID: 1},    // a root tag to a file
-				{FileID: 101, TagID: 100}, // a leaf tag to a file
+				{FileID: 1, TagID: 3},   // tag to a directory. Should be ignored
+				{FileID: 11, TagID: 1},  // a root tag to a file
+				{FileID: 101, TagID: 5}, // a leaf tag to a file
 			},
 
 			wantImages: []string{
@@ -150,6 +153,10 @@ func TestBatchImageExporter_Export(t *testing.T) {
 					"train",
 					fileCreator.BuildImageFile(101).Name,
 				),
+			},
+			wantMetadatas: []Metadata{
+				{FileName: fileCreator.BuildImageFile(11).Name, Tags: []float64{0, 1, 0, 1, 0, 0}},
+				{FileName: fileCreator.BuildImageFile(101).Name, Tags: []float64{0, 0, 0, 1, 0, 1}},
 			},
 		},
 	}
@@ -172,7 +179,7 @@ func TestBatchImageExporter_Export(t *testing.T) {
 
 			gotImages := make([]string, 0)
 			tagFileExists := false
-			metadataFileExists := false
+			metadataFilePath := ""
 			err := filepath.WalkDir(tc.args.exportDirectory, func(path string, d os.DirEntry, err error) error {
 				t.Log(path)
 				if err != nil {
@@ -186,7 +193,7 @@ func TestBatchImageExporter_Export(t *testing.T) {
 					return nil
 				}
 				if filepath.Base(path) == "metadata.jsonl" {
-					metadataFileExists = true
+					metadataFilePath = path
 					return nil
 				}
 
@@ -196,7 +203,31 @@ func TestBatchImageExporter_Export(t *testing.T) {
 			assert.NoError(t, err)
 			assert.ElementsMatch(t, tc.wantImages, gotImages)
 			assert.True(t, tagFileExists)
-			assert.True(t, metadataFileExists)
+			assert.NotEmpty(t, metadataFilePath)
+
+			// Check metadata.jsonl
+			gotMetadatas := readMetadataFile(t, metadataFilePath)
+			assert.Equal(t, tc.wantMetadatas, gotMetadatas)
 		})
 	}
+}
+
+func readMetadataFile(t *testing.T, metadataFilePath string) []Metadata {
+	metadataFile, err := os.Open(metadataFilePath)
+	assert.NoError(t, err)
+	defer metadataFile.Close()
+
+	contents, err := io.ReadAll(metadataFile)
+	assert.NoError(t, err)
+	lines := strings.Split(string(contents), "\n")
+	lines = lines[:len(lines)-1] // remove the last empty line
+
+	gotMetadatas := make([]Metadata, 0)
+	for _, line := range lines {
+		gotMetadata := Metadata{}
+		err := json.Unmarshal([]byte(line), &gotMetadata)
+		assert.NoError(t, err)
+		gotMetadatas = append(gotMetadatas, gotMetadata)
+	}
+	return gotMetadatas
 }

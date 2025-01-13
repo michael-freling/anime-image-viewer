@@ -48,7 +48,12 @@ class Preprocessor:
         # To avoid a crash, set a smaller batch size
         ds = ds.map(preprocess, batched=True,
                     batch_size=20, num_proc=mp.cpu_count())
-        ds.save_to_disk(root_destination_dir)
+        splitted = ds['train'].train_test_split(test_size=0.2)
+        result = datasets.DatasetDict({
+            'train': splitted['train'],
+            'validation': splitted['test']
+        })
+        result.save_to_disk(root_destination_dir)
 
         tags_file = os.path.join(root_dir, 'tags.json')
         shutil.copy(tags_file, os.path.join(
