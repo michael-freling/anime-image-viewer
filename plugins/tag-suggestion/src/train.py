@@ -48,6 +48,8 @@ class Trainer:
 
         ds = datasets.load_from_disk(data_dir)
         prepared_ds = ds.with_transform(transform)
+        # Smaller datasets for testing
+        # prepared_ds = {k: v.take(100) for k, v in prepared_ds.items()}
 
         # https://huggingface.co/blog/Valerii-Knowledgator/multi-label-classification
         metrics = evaluate.combine(["accuracy", "f1", "precision", "recall"])

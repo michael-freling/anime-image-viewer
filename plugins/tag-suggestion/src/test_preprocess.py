@@ -20,9 +20,12 @@ class TestPreprocessor(unittest.TestCase):
 
         expected_image_count = 2 * (360 / 45)
         actual = datasets.load_from_disk(output_dir)
-        self.assertEqual(['train'], list(actual.keys()))
+        self.assertIn('train', actual.keys())
+        actual_image_count = sum([len(actual[split]['image'])
+                                  for split in actual])
         self.assertEqual(expected_image_count,
-                         len(actual['train']['image']))
+                         actual_image_count)
+
         for actual_image in actual['train']['image']:
             self.assertEqual(expected_image_width,
                              actual_image.size[0])
