@@ -16,7 +16,8 @@
     "settings": {
         "files.exclude": {
             "frontend": true,
-            "plugins": true
+            "plugins": true,
+            "**/.venv": true
         }
     }
 }

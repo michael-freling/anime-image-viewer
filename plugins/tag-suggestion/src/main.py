@@ -4,6 +4,7 @@ import transformers
 import inference
 from grpc_server import start_grpc_server
 import preprocess
+from tools import DatasetImageExtractor
 import train
 from ImageProcessor import ImageProcessor
 from transformers import HfArgumentParser
@@ -49,5 +50,15 @@ def server(model_path: str, resize_image_width: int):
     start_grpc_server(model_path, resize_image_width)
 
 
+@cli.command('extract')
+@click.argument('data_dir', type=click.Path(exists=True))
+def extract(data_dir: str):
+    DatasetImageExtractor().show_images(data_dir)
+
+
 if __name__ == '__main__':
-    cli()
+    try:
+        cli()
+    except Exception as e:
+        print(e)
+        exit(1)

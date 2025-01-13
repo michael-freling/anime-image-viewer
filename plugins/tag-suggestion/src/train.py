@@ -1,13 +1,10 @@
 import sys
-import PIL.PngImagePlugin
 import transformers
 import datasets
-import multiprocessing as mp
 import evaluate
 import numpy as np
 import torch
 from tag import TagReader
-
 import logging
 # logging.basicConfig(level=logging.INFO)
 
@@ -49,11 +46,7 @@ class Trainer:
             ]
             return inputs
 
-        ds = datasets.load_dataset('imagefolder',
-                                   data_dir=data_dir,
-                                   num_proc=mp.cpu_count())
-        # The ViTImageProcessor struggles with RGBA images since it typically expects RGB images
-        ds = ds.cast_column("image", datasets.Image(mode="RGB"))
+        ds = datasets.load_from_disk(data_dir)
         prepared_ds = ds.with_transform(transform)
 
         # https://huggingface.co/blog/Valerii-Knowledgator/multi-label-classification
