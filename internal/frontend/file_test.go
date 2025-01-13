@@ -24,11 +24,11 @@ func TestStaticFileService_ServeHTTP(t *testing.T) {
 		Level: slog.LevelDebug,
 	}))
 
-	tester.newFileCreator().
-		CreateDirectory(t, image.Directory{ID: 1, Name: "dir"}).
-		CreateImage(t, image.ImageFile{ID: 2, Name: "image.jpg", ParentID: 1}, image.TestImageFileJpeg).
-		CreateImage(t, image.ImageFile{ID: 2, Name: "image.png", ParentID: 1}, image.TestImageFilePng).
-		CreateImage(t, image.ImageFile{ID: 2, Name: "image.txt", ParentID: 1}, image.TestImageFileNonImage)
+	tester.newFileCreator(t).
+		CreateDirectory(image.Directory{ID: 1, Name: "dir"}).
+		CreateImage(image.ImageFile{ID: 2, Name: "image.jpg", ParentID: 1}, image.TestImageFileJpeg).
+		CreateImage(image.ImageFile{ID: 2, Name: "image.png", ParentID: 1}, image.TestImageFilePng).
+		CreateImage(image.ImageFile{ID: 2, Name: "image.txt", ParentID: 1}, image.TestImageFileNonImage)
 
 	testCases := []struct {
 		name         string

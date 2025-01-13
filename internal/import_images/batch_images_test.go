@@ -21,20 +21,20 @@ func TestBatchImageImporter_importImageFiles(t *testing.T) {
 		ID:   1,
 		Name: "Directory 1",
 	}
-	fileBuilder := tester.newFileCreator().
-		CreateDirectory(t, destinationDirectory).
-		CreateImage(t,
+	fileBuilder := tester.newFileCreator(t).
+		CreateDirectory(destinationDirectory).
+		CreateImage(
 			image.ImageFile{ID: 10, Name: "image2.jpg", ParentID: destinationDirectory.ID, ContentType: "image/jpeg"},
 			image.TestImageFileNone).
-		CreateImage(t,
+		CreateImage(
 			image.ImageFile{ID: 11, Name: "image.png", ParentID: destinationDirectory.ID, ContentType: "image/png"},
 			image.TestImageFileNone).
-		CreateImage(t, image.ImageFile{ID: 99, Name: "other_image.jpg", ParentID: destinationDirectory.ID, ContentType: "image/jpeg"}, image.TestImageFileJpeg).
-		CreateImage(t, image.ImageFile{ID: 98, Name: "other_image_in_db.jpg", ParentID: destinationDirectory.ID, ContentType: "image/jpeg"}, image.TestImageFileJpeg).
-		CreateDirectory(t, image.Directory{ID: 2, Name: "testdata"}).
-		CreateImage(t, image.ImageFile{Name: "image2.jpg", ParentID: 2, ContentType: "image/jpeg"}, image.TestImageFileJpeg).
-		CreateImage(t, image.ImageFile{ID: 20, Name: "image2.png", ParentID: 2, ContentType: "image/png"}, image.TestImageFilePng).
-		CreateImage(t, image.ImageFile{ID: 21, Name: "image21.png", ParentID: 2, ContentType: "image/png"}, image.TestImageFilePng)
+		CreateImage(image.ImageFile{ID: 99, Name: "other_image.jpg", ParentID: destinationDirectory.ID, ContentType: "image/jpeg"}, image.TestImageFileJpeg).
+		CreateImage(image.ImageFile{ID: 98, Name: "other_image_in_db.jpg", ParentID: destinationDirectory.ID, ContentType: "image/jpeg"}, image.TestImageFileJpeg).
+		CreateDirectory(image.Directory{ID: 2, Name: "testdata"}).
+		CreateImage(image.ImageFile{Name: "image2.jpg", ParentID: 2, ContentType: "image/jpeg"}, image.TestImageFileJpeg).
+		CreateImage(image.ImageFile{ID: 20, Name: "image2.png", ParentID: 2, ContentType: "image/png"}, image.TestImageFilePng).
+		CreateImage(image.ImageFile{ID: 21, Name: "image21.png", ParentID: 2, ContentType: "image/png"}, image.TestImageFilePng)
 
 	directoryForUploadingTestImages := fileBuilder.BuildDirectory(2)
 	tester.copyXMPFile(t,

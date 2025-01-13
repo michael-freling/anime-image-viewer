@@ -98,9 +98,9 @@ func (tester tester) getTagReader() *tag.Reader {
 	)
 }
 
-func (tester tester) newFileCreator() *fileCreator {
+func (tester tester) newFileCreator(t *testing.T) *fileCreator {
 	return &fileCreator{
-		FileCreator: image.NewFileCreator(tester.config.ImageRootDirectory),
+		FileCreator: image.NewFileCreator(t, tester.config.ImageRootDirectory),
 
 		directoryChildrenMap: make(map[uint][]image.Directory),
 	}

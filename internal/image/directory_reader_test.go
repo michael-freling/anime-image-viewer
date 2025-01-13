@@ -13,11 +13,11 @@ func TestDirectoryReader_ReadAncestors(t *testing.T) {
 	tester := newTester(t)
 	testDBClient := tester.dbClient
 
-	fileBuilder := tester.newFileCreator().
-		CreateDirectory(t, Directory{ID: 1, Name: "directory1"}).
-		CreateDirectory(t, Directory{ID: 2, Name: "sub directory1", ParentID: 1}).
-		CreateDirectory(t, Directory{ID: 3, Name: "sub directory2", ParentID: 2}).
-		CreateImage(t, ImageFile{ID: 4, Name: "image file 1", ParentID: 2}, TestImageFileJpeg)
+	fileBuilder := tester.newFileCreator(t).
+		CreateDirectory(Directory{ID: 1, Name: "directory1"}).
+		CreateDirectory(Directory{ID: 2, Name: "sub directory1", ParentID: 1}).
+		CreateDirectory(Directory{ID: 3, Name: "sub directory2", ParentID: 2}).
+		CreateImage(ImageFile{ID: 4, Name: "image file 1", ParentID: 2}, TestImageFileJpeg)
 
 	testCases := []struct {
 		name              string
@@ -29,10 +29,10 @@ func TestDirectoryReader_ReadAncestors(t *testing.T) {
 		{
 			name: "read ancestors",
 			insertDirectories: []db.File{
-				fileBuilder.BuildDBDirectory(t, 1),
-				fileBuilder.BuildDBDirectory(t, 2),
-				fileBuilder.BuildDBDirectory(t, 3),
-				fileBuilder.BuildDBImageFile(t, 4),
+				fileBuilder.BuildDBDirectory(1),
+				fileBuilder.BuildDBDirectory(2),
+				fileBuilder.BuildDBDirectory(3),
+				fileBuilder.BuildDBImageFile(4),
 			},
 			fileIDs: []uint{
 				1,
@@ -57,8 +57,8 @@ func TestDirectoryReader_ReadAncestors(t *testing.T) {
 		{
 			name: "read ancestors from only one file",
 			insertDirectories: []db.File{
-				fileBuilder.BuildDBDirectory(t, 1),
-				fileBuilder.BuildDBDirectory(t, 2),
+				fileBuilder.BuildDBDirectory(1),
+				fileBuilder.BuildDBDirectory(2),
 				{ID: 4, Name: "image file 1", ParentID: 2, Type: db.FileTypeImage},
 			},
 			fileIDs: []uint{
@@ -103,9 +103,9 @@ func TestDirectoryReader_readDirectory(t *testing.T) {
 	tester := newTester(t)
 	dbClient := tester.dbClient
 
-	fileBuilder := tester.newFileCreator().
-		CreateDirectory(t, Directory{ID: 1, Name: "directory1"}).
-		CreateDirectory(t, Directory{ID: 2, Name: "sub directory1", ParentID: 1})
+	fileBuilder := tester.newFileCreator(t).
+		CreateDirectory(Directory{ID: 1, Name: "directory1"}).
+		CreateDirectory(Directory{ID: 2, Name: "sub directory1", ParentID: 1})
 
 	testCases := []struct {
 		name              string
@@ -117,7 +117,7 @@ func TestDirectoryReader_readDirectory(t *testing.T) {
 		{
 			name: "directory exists",
 			insertDirectories: []db.File{
-				fileBuilder.BuildDBDirectory(t, 1),
+				fileBuilder.BuildDBDirectory(1),
 			},
 			directoryID: 1,
 			want:        fileBuilder.BuildDirectory(1),
@@ -125,8 +125,8 @@ func TestDirectoryReader_readDirectory(t *testing.T) {
 		{
 			name: "sub directory exists",
 			insertDirectories: []db.File{
-				fileBuilder.BuildDBDirectory(t, 1),
-				fileBuilder.BuildDBDirectory(t, 2),
+				fileBuilder.BuildDBDirectory(1),
+				fileBuilder.BuildDBDirectory(2),
 			},
 			directoryID: 2,
 			want:        fileBuilder.BuildDirectory(2),
@@ -139,7 +139,7 @@ func TestDirectoryReader_readDirectory(t *testing.T) {
 		{
 			name: "a directory doesn't exist",
 			insertDirectories: []db.File{
-				fileBuilder.BuildDBDirectory(t, 1),
+				fileBuilder.BuildDBDirectory(1),
 			},
 			directoryID: 999,
 			wantErr:     ErrDirectoryNotFound,

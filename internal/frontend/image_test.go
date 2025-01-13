@@ -1,8 +1,6 @@
 package frontend
 
 import (
-	"testing"
-
 	"github.com/michael-freling/anime-image-viewer/internal/image"
 )
 
@@ -12,8 +10,8 @@ type fileCreator struct {
 	directoryChildrenMap map[uint][]image.Directory
 }
 
-func (creator *fileCreator) CreateDirectory(t *testing.T, directory image.Directory) *fileCreator {
-	creator.FileCreator.CreateDirectory(t, directory)
+func (creator *fileCreator) CreateDirectory(directory image.Directory) *fileCreator {
+	creator.FileCreator.CreateDirectory(directory)
 	if _, ok := creator.directoryChildrenMap[directory.ParentID]; !ok {
 		creator.directoryChildrenMap[directory.ParentID] = make([]image.Directory, 0)
 	}
