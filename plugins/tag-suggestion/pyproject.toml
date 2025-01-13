@@ -101,7 +101,7 @@ preprocess.composite = [
 train.composite = [
     "rm -rf ${MODEL_DIR}",
     # dataloader_num_workers: https://huggingface.co/docs/transformers/perf_train_gpu_one
-    "python src/main.py train ${PREPROCESSED_DATA_DIR} --output-dir ${MODEL_DIR} --remove-unused-columns=False --eval-strategy=epoch --num-train-epochs=1 --fp16=True --dataloader-num-workers=4",
+    "python src/main.py train ${PREPROCESSED_DATA_DIR} --output-dir ${MODEL_DIR} --remove-unused-columns=False --eval-strategy=epoch --num-train-epochs=10 --fp16=True --dataloader-num-workers=4",
 ]
 # _.env = { PYTHON_PATH = "../plugins-protos/gen/python/tag_suggestion" }
 server.cmd = "python src/main.py server ${MODEL_DIR} --resize-image-width=${INFERENCE_IMAGE_SIZE}"
