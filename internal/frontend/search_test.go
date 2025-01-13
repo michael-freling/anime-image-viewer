@@ -14,7 +14,7 @@ func TestSearchService_Search(t *testing.T) {
 	tester := newTester(t)
 	dbClient := tester.dbClient
 
-	fileBuilder := tester.newFileCreator()
+	fileBuilder := tester.newFileCreator(t)
 	for _, dir := range []image.Directory{
 		{ID: 1, Name: "Directory 1"},
 		{ID: 10, Name: "Directory 10", ParentID: 1},
@@ -23,7 +23,7 @@ func TestSearchService_Search(t *testing.T) {
 		// a root directory is Directory 2
 		{ID: 2, Name: "Directory 2"},
 	} {
-		fileBuilder.CreateDirectory(t, dir)
+		fileBuilder.CreateDirectory(dir)
 	}
 	for _, imageFile := range []image.ImageFile{
 		// a root directory is Directory 1
@@ -37,8 +37,8 @@ func TestSearchService_Search(t *testing.T) {
 		{ID: 21, Name: "image file 21", ParentID: 2},
 		{ID: 22, Name: "image file 22", ParentID: 2},
 	} {
-		fileBuilder.CreateImage(t, imageFile, image.TestImageFileJpeg)
-		fileBuilder.AddImageCreatedAt(t, imageFile.ID, time.Date(2021, 1, 1, 0, 0, int(imageFile.ID), 0, time.UTC))
+		fileBuilder.CreateImage(imageFile, image.TestImageFileJpeg)
+		fileBuilder.AddImageCreatedAt(imageFile.ID, time.Date(2021, 1, 1, 0, 0, int(imageFile.ID), 0, time.UTC))
 	}
 
 	type testCase struct {
@@ -86,9 +86,9 @@ func TestSearchService_Search(t *testing.T) {
 				name:    "Search a few image files",
 				request: SearchImagesRequest{DirectoryID: 1},
 				insertFiles: []db.File{
-					fileBuilder.BuildDBDirectory(t, 1),
-					fileBuilder.BuildDBImageFile(t, 11),
-					fileBuilder.BuildDBImageFile(t, 12),
+					fileBuilder.BuildDBDirectory(1),
+					fileBuilder.BuildDBImageFile(11),
+					fileBuilder.BuildDBImageFile(12),
 				},
 				want: SearchImagesResponse{
 					Images: []Image{
@@ -101,7 +101,7 @@ func TestSearchService_Search(t *testing.T) {
 				name:    "No image file",
 				request: SearchImagesRequest{DirectoryID: 1},
 				insertFiles: []db.File{
-					fileBuilder.BuildDBDirectory(t, 1),
+					fileBuilder.BuildDBDirectory(1),
 				},
 			},
 		}
@@ -117,11 +117,11 @@ func TestSearchService_Search(t *testing.T) {
 				name:    "Search a few image files",
 				request: SearchImagesRequest{TagID: 1},
 				insertFiles: []db.File{
-					fileBuilder.BuildDBDirectory(t, 1),
-					fileBuilder.BuildDBDirectory(t, 10),
-					fileBuilder.BuildDBImageFile(t, 11),
-					fileBuilder.BuildDBImageFile(t, 12),
-					fileBuilder.BuildDBImageFile(t, 101),
+					fileBuilder.BuildDBDirectory(1),
+					fileBuilder.BuildDBDirectory(10),
+					fileBuilder.BuildDBImageFile(11),
+					fileBuilder.BuildDBImageFile(12),
+					fileBuilder.BuildDBImageFile(101),
 				},
 				insertTags: []db.Tag{
 					{ID: 1, Name: "tag 1"},
@@ -177,11 +177,11 @@ func TestSearchService_Search(t *testing.T) {
 					IsInvertedTagSearch: true,
 				},
 				insertFiles: []db.File{
-					fileBuilder.BuildDBDirectory(t, 1),
-					fileBuilder.BuildDBDirectory(t, 10),
-					fileBuilder.BuildDBImageFile(t, 11),
-					fileBuilder.BuildDBImageFile(t, 12),
-					fileBuilder.BuildDBImageFile(t, 101),
+					fileBuilder.BuildDBDirectory(1),
+					fileBuilder.BuildDBDirectory(10),
+					fileBuilder.BuildDBImageFile(11),
+					fileBuilder.BuildDBImageFile(12),
+					fileBuilder.BuildDBImageFile(101),
 				},
 				insertTags: []db.Tag{
 					{ID: 1, Name: "tag 1"},
@@ -211,9 +211,9 @@ func TestSearchService_Search(t *testing.T) {
 					IsInvertedTagSearch: true,
 				},
 				insertFiles: []db.File{
-					fileBuilder.BuildDBDirectory(t, 1),
-					fileBuilder.BuildDBImageFile(t, 11),
-					fileBuilder.BuildDBImageFile(t, 12),
+					fileBuilder.BuildDBDirectory(1),
+					fileBuilder.BuildDBImageFile(11),
+					fileBuilder.BuildDBImageFile(12),
 				},
 				insertTags: []db.Tag{
 					{ID: 1, Name: "tag 1"},
@@ -233,9 +233,9 @@ func TestSearchService_Search(t *testing.T) {
 					IsInvertedTagSearch: true,
 				},
 				insertFiles: []db.File{
-					fileBuilder.BuildDBDirectory(t, 1),
-					fileBuilder.BuildDBDirectory(t, 10),
-					fileBuilder.BuildDBImageFile(t, 101),
+					fileBuilder.BuildDBDirectory(1),
+					fileBuilder.BuildDBDirectory(10),
+					fileBuilder.BuildDBImageFile(101),
 				},
 				insertTags: []db.Tag{
 					{ID: 1, Name: "tag 1"},
@@ -261,11 +261,11 @@ func TestSearchService_Search(t *testing.T) {
 					TagID:       1,
 				},
 				insertFiles: []db.File{
-					fileBuilder.BuildDBDirectory(t, 1),
-					fileBuilder.BuildDBDirectory(t, 10),
-					fileBuilder.BuildDBImageFile(t, 11),
-					fileBuilder.BuildDBImageFile(t, 12),
-					fileBuilder.BuildDBImageFile(t, 101),
+					fileBuilder.BuildDBDirectory(1),
+					fileBuilder.BuildDBDirectory(10),
+					fileBuilder.BuildDBImageFile(11),
+					fileBuilder.BuildDBImageFile(12),
+					fileBuilder.BuildDBImageFile(101),
 				},
 				insertTags: []db.Tag{
 					{ID: 1, Name: "tag 1"},
@@ -294,17 +294,17 @@ func TestSearchService_Search(t *testing.T) {
 					TagID:       10,
 				},
 				insertFiles: []db.File{
-					fileBuilder.BuildDBDirectory(t, 1),
-					fileBuilder.BuildDBDirectory(t, 10),
-					fileBuilder.BuildDBImageFile(t, 11),
-					fileBuilder.BuildDBImageFile(t, 12),
-					fileBuilder.BuildDBDirectory(t, 100),
-					fileBuilder.BuildDBImageFile(t, 101),
-					fileBuilder.BuildDBImageFile(t, 102),
-					fileBuilder.BuildDBImageFile(t, 1001),
-					fileBuilder.BuildDBDirectory(t, 2),
-					fileBuilder.BuildDBImageFile(t, 21),
-					fileBuilder.BuildDBImageFile(t, 22),
+					fileBuilder.BuildDBDirectory(1),
+					fileBuilder.BuildDBDirectory(10),
+					fileBuilder.BuildDBImageFile(11),
+					fileBuilder.BuildDBImageFile(12),
+					fileBuilder.BuildDBDirectory(100),
+					fileBuilder.BuildDBImageFile(101),
+					fileBuilder.BuildDBImageFile(102),
+					fileBuilder.BuildDBImageFile(1001),
+					fileBuilder.BuildDBDirectory(2),
+					fileBuilder.BuildDBImageFile(21),
+					fileBuilder.BuildDBImageFile(22),
 				},
 				insertTags: []db.Tag{
 					{ID: 1, Name: "tag 1"},
@@ -333,9 +333,9 @@ func TestSearchService_Search(t *testing.T) {
 					TagID:       10,
 				},
 				insertFiles: []db.File{
-					fileBuilder.BuildDBDirectory(t, 1),
-					fileBuilder.BuildDBDirectory(t, 10),
-					fileBuilder.BuildDBImageFile(t, 11),
+					fileBuilder.BuildDBDirectory(1),
+					fileBuilder.BuildDBDirectory(10),
+					fileBuilder.BuildDBImageFile(11),
 				},
 				insertTags: []db.Tag{
 					{ID: 1, Name: "tag 1"},
@@ -354,8 +354,8 @@ func TestSearchService_Search(t *testing.T) {
 					TagID:       999,
 				},
 				insertFiles: []db.File{
-					fileBuilder.BuildDBDirectory(t, 1),
-					fileBuilder.BuildDBImageFile(t, 11),
+					fileBuilder.BuildDBDirectory(1),
+					fileBuilder.BuildDBImageFile(11),
 				},
 				insertTags: []db.Tag{
 					{ID: 1, Name: "tag 1"},

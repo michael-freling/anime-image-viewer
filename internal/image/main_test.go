@@ -59,6 +59,6 @@ func (tester Tester) getDirectoryReader() *DirectoryReader {
 	return NewDirectoryReader(tester.config, tester.dbClient.Client)
 }
 
-func (tester Tester) newFileCreator() *FileCreator {
-	return NewFileCreator(tester.config.ImageRootDirectory)
+func (tester Tester) newFileCreator(t *testing.T) *FileCreator {
+	return NewFileCreator(t, tester.config.ImageRootDirectory)
 }

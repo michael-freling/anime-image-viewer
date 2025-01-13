@@ -92,6 +92,6 @@ func (tester Tester) getFileStat(t *testing.T, imageFilePath image.TestImageFile
 	return stat
 }
 
-func (tester Tester) newFileCreator() *image.FileCreator {
-	return image.NewFileCreator(tester.config.ImageRootDirectory)
+func (tester Tester) newFileCreator(t *testing.T) *image.FileCreator {
+	return image.NewFileCreator(t, tester.config.ImageRootDirectory)
 }

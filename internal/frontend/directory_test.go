@@ -15,11 +15,11 @@ import (
 
 func TestService_ReadDirectoryTree(t *testing.T) {
 	tester := newTester(t)
-	fileCreator := tester.newFileCreator().
-		CreateDirectory(t, image.Directory{ID: 1, Name: "directory1"}).
-		CreateDirectory(t, image.Directory{ID: 2, Name: "directory2"}).
-		CreateDirectory(t, image.Directory{ID: 10, Name: "directory10", ParentID: 1}).
-		CreateDirectory(t, image.Directory{ID: 100, Name: "directory100", ParentID: 10})
+	fileCreator := tester.newFileCreator(t).
+		CreateDirectory(image.Directory{ID: 1, Name: "directory1"}).
+		CreateDirectory(image.Directory{ID: 2, Name: "directory2"}).
+		CreateDirectory(image.Directory{ID: 10, Name: "directory10", ParentID: 1}).
+		CreateDirectory(image.Directory{ID: 100, Name: "directory100", ParentID: 10})
 
 	testCases := []struct {
 		name              string
@@ -41,10 +41,10 @@ func TestService_ReadDirectoryTree(t *testing.T) {
 		{
 			name: "read a directory tree",
 			insertDirectories: []db.File{
-				fileCreator.BuildDBDirectory(t, 1),
-				fileCreator.BuildDBDirectory(t, 2),
-				fileCreator.BuildDBDirectory(t, 10),
-				fileCreator.BuildDBDirectory(t, 100),
+				fileCreator.BuildDBDirectory(1),
+				fileCreator.BuildDBDirectory(2),
+				fileCreator.BuildDBDirectory(10),
+				fileCreator.BuildDBDirectory(100),
 			},
 			insertFileTags: []db.FileTag{
 				{FileID: 1, TagID: 10},
@@ -243,12 +243,12 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 	tester := newTester(t)
 	testDBClient := tester.dbClient
 
-	fileBuilder := tester.newFileCreator().
-		CreateDirectory(t, image.Directory{ID: 1, Name: "directory1"}).
-		CreateDirectory(t, image.Directory{ID: 10, Name: "directory10", ParentID: 1}).
-		CreateDirectory(t, image.Directory{ID: 100, Name: "directory100", ParentID: 10}).
-		CreateDirectory(t, image.Directory{ID: 1001, Name: "directory 1001", ParentID: 100}).
-		CreateDirectory(t, image.Directory{ID: 1002, Name: "directory 1002", ParentID: 100})
+	fileBuilder := tester.newFileCreator(t).
+		CreateDirectory(image.Directory{ID: 1, Name: "directory1"}).
+		CreateDirectory(image.Directory{ID: 10, Name: "directory10", ParentID: 1}).
+		CreateDirectory(image.Directory{ID: 100, Name: "directory100", ParentID: 10}).
+		CreateDirectory(image.Directory{ID: 1001, Name: "directory 1001", ParentID: 100}).
+		CreateDirectory(image.Directory{ID: 1002, Name: "directory 1002", ParentID: 100})
 
 	rootDirectory := tester.config.ImageRootDirectory
 	service := tester.getDirectoryService()
@@ -265,10 +265,10 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 		{
 			name: "update a directory name",
 			insertDirectories: []db.File{
-				fileBuilder.BuildDBDirectory(t, 1),
-				fileBuilder.BuildDBDirectory(t, 10),
-				fileBuilder.BuildDBDirectory(t, 100),
-				fileBuilder.BuildDBDirectory(t, 1001),
+				fileBuilder.BuildDBDirectory(1),
+				fileBuilder.BuildDBDirectory(10),
+				fileBuilder.BuildDBDirectory(100),
+				fileBuilder.BuildDBDirectory(1001),
 			},
 			directoryID: 1001,
 			newName:     "new_directory1",
@@ -281,11 +281,11 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 		{
 			name: "update a directory name to the same name under different directory",
 			insertDirectories: []db.File{
-				fileBuilder.BuildDBDirectory(t, 1),
-				fileBuilder.BuildDBDirectory(t, 10),
+				fileBuilder.BuildDBDirectory(1),
+				fileBuilder.BuildDBDirectory(10),
 				{ID: 11, Name: "same_name_under_different_directory", ParentID: 1, Type: db.FileTypeDirectory},
-				fileBuilder.BuildDBDirectory(t, 100),
-				fileBuilder.BuildDBDirectory(t, 1002),
+				fileBuilder.BuildDBDirectory(100),
+				fileBuilder.BuildDBDirectory(1002),
 			},
 			makeDirectories: []string{
 				filepath.Join(fileBuilder.BuildDirectory(1).Name, "same_name_under_different_directory"),
@@ -301,9 +301,9 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 		{
 			name: "update a directory name to the same name with different cases",
 			insertDirectories: []db.File{
-				fileBuilder.BuildDBDirectory(t, 1),
-				fileBuilder.BuildDBDirectory(t, 10),
-				fileBuilder.BuildDBDirectory(t, 100),
+				fileBuilder.BuildDBDirectory(1),
+				fileBuilder.BuildDBDirectory(10),
+				fileBuilder.BuildDBDirectory(100),
 				{ID: 1003, Name: "directory1", ParentID: 100, Type: db.FileTypeDirectory},
 			},
 			makeDirectories: []string{
@@ -354,8 +354,8 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 		{
 			name: "update a directory name to the same name with other directory in the DB",
 			insertDirectories: []db.File{
-				fileBuilder.BuildDBDirectory(t, 1),
-				fileBuilder.BuildDBDirectory(t, 10),
+				fileBuilder.BuildDBDirectory(1),
+				fileBuilder.BuildDBDirectory(10),
 				{ID: 99, Name: "directory 99", ParentID: 1, Type: db.FileTypeDirectory},
 			},
 			makeDirectories: []string{
@@ -368,7 +368,7 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 		{
 			name: "update a directory name to the same name with other directory in the FS",
 			insertDirectories: []db.File{
-				fileBuilder.BuildDBDirectory(t, 1),
+				fileBuilder.BuildDBDirectory(1),
 			},
 			makeDirectories: []string{
 				"new_directory",
@@ -380,10 +380,10 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 		{
 			name: "Updates a directory with the same directory name",
 			insertDirectories: []db.File{
-				fileBuilder.BuildDBDirectory(t, 1),
+				fileBuilder.BuildDBDirectory(1),
 			},
 			directoryID: 1,
-			newName:     fileBuilder.BuildDBDirectory(t, 1).Name,
+			newName:     fileBuilder.BuildDBDirectory(1).Name,
 			wantErr:     xerrors.ErrInvalidArgument,
 		},
 	}

@@ -11,6 +11,7 @@ import (
 )
 
 type FileCreator struct {
+	t                *testing.T
 	staticFilePrefix string
 	localFilePrefix  string
 
@@ -21,8 +22,9 @@ type FileCreator struct {
 	imageCreatedAtMap map[uint]time.Time
 }
 
-func NewFileCreator(localFilePrefix string) *FileCreator {
+func NewFileCreator(t *testing.T, localFilePrefix string) *FileCreator {
 	return &FileCreator{
+		t:                t,
 		localFilePrefix:  localFilePrefix,
 		staticFilePrefix: "/files",
 
@@ -33,7 +35,7 @@ func NewFileCreator(localFilePrefix string) *FileCreator {
 	}
 }
 
-func (creator *FileCreator) CreateDirectory(t *testing.T, directory Directory) *FileCreator {
+func (creator *FileCreator) CreateDirectory(directory Directory) *FileCreator {
 	if directory.ParentID != 0 {
 		parent := creator.directories[directory.ParentID]
 		directory.Path = filepath.Join(parent.Path, directory.Name)
@@ -43,6 +45,7 @@ func (creator *FileCreator) CreateDirectory(t *testing.T, directory Directory) *
 		directory.RelativePath = directory.Name
 	}
 
+	t := creator.t
 	require.NoError(t, os.MkdirAll(directory.Path, 0755))
 
 	creator.directories[directory.ID] = directory
@@ -62,7 +65,8 @@ func (creator *FileCreator) GetImagePath(parentDirectory Directory, imageFile Im
 	return filepath.Join(creator.staticFilePrefix, parentDirectory.RelativePath, imageFile.Name)
 }
 
-func (creator *FileCreator) CreateImage(t *testing.T, imageFile ImageFile, source TestImageFile) *FileCreator {
+func (creator *FileCreator) CreateImage(imageFile ImageFile, source TestImageFile) *FileCreator {
+	t := creator.t
 	require.NotZero(t, imageFile.ParentID)
 	parentDirectory := creator.directories[imageFile.ParentID]
 	imageFile.LocalFilePath = filepath.Join(parentDirectory.Path, imageFile.Name)
@@ -93,7 +97,9 @@ func (creator FileCreator) BuildDirectory(id uint) Directory {
 	return creator.directories[id]
 }
 
-func (creator FileCreator) BuildDBDirectory(t *testing.T, id uint) db.File {
+func (creator FileCreator) BuildDBDirectory(id uint) db.File {
+	t := creator.t
+
 	directory, ok := creator.directories[id]
 	require.True(t, ok, "directory %d not found", id)
 	return db.File{
@@ -108,12 +114,16 @@ func (creator FileCreator) BuildImageFile(id uint) ImageFile {
 	return creator.imageFiles[id]
 }
 
-func (creator FileCreator) AddImageCreatedAt(t *testing.T, id uint, imageCreatedAt time.Time) {
+func (creator FileCreator) AddImageCreatedAt(id uint, imageCreatedAt time.Time) {
+	t := creator.t
+
 	require.Contains(t, creator.imageFiles, id, "image file %d not found", id)
 	creator.imageCreatedAtMap[id] = imageCreatedAt
 }
 
-func (creator FileCreator) BuildDBImageFile(t *testing.T, id uint) db.File {
+func (creator FileCreator) BuildDBImageFile(id uint) db.File {
+	t := creator.t
+
 	require.Contains(t, creator.imageFiles, id, "image file %d not found", id)
 
 	createdAt := time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, int(id))

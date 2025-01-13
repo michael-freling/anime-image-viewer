@@ -167,12 +167,12 @@ func TestTagFrontendService_SuggestTags(t *testing.T) {
 	// tester.copyImageFile(t, "image.jpg", filepath.Join("Directory 1", "Directory 10", "image11.jpg"))
 	// tester.copyImageFile(t, "image.jpg", filepath.Join("Directory 1", "Directory 10", "Directory 100", "image101.jpg"))
 
-	fileBuilder := tester.newFileCreator().
-		CreateDirectory(t, image.Directory{ID: 1, Name: "Directory 1"}).
-		CreateDirectory(t, image.Directory{ID: 10, Name: "Directory 10", ParentID: 1}).
-		CreateImage(t, image.ImageFile{ID: 11, Name: "image11.jpg", ParentID: 10, ContentType: "image/jpeg"}, image.TestImageFileJpeg).
-		CreateDirectory(t, image.Directory{ID: 100, Name: "Directory 100", ParentID: 10}).
-		CreateImage(t, image.ImageFile{ID: 101, Name: "image101.jpg", ParentID: 100, ContentType: "image/jpeg"}, image.TestImageFileJpeg)
+	fileBuilder := tester.newFileCreator(t).
+		CreateDirectory(image.Directory{ID: 1, Name: "Directory 1"}).
+		CreateDirectory(image.Directory{ID: 10, Name: "Directory 10", ParentID: 1}).
+		CreateImage(image.ImageFile{ID: 11, Name: "image11.jpg", ParentID: 10, ContentType: "image/jpeg"}, image.TestImageFileJpeg).
+		CreateDirectory(image.Directory{ID: 100, Name: "Directory 100", ParentID: 10}).
+		CreateImage(image.ImageFile{ID: 101, Name: "image101.jpg", ParentID: 100, ContentType: "image/jpeg"}, image.TestImageFileJpeg)
 
 	// See the full list of how it should behave in /docs/features/tag_suggestion.md
 	testCases := []struct {
