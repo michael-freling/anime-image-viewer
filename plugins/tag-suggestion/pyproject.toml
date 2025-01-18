@@ -94,14 +94,15 @@ distribution = false
 _.env = { DATA_DIR = 'source', PREPROCESSED_DATA_DIR = "datasets", MODEL_DIR = "model", TRAIN_IMAGE_SIZE = "224", INFERENCE_IMAGE_SIZE = "224" }
 test.cmd = "python -m unittest discover -s src"
 preprocess.composite = [
-    "rm -rf ${PREPROCESSED_DATA_DIR}",
+    "rm -rf ${PREPROCESSED_DATA_DIR} ${PREPROCESSED_DATA_DIR}.zip",
     "python src/main.py preprocess ${DATA_DIR} ${PREPROCESSED_DATA_DIR} --target-image-width=${TRAIN_IMAGE_SIZE}",
     "zip -rq ${PREPROCESSED_DATA_DIR}.zip ${PREPROCESSED_DATA_DIR}",
 ]
 train.composite = [
     "rm -rf ${MODEL_DIR}",
     # dataloader_num_workers: https://huggingface.co/docs/transformers/perf_train_gpu_one
-    "python src/main.py train ${PREPROCESSED_DATA_DIR} --output-dir ${MODEL_DIR} --remove-unused-columns=False --eval-strategy=epoch --num-train-epochs=10 --fp16=True --dataloader-num-workers=4",
+    "python src/main.py train ${PREPROCESSED_DATA_DIR} --output-dir ${MODEL_DIR} --remove-unused-columns=False --save-strategy=epoch --save-only-model=True --eval-strategy=epoch --num-train-epochs=10 --fp16=True --per-device-train-batch-size=64 --dataloader-num-workers=4",
+    "zip -rq ${MODEL_DIR}.zip ${MODEL_DIR}",
 ]
 # _.env = { PYTHON_PATH = "../plugins-protos/gen/python/tag_suggestion" }
 server.cmd = "python src/main.py server ${MODEL_DIR} --resize-image-width=${INFERENCE_IMAGE_SIZE}"
