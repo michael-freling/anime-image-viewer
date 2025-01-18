@@ -175,6 +175,14 @@ func (checker ImageTagChecker) HasDirectTag() bool {
 	return len(checker.imageFileTags) > 0
 }
 
+func (checker ImageTagChecker) GetDirectTags() []uint {
+	tagIDs := make([]uint, 0)
+	for tagID := range checker.imageFileTags {
+		tagIDs = append(tagIDs, tagID)
+	}
+	return tagIDs
+}
+
 func (checker ImageTagChecker) HasAnyTag() bool {
 	return len(checker.imageFileTags) > 0 || len(checker.ancestorsTags) > 0
 }

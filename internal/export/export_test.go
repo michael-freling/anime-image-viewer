@@ -155,8 +155,8 @@ func TestBatchImageExporter_Export(t *testing.T) {
 				),
 			},
 			wantMetadatas: []Metadata{
-				{FileName: fileCreator.BuildImageFile(11).Name, Tags: []float64{0, 1, 0, 1, 0, 0}},
-				{FileName: fileCreator.BuildImageFile(101).Name, Tags: []float64{0, 0, 0, 1, 0, 1}},
+				{FileName: fileCreator.BuildImageFile(11).Name, Tags: []float64{0, 1, 0, 0, 0, 0}},
+				{FileName: fileCreator.BuildImageFile(101).Name, Tags: []float64{0, 0, 0, 0, 0, 1}},
 			},
 		},
 	}

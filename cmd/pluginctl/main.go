@@ -69,7 +69,7 @@ func runMain(logger *slog.Logger) error {
 		&exportOptions.isDirectoryTagExcluded,
 		"exclude-directory-tag",
 		true,
-		"Exclude images from directory tags. If this is true, images without their own tags are NOT exported. default: true",
+		"Exclude directory tags. If this is true, images without their own tags and tags from directories are NOT exported. default: true",
 	)
 	rootCommand.AddCommand(&exportCommand)
 
