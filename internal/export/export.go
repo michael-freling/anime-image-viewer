@@ -180,7 +180,8 @@ func (batchExporter BatchImageExporter) ExportImages(ctx context.Context, rootEx
 		}
 
 		split := trainSplit
-		for tagID := range batchTagChecker.GetTagCheckerForImageFileID(imageFile.ID).GetTagMap() {
+		tagChecker := batchTagChecker.GetTagCheckerForImageFileID(imageFile.ID)
+		for _, tagID := range tagChecker.GetDirectTags() {
 			metadata.Tags[tagID] = 1.0
 		}
 
