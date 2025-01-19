@@ -165,7 +165,7 @@ const ThreeColumnLayout: React.FC<ThreeColumnLayoutProps> = ({
     <SideNav>
       <Navigation />
     </SideNav>
-    <SideNav>{sideNavigation}</SideNav>
+    <SideNav sx={{ overflowY: "auto" }}>{sideNavigation}</SideNav>
 
     <Outlet />
   </Box>
