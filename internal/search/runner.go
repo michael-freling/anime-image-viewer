@@ -40,19 +40,13 @@ func NewSearchRunner(
 	}
 }
 
-type ImageFinder struct {
-	Images image.ImageFileList
-
-	TaggedImages map[uint][]uint
-}
-
 func (runner SearchImageRunner) SearchImages(
 	ctx context.Context,
 	tagID uint,
 	isInvertedTagSearch bool,
 	parentDirectoryID uint,
-) (ImageFinder, error) {
-	result := ImageFinder{}
+) (image.ImageFileList, error) {
+	var result image.ImageFileList
 
 	var fileTags db.FileTagList
 	if tagID != 0 {
@@ -182,64 +176,5 @@ func (runner SearchImageRunner) SearchImages(
 		return result, fmt.Errorf("directoryReader.ReadImageFiles: %w", err)
 	}
 
-	// tag id to file id
-	var resultTags map[uint][]uint
-	if tagID != 0 {
-		resultTags = make(map[uint][]uint, 0)
-
-		// Create a map of tag IDs to file IDs
-		// descendants variable may contain a directory or image files which
-		// is not a target for a search by a tag ID
-		fileTagsMap := make(map[uint][]uint, 0)
-		for tagID, fileTagMap := range fileTags.ToTagMap() {
-			for fileID := range fileTagMap {
-				descendants := directoryDescendants[fileID]
-				for _, descendantFileID := range descendants {
-					fileTagsMap[descendantFileID] = append(fileTagsMap[descendantFileID], tagID)
-				}
-
-				for _, imageFile := range imageFiles {
-					if imageFile.ID == fileID {
-						fileTagsMap[fileID] = append(fileTagsMap[fileID], tagID)
-						break
-					}
-				}
-			}
-		}
-		runner.logger.DebugContext(ctx, "SearchImageRunner.SearchImages",
-			"fileTags", fileTags,
-			"fileTagsMap", fileTagsMap,
-			"imageFiles", imageFiles,
-		)
-
-		// tag id to file id
-		tagIsAdded := make(map[uint]map[uint]bool, 0)
-		for _, imageFile := range imageFiles {
-			imageFileTags := fileTagsMap[imageFile.ID]
-
-			for _, tagID := range imageFileTags {
-				if _, ok := resultTags[tagID]; ok {
-					continue
-				}
-				resultTags[tagID] = make([]uint, 0)
-				tagIsAdded[tagID] = make(map[uint]bool)
-			}
-			for _, tagID := range imageFileTags {
-				if _, ok := tagIsAdded[tagID][imageFile.ID]; ok {
-					continue
-				}
-
-				resultTags[tagID] = append(resultTags[tagID], imageFile.ID)
-				tagIsAdded[tagID][imageFile.ID] = true
-			}
-		}
-		if len(resultTags) == 0 {
-			resultTags = nil
-		}
-	}
-
-	return ImageFinder{
-		Images:       images,
-		TaggedImages: resultTags,
-	}, nil
+	return images, nil
 }

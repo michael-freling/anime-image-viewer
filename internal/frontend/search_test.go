@@ -71,12 +71,6 @@ func TestSearchService_Search(t *testing.T) {
 				return
 			}
 			assert.Equal(t, tc.want.Images, got.Images)
-			for key := range tc.want.TaggedImages {
-				assert.ElementsMatch(t, tc.want.TaggedImages[key], got.TaggedImages[key],
-					"tagged images mismatch for tag %d", key,
-				)
-			}
-			assert.Len(t, tc.want.TaggedImages, len(got.TaggedImages))
 		})
 	}
 
@@ -137,11 +131,6 @@ func TestSearchService_Search(t *testing.T) {
 					{FileID: 101, TagID: 100}, // a tag for a direct file
 				},
 				want: SearchImagesResponse{
-					TaggedImages: map[uint][]uint{
-						1:   {11, 12, 101},
-						10:  {101},
-						100: {101},
-					},
 					Images: []Image{
 						fileBuilder.buildFrontendImage(101),
 						fileBuilder.buildFrontendImage(12),
@@ -279,9 +268,6 @@ func TestSearchService_Search(t *testing.T) {
 					{FileID: 101, TagID: 101}, // a tag unrelated to an input tag
 				},
 				want: SearchImagesResponse{
-					TaggedImages: map[uint][]uint{
-						10: {11},
-					},
 					Images: []Image{
 						fileBuilder.buildFrontendImage(11),
 					},
@@ -317,9 +303,6 @@ func TestSearchService_Search(t *testing.T) {
 					{FileID: 2, TagID: 10},    // a tag added to a directory but it's in a different directory
 				},
 				want: SearchImagesResponse{
-					TaggedImages: map[uint][]uint{
-						100: {101, 102},
-					},
 					Images: []Image{
 						fileBuilder.buildFrontendImage(102),
 						fileBuilder.buildFrontendImage(101),

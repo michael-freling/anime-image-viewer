@@ -36,9 +36,6 @@ type SearchImagesRequest struct {
 
 type SearchImagesResponse struct {
 	Images []Image `json:"images"`
-
-	// tag ids to image ids
-	TaggedImages map[uint][]uint `json:"taggedImages"`
 }
 
 func (service SearchService) validateSearchImagesRequest(request SearchImagesRequest) error {
@@ -61,7 +58,6 @@ func (service SearchService) SearchImages(
 		return SearchImagesResponse{}, err
 	}
 
-	var fileIDs []uint
 	if request.DirectoryID != 0 && request.TagID == 0 {
 		var err error
 		imageFiles, err = service.directoryReader.ReadImageFiles(request.DirectoryID)
@@ -71,9 +67,6 @@ func (service SearchService) SearchImages(
 		if len(imageFiles) == 0 {
 			return SearchImagesResponse{}, nil
 		}
-		for _, imageFile := range imageFiles {
-			fileIDs = append(fileIDs, imageFile.ID)
-		}
 
 		batchImageConverter := newBatchImageConverter(imageFiles)
 		return SearchImagesResponse{
@@ -82,7 +75,7 @@ func (service SearchService) SearchImages(
 	}
 
 	// if there is no directory search, search files by tag id
-	tagFinder, err := service.searchRunner.SearchImages(
+	images, err := service.searchRunner.SearchImages(
 		ctx,
 		request.TagID,
 		request.IsInvertedTagSearch,
@@ -92,16 +85,15 @@ func (service SearchService) SearchImages(
 		return SearchImagesResponse{}, fmt.Errorf("service.searchRunner.ReadImageFiles: %w", err)
 	}
 
-	images := make([]Image, 0, len(tagFinder.Images))
-	for _, imageFile := range tagFinder.Images {
-		images = append(images, newImageConverterFromImageFiles(imageFile).Convert())
+	result := make([]Image, len(images))
+	for i, image := range images {
+		result[i] = newImageConverterFromImageFiles(image).Convert()
 	}
-	if len(tagFinder.Images) == 0 {
-		images = nil
+	if len(result) == 0 {
+		result = nil
 	}
 
 	return SearchImagesResponse{
-		Images:       images,
-		TaggedImages: tagFinder.TaggedImages,
+		Images: result,
 	}, nil
 }
