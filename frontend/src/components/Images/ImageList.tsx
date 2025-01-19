@@ -1,5 +1,4 @@
 import {
-  Box,
   Button,
   Card,
   CardActions,
@@ -21,12 +20,14 @@ import {
   useState,
 } from "react";
 import { createSearchParams, useNavigate } from "react-router";
+import AutoSizer from "react-virtualized-auto-sizer";
+import { FixedSizeGrid } from "react-window";
 import { Image } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import LazyImage from "../../components/LazyImage";
 import Layout from "../../Layout";
+import ModeButtons from "../ModeButtons";
 import ImageWindow from "./ImageWindow";
 import { ViewImageType } from "./ViewImage";
-import ModeButtons from "../ModeButtons";
 
 const ImageCard = memo(function ImageCard({
   mode,
@@ -100,26 +101,48 @@ export const ImageList: FC<{
   ) => void;
   onView: (image: ViewImageType) => void;
 }> = ({ mode, images, onChange, onView }) => {
-  const width = 240;
+  const minImageWidth = 240;
+
   return (
-    <Box
-      sx={{
-        display: "grid",
-        gridTemplateColumns: `repeat(auto-fit, minmax(${width}px, 1fr))`,
-        gap: 1,
+    <AutoSizer>
+      {({ height, width }) => {
+        const columnCount = Math.floor(width / minImageWidth);
+        const imageWidth = Math.floor(width / columnCount);
+        const imageHeight = Math.ceil(imageWidth * 9) / 16 + 48;
+
+        return (
+          <FixedSizeGrid
+            height={height}
+            width={width}
+            columnCount={columnCount}
+            columnWidth={imageWidth}
+            rowCount={Math.ceil(images.length / columnCount)}
+            rowHeight={imageHeight}
+          >
+            {({ columnIndex, rowIndex, style }) => {
+              const index = rowIndex * columnCount + columnIndex;
+              if (index >= images.length) {
+                return null;
+              }
+
+              const image = images[index];
+              return (
+                <div style={style}>
+                  <ImageCard
+                    key={image.id}
+                    mode={mode}
+                    image={image}
+                    width={minImageWidth}
+                    onChange={onChange}
+                    onView={onView}
+                  />
+                </div>
+              );
+            }}
+          </FixedSizeGrid>
+        );
       }}
-    >
-      {images.map((image) => (
-        <ImageCard
-          key={image.id}
-          mode={mode}
-          image={image}
-          width={width}
-          onChange={onChange}
-          onView={onView}
-        />
-      ))}
-    </Box>
+    </AutoSizer>
   );
 };
 
