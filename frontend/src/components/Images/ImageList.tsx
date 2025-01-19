@@ -1,4 +1,5 @@
 import {
+  AspectRatio,
   Button,
   Card,
   CardActions,
@@ -13,7 +14,6 @@ import {
 import {
   ChangeEvent,
   FC,
-  memo,
   PropsWithChildren,
   useCallback,
   useEffect,
@@ -23,13 +23,12 @@ import { createSearchParams, useNavigate } from "react-router";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { FixedSizeGrid } from "react-window";
 import { Image } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
-import LazyImage from "../../components/LazyImage";
 import Layout from "../../Layout";
 import ModeButtons from "../ModeButtons";
 import ImageWindow from "./ImageWindow";
 import { ViewImageType } from "./ViewImage";
 
-const ImageCard = memo(function ImageCard({
+function ImageCard({
   mode,
   image,
   width,
@@ -86,11 +85,16 @@ const ImageCard = memo(function ImageCard({
         </Typography>
       </CardActions>
       <CardOverflow>
-        <LazyImage src={image.path} width={width} />
+        <AspectRatio ratio="16/9" objectFit="contain">
+          <img
+            src={image.path + "?width=" + (2 * width).toFixed(0)}
+            loading="lazy"
+          />
+        </AspectRatio>
       </CardOverflow>
     </Card>
   );
-});
+}
 
 export const ImageList: FC<{
   mode: Mode;
@@ -110,12 +114,14 @@ export const ImageList: FC<{
         const imageWidth = Math.floor(width / columnCount);
         const imageHeight = Math.ceil(imageWidth * 9) / 16 + 48;
 
+        // todo: make memoized grid works: https://react-window.vercel.app/#/examples/list/memoized-list-items
         return (
           <FixedSizeGrid
             height={height}
             width={width}
             columnCount={columnCount}
             columnWidth={imageWidth}
+            overscanRowCount={5}
             rowCount={Math.ceil(images.length / columnCount)}
             rowHeight={imageHeight}
           >
