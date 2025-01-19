@@ -29,32 +29,13 @@ type SearchCondition = SearchImagesRequest;
 
 interface SearchSidebarProps {
   condition: SearchCondition;
+  onSelect: (
+    condition: SearchCondition,
+    searchParams?: URLSearchParams
+  ) => void;
 }
 
-const SearchSidebar: FC<SearchSidebarProps> = ({ condition }) => {
-  const navigate = useNavigate();
-
-  const onSelect = ({
-    directoryId,
-    tagId,
-    isInvertedTagSearch,
-  }: SearchCondition) => {
-    const params: any = { ...condition };
-    if (directoryId != null) {
-      params.directoryId = directoryId;
-    }
-    if (tagId != null) {
-      params.tagId = tagId;
-    }
-    if (isInvertedTagSearch != null) {
-      params.isInvertedTagSearch = isInvertedTagSearch;
-    }
-
-    navigate({
-      search: createSearchParams(params).toString(),
-    });
-  };
-
+const SearchSidebar: FC<SearchSidebarProps> = ({ condition, onSelect }) => {
   return (
     <AccordionGroup>
       <Accordion defaultExpanded={true}>
@@ -140,8 +121,7 @@ const SearchSidebar: FC<SearchSidebarProps> = ({ condition }) => {
   );
 };
 
-function useRequest(): SearchCondition {
-  const [searchParams] = useSearchParams();
+function useRequest(searchParams: URLSearchParams): SearchCondition {
   let params: any = {};
   if (searchParams.has("directoryId")) {
     params.directoryId = parseInt(searchParams.get("directoryId")!);
@@ -157,7 +137,10 @@ function useRequest(): SearchCondition {
 }
 
 const SearchPage: FC = () => {
-  const condition: SearchCondition = useRequest();
+  const navigate = useNavigate();
+
+  const [searchParams] = useSearchParams();
+  const condition: SearchCondition = useRequest(searchParams);
   const [allTagMap, setAllTagMap] = useState<{
     [id: number]: Tag;
   }>({});
@@ -185,6 +168,37 @@ const SearchPage: FC = () => {
     });
   }, [condition.directoryId, condition.tagId, condition.isInvertedTagSearch]);
 
+  const onSelect = (
+    { directoryId, tagId, isInvertedTagSearch }: SearchCondition,
+    newSearchParams?: URLSearchParams
+  ) => {
+    const params: any = {};
+    for (const key of searchParams.keys()) {
+      params[key] = searchParams.get(key);
+    }
+
+    if (directoryId != null) {
+      params.directoryId = directoryId;
+    }
+    if (tagId != null) {
+      params.tagId = tagId;
+    }
+    if (isInvertedTagSearch != null) {
+      params.isInvertedTagSearch = isInvertedTagSearch;
+    }
+    if (newSearchParams != null) {
+      for (const key of newSearchParams.keys()) {
+        params[key] = newSearchParams.get(key);
+      }
+    }
+
+    console.debug("onSelect", params);
+
+    navigate({
+      search: createSearchParams(params).toString(),
+    });
+  };
+
   return (
     <Box
       sx={{
@@ -205,9 +219,15 @@ const SearchPage: FC = () => {
           overflowY: "auto",
         }}
       >
-        <SearchSidebar condition={condition} />
+        <SearchSidebar condition={condition} onSelect={onSelect} />
       </Layout.SideNav>
-      <ImageListMain loadedImages={images} />
+      <ImageListMain
+        loadedImages={images}
+        searchParams={searchParams}
+        setSearchParams={(newSearchParams) => {
+          onSelect({}, newSearchParams);
+        }}
+      />
     </Box>
   );
 };

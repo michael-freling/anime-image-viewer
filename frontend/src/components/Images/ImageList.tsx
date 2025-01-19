@@ -282,10 +282,14 @@ type Mode = "view" | "edit" | "detail";
 
 export interface ImageListContainerProps {
   loadedImages: Image[];
+  searchParams: URLSearchParams;
+  setSearchParams(searchParams: URLSearchParams): void;
 }
 
 const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
   loadedImages,
+  searchParams,
+  setSearchParams,
 }) => {
   const [images, setImages] = useState<ViewImageType[]>([]);
 
@@ -326,7 +330,9 @@ const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
     [setImages]
   );
 
-  const [mode, setMode] = useState<Mode>("view");
+  const [mode, setMode] = useState<Mode>(
+    (searchParams.get("mode") as Mode) ?? "view"
+  );
   const [selectedViewImageId, setSelectedViewImageId] = useState<number | null>(
     null
   );
@@ -353,13 +359,14 @@ const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
         <>
           <Typography>Selected {selectedImageCount} images</Typography>
           <ModeButtons
-            defaultMode="view"
+            defaultMode={mode}
             enabledModes={[
               { value: "view", text: "View" },
               { value: "edit", text: "Edit" },
             ]}
             onChange={(newMode) => {
               setMode(newMode);
+              setSearchParams(createSearchParams({ mode: newMode }));
               if (newMode === "view") {
                 setImages(
                   images.map((image) => {

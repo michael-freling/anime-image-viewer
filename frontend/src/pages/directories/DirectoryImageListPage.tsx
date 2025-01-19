@@ -1,5 +1,5 @@
 import { FC, useEffect, useState } from "react";
-import { useParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import {
   Image,
   SearchService,
@@ -9,6 +9,7 @@ import ImageListMain from "../../components/Images/ImageList";
 const DirectoryImageListPage: FC = () => {
   const { directoryId } = useParams();
   const [images, setImages] = useState<Image[]>([]);
+  const [searchParams, setSearchParams] = useSearchParams({});
 
   console.debug("DirectoryImageListPage", {
     directoryId,
@@ -36,6 +37,12 @@ const DirectoryImageListPage: FC = () => {
     }
   }, [directoryId]);
 
-  return <ImageListMain loadedImages={images} />;
+  return (
+    <ImageListMain
+      loadedImages={images}
+      searchParams={searchParams}
+      setSearchParams={setSearchParams}
+    />
+  );
 };
 export default DirectoryImageListPage;
