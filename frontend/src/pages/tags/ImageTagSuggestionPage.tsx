@@ -1,7 +1,9 @@
 import {
   Button,
   Card,
+  CardActions,
   CardOverflow,
+  Checkbox,
   Chip,
   Divider,
   Slider,
@@ -10,7 +12,7 @@ import {
 } from "@mui/joy";
 import { useNavigate, useSearchParams } from "react-router";
 import LazyImage from "../../components/LazyImage";
-import { useEffect, useState } from "react";
+import { ChangeEvent, useEffect, useState } from "react";
 import { ImageFile } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/image";
 import {
   Tag,
@@ -36,6 +38,9 @@ const ImageTagSuggestionPage: React.FC = () => {
   }>([]);
   const [tags, setTags] = useState<{ [id: number]: Tag }>({});
   const [isSubmitted, setSubmitted] = useState<boolean>(false);
+  const [selectedImages, setSelectedImages] = useState<{
+    [id: number]: boolean;
+  }>({});
 
   console.debug("ImageTagSuggestionPage", {
     imageFileIds,
@@ -52,6 +57,12 @@ const ImageTagSuggestionPage: React.FC = () => {
         acc[id] = [];
         return acc;
       }, {} as { [id: number]: TagSuggestion[] })
+    );
+    setSelectedImages(
+      imageFileIds.reduce((acc, id) => {
+        acc[id] = true;
+        return acc;
+      }, {} as { [id: number]: boolean })
     );
 
     response = await TagFrontendService.SuggestTags(imageFileIds);
@@ -75,6 +86,10 @@ const ImageTagSuggestionPage: React.FC = () => {
     try {
       let selectedTags: { [id: number]: number[] } = {};
       for (const image of imageFiles) {
+        if (!selectedImages[image.id]) {
+          continue;
+        }
+
         let tags: number[] = [];
         for (const suggestion of tagSuggestions[image.id]) {
           if (suggestion.hasTag) {
@@ -138,6 +153,8 @@ const ImageTagSuggestionPage: React.FC = () => {
           <Card
             key={index}
             size="sm"
+            variant={selectedImages[image.id] ? "soft" : "plain"}
+            color={selectedImages[image.id] ? "primary" : "neutral"}
             sx={{
               display: "flex",
               flexDirection: "row",
@@ -146,11 +163,34 @@ const ImageTagSuggestionPage: React.FC = () => {
               height: cardHeight,
               gap: 2,
               marginBottom: 1,
+
+              "&:hover": {
+                borderColor: "neutral.outlinedHoverBorder",
+                borderWidth: 2,
+                opacity: 0.8,
+              },
             }}
           >
             <CardOverflow sx={{ width: cardWidth }}>
               <LazyImage src={image.path} width={cardWidth} />
             </CardOverflow>
+            <CardActions
+              sx={{
+                position: "absolute",
+                top: 2,
+                right: 10,
+              }}
+            >
+              <Checkbox
+                checked={selectedImages[image.id]}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                  setSelectedImages({
+                    ...selectedImages,
+                    [image.id]: event.target.checked,
+                  });
+                }}
+              />
+            </CardActions>
             <CardOverflow
               sx={{
                 display: "flex",
@@ -186,7 +226,8 @@ const ImageTagSuggestionPage: React.FC = () => {
                 }
                 const score = suggestion.score * 100;
 
-                const disabled = score < selectedScore;
+                const disabled =
+                  score < selectedScore || !selectedImages[image.id];
                 const color = disabled ? "neutral" : "success";
                 return (
                   <Chip key={tagId} color={color} disabled={disabled}>
