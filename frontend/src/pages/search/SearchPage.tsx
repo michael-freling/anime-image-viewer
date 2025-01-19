@@ -162,14 +162,10 @@ const SearchPage: FC = () => {
     [id: number]: Tag;
   }>({});
   const [images, setImages] = useState<Image[]>([]);
-  const [taggedImageIds, setTaggedImageIds] = useState<{
-    [tagId: number]: number[];
-  }>({});
 
   console.debug("SearchPage", {
     allTagMap,
     images,
-    taggedImageIds,
     condition,
   });
 
@@ -184,9 +180,8 @@ const SearchPage: FC = () => {
   }, []);
 
   useEffect(() => {
-    SearchService.SearchImages(condition).then(({ images, taggedImages }) => {
+    SearchService.SearchImages(condition).then(({ images }) => {
       setImages(images.map((image) => ({ ...image, selected: false })));
-      setTaggedImageIds(taggedImages);
     });
   }, [condition.directoryId, condition.tagId, condition.isInvertedTagSearch]);
 
@@ -212,29 +207,7 @@ const SearchPage: FC = () => {
       >
         <SearchSidebar condition={condition} />
       </Layout.SideNav>
-      {Object.keys(taggedImageIds).length == 0 && (
-        <ImageListMain loadedImages={images} />
-      )}
-      {Object.keys(taggedImageIds).length > 0 && (
-        <ImageListMain
-          loadedImages={images}
-          withListWrappedComponent={(children) => {
-            return Object.entries(taggedImageIds).map(([tagId]) => {
-              const tag = allTagMap[tagId];
-              return (
-                <Box key={tagId} sx={{ gap: 2 }}>
-                  <Box>
-                    <Typography variant="soft" level="h4" sx={{ p: 2 }}>
-                      {tag?.fullName}
-                    </Typography>
-                  </Box>
-                  {children}
-                </Box>
-              );
-            });
-          }}
-        />
-      )}
+      <ImageListMain loadedImages={images} />
     </Box>
   );
 };

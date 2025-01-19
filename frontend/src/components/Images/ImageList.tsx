@@ -253,12 +253,10 @@ type Mode = "view" | "edit" | "detail";
 
 export interface ImageListContainerProps {
   loadedImages: Image[];
-  withListWrappedComponent?: (children: JSX.Element) => JSX.Element[];
 }
 
 const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
   loadedImages,
-  withListWrappedComponent,
 }) => {
   const [images, setImages] = useState<ViewImageType[]>([]);
 
@@ -319,23 +317,6 @@ const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
   );
 
   const onChange = useChangeWithShirtKey({ loadedImages, toggleImageSelects });
-  const children = withListWrappedComponent ? (
-    withListWrappedComponent(
-      <ImageList
-        mode={mode}
-        images={images}
-        onChange={onChange}
-        onView={onView}
-      />
-    )
-  ) : (
-    <ImageList
-      mode={mode}
-      images={images}
-      onChange={onChange}
-      onView={onView}
-    />
-  );
 
   return (
     <Layout.Main
@@ -409,7 +390,12 @@ const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
         </>
       }
     >
-      {children}
+      <ImageList
+        mode={mode}
+        images={images}
+        onChange={onChange}
+        onView={onView}
+      />
       {selectedViewImageId && (
         <Modal open={mode == "detail"} onClose={() => setMode("view")}>
           <ModalOverflow>
