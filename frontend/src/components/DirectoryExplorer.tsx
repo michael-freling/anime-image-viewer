@@ -3,7 +3,7 @@ import FolderIcon from "@mui/icons-material/Folder";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import { RichTreeView, TreeViewBaseItem } from "@mui/x-tree-view";
 import React, { FC, useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   Directory,
   DirectoryService,
@@ -63,6 +63,7 @@ const DirectoryExplorer: FC = () => {
   );
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   useEffect(() => {
     refresh();
   }, []);
@@ -88,7 +89,10 @@ const DirectoryExplorer: FC = () => {
       console.debug("DirectoryExplorer.onSelectedItemsChange", {
         directoryId: itemId,
       });
-      navigate(`/directories/${itemId}`);
+      navigate({
+        pathname: `/directories/${itemId}`,
+        search: searchParams.toString(),
+      });
     },
   };
 
