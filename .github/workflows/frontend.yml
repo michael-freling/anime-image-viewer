@@ -40,8 +40,11 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+        working-directory: .
       - name: Create frontend dist placeholder
-        run: mkdir -p frontend/dist && touch frontend/dist/.gitkeep
+        run: mkdir -p frontend/dist && touch frontend/dist/placeholder
         working-directory: .
       - name: Generate Wails bindings
         run: go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.8.3 generate bindings -ts

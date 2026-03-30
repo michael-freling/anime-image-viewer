@@ -198,8 +198,8 @@ const useChangeWithShirtKey = ({ loadedImages, toggleImageSelects }) => {
         }
 
         const { startElement, endElement } = selectedElements;
-        let startIndex = imageIndexes[startElement.id];
-        let endIndex = imageIndexes[image.id];
+        const startIndex = imageIndexes[startElement.id];
+        const endIndex = imageIndexes[image.id];
         if (startIndex === -1 || endIndex === -1) {
           throw new Error(
             "Image not found in the list while selecting with a shift key"
@@ -212,7 +212,7 @@ const useChangeWithShirtKey = ({ loadedImages, toggleImageSelects }) => {
           } else {
             startIndex++;
           }
-          let imageIds: number[] = [];
+          const imageIds: number[] = [];
           for (let i = startIndex; i <= endIndex; i++) {
             for (const [id, index] of Object.entries(imageIndexes)) {
               if (index === i) {
@@ -235,7 +235,7 @@ const useChangeWithShirtKey = ({ loadedImages, toggleImageSelects }) => {
           // 2. Deselect the images inside of the last selected range if they are not selected by the current selection
           // This can be achieved by exclusive OR operation on each index
           // But exclude the image selected the first index
-          let previousEndIndex = imageIndexes[endElement.id];
+          const previousEndIndex = imageIndexes[endElement.id];
           const minIndex = Math.min(startIndex, endIndex, previousEndIndex);
           const maxIndex = Math.max(startIndex, endIndex, previousEndIndex);
           const selecteds: boolean[] = [];

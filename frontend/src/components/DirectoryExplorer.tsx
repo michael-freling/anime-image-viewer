@@ -38,8 +38,8 @@ export function getDefaultExpandedItems(
   _: number[],
   directoryMap: { [id: number]: Directory }
 ) {
-  let defaultExpandedItems: string[] = [];
-  for (let directoryId of Object.keys(directoryMap)) {
+  const defaultExpandedItems: string[] = [];
+  for (const directoryId of Object.keys(directoryMap)) {
     defaultExpandedItems.push(directoryId);
   }
   return defaultExpandedItems;

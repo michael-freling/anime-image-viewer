@@ -57,8 +57,8 @@ export function getDefaultExpandedItems(
   _: number[],
   tagMap: { [id: number]: Tag }
 ) {
-  let defaultExpandedItems: string[] = [];
-  for (let tagId of Object.keys(tagMap)) {
+  const defaultExpandedItems: string[] = [];
+  for (const tagId of Object.keys(tagMap)) {
     defaultExpandedItems.push(tagId);
   }
   return defaultExpandedItems;
