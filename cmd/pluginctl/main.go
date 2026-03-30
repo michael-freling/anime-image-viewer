@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/michael-freling/anime-image-viewer/internal/backup"
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/export"
@@ -73,70 +72,6 @@ func runMain(logger *slog.Logger) error {
 		"Exclude directory tags. If this is true, images without their own tags and tags from directories are NOT exported. default: true",
 	)
 	rootCommand.AddCommand(&exportCommand)
-
-	var backupOptions struct {
-		configPath    string
-		includeImages bool
-	}
-	backupCommand := cobra.Command{
-		Use:   "backup [outputDirectory]",
-		Short: "Back up the database and optionally images",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			conf, err := config.ReadConfig(backupOptions.configPath)
-			if err != nil {
-				return fmt.Errorf("config.ReadConfig: %w", err)
-			}
-
-			destDir := conf.Backup.BackupDirectory
-			if len(args) > 0 {
-				destDir = args[0]
-			}
-
-			service := backup.NewBackupService(logger, conf)
-			backupDir, err := service.Backup(context.Background(), destDir, backupOptions.includeImages)
-			if err != nil {
-				return fmt.Errorf("service.Backup: %w", err)
-			}
-			logger.Info("Backup completed", "backupDirectory", backupDir)
-
-			return nil
-		},
-	}
-	backupFlags := backupCommand.Flags()
-	backupFlags.StringVar(&backupOptions.configPath, "config", "", "path to the configuration file")
-	backupFlags.BoolVar(&backupOptions.includeImages, "include-images", false, "include images in backup")
-	rootCommand.AddCommand(&backupCommand)
-
-	var restoreOptions struct {
-		configPath    string
-		restoreImages bool
-	}
-	restoreCommand := cobra.Command{
-		Use:   "restore <backupDirectory>",
-		Short: "Restore from a backup",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			backupDir := args[0]
-
-			conf, err := config.ReadConfig(restoreOptions.configPath)
-			if err != nil {
-				return fmt.Errorf("config.ReadConfig: %w", err)
-			}
-
-			service := backup.NewRestoreService(logger, conf)
-			if err := service.Restore(context.Background(), backupDir, restoreOptions.restoreImages); err != nil {
-				return fmt.Errorf("service.Restore: %w", err)
-			}
-			logger.Info("Restore completed", "backupDirectory", backupDir)
-
-			return nil
-		},
-	}
-	restoreFlags := restoreCommand.Flags()
-	restoreFlags.StringVar(&restoreOptions.configPath, "config", "", "path to the configuration file")
-	restoreFlags.BoolVar(&restoreOptions.restoreImages, "restore-images", false, "restore images from backup")
-	rootCommand.AddCommand(&restoreCommand)
 
 	return rootCommand.Execute()
 }
