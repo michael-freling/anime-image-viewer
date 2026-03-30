@@ -16,10 +16,18 @@ const (
 	EnvironmentDevelopment = "development"
 )
 
+type BackupConfig struct {
+	BackupDirectory   string `toml:"backup_directory"`
+	RetentionCount    int    `toml:"retention_count"`
+	IdleBackupEnabled bool   `toml:"idle_backup_enabled"`
+	IdleMinutes       int    `toml:"idle_minutes"`
+}
+
 type Config struct {
-	ImageRootDirectory string `toml:"image_root_directory"`
-	ConfigDirectory    string `toml:"config_directory"`
-	LogDirectory       string `toml:"log_directory"`
+	ImageRootDirectory string       `toml:"image_root_directory"`
+	ConfigDirectory    string       `toml:"config_directory"`
+	LogDirectory       string       `toml:"log_directory"`
+	Backup             BackupConfig `toml:"backup"`
 	Environment        env
 }
 
@@ -48,6 +56,7 @@ func ReadConfig(configFile string) (Config, error) {
 				ImageRootDirectory: filepath.Join(homeDir, "Pictures", "anime-image-viewer", string(runtimeEnv)),
 				ConfigDirectory:    configDir,
 				LogDirectory:       filepath.Join(tempDir, "anime-image-viewer", "logs"),
+				Backup:             defaultBackupConfig(configDir),
 				Environment:        runtimeEnv,
 			}, nil
 		}
@@ -69,5 +78,33 @@ func ReadConfig(configFile string) (Config, error) {
 	}
 
 	conf.Environment = runtimeEnv
+	applyBackupDefaults(&conf)
 	return conf, nil
+}
+
+func defaultBackupConfig(configDirectory string) BackupConfig {
+	return BackupConfig{
+		BackupDirectory:   filepath.Join(configDirectory, "backups"),
+		RetentionCount:    7,
+		IdleBackupEnabled: runtimeEnv == EnvironmentProduction,
+		IdleMinutes:       30,
+	}
+}
+
+func applyBackupDefaults(conf *Config) {
+	defaults := defaultBackupConfig(conf.ConfigDirectory)
+	if conf.Backup.BackupDirectory == "" {
+		conf.Backup.BackupDirectory = defaults.BackupDirectory
+	}
+	if conf.Backup.RetentionCount == 0 {
+		conf.Backup.RetentionCount = defaults.RetentionCount
+	}
+	if conf.Backup.IdleMinutes == 0 {
+		conf.Backup.IdleMinutes = defaults.IdleMinutes
+	}
+	// IdleBackupEnabled is a bool; its zero value (false) is a valid setting,
+	// so we cannot distinguish "not set" from "explicitly false" via TOML decoding
+	// into a plain bool. The default is applied only through defaultBackupConfig
+	// (used when no config file exists). When a config file is present, the decoded
+	// value is kept as-is.
 }
