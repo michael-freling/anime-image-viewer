@@ -137,6 +137,8 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 		directoryReader,
 	)
 
+	backupFrontendService := frontend.NewBackupFrontendService(logger, conf)
+
 	title := "anime-image-viewer"
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
@@ -169,6 +171,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 					tagReader,
 				),
 			)),
+			application.NewService(backupFrontendService),
 		},
 		Assets: application.AssetOptions{
 			Handler:        application.AssetFileServerFS(assets),

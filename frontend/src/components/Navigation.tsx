@@ -15,6 +15,7 @@ export enum Menu {
 
   Directories = "Directories",
   Tags = "List",
+  Backup = "Backup",
 }
 
 const Navigation: React.FC = () => {
@@ -47,6 +48,12 @@ const Navigation: React.FC = () => {
           text: "Tags",
           icon: <Icons.Bookmarks />,
           url: "/tags/edit",
+        },
+        {
+          id: Menu.Backup,
+          text: "Backup",
+          icon: <Icons.Backup />,
+          url: "/backup",
         },
       ],
     },
