@@ -13,7 +13,7 @@ const LazyImage: React.FC<
     triggerOnce: true,
     rootMargin: "200px 0px",
   });
-  var query = new URLSearchParams();
+  const query = new URLSearchParams();
   query.append("width", (width * 2).toFixed(0));
 
   return (

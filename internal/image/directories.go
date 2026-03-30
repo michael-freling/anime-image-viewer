@@ -37,14 +37,6 @@ func (directory *Directory) UpdateName(newName string) *Directory {
 	return directory
 }
 
-func (directory Directory) toFile() File {
-	return File{
-		ID:       directory.ID,
-		Name:     directory.Name,
-		ParentID: directory.ParentID,
-	}
-}
-
 func (directory Directory) ToFlatIDMap() map[uint][]uint {
 	result := make(map[uint][]uint, 0)
 
@@ -61,21 +53,6 @@ func (directory Directory) ToFlatIDMap() map[uint][]uint {
 	ids = append(ids, directory.ID)
 	result[directory.ID] = ids
 	return result
-}
-
-func (source Directory) dropChildImageFiles() Directory {
-	destination := Directory{
-		ID:       source.ID,
-		Name:     source.Name,
-		Path:     source.Path,
-		ParentID: source.ParentID,
-		Children: make([]*Directory, len(source.Children)),
-	}
-	for i, child := range source.Children {
-		c := child.dropChildImageFiles()
-		destination.Children[i] = &c
-	}
-	return destination
 }
 
 func (directory Directory) findAncestors(fileID uint) []Directory {

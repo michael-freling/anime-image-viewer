@@ -33,7 +33,7 @@ interface Request {
 
 function useRequest(): Request {
   const [searchParams] = useSearchParams();
-  let params: Request = {
+  const params: Request = {
     mode: "edit",
     selectedDirectoryIds: [],
   };

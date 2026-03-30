@@ -122,7 +122,7 @@ const SearchSidebar: FC<SearchSidebarProps> = ({ condition, onSelect }) => {
 };
 
 function useRequest(searchParams: URLSearchParams): SearchCondition {
-  let params: any = {};
+  const params: any = {};
   if (searchParams.has("directoryId")) {
     params.directoryId = parseInt(searchParams.get("directoryId")!);
   }

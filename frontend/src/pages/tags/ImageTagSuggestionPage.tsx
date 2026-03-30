@@ -84,13 +84,13 @@ const ImageTagSuggestionPage: React.FC = () => {
     setSubmitted(true);
 
     try {
-      let selectedTags: { [id: number]: number[] } = {};
+      const selectedTags: { [id: number]: number[] } = {};
       for (const image of imageFiles) {
         if (!selectedImages[image.id]) {
           continue;
         }
 
-        let tags: number[] = [];
+        const tags: number[] = [];
         for (const suggestion of tagSuggestions[image.id]) {
           if (suggestion.hasTag) {
             continue;

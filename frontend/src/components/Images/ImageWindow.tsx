@@ -60,7 +60,7 @@ const ImageWindow: FC<ImageWindowProps> = ({ images, initialId }) => {
   // https://github.com/BetterTyped/react-zoom-pan-pinch
   return (
     <TransformWrapper initialScale={1}>
-      {({ zoomIn, zoomOut, resetTransform }) => (
+      {() => (
         <>
           <Box sx={{ position: "relative" }}>
             <TransformComponent>

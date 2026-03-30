@@ -17,7 +17,7 @@ type tagBuilder struct {
 }
 
 func (builder *tagBuilder) BuildFrontendTag(id uint) Tag {
-	source := builder.TestTagBuilder.Build(id)
+	source := builder.Build(id)
 	require.NotZero(builder.t, source.ID)
 
 	children := make([]Tag, len(source.Children))

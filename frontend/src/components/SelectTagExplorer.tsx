@@ -109,10 +109,10 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
       itemId: string,
       isSelected: boolean
     ) => {
-      let newAddedTagIds = {
+      const newAddedTagIds = {
         ...addedTagIds,
       };
-      let newDeletedTagIds = {
+      const newDeletedTagIds = {
         ...deletedTagIds,
       };
       if (isSelected) {
@@ -187,28 +187,11 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
     return <Typography>Loading...</Typography>;
   }
 
-  const getAllTreeItemIds = (
-    items: TreeViewBaseItem<{
-      id: string;
-    }>[]
-  ): string[] => {
-    const itemIds: string[] = [];
-    for (let item of items) {
-      itemIds.push(item.id);
-      if (!item.children) {
-        continue;
-      }
-      itemIds.push(...getAllTreeItemIds(item.children));
-    }
-
-    return itemIds;
-  };
-
   let selectedTagIds: number[] = [];
   if ("selectedTagId" in props && props.selectedTagId) {
     selectedTagIds = [props.selectedTagId];
   } else if (tagStats != undefined) {
-    for (let [tagId, stats] of Object.entries(tagStats)) {
+    for (const [tagId, stats] of Object.entries(tagStats)) {
       if (stats.isAddedBySelectedFiles || stats.isAddedByAncestor) {
         selectedTagIds.push(parseInt(tagId));
       }
