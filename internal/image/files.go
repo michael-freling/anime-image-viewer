@@ -30,14 +30,6 @@ type ImageFile struct {
 	ContentType   string `json:"-"`
 }
 
-func (imageFile ImageFile) toFile() File {
-	return File{
-		ID:       imageFile.ID,
-		Name:     imageFile.Name,
-		ParentID: imageFile.ParentID,
-	}
-}
-
 var (
 	supportedContentTypes = []string{
 		"image/jpeg",

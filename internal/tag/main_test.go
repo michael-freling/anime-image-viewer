@@ -27,12 +27,6 @@ type testerOption struct {
 
 type newTesterOption func(*testerOption)
 
-func withGormLogger(logger *slog.Logger) newTesterOption {
-	return func(o *testerOption) {
-		o.gormLoggerOption = db.WithGormLogger(logger)
-	}
-}
-
 func newTester(t *testing.T, opts ...newTesterOption) Tester {
 	t.Helper()
 

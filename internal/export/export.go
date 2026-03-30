@@ -224,11 +224,7 @@ func (batchExporter BatchImageExporter) ExportImages(ctx context.Context, rootEx
 	}
 	eg.Go(func() error {
 		totalCopyImageCount := len(allImageFileIDs)
-		for {
-			if atomic.LoadInt64(&copiedImageCount) == int64(totalCopyImageCount) {
-				break
-			}
-
+		for atomic.LoadInt64(&copiedImageCount) != int64(totalCopyImageCount) {
 			select {
 			case <-ctx.Done():
 				return nil

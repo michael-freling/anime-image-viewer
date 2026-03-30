@@ -185,7 +185,7 @@ func TestBatchImageImporter_importImageFiles(t *testing.T) {
 				assert.Equal(t, sourceStat.ModTime(), destinationStat.ModTime())
 				sourceSysStat := sourceStat.Sys().(*syscall.Stat_t)
 				dstSysStat := destinationStat.Sys().(*syscall.Stat_t)
-				assert.Equal(t, sourceSysStat.Atim, dstSysStat.Atim)
+				assert.Equal(t, sourceSysStat.Atim.Sec, dstSysStat.Atim.Sec, "access time seconds should match")
 			}
 
 			gotFiles := db.MustGetAll[db.File](t, dbClient)

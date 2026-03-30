@@ -6,7 +6,9 @@ import (
 	"gorm.io/gorm"
 )
 
-var contextKey = struct{}{}
+type contextKeyType struct{}
+
+var contextKey = contextKeyType{}
 
 func withTransaction(ctx context.Context, tx *gorm.DB) context.Context {
 	return context.WithValue(ctx, contextKey, tx)

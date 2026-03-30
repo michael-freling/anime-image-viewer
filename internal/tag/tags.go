@@ -206,7 +206,7 @@ func (checker ImageTagChecker) GetTagMap() map[uint]db.FileTagAddedBy {
 		var resultAddedBy db.FileTagAddedBy
 		for _, addedBy := range addedBys {
 			if addedBy == db.FileTagAddedByUser {
-				addedBy = db.FileTagAddedByUser
+				resultAddedBy = db.FileTagAddedByUser
 				break
 			}
 			resultAddedBy = addedBy
