@@ -37,6 +37,15 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Create frontend dist placeholder
+        run: mkdir -p frontend/dist && touch frontend/dist/.gitkeep
+        working-directory: .
+      - name: Generate Wails bindings
+        run: go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.8.3 generate bindings -ts
+        working-directory: .
       - uses: actions/setup-node@v4
         with:
           node-version-file: .node-version

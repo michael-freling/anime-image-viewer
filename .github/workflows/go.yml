@@ -24,6 +24,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Create frontend dist placeholder
+        run: mkdir -p frontend/dist && touch frontend/dist/.gitkeep
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -34,6 +37,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Create frontend dist placeholder
+        run: mkdir -p frontend/dist && touch frontend/dist/.gitkeep
 
       - uses: actions/setup-go@v5
         with:
