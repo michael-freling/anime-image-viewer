@@ -10,7 +10,7 @@ import (
 func TestNewTestClient(t *testing.T) {
 	testClient := NewTestClient(t)
 	require.NotNil(t, testClient.Client)
-	require.NotNil(t, testClient.Client.connection)
+	require.NotNil(t, testClient.connection)
 
 	// Verify tables are migrated: we can insert data without errors
 	testClient.Truncate(t, File{})

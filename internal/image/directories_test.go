@@ -142,9 +142,14 @@ func TestDirectory_ToFlatIDMap(t *testing.T) {
 		assert.Equal(t, []uint{uint(30), uint(3)}, result[3])
 		// Directory 2 collects childIDs from child 3's flat map: [30, 3], then appends image 20 and self 2
 		assert.Equal(t, []uint{uint(30), uint(3), uint(20), uint(2)}, result[2])
-		// Directory 1 collects all childIDs from child 2's flat map entries, then appends image 10 and self 1
-		// From child 2's map: entry 3 -> [30,3], entry 2 -> [30,3,20,2], so ids = [30,3,30,3,20,2,10,1]
-		assert.Equal(t, []uint{uint(30), uint(3), uint(30), uint(3), uint(20), uint(2), uint(10), uint(1)}, result[1])
+		// Directory 1 collects all childIDs from child 2's map entries (order depends on map iteration),
+		// then appends image 10 and self 1. The last two elements are always [10, 1].
+		dir1IDs := result[1]
+		assert.Len(t, dir1IDs, 8)
+		// Last two are always image 10 and self 1
+		assert.Equal(t, []uint{uint(10), uint(1)}, dir1IDs[len(dir1IDs)-2:])
+		// First 6 are from child map entries (order may vary), but contain these values
+		assert.ElementsMatch(t, []uint{30, 3, 30, 3, 20, 2}, dir1IDs[:6])
 	})
 }
 
