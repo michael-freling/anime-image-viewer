@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -336,4 +337,262 @@ func TestListBackups(t *testing.T) {
 		assert.NotEmpty(t, b.Path, "each backup should have a Path set")
 		assert.DirExists(t, b.Path, "backup Path should point to an existing directory")
 	}
+}
+
+func TestBackup_DatabaseNotFound(t *testing.T) {
+	conf := newTestConfig(t)
+	// Do NOT call createFakeDB so the database file does not exist
+	logger := newTestLogger()
+	svc := NewBackupService(logger, conf)
+
+	_, err := svc.Backup(context.Background(), "", false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "copy database")
+}
+
+func TestBackup_CustomDestDir(t *testing.T) {
+	conf := newTestConfig(t)
+	createFakeDB(t, conf)
+	logger := newTestLogger()
+	svc := NewBackupService(logger, conf)
+
+	customDir := t.TempDir()
+
+	backupDir, err := svc.Backup(context.Background(), customDir, false)
+	require.NoError(t, err)
+
+	// Verify the backup was created inside the custom directory, not the configured one
+	assert.True(t, strings.HasPrefix(backupDir, customDir),
+		"backup should be created under customDir %s, got %s", customDir, backupDir)
+	assert.False(t, strings.HasPrefix(backupDir, conf.Backup.BackupDirectory),
+		"backup should NOT be under the configured backup directory")
+
+	// Verify the backup is valid
+	metadata := readTestMetadata(t, backupDir)
+	assert.Equal(t, currentVersion, metadata.Version)
+
+	dbDest := filepath.Join(backupDir, databaseFileName)
+	_, err = os.Stat(dbDest)
+	assert.NoError(t, err, "database file should exist in custom dest backup")
+}
+
+func TestBackup_ContextCancellation(t *testing.T) {
+	conf := newTestConfig(t)
+	createFakeDB(t, conf)
+	logger := newTestLogger()
+	svc := NewBackupService(logger, conf)
+
+	// Create a directory with enough files so that context cancellation
+	// can be caught during the filepath.Walk in copyDirectory
+	imageDir := conf.ImageRootDirectory
+	for i := 0; i < 100; i++ {
+		subDir := filepath.Join(imageDir, fmt.Sprintf("dir_%d", i))
+		require.NoError(t, os.MkdirAll(subDir, 0755))
+		for j := 0; j < 10; j++ {
+			filePath := filepath.Join(subDir, fmt.Sprintf("img_%d.jpg", j))
+			require.NoError(t, os.WriteFile(filePath, []byte("fake-image-data"), 0644))
+		}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	// Cancel immediately so the copy loop picks it up on the first iteration
+	cancel()
+
+	_, err := svc.Backup(ctx, "", true)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "copy images")
+}
+
+func TestRestore_VersionMismatch(t *testing.T) {
+	conf := newTestConfig(t)
+	createFakeDB(t, conf)
+	logger := newTestLogger()
+	backupSvc := NewBackupService(logger, conf)
+	restoreSvc := NewRestoreService(logger, conf)
+
+	backupDir, err := backupSvc.Backup(context.Background(), "", false)
+	require.NoError(t, err)
+
+	// Manually edit metadata.json to set version to 999
+	metadataPath := filepath.Join(backupDir, metadataFileName)
+	metadata := readTestMetadata(t, backupDir)
+	metadata.Version = 999
+	data, err := json.MarshalIndent(metadata, "", "  ")
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(metadataPath, data, 0644))
+
+	err = restoreSvc.Restore(context.Background(), backupDir, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "newer than supported version")
+}
+
+func TestRestore_MissingMetadata(t *testing.T) {
+	conf := newTestConfig(t)
+	logger := newTestLogger()
+	restoreSvc := NewRestoreService(logger, conf)
+
+	// Create a directory with no metadata.json
+	emptyBackupDir := t.TempDir()
+
+	err := restoreSvc.Restore(context.Background(), emptyBackupDir, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "read backup metadata")
+}
+
+func TestRestore_MissingDatabaseFile(t *testing.T) {
+	conf := newTestConfig(t)
+	createFakeDB(t, conf)
+	logger := newTestLogger()
+	backupSvc := NewBackupService(logger, conf)
+	restoreSvc := NewRestoreService(logger, conf)
+
+	backupDir, err := backupSvc.Backup(context.Background(), "", false)
+	require.NoError(t, err)
+
+	// Delete the database.sqlite from the backup
+	dbPath := filepath.Join(backupDir, databaseFileName)
+	require.NoError(t, os.Remove(dbPath))
+
+	err = restoreSvc.Restore(context.Background(), backupDir, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "restore database")
+}
+
+func TestRestore_ImagesNotIncluded(t *testing.T) {
+	conf := newTestConfig(t)
+	createFakeDB(t, conf)
+	logger := newTestLogger()
+	backupSvc := NewBackupService(logger, conf)
+	restoreSvc := NewRestoreService(logger, conf)
+
+	// Create a backup WITHOUT images
+	backupDir, err := backupSvc.Backup(context.Background(), "", false)
+	require.NoError(t, err)
+
+	// Verify the backup does not include images
+	metadata := readTestMetadata(t, backupDir)
+	assert.False(t, metadata.IncludesImages)
+
+	// Modify the DB to verify restore works
+	dbPath := filepath.Join(conf.ConfigDirectory, string(conf.Environment)+"_v1.sqlite")
+	require.NoError(t, os.WriteFile(dbPath, []byte("modified-content"), 0644))
+
+	// Restore with restoreImages=true, even though the backup has no images
+	err = restoreSvc.Restore(context.Background(), backupDir, true)
+	require.NoError(t, err)
+
+	// Database should still be restored
+	content, err := os.ReadFile(dbPath)
+	require.NoError(t, err)
+	assert.Equal(t, "fake-sqlite-database-content", string(content))
+
+	// No images directory should exist in the backup, and the restore should not fail
+	imagesDir := filepath.Join(backupDir, imagesDirName)
+	_, err = os.Stat(imagesDir)
+	assert.True(t, os.IsNotExist(err), "images directory should not exist in backup")
+}
+
+func TestListBackups_Empty(t *testing.T) {
+	conf := newTestConfig(t)
+	logger := newTestLogger()
+
+	// Point to a non-existent directory
+	conf.Backup.BackupDirectory = filepath.Join(t.TempDir(), "nonexistent")
+
+	svc := NewBackupService(logger, conf)
+
+	backups, err := svc.ListBackups()
+	require.NoError(t, err)
+	assert.Nil(t, backups, "should return nil when backup directory does not exist")
+}
+
+func TestListBackups_CorruptedMetadata(t *testing.T) {
+	conf := newTestConfig(t)
+	logger := newTestLogger()
+	svc := NewBackupService(logger, conf)
+
+	backupParentDir := conf.Backup.BackupDirectory
+
+	// Create a valid backup directory
+	validDirName := "backup_2024-06-01T10-00-00"
+	validDirPath := filepath.Join(backupParentDir, validDirName)
+	require.NoError(t, os.MkdirAll(validDirPath, 0755))
+	validMetadata := BackupMetadata{
+		Version:          currentVersion,
+		CreatedAt:        time.Date(2024, 6, 1, 10, 0, 0, 0, time.UTC),
+		IncludesImages:   false,
+		DatabaseFileName: databaseFileName,
+		ImageRootDir:     conf.ImageRootDirectory,
+	}
+	require.NoError(t, writeMetadata(filepath.Join(validDirPath, metadataFileName), validMetadata))
+
+	// Create a backup directory with corrupted metadata.json
+	corruptedDirName := "backup_2024-07-01T10-00-00"
+	corruptedDirPath := filepath.Join(backupParentDir, corruptedDirName)
+	require.NoError(t, os.MkdirAll(corruptedDirPath, 0755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(corruptedDirPath, metadataFileName),
+		[]byte("this is not valid json{{{"),
+		0644,
+	))
+
+	backups, err := svc.ListBackups()
+	require.NoError(t, err)
+	require.Len(t, backups, 1, "should return only the valid backup")
+	assert.Equal(t, validMetadata.CreatedAt, backups[0].CreatedAt)
+}
+
+func TestBackup_RetentionDoesNotDeleteNonBackupDirs(t *testing.T) {
+	conf := newTestConfig(t)
+	conf.Backup.RetentionCount = 1
+	createFakeDB(t, conf)
+	logger := newTestLogger()
+	svc := NewBackupService(logger, conf)
+
+	backupParentDir := conf.Backup.BackupDirectory
+
+	// Create a non-backup directory (no "backup_" prefix)
+	nonBackupDir := filepath.Join(backupParentDir, "my_custom_data")
+	require.NoError(t, os.MkdirAll(nonBackupDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(nonBackupDir, "important.txt"), []byte("keep me"), 0644))
+
+	// Create an old backup directory that should be removed by retention
+	oldBackupDirName := "backup_2020-01-01T00-00-00"
+	oldBackupDirPath := filepath.Join(backupParentDir, oldBackupDirName)
+	require.NoError(t, os.MkdirAll(oldBackupDirPath, 0755))
+	oldMetadata := BackupMetadata{
+		Version:          currentVersion,
+		CreatedAt:        time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+		IncludesImages:   false,
+		DatabaseFileName: databaseFileName,
+	}
+	require.NoError(t, writeMetadata(filepath.Join(oldBackupDirPath, metadataFileName), oldMetadata))
+	require.NoError(t, os.WriteFile(filepath.Join(oldBackupDirPath, databaseFileName), []byte("old-db"), 0644))
+
+	// Create a new backup; with retention=1, the old backup should be removed
+	_, err := svc.Backup(context.Background(), "", false)
+	require.NoError(t, err)
+
+	// The non-backup directory should still exist
+	_, err = os.Stat(nonBackupDir)
+	assert.NoError(t, err, "non-backup directory should not be deleted by retention")
+
+	content, err := os.ReadFile(filepath.Join(nonBackupDir, "important.txt"))
+	require.NoError(t, err)
+	assert.Equal(t, "keep me", string(content))
+
+	// The old backup should be removed
+	_, err = os.Stat(oldBackupDirPath)
+	assert.True(t, os.IsNotExist(err), "old backup should have been removed by retention")
+
+	// Should have exactly 1 backup dir remaining (the new one)
+	entries, err := os.ReadDir(backupParentDir)
+	require.NoError(t, err)
+	var backupDirCount int
+	for _, entry := range entries {
+		if entry.IsDir() && strings.HasPrefix(entry.Name(), "backup_") {
+			backupDirCount++
+		}
+	}
+	assert.Equal(t, 1, backupDirCount, "should have exactly retention count backup dirs")
 }
