@@ -71,6 +71,18 @@ func TestStaticFileService_ServeHTTP(t *testing.T) {
 			wantCode:     http.StatusOK,
 		},
 		{
+			name:         "width exceeds maximum",
+			fileFullPath: "dir/image.jpg?width=5000",
+			wantCode:     http.StatusBadRequest,
+			wantErr:      true,
+		},
+		{
+			name:         "file not found",
+			fileFullPath: "dir/nonexistent.jpg?width=1",
+			wantCode:     http.StatusBadRequest,
+			wantErr:      true,
+		},
+		{
 			name:         "file path is not under the image directory",
 			fileFullPath: "../../image.jpg?width=1",
 			wantCode:     http.StatusBadRequest,

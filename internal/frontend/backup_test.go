@@ -176,6 +176,61 @@ func TestBackupFrontendService_RunIdleBackup_CreatesBackup(t *testing.T) {
 	assert.Len(t, backups, 1, "exactly one backup should exist after RunIdleBackup")
 }
 
+func TestBackupFrontendService_ListBackups_Error(t *testing.T) {
+	logger := newBackupTestLogger()
+
+	// Create a backup directory then make it unreadable
+	backupDir := t.TempDir()
+	require.NoError(t, os.Chmod(backupDir, 0000))
+	t.Cleanup(func() {
+		os.Chmod(backupDir, 0755) // restore for cleanup
+	})
+
+	conf := config.Config{
+		ConfigDirectory:    t.TempDir(),
+		ImageRootDirectory: t.TempDir(),
+		Environment:        "development",
+		Backup: config.BackupConfig{
+			BackupDirectory: backupDir,
+			RetentionCount:  7,
+		},
+	}
+	svc := NewBackupFrontendService(logger, conf)
+
+	backups, err := svc.ListBackups(context.Background())
+	assert.Error(t, err, "ListBackups should fail when backup directory is unreadable")
+	assert.Nil(t, backups)
+}
+
+func TestBackupFrontendService_RunIdleBackup_HasRecentBackupError(t *testing.T) {
+	logger := newBackupTestLogger()
+
+	// Create a backup directory then make it unreadable,
+	// which will cause HasRecentBackup to return a permission error
+	backupDir := t.TempDir()
+	require.NoError(t, os.Chmod(backupDir, 0000))
+	t.Cleanup(func() {
+		os.Chmod(backupDir, 0755) // restore for cleanup
+	})
+
+	conf := config.Config{
+		ConfigDirectory:    t.TempDir(),
+		ImageRootDirectory: t.TempDir(),
+		Environment:        "development",
+		Backup: config.BackupConfig{
+			BackupDirectory:   backupDir,
+			RetentionCount:    7,
+			IdleBackupEnabled: true,
+			IdleMinutes:       30,
+		},
+	}
+	svc := NewBackupFrontendService(logger, conf)
+
+	result, err := svc.RunIdleBackup(context.Background())
+	assert.Error(t, err, "RunIdleBackup should fail when HasRecentBackup returns an error")
+	assert.Empty(t, result)
+}
+
 func TestBackupFrontendService_Restore(t *testing.T) {
 	conf := newBackupTestConfig(t, false)
 	createFakeDBForFrontend(t, conf)

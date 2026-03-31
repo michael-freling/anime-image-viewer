@@ -193,6 +193,12 @@ func TestService_CreateDirectory(t *testing.T) {
 			parentID:              1,
 			wantErr:               image.ErrDirectoryAlreadyExists,
 		},
+		{
+			name:          "create a directory under a non-existent parent",
+			directoryName: "child_dir",
+			parentID:      999,
+			wantErr:       image.ErrDirectoryNotFound,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -237,6 +243,61 @@ func TestService_CreateDirectory(t *testing.T) {
 			assert.Equal(t, tc.wantInsert, gotInsert)
 		})
 	}
+}
+
+func TestService_CreateDirectory_StatPermissionError(t *testing.T) {
+	tester := newTester(t)
+	testDBClient := tester.dbClient
+	rootDirectory := tester.config.ImageRootDirectory
+	service := tester.getDirectoryService()
+
+	testDBClient.Truncate(t, &db.File{})
+
+	// Create a subdirectory with no read permissions, then try to stat a child within it.
+	// This won't work directly because os.Stat on a non-existent file in a no-exec dir
+	// returns permission denied, not ErrNotExist.
+	noExecDir := filepath.Join(rootDirectory, "noexec")
+	require.NoError(t, os.Mkdir(noExecDir, 0755))
+	// Create a child dir inside to check stat behavior
+	childDir := filepath.Join(noExecDir, "child")
+	require.NoError(t, os.Mkdir(childDir, 0755))
+	// Now remove execute permission on the parent. This means os.Stat("noexec/child/X")
+	// will fail with permission denied, not ErrNotExist.
+	require.NoError(t, os.Chmod(noExecDir, 0000))
+	t.Cleanup(func() {
+		os.Chmod(noExecDir, 0755)
+		os.RemoveAll(noExecDir)
+	})
+
+	// Insert a directory with path pointing to noexec dir
+	db.LoadTestData(t, testDBClient, []db.File{
+		{ID: 1, Name: "noexec", Type: db.FileTypeDirectory},
+	})
+
+	ctx := context.Background()
+	// Try to create a directory under the no-exec parent.
+	// os.Stat will return permission denied (not ErrNotExist), triggering line 118-119.
+	_, gotErr := service.CreateDirectory(ctx, "child", 1)
+	assert.Error(t, gotErr, "CreateDirectory should fail when stat returns permission error")
+}
+
+func TestService_CreateDirectory_MkdirFailure(t *testing.T) {
+	tester := newTester(t)
+	testDBClient := tester.dbClient
+	rootDirectory := tester.config.ImageRootDirectory
+	service := tester.getDirectoryService()
+
+	testDBClient.Truncate(t, &db.File{})
+
+	// Make the root directory read-only so os.Mkdir fails
+	require.NoError(t, os.Chmod(rootDirectory, 0555))
+	t.Cleanup(func() {
+		os.Chmod(rootDirectory, 0755)
+	})
+
+	ctx := context.Background()
+	_, gotErr := service.CreateDirectory(ctx, "new_dir_that_should_fail", 0)
+	assert.Error(t, gotErr, "CreateDirectory should fail when root directory is read-only")
 }
 
 func TestDirectoryService_UpdateName(t *testing.T) {
@@ -420,4 +481,43 @@ func TestDirectoryService_UpdateName(t *testing.T) {
 			assert.Equal(t, tc.want, got)
 		})
 	}
+
+	// Test: os.Stat returns permission error (not ErrNotExist)
+	t.Run("update name fails with permission error on stat", func(t *testing.T) {
+		testDBClient.Truncate(t, &db.File{})
+		db.LoadTestData(t, testDBClient, []db.File{
+			fileBuilder.BuildDBDirectory(1),
+			fileBuilder.BuildDBDirectory(10),
+		})
+
+		// Make the parent directory unreadable so os.Stat on dir10's path returns
+		// permission denied instead of ErrNotExist
+		dir1Path := filepath.Join(rootDirectory, fileBuilder.BuildDirectory(1).Name)
+		require.NoError(t, os.Chmod(dir1Path, 0000))
+		t.Cleanup(func() {
+			os.Chmod(dir1Path, 0755)
+		})
+
+		ctx := context.Background()
+		_, gotErr := service.UpdateName(ctx, 10, "new_name")
+		assert.Error(t, gotErr, "should fail when parent directory has no permissions")
+	})
+
+	// Test: os.Rename fails when parent directory is read-only
+	t.Run("rename fails when parent directory is read-only", func(t *testing.T) {
+		testDBClient.Truncate(t, &db.File{})
+		db.LoadTestData(t, testDBClient, []db.File{
+			fileBuilder.BuildDBDirectory(1),
+		})
+
+		// Make the image root directory read-only so os.Rename fails
+		require.NoError(t, os.Chmod(rootDirectory, 0555))
+		t.Cleanup(func() {
+			os.Chmod(rootDirectory, 0755)
+		})
+
+		ctx := context.Background()
+		_, gotErr := service.UpdateName(ctx, 1, "new_name_that_should_fail")
+		assert.Error(t, gotErr, "rename should fail when parent directory is read-only")
+	})
 }
