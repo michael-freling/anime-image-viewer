@@ -2,11 +2,13 @@ package frontend
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/michael-freling/anime-image-viewer/internal/backup"
 	"github.com/michael-freling/anime-image-viewer/internal/config"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 type BackupInfo struct {
@@ -46,9 +48,27 @@ func (s *BackupFrontendService) Backup(ctx context.Context, includeImages bool) 
 	return s.backupService.Backup(ctx, "", includeImages)
 }
 
+// SelectDirectory opens a native directory picker dialog and returns the selected path.
+func (s *BackupFrontendService) SelectDirectory(ctx context.Context) (string, error) {
+	path, err := application.OpenFileDialog().
+		CanChooseDirectories(true).
+		CanChooseFiles(false).
+		CanCreateDirectories(true).
+		AttachToWindow(application.Get().CurrentWindow()).
+		PromptForSingleSelection()
+	if err != nil {
+		return "", fmt.Errorf("application.OpenFileDialog: %w", err)
+	}
+	return path, nil
+}
+
 // Restore restores from a backup directory path.
-func (s *BackupFrontendService) Restore(ctx context.Context, backupPath string, restoreImages bool) error {
-	return s.restoreService.Restore(ctx, backupPath, backup.RestoreOptions{RestoreImages: restoreImages})
+func (s *BackupFrontendService) Restore(ctx context.Context, backupPath string, restoreImages bool, targetConfigDir string, targetImageDir string) error {
+	return s.restoreService.Restore(ctx, backupPath, backup.RestoreOptions{
+		RestoreImages:   restoreImages,
+		TargetConfigDir: targetConfigDir,
+		TargetImageDir:  targetImageDir,
+	})
 }
 
 // ListBackups returns all available backups.
@@ -66,6 +86,11 @@ func (s *BackupFrontendService) ListBackups(ctx context.Context) ([]BackupInfo, 
 		}
 	}
 	return result, nil
+}
+
+// DeleteBackup deletes a backup by its path.
+func (s *BackupFrontendService) DeleteBackup(ctx context.Context, backupPath string) error {
+	return s.backupService.DeleteBackup(backupPath)
 }
 
 // GetBackupConfig returns the current backup configuration.

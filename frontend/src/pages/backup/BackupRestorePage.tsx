@@ -6,6 +6,7 @@ import {
   Checkbox,
   CircularProgress,
   Divider,
+  Input,
   Modal,
   ModalDialog,
   Stack,
@@ -34,6 +35,13 @@ const BackupRestorePage: FC = () => {
   // Restore confirmation dialog state
   const [confirmRestore, setConfirmRestore] = useState<BackupInfo | null>(null);
   const [restoreImages, setRestoreImages] = useState(false);
+  const [targetConfigDir, setTargetConfigDir] = useState("");
+  const [targetImageDir, setTargetImageDir] = useState("");
+
+  // Delete confirmation dialog state
+  const [confirmDelete, setConfirmDelete] = useState<BackupInfo | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -73,12 +81,31 @@ const BackupRestorePage: FC = () => {
     setRestoreSuccess(false);
     setConfirmRestore(null);
     try {
-      await BackupFrontendService.Restore(backup.path, withImages);
+      await BackupFrontendService.Restore(
+        backup.path,
+        withImages,
+        targetConfigDir,
+        targetImageDir
+      );
       setRestoreSuccess(true);
     } catch (err) {
       setRestoreError(String(err));
     } finally {
       setIsRestoring(false);
+    }
+  }
+
+  async function handleDelete(backup: BackupInfo) {
+    setIsDeleting(true);
+    setDeleteError(null);
+    setConfirmDelete(null);
+    try {
+      await BackupFrontendService.DeleteBackup(backup.path);
+      await fetchData();
+    } catch (err) {
+      setDeleteError(String(err));
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -149,6 +176,11 @@ const BackupRestorePage: FC = () => {
                 {restoreError}
               </Alert>
             )}
+            {deleteError && (
+              <Alert color="danger" sx={{ mb: 2 }}>
+                {deleteError}
+              </Alert>
+            )}
             {backups.length === 0 ? (
               <Typography level="body-sm" color="neutral">
                 No backups available.
@@ -168,18 +200,34 @@ const BackupRestorePage: FC = () => {
                       <td>{formatDate(backup.createdAt)}</td>
                       <td>{backup.includesImages ? "Yes" : "No"}</td>
                       <td>
-                        <Button
-                          size="sm"
-                          variant="outlined"
-                          color="warning"
-                          disabled={isRestoring}
-                          onClick={() => {
-                            setRestoreImages(false);
-                            setConfirmRestore(backup);
-                          }}
-                        >
-                          Restore
-                        </Button>
+                        <Stack direction="row" spacing={1}>
+                          <Button
+                            size="sm"
+                            variant="outlined"
+                            color="warning"
+                            disabled={isRestoring || isDeleting}
+                            onClick={() => {
+                              setRestoreImages(false);
+                              setTargetConfigDir("");
+                              setTargetImageDir("");
+                              setConfirmRestore(backup);
+                            }}
+                          >
+                            Restore
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outlined"
+                            color="danger"
+                            disabled={isRestoring || isDeleting}
+                            onClick={() => {
+                              setDeleteError(null);
+                              setConfirmDelete(backup);
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </Stack>
                       </td>
                     </tr>
                   ))}
@@ -276,6 +324,90 @@ const BackupRestorePage: FC = () => {
                   onChange={(e) => setRestoreImages(e.target.checked)}
                 />
               )}
+              <Stack spacing={1}>
+                <Typography level="title-sm">
+                  Target Config Directory
+                </Typography>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Input
+                    fullWidth
+                    readOnly
+                    value={targetConfigDir}
+                    placeholder="(default)"
+                    size="sm"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outlined"
+                    onClick={async () => {
+                      try {
+                        const dir =
+                          await BackupFrontendService.SelectDirectory();
+                        if (dir) {
+                          setTargetConfigDir(dir);
+                        }
+                      } catch (err) {
+                        console.error("Failed to select directory", err);
+                      }
+                    }}
+                  >
+                    Browse
+                  </Button>
+                  {targetConfigDir && (
+                    <Button
+                      size="sm"
+                      variant="plain"
+                      color="neutral"
+                      onClick={() => setTargetConfigDir("")}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </Stack>
+              </Stack>
+              {restoreImages && confirmRestore?.includesImages && (
+                <Stack spacing={1}>
+                  <Typography level="title-sm">
+                    Target Image Directory
+                  </Typography>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Input
+                      fullWidth
+                      readOnly
+                      value={targetImageDir}
+                      placeholder="(default)"
+                      size="sm"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outlined"
+                      onClick={async () => {
+                        try {
+                          const dir =
+                            await BackupFrontendService.SelectDirectory();
+                          if (dir) {
+                            setTargetImageDir(dir);
+                          }
+                        } catch (err) {
+                          console.error("Failed to select directory", err);
+                        }
+                      }}
+                    >
+                      Browse
+                    </Button>
+                    {targetImageDir && (
+                      <Button
+                        size="sm"
+                        variant="plain"
+                        color="neutral"
+                        onClick={() => setTargetImageDir("")}
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </Stack>
+                </Stack>
+              )}
               <Stack direction="row" spacing={1} justifyContent="flex-end">
                 <Button
                   variant="plain"
@@ -294,6 +426,47 @@ const BackupRestorePage: FC = () => {
                   }}
                 >
                   Restore
+                </Button>
+              </Stack>
+            </Stack>
+          </ModalDialog>
+        </Modal>
+        {/* Delete Confirmation Modal */}
+        <Modal
+          open={confirmDelete !== null}
+          onClose={() => setConfirmDelete(null)}
+        >
+          <ModalDialog variant="outlined" role="alertdialog">
+            <Typography level="title-lg">Confirm Delete</Typography>
+            <Divider sx={{ my: 1 }} />
+            <Stack spacing={2}>
+              <Typography level="body-md">
+                Are you sure you want to delete the backup created on{" "}
+                <strong>
+                  {confirmDelete
+                    ? formatDate(confirmDelete.createdAt)
+                    : ""}
+                </strong>
+                ? This action cannot be undone.
+              </Typography>
+              <Stack direction="row" spacing={1} justifyContent="flex-end">
+                <Button
+                  variant="plain"
+                  color="neutral"
+                  onClick={() => setConfirmDelete(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="solid"
+                  color="danger"
+                  onClick={() => {
+                    if (confirmDelete) {
+                      handleDelete(confirmDelete);
+                    }
+                  }}
+                >
+                  Delete
                 </Button>
               </Stack>
             </Stack>

@@ -141,7 +141,7 @@ func (s *BackupService) enforceRetention(backupParentDir string) error {
 
 	// Remove oldest backups exceeding retention count
 	toRemove := len(backupDirs) - s.config.Backup.RetentionCount
-	for i := 0; i < toRemove; i++ {
+	for i := range toRemove {
 		dirPath := filepath.Join(backupParentDir, backupDirs[i].Name())
 		s.logger.Info("removing old backup", "directory", dirPath)
 		if err := os.RemoveAll(dirPath); err != nil {
@@ -180,6 +180,34 @@ func (s *BackupService) ListBackups() ([]BackupMetadata, error) {
 		return backups[i].CreatedAt.After(backups[j].CreatedAt)
 	})
 	return backups, nil
+}
+
+// DeleteBackup deletes a backup directory.
+// It verifies that backupDir is inside the configured backup directory to prevent deleting arbitrary paths.
+func (s *BackupService) DeleteBackup(backupDir string) error {
+	configuredDir := s.config.Backup.BackupDirectory
+
+	absBackupDir, err := filepath.Abs(backupDir)
+	if err != nil {
+		return fmt.Errorf("resolve backup path: %w", err)
+	}
+	absConfiguredDir, err := filepath.Abs(configuredDir)
+	if err != nil {
+		return fmt.Errorf("resolve configured backup directory: %w", err)
+	}
+
+	// Security check: ensure the backup directory is inside the configured backup directory
+	rel, err := filepath.Rel(absConfiguredDir, absBackupDir)
+	if err != nil || strings.HasPrefix(rel, "..") || rel == "." {
+		return fmt.Errorf("backup path %q is not inside the configured backup directory %q", backupDir, configuredDir)
+	}
+
+	s.logger.Info("deleting backup", "directory", absBackupDir)
+	if err := os.RemoveAll(absBackupDir); err != nil {
+		return fmt.Errorf("delete backup directory: %w", err)
+	}
+
+	return nil
 }
 
 // Helper functions

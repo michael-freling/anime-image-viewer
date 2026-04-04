@@ -231,6 +231,51 @@ func TestBackupFrontendService_RunIdleBackup_HasRecentBackupError(t *testing.T) 
 	assert.Empty(t, result)
 }
 
+func TestBackupFrontendService_DeleteBackup(t *testing.T) {
+	conf := newBackupTestConfig(t, false)
+	createFakeDBForFrontend(t, conf)
+	logger := newBackupTestLogger()
+
+	svc := NewBackupFrontendService(logger, conf)
+
+	// Create a backup
+	backupPath, err := svc.Backup(context.Background(), false)
+	require.NoError(t, err)
+	require.NotEmpty(t, backupPath)
+	assert.DirExists(t, backupPath)
+
+	// Verify backup appears in list
+	backups, err := svc.ListBackups(context.Background())
+	require.NoError(t, err)
+	require.Len(t, backups, 1)
+
+	// Delete the backup
+	err = svc.DeleteBackup(context.Background(), backupPath)
+	require.NoError(t, err)
+
+	// Verify backup no longer exists
+	_, err = os.Stat(backupPath)
+	assert.True(t, os.IsNotExist(err), "backup directory should be deleted")
+
+	// Verify backup no longer appears in list
+	backups, err = svc.ListBackups(context.Background())
+	require.NoError(t, err)
+	assert.Empty(t, backups)
+}
+
+func TestBackupFrontendService_DeleteBackup_RejectsOutsidePath(t *testing.T) {
+	conf := newBackupTestConfig(t, false)
+	logger := newBackupTestLogger()
+
+	svc := NewBackupFrontendService(logger, conf)
+
+	// Try to delete a path outside the configured backup directory
+	outsidePath := t.TempDir()
+	err := svc.DeleteBackup(context.Background(), outsidePath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not inside the configured backup directory")
+}
+
 func TestBackupFrontendService_Restore(t *testing.T) {
 	conf := newBackupTestConfig(t, false)
 	createFakeDBForFrontend(t, conf)
@@ -254,7 +299,7 @@ func TestBackupFrontendService_Restore(t *testing.T) {
 	assert.Equal(t, "modified-database-content", string(content))
 
 	// Restore from backup
-	err = svc.Restore(context.Background(), backupPath, false)
+	err = svc.Restore(context.Background(), backupPath, false, "", "")
 	require.NoError(t, err)
 
 	// Verify the database was restored to the original content

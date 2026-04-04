@@ -156,7 +156,7 @@ func TestBackup_Retention(t *testing.T) {
 	backupParentDir := conf.Backup.BackupDirectory
 
 	// Manually create old backup directories to simulate pre-existing backups
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		dirName := fmt.Sprintf("backup_2020-01-0%dT00-00-00", i+1)
 		dirPath := filepath.Join(backupParentDir, dirName)
 		require.NoError(t, os.MkdirAll(dirPath, 0755))
@@ -385,10 +385,10 @@ func TestBackup_ContextCancellation(t *testing.T) {
 	// Create a directory with enough files so that context cancellation
 	// can be caught during the filepath.Walk in copyDirectory
 	imageDir := conf.ImageRootDirectory
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		subDir := filepath.Join(imageDir, fmt.Sprintf("dir_%d", i))
 		require.NoError(t, os.MkdirAll(subDir, 0755))
-		for j := 0; j < 10; j++ {
+		for j := range 10 {
 			filePath := filepath.Join(subDir, fmt.Sprintf("img_%d.jpg", j))
 			require.NoError(t, os.WriteFile(filePath, []byte("fake-image-data"), 0644))
 		}
@@ -821,6 +821,73 @@ func TestEnforceRetention_UnderRetentionCount(t *testing.T) {
 	// The directory should still exist
 	_, err = os.Stat(dirPath)
 	assert.NoError(t, err)
+}
+
+func TestDeleteBackup_Success(t *testing.T) {
+	conf := newTestConfig(t)
+	createFakeDB(t, conf)
+	logger := newTestLogger()
+	svc := NewBackupService(logger, conf)
+
+	// Create a backup
+	backupDir, err := svc.Backup(context.Background(), "", false)
+	require.NoError(t, err)
+	assert.DirExists(t, backupDir)
+
+	// Delete the backup
+	err = svc.DeleteBackup(backupDir)
+	require.NoError(t, err)
+
+	// Verify the backup directory was removed
+	_, err = os.Stat(backupDir)
+	assert.True(t, os.IsNotExist(err), "backup directory should be deleted")
+}
+
+func TestDeleteBackup_RejectsPathOutsideBackupDirectory(t *testing.T) {
+	conf := newTestConfig(t)
+	logger := newTestLogger()
+	svc := NewBackupService(logger, conf)
+
+	// Try to delete a path outside the configured backup directory
+	outsidePath := t.TempDir()
+	err := svc.DeleteBackup(outsidePath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not inside the configured backup directory")
+}
+
+func TestDeleteBackup_RejectsParentTraversal(t *testing.T) {
+	conf := newTestConfig(t)
+	logger := newTestLogger()
+	svc := NewBackupService(logger, conf)
+
+	// Try to use ".." to escape the backup directory
+	traversalPath := filepath.Join(conf.Backup.BackupDirectory, "..", "something")
+	err := svc.DeleteBackup(traversalPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not inside the configured backup directory")
+}
+
+func TestDeleteBackup_RejectsBackupDirItself(t *testing.T) {
+	conf := newTestConfig(t)
+	logger := newTestLogger()
+	svc := NewBackupService(logger, conf)
+
+	// Try to delete the backup directory itself (rel would be ".")
+	err := svc.DeleteBackup(conf.Backup.BackupDirectory)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not inside the configured backup directory")
+}
+
+func TestDeleteBackup_NonexistentPath(t *testing.T) {
+	conf := newTestConfig(t)
+	logger := newTestLogger()
+	svc := NewBackupService(logger, conf)
+
+	// Deleting a non-existent path inside the backup directory should succeed
+	// (os.RemoveAll does not error on non-existent paths)
+	nonexistentPath := filepath.Join(conf.Backup.BackupDirectory, "backup_nonexistent")
+	err := svc.DeleteBackup(nonexistentPath)
+	require.NoError(t, err)
 }
 
 func TestRestore_ConfigDirectoryCreation(t *testing.T) {
