@@ -217,7 +217,7 @@ func TestRestore_DatabaseOnly(t *testing.T) {
 	assert.Equal(t, "modified-database-content", string(content))
 
 	// Restore from backup
-	err = restoreSvc.Restore(context.Background(), backupDir, false)
+	err = restoreSvc.Restore(context.Background(), backupDir, RestoreOptions{})
 	require.NoError(t, err)
 
 	// Verify the DB was restored to original content
@@ -244,7 +244,7 @@ func TestRestore_WithImages(t *testing.T) {
 	assert.True(t, os.IsNotExist(err), "images directory should be removed")
 
 	// Restore from backup with images
-	err = restoreSvc.Restore(context.Background(), backupDir, true)
+	err = restoreSvc.Restore(context.Background(), backupDir, RestoreOptions{RestoreImages: true})
 	require.NoError(t, err)
 
 	// Verify all images were restored
@@ -421,7 +421,7 @@ func TestRestore_VersionMismatch(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(metadataPath, data, 0644))
 
-	err = restoreSvc.Restore(context.Background(), backupDir, false)
+	err = restoreSvc.Restore(context.Background(), backupDir, RestoreOptions{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "newer than supported version")
 }
@@ -434,7 +434,7 @@ func TestRestore_MissingMetadata(t *testing.T) {
 	// Create a directory with no metadata.json
 	emptyBackupDir := t.TempDir()
 
-	err := restoreSvc.Restore(context.Background(), emptyBackupDir, false)
+	err := restoreSvc.Restore(context.Background(), emptyBackupDir, RestoreOptions{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "read backup metadata")
 }
@@ -453,7 +453,7 @@ func TestRestore_MissingDatabaseFile(t *testing.T) {
 	dbPath := filepath.Join(backupDir, databaseFileName)
 	require.NoError(t, os.Remove(dbPath))
 
-	err = restoreSvc.Restore(context.Background(), backupDir, false)
+	err = restoreSvc.Restore(context.Background(), backupDir, RestoreOptions{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "restore database")
 }
@@ -478,7 +478,7 @@ func TestRestore_ImagesNotIncluded(t *testing.T) {
 	require.NoError(t, os.WriteFile(dbPath, []byte("modified-content"), 0644))
 
 	// Restore with restoreImages=true, even though the backup has no images
-	err = restoreSvc.Restore(context.Background(), backupDir, true)
+	err = restoreSvc.Restore(context.Background(), backupDir, RestoreOptions{RestoreImages: true})
 	require.NoError(t, err)
 
 	// Database should still be restored
@@ -790,7 +790,7 @@ func TestRestore_ContextCancellationDuringImageRestore(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
 
-	err = restoreSvc.Restore(ctx, backupDir, true)
+	err = restoreSvc.Restore(ctx, backupDir, RestoreOptions{RestoreImages: true})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "restore images")
 }
@@ -838,7 +838,7 @@ func TestRestore_ConfigDirectoryCreation(t *testing.T) {
 	conf.ConfigDirectory = newConfigDir
 	restoreSvc := NewRestoreService(logger, conf)
 
-	err = restoreSvc.Restore(context.Background(), backupDir, false)
+	err = restoreSvc.Restore(context.Background(), backupDir, RestoreOptions{})
 	require.NoError(t, err)
 
 	// Verify the config directory was created

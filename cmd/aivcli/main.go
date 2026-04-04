@@ -62,8 +62,10 @@ func runMain(logger *slog.Logger) error {
 	rootCommand.AddCommand(&backupCommand)
 
 	var restoreOptions struct {
-		configPath    string
-		restoreImages bool
+		configPath     string
+		restoreImages  bool
+		targetConfigDir string
+		targetImageDir  string
 	}
 	restoreCommand := cobra.Command{
 		Use:   "restore <backupDirectory>",
@@ -78,7 +80,12 @@ func runMain(logger *slog.Logger) error {
 			}
 
 			service := backup.NewRestoreService(logger, conf)
-			if err := service.Restore(context.Background(), backupDir, restoreOptions.restoreImages); err != nil {
+			opts := backup.RestoreOptions{
+				RestoreImages:   restoreOptions.restoreImages,
+				TargetConfigDir: restoreOptions.targetConfigDir,
+				TargetImageDir:  restoreOptions.targetImageDir,
+			}
+			if err := service.Restore(context.Background(), backupDir, opts); err != nil {
 				return fmt.Errorf("service.Restore: %w", err)
 			}
 			logger.Info("Restore completed", "backupDirectory", backupDir)
@@ -89,6 +96,8 @@ func runMain(logger *slog.Logger) error {
 	restoreFlags := restoreCommand.Flags()
 	restoreFlags.StringVar(&restoreOptions.configPath, "config", "", "path to the configuration file")
 	restoreFlags.BoolVar(&restoreOptions.restoreImages, "restore-images", false, "restore images from backup")
+	restoreFlags.StringVar(&restoreOptions.targetConfigDir, "target-config-dir", "", "restore database to this directory instead of the default")
+	restoreFlags.StringVar(&restoreOptions.targetImageDir, "target-image-dir", "", "restore images to this directory instead of the default")
 	rootCommand.AddCommand(&restoreCommand)
 
 	return rootCommand.Execute()

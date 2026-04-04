@@ -48,7 +48,7 @@ func (s *BackupFrontendService) Backup(ctx context.Context, includeImages bool) 
 
 // Restore restores from a backup directory path.
 func (s *BackupFrontendService) Restore(ctx context.Context, backupPath string, restoreImages bool) error {
-	return s.restoreService.Restore(ctx, backupPath, restoreImages)
+	return s.restoreService.Restore(ctx, backupPath, backup.RestoreOptions{RestoreImages: restoreImages})
 }
 
 // ListBackups returns all available backups.
