@@ -28,7 +28,7 @@ const tagsToTreeViewBaseItems = (
     const isDeleted = deletedTagIds[tag.id];
 
     let count: number | undefined = undefined;
-    let disabled = false;
+    const disabled = false;
     let indeterminate = false;
 
     if (tagStats != undefined) {
@@ -191,7 +191,7 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
   const defaultSelectedItems = selectedTagIds.map((id) => String(id));
   // selected items should be visible as default.
   // So, we need to expand all parent items of selected items.
-  const defaultExpandedItems = getDefaultExpandedItems(selectedTagIds, tagMap);
+  const defaultExpandedItems = getDefaultExpandedItems();
 
   return (
     <RichTreeView

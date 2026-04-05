@@ -42,6 +42,19 @@ func TestCopy(t *testing.T) {
 		_, err := Copy(sourceFilePath, "/nonexistent/dir/dest.jpg")
 		assert.Error(t, err)
 	})
+
+	t.Run("source file not readable (permission denied)", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		sourceFilePath := filepath.Join(tmpDir, "unreadable.jpg")
+		require.NoError(t, os.WriteFile(sourceFilePath, []byte("test data"), 0644))
+		require.NoError(t, os.Chmod(sourceFilePath, 0000))
+		t.Cleanup(func() {
+			os.Chmod(sourceFilePath, 0644)
+		})
+
+		_, err := Copy(sourceFilePath, filepath.Join(tmpDir, "dest.jpg"))
+		assert.Error(t, err)
+	})
 }
 
 func TestIsSupportedImageFile(t *testing.T) {

@@ -11,16 +11,14 @@ import {
   ExplorerTreeItemProps,
 } from "../../components/ExplorerTreeItem";
 import {
-  getTagMap,
   tagsToTreeViewBaseItems,
+  getDefaultExpandedItems,
 } from "../../components/TagExplorer";
 import Layout from "../../Layout";
 import { Add } from "@mui/icons-material";
-import { getDefaultExpandedItems } from "../../components/TagExplorer";
 
 export const TagsListPage: FC = () => {
   const [tags, setTags] = useState<Tag[]>([]);
-  const [tagMap, setTagMap] = useState<{ [id: number]: Tag }>({});
   const [isTagLoaded, setTagLoaded] = useState(false);
 
   useEffect(() => {
@@ -34,12 +32,12 @@ export const TagsListPage: FC = () => {
   async function refresh() {
     const tags = await TagService.GetAll();
     setTags(tags);
-    setTagMap(getTagMap(tags));
     setTagLoaded(true);
   }
 
-  const treeItems = tagsToTreeViewBaseItems(tags, 0);
+  const treeItems = tagsToTreeViewBaseItems(tags);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addNewChild = async (_parentID: string) => {
     await LegacyTagFrontendService.CreateTopTag("New Tag");
     await refresh();
@@ -68,7 +66,7 @@ export const TagsListPage: FC = () => {
       {isTagLoaded && (
         <RichTreeView
           expansionTrigger="content"
-          defaultExpandedItems={getDefaultExpandedItems([], tagMap)}
+          defaultExpandedItems={getDefaultExpandedItems()}
           slots={{
             // todo: RichTreeView doesn't allow to pass a type other than TreeItem2Props
             item: ExplorerTreeItem as any,

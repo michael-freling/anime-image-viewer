@@ -10,8 +10,7 @@ import {
 import { ExplorerTreeItem } from "./ExplorerTreeItem";
 
 export const tagsToTreeViewBaseItems = (
-  tags: Tag[],
-  fileCount: number
+  tags: Tag[]
 ): TreeViewBaseItem<{
   id: string;
   label: string;
@@ -32,10 +31,7 @@ export const getTagMap = (tags: Tag[]): { [id: number]: Tag } => {
   return map;
 };
 
-export function getDefaultExpandedItems(
-  _: number[],
-  tagMap: { [id: number]: Tag }
-) {
+export function getDefaultExpandedItems() {
   return [];
 }
 
@@ -45,7 +41,6 @@ export interface TagExplorerProps {
 const TagExplorer: FC<TagExplorerProps> = (props) => {
   const navigate = useNavigate();
   const [children, setChildren] = useState<Tag[]>([]);
-  const [tagMap, setTagMap] = useState<{ [id: number]: Tag }>({});
 
   useEffect(() => {
     if (children.length > 0) {
@@ -58,14 +53,13 @@ const TagExplorer: FC<TagExplorerProps> = (props) => {
   async function refresh() {
     const tags = await TagFrontendService.GetAll();
     setChildren(tags);
-    setTagMap(getTagMap(tags));
   }
 
   if (children.length === 0) {
     return <Typography>Loading...</Typography>;
   }
 
-  const treeItems = tagsToTreeViewBaseItems(children, 0);
+  const treeItems = tagsToTreeViewBaseItems(children);
 
   const { title } = props;
 
@@ -84,7 +78,7 @@ const TagExplorer: FC<TagExplorerProps> = (props) => {
 
       <RichTreeView
         expansionTrigger="content"
-        defaultExpandedItems={getDefaultExpandedItems([], tagMap)}
+        defaultExpandedItems={getDefaultExpandedItems()}
         slots={{
           // todo: RichTreeView doesn't allow to pass a type other than TreeItem2Props
           item: ExplorerTreeItem as any,
