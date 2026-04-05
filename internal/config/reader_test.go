@@ -10,6 +10,134 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestWriteConfig_RoundTrip(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "write-test.toml")
+
+	original := Config{
+		ImageRootDirectory: "/tmp/images",
+		ConfigDirectory:    "/tmp/config",
+		LogDirectory:       "/tmp/logs",
+		Backup: BackupConfig{
+			BackupDirectory:   "/tmp/backups",
+			RetentionCount:    5,
+			IdleBackupEnabled: true,
+			IdleMinutes:       45,
+		},
+		Environment: "development",
+	}
+
+	err := WriteConfig(tmpFile, original)
+	require.NoError(t, err)
+
+	got, err := ReadConfig(tmpFile)
+	require.NoError(t, err)
+
+	assert.Equal(t, original.ImageRootDirectory, got.ImageRootDirectory)
+	assert.Equal(t, original.ConfigDirectory, got.ConfigDirectory)
+	assert.Equal(t, original.LogDirectory, got.LogDirectory)
+	assert.Equal(t, original.Backup.BackupDirectory, got.Backup.BackupDirectory)
+	assert.Equal(t, original.Backup.RetentionCount, got.Backup.RetentionCount)
+	assert.Equal(t, original.Backup.IdleBackupEnabled, got.Backup.IdleBackupEnabled)
+	assert.Equal(t, original.Backup.IdleMinutes, got.Backup.IdleMinutes)
+}
+
+func TestWriteConfig_ExcludesEnvironment(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "env-test.toml")
+
+	conf := Config{
+		ImageRootDirectory: "/tmp/images",
+		ConfigDirectory:    "/tmp/config",
+		LogDirectory:       "/tmp/logs",
+		Backup: BackupConfig{
+			BackupDirectory: "/tmp/backups",
+			RetentionCount:  7,
+			IdleMinutes:     30,
+		},
+		Environment: "development",
+	}
+
+	err := WriteConfig(tmpFile, conf)
+	require.NoError(t, err)
+
+	// Read the raw file content and verify Environment is not written
+	content, err := os.ReadFile(tmpFile)
+	require.NoError(t, err)
+	assert.NotContains(t, string(content), "environment")
+	assert.NotContains(t, string(content), "development")
+}
+
+func TestWriteConfig_DefaultPath(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+
+	conf := Config{
+		ImageRootDirectory: "/tmp/images",
+		ConfigDirectory:    "/tmp/config",
+		LogDirectory:       "/tmp/logs",
+		Backup: BackupConfig{
+			BackupDirectory: "/tmp/backups",
+			RetentionCount:  7,
+			IdleMinutes:     30,
+		},
+	}
+
+	err := WriteConfig("", conf)
+	require.NoError(t, err)
+
+	expectedFile := filepath.Join(tempHome, ".config", "anime-image-viewer", "default.toml")
+	_, statErr := os.Stat(expectedFile)
+	assert.NoError(t, statErr, "config file should exist at default path")
+
+	// Read it back to verify
+	got, err := ReadConfig(expectedFile)
+	require.NoError(t, err)
+	assert.Equal(t, "/tmp/images", got.ImageRootDirectory)
+}
+
+func TestWriteConfig_CreatesParentDirectory(t *testing.T) {
+	tmpDir := filepath.Join(t.TempDir(), "nested", "dir")
+	tmpFile := filepath.Join(tmpDir, "config.toml")
+
+	conf := Config{
+		ImageRootDirectory: "/tmp/images",
+	}
+
+	// The file is inside a non-existent directory, so Create will fail.
+	// WriteConfig with an explicit path does NOT create parent dirs.
+	err := WriteConfig(tmpFile, conf)
+	assert.Error(t, err, "WriteConfig should fail when parent directory does not exist for explicit path")
+}
+
+func TestWriteConfig_OverwritesExisting(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "overwrite.toml")
+
+	first := Config{
+		ImageRootDirectory: "/first",
+		Backup: BackupConfig{
+			RetentionCount: 3,
+			IdleMinutes:    10,
+		},
+	}
+	err := WriteConfig(tmpFile, first)
+	require.NoError(t, err)
+
+	second := Config{
+		ImageRootDirectory: "/second",
+		Backup: BackupConfig{
+			RetentionCount: 9,
+			IdleMinutes:    60,
+		},
+	}
+	err = WriteConfig(tmpFile, second)
+	require.NoError(t, err)
+
+	got, err := ReadConfig(tmpFile)
+	require.NoError(t, err)
+	assert.Equal(t, "/second", got.ImageRootDirectory)
+	assert.Equal(t, 9, got.Backup.RetentionCount)
+	assert.Equal(t, 60, got.Backup.IdleMinutes)
+}
+
 func TestReadConfig_BackupDefaults(t *testing.T) {
 	// Use a temp directory as HOME so ReadConfig creates its default config path
 	// there instead of touching the real home directory.

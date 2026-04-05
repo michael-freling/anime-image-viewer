@@ -31,6 +31,7 @@ import RootErrorPage from "./RootErrorPage";
 import { ImportImageProgressProvider } from "./components/contexts/ImportImageContext";
 import { BackupProvider } from "./components/contexts/BackupContext";
 import BackupRestorePage from "./pages/backup/BackupRestorePage";
+import SettingsPage from "./pages/settings/SettingsPage";
 
 function Root() {
   const location = useLocation();
@@ -94,6 +95,11 @@ function Root() {
         {/* Backup */}
         <Route path="backup" element={<Layout.TwoColumnLayout />}>
           <Route index element={<BackupRestorePage />} />
+        </Route>
+
+        {/* Settings */}
+        <Route path="settings" element={<Layout.TwoColumnLayout />}>
+          <Route index element={<SettingsPage />} />
         </Route>
       </Route>
     </Routes>

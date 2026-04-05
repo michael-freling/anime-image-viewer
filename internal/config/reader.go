@@ -9,6 +9,14 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+// writableConfig contains only user-editable fields (excludes Environment).
+type writableConfig struct {
+	ImageRootDirectory string       `toml:"image_root_directory"`
+	ConfigDirectory    string       `toml:"config_directory"`
+	LogDirectory       string       `toml:"log_directory"`
+	Backup             BackupConfig `toml:"backup"`
+}
+
 type env string
 
 const (
@@ -29,6 +37,40 @@ type Config struct {
 	LogDirectory       string       `toml:"log_directory"`
 	Backup             BackupConfig `toml:"backup"`
 	Environment        env
+}
+
+// WriteConfig writes the config to a TOML file.
+// If configFile is empty, the default path (~/.config/anime-image-viewer/default.toml) is used.
+func WriteConfig(configFile string, conf Config) error {
+	if configFile == "" {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("os.UserHomeDir: %w", err)
+		}
+		configDir := filepath.Join(homeDir, ".config", "anime-image-viewer")
+		if err = os.MkdirAll(configDir, 0755); err != nil {
+			return fmt.Errorf("os.MkdirAll: %w", err)
+		}
+		configFile = filepath.Join(configDir, "default.toml")
+	}
+
+	file, err := os.Create(configFile)
+	if err != nil {
+		return fmt.Errorf("os.Create: %w", err)
+	}
+	defer file.Close()
+
+	writable := writableConfig{
+		ImageRootDirectory: conf.ImageRootDirectory,
+		ConfigDirectory:    conf.ConfigDirectory,
+		LogDirectory:       conf.LogDirectory,
+		Backup:             conf.Backup,
+	}
+	encoder := toml.NewEncoder(file)
+	if err := encoder.Encode(writable); err != nil {
+		return fmt.Errorf("toml.Encode: %w", err)
+	}
+	return nil
 }
 
 func ReadConfig(configFile string) (Config, error) {
