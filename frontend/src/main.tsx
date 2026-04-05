@@ -29,6 +29,9 @@ import ImageTagSuggestionPage from "./pages/tags/ImageTagSuggestionPage";
 import TagsListPage from "./pages/tags/TagsListPage";
 import RootErrorPage from "./RootErrorPage";
 import { ImportImageProgressProvider } from "./components/contexts/ImportImageContext";
+import { BackupProvider } from "./components/contexts/BackupContext";
+import BackupRestorePage from "./pages/backup/BackupRestorePage";
+import SettingsPage from "./pages/settings/SettingsPage";
 
 function Root() {
   const location = useLocation();
@@ -88,6 +91,16 @@ function Root() {
             <Route path="edit" element={<TagsListPage />} />
           </Route>
         </Route>
+
+        {/* Backup */}
+        <Route path="backup" element={<Layout.TwoColumnLayout />}>
+          <Route index element={<BackupRestorePage />} />
+        </Route>
+
+        {/* Settings */}
+        <Route path="settings" element={<Layout.TwoColumnLayout />}>
+          <Route index element={<SettingsPage />} />
+        </Route>
       </Route>
     </Routes>
   );
@@ -126,9 +139,11 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
         <CssVarsProvider theme={joyTheme}>
           <CssBaseline />
 
-          <ImportImageProgressProvider>
-            <RouterProvider router={router} />
-          </ImportImageProgressProvider>
+          <BackupProvider>
+            <ImportImageProgressProvider>
+              <RouterProvider router={router} />
+            </ImportImageProgressProvider>
+          </BackupProvider>
         </CssVarsProvider>
       </MaterialThemeProvider>
     </StyledEngineProvider>

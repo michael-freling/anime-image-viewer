@@ -132,6 +132,29 @@ func TestBatchImageImporter_importImageFiles(t *testing.T) {
 		},
 	}
 
+	testCases = append(testCases, struct {
+		name string
+
+		sourceFilePaths      []string
+		destinationDirectory image.Directory
+
+		want               []image.ImageFile
+		wantInsertFiles    []db.File
+		wantInsertTags     []db.Tag
+		wantInsertFileTags []db.FileTag
+		wantErrors         []error
+	}{
+		name: "all files fail validation, returns early with errors",
+		sourceFilePaths: []string{
+			tester.getTestFilePath("image.txt"),
+		},
+		destinationDirectory: fileBuilder.BuildDirectory(1),
+		want:                 nil,
+		wantErrors: []error{
+			image.ErrUnsupportedImageFile,
+		},
+	})
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			tester.dbClient.Truncate(t,
@@ -201,4 +224,44 @@ func TestBatchImageImporter_importImageFiles(t *testing.T) {
 			assert.Len(t, progressNotifier.FailedPaths, len(tc.wantErrors))
 		})
 	}
+
+	// Test that ImportImages handles copy failure gracefully
+	t.Run("import fails during copy when destination becomes read-only", func(t *testing.T) {
+		tester.dbClient.Truncate(t,
+			db.File{},
+			db.Tag{},
+			db.FileTag{},
+		)
+
+		destDir := fileBuilder.BuildDirectory(1)
+
+		// Remove any leftover files from previous test cases in the destination
+		entries, _ := os.ReadDir(destDir.Path)
+		for _, entry := range entries {
+			os.Remove(filepath.Join(destDir.Path, entry.Name()))
+		}
+
+		batchImporter := tester.getBatchImageImporter()
+		progressNotifier := NewProgressNotifier()
+
+		// Use a valid image file
+		sourceFile := fileBuilder.BuildImageFile(21).LocalFilePath
+
+		// Make destination directory read-only so copy fails
+		os.Chmod(destDir.Path, 0555)
+		t.Cleanup(func() {
+			os.Chmod(destDir.Path, 0755)
+		})
+
+		got, gotErr := batchImporter.ImportImages(
+			context.Background(),
+			destDir,
+			[]string{sourceFile},
+			progressNotifier,
+		)
+		// Should return images (possibly with zero values for failed copies) and errors
+		assert.Error(t, gotErr, "should return error when copy fails")
+		assert.Len(t, got, 1, "should still return image slice even with copy failure")
+		assert.Equal(t, 1, progressNotifier.Failed, "should have 1 failed")
+	})
 }

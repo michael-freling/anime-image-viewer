@@ -115,6 +115,24 @@ func TestBatchTagImporter_importTags(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Tags with double slashes (empty segments are skipped)",
+			importImages: []importImage{
+				{
+					image: db.File{ID: 1},
+					xmp: &XMP{RDF: RDF{TagsList: []string{
+						"Tag A//Tag B",
+					}}},
+				},
+			},
+			wantInsertTags: dbTagBuilder.BuildTags(t,
+				db.Tag{ID: 13, Name: "Tag A"},
+				db.Tag{ID: 14, Name: "Tag B", ParentID: 13},
+			),
+			wantInsertFileTags: []db.FileTag{
+				dbTagBuilder.AddFileTag(t, db.FileTag{FileID: 1, TagID: 14, AddedBy: db.FileTagAddedByImport}).BuildFileTag(t, 1, 14),
+			},
+		},
 	}
 
 	for _, tc := range testCases {

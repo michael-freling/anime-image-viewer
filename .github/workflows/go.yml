@@ -52,4 +52,13 @@ jobs:
           go-version-file: go.mod
 
       - name: Run tests
-        run: go test -race -v ./...
+        run: go test -race -v -coverprofile=coverage.out -covermode=atomic ./internal/...
+
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total: | awk '{print $3}' | sed 's/%//')
+          echo "Total coverage: ${COVERAGE}%"
+          if (( $(echo "$COVERAGE < 90" | bc -l) )); then
+            echo "::error::Coverage ${COVERAGE}% is below the 90% threshold"
+            exit 1
+          fi

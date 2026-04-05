@@ -7,8 +7,71 @@ import (
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
+	"github.com/michael-freling/anime-image-viewer/internal/xerrors"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestSearchService_validateSearchImagesRequest(t *testing.T) {
+	service := SearchService{}
+
+	testCases := []struct {
+		name    string
+		request SearchImagesRequest
+		wantErr error
+	}{
+		{
+			name:    "both directoryId and tagId are zero",
+			request: SearchImagesRequest{},
+			wantErr: xerrors.ErrInvalidArgument,
+		},
+		{
+			name: "inverted tag search without directoryId",
+			request: SearchImagesRequest{
+				TagID:               1,
+				IsInvertedTagSearch: true,
+			},
+			wantErr: xerrors.ErrInvalidArgument,
+		},
+		{
+			name: "valid request with only directoryId",
+			request: SearchImagesRequest{
+				DirectoryID: 1,
+			},
+		},
+		{
+			name: "valid request with only tagId",
+			request: SearchImagesRequest{
+				TagID: 1,
+			},
+		},
+		{
+			name: "valid request with both directoryId and tagId",
+			request: SearchImagesRequest{
+				DirectoryID: 1,
+				TagID:       1,
+			},
+		},
+		{
+			name: "valid inverted tag search with directoryId",
+			request: SearchImagesRequest{
+				DirectoryID:         1,
+				TagID:               1,
+				IsInvertedTagSearch: true,
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := service.validateSearchImagesRequest(tc.request)
+			if tc.wantErr != nil {
+				assert.ErrorIs(t, err, tc.wantErr)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
+}
 
 func TestSearchService_Search(t *testing.T) {
 	tester := newTester(t)
@@ -348,6 +411,101 @@ func TestSearchService_Search(t *testing.T) {
 				insertFileTags: []db.FileTag{
 					{FileID: 1, TagID: 10}, // a tag added to a directory
 				},
+			},
+		}
+		for _, tc := range testCases {
+			runTest(t, tc)
+		}
+	})
+
+	t.Run("validation errors", func(t *testing.T) {
+		testCases := []testCase{
+			{
+				name:    "empty request returns validation error",
+				request: SearchImagesRequest{},
+				wantErr: xerrors.ErrInvalidArgument,
+			},
+			{
+				name: "inverted tag search without directory returns validation error",
+				request: SearchImagesRequest{
+					TagID:               1,
+					IsInvertedTagSearch: true,
+				},
+				wantErr: xerrors.ErrInvalidArgument,
+			},
+		}
+		for _, tc := range testCases {
+			runTest(t, tc)
+		}
+	})
+
+	t.Run("search by directory errors", func(t *testing.T) {
+		testCases := []testCase{
+			{
+				name: "non-existent directory returns error",
+				request: SearchImagesRequest{
+					DirectoryID: 999,
+				},
+				wantErr: image.ErrDirectoryNotFound,
+			},
+		}
+		for _, tc := range testCases {
+			runTest(t, tc)
+		}
+	})
+
+	t.Run("search by tag with directory errors", func(t *testing.T) {
+		testCases := []testCase{
+			{
+				name: "tag search with non-existent directory returns error from search runner",
+				request: SearchImagesRequest{
+					DirectoryID: 999,
+					TagID:       1,
+				},
+				insertTags: []db.Tag{
+					{ID: 1, Name: "tag 1"},
+				},
+				insertFileTags: []db.FileTag{
+					{FileID: 11, TagID: 1},
+				},
+				wantErr: image.ErrDirectoryNotFound,
+			},
+			{
+				name: "inverted tag search with non-existent directory returns error",
+				request: SearchImagesRequest{
+					DirectoryID:         999,
+					TagID:               1,
+					IsInvertedTagSearch: true,
+				},
+				insertTags: []db.Tag{
+					{ID: 1, Name: "tag 1"},
+				},
+				wantErr: image.ErrDirectoryNotFound,
+			},
+		}
+		for _, tc := range testCases {
+			runTest(t, tc)
+		}
+	})
+
+	t.Run("search by tag returns empty results as nil", func(t *testing.T) {
+		testCases := []testCase{
+			{
+				name: "tag search with matching directory tag but no images in directory returns nil images",
+				request: SearchImagesRequest{
+					DirectoryID: 1,
+					TagID:       1,
+				},
+				insertFiles: []db.File{
+					fileBuilder.BuildDBDirectory(1),
+				},
+				insertTags: []db.Tag{
+					{ID: 1, Name: "tag 1"},
+				},
+				insertFileTags: []db.FileTag{
+					{FileID: 1, TagID: 1},
+				},
+				want: SearchImagesResponse{},
 			},
 		}
 		for _, tc := range testCases {

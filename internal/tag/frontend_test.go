@@ -9,6 +9,7 @@ import (
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"github.com/michael-freling/anime-image-viewer/internal/xassert"
+	"github.com/michael-freling/anime-image-viewer/internal/xerrors"
 	tag_suggestionv1 "github.com/michael-freling/anime-image-viewer/plugins/plugins-protos/gen/go/tag_suggestion/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,6 +17,165 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+func TestTagFrontendService_CreateTopTag(t *testing.T) {
+	tester := newTester(t)
+	dbClient := tester.dbClient
+
+	service := &TagFrontendService{
+		dbClient: dbClient,
+	}
+
+	t.Run("create a top tag successfully", func(t *testing.T) {
+		dbClient.Truncate(&db.Tag{})
+		got, err := service.CreateTopTag("MyTag")
+		require.NoError(t, err)
+		assert.Equal(t, "MyTag", got.Name)
+		assert.NotZero(t, got.ID)
+
+		// Verify it was persisted
+		allTags, err := db.GetAll[db.Tag](dbClient)
+		require.NoError(t, err)
+		assert.Len(t, allTags, 1)
+		assert.Equal(t, "MyTag", allTags[0].Name)
+		assert.Equal(t, uint(0), allTags[0].ParentID)
+	})
+}
+
+func TestTagFrontendService_Create(t *testing.T) {
+	tester := newTester(t)
+	dbClient := tester.dbClient
+
+	service := &TagFrontendService{
+		dbClient: dbClient,
+	}
+
+	testCases := []struct {
+		name       string
+		insertTags []db.Tag
+		input      TagInput
+		wantName   string
+		wantErr    bool
+	}{
+		{
+			name: "create a child tag successfully",
+			insertTags: []db.Tag{
+				{ID: 1, Name: "parent"},
+			},
+			input: TagInput{
+				Name:     "child",
+				ParentID: 1,
+			},
+			wantName: "child",
+		},
+		{
+			name:       "parent not found returns error",
+			insertTags: nil,
+			input: TagInput{
+				Name:     "orphan",
+				ParentID: 999,
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			dbClient.Truncate(&db.Tag{})
+			if len(tc.insertTags) > 0 {
+				require.NoError(t, db.BatchCreate(dbClient, tc.insertTags))
+			}
+
+			got, err := service.Create(context.Background(), tc.input)
+			if tc.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantName, got.Name)
+			assert.NotZero(t, got.ID)
+		})
+	}
+}
+
+func TestTagFrontendService_UpdateName(t *testing.T) {
+	tester := newTester(t)
+	dbClient := tester.dbClient
+
+	service := &TagFrontendService{
+		dbClient: dbClient,
+	}
+
+	testCases := []struct {
+		name       string
+		insertTags []db.Tag
+		tagID      uint
+		newName    string
+		wantName   string
+		wantErr    bool
+	}{
+		{
+			name: "update name successfully",
+			insertTags: []db.Tag{
+				{ID: 1, Name: "old_name"},
+			},
+			tagID:    1,
+			newName:  "new_name",
+			wantName: "new_name",
+		},
+		{
+			name:       "tag not found returns error",
+			insertTags: nil,
+			tagID:      999,
+			newName:    "new_name",
+			wantErr:    true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			dbClient.Truncate(&db.Tag{})
+			if len(tc.insertTags) > 0 {
+				require.NoError(t, db.BatchCreate(dbClient, tc.insertTags))
+			}
+
+			got, err := service.UpdateName(context.Background(), tc.tagID, tc.newName)
+			if tc.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantName, got.Name)
+			assert.Equal(t, tc.tagID, got.ID)
+
+			// Verify persistence
+			allTags, err := db.GetAll[db.Tag](dbClient)
+			require.NoError(t, err)
+			assert.Len(t, allTags, 1)
+			assert.Equal(t, tc.wantName, allTags[0].Name)
+		})
+	}
+}
+
+func TestTagFrontendService_BatchUpdateTagsForFiles_NoChanges(t *testing.T) {
+	tester := newTester(t)
+	dbClient := tester.dbClient
+
+	service := &TagFrontendService{
+		dbClient: dbClient,
+	}
+
+	// When all added tags already exist for all files and there are no deleted tags,
+	// createdFileTags and deletedTagIDs are both empty, so no transaction is executed.
+	dbClient.Truncate(&db.FileTag{})
+	require.NoError(t, db.BatchCreate(dbClient, []db.FileTag{
+		{FileID: 1, TagID: 1},
+		{FileID: 2, TagID: 1},
+	}))
+
+	err := service.BatchUpdateTagsForFiles(context.Background(), []uint{1, 2}, []uint{1}, nil)
+	assert.NoError(t, err)
+}
 
 func TestTagFrontendService_BatchUpdateTagsForFiles(t *testing.T) {
 	tester := newTester(t)
@@ -184,8 +344,9 @@ func TestTagFrontendService_SuggestTags(t *testing.T) {
 		imageFileIDs    []uint
 		setupMockClient func(*tag_suggestionv1.MockTagSuggestionServiceClient)
 
-		want      SuggestTagsResponse
-		wantError error
+		want         SuggestTagsResponse
+		wantError    error
+		wantAnyError bool // when true, assert any error without matching a specific type
 	}{
 		{
 			name: "multiple image files",
@@ -318,6 +479,37 @@ func TestTagFrontendService_SuggestTags(t *testing.T) {
 			},
 			wantError: image.ErrImageFileNotFound,
 		},
+		{
+			name:         "empty imageFileIDs returns invalid argument error",
+			imageFileIDs: []uint{},
+			setupMockClient: func(mock *tag_suggestionv1.MockTagSuggestionServiceClient) {
+				mock.EXPECT().
+					Suggest(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			wantError: xerrors.ErrInvalidArgument,
+		},
+		{
+			name: "unknown gRPC error is logged and returns generic error",
+			insertTags: []db.Tag{
+				{ID: 1, Name: "tag1"},
+			},
+			insertDBFiles: []db.File{
+				{ID: 1, Name: "Directory 1", Type: db.FileTypeDirectory},
+				{ID: 10, Name: "Directory 10", Type: db.FileTypeDirectory, ParentID: 1},
+				{ID: 11, Name: "image11.jpg", Type: db.FileTypeImage, ParentID: 10},
+			},
+			imageFileIDs: []uint{11},
+			setupMockClient: func(mock *tag_suggestionv1.MockTagSuggestionServiceClient) {
+				err := status.New(codes.Unknown, "unknown server error").Err()
+				mock.EXPECT().
+					Suggest(gomock.Any(), gomock.Any()).
+					Return(nil, err).
+					Times(1)
+			},
+			// The error is a generic "failed to suggest tags" message, not wrapped
+			wantAnyError: true,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -341,7 +533,9 @@ func TestTagFrontendService_SuggestTags(t *testing.T) {
 				context.Background(),
 				tc.imageFileIDs,
 			)
-			if tc.wantError != nil {
+			if tc.wantAnyError {
+				assert.Error(t, err)
+			} else if tc.wantError != nil {
 				assert.ErrorIs(t, err, tc.wantError)
 			} else {
 				assert.NoError(t, err)
@@ -373,6 +567,18 @@ func TestTagFrontendService_AddSuggestedTags(t *testing.T) {
 		wantInsertedFileTags []db.FileTag
 		wantErr              error
 	}{
+		{
+			name: "empty request returns empty response",
+			request: AddSuggestedTagsRequest{
+				SelectedTags: map[uint][]uint{},
+			},
+			want: AddSuggestedTagsResponse{},
+		},
+		{
+			name:    "nil selected tags returns empty response",
+			request: AddSuggestedTagsRequest{},
+			want:    AddSuggestedTagsResponse{},
+		},
 		{
 			name: "Add tags to image files",
 			request: AddSuggestedTagsRequest{
@@ -506,17 +712,22 @@ func TestTagFrontendService_AddSuggestedTags(t *testing.T) {
 
 			gotFileTags, err := db.GetAll[db.FileTag](dbClient)
 			require.NoError(t, err)
-			xassert.ElementsMatch(t,
-				slices.Concat(tc.insertFileTags, tc.wantInsertedFileTags),
-				gotFileTags,
-				cmpopts.SortSlices(func(a, b db.FileTag) bool {
-					if a.FileID == b.FileID {
-						return a.TagID < b.TagID
-					}
-					return a.FileID < b.FileID
-				}),
-				cmpopts.IgnoreFields(db.FileTag{}, "CreatedAt"),
-			)
+			wantAllFileTags := slices.Concat(tc.insertFileTags, tc.wantInsertedFileTags)
+			if len(wantAllFileTags) == 0 {
+				assert.Empty(t, gotFileTags)
+			} else {
+				xassert.ElementsMatch(t,
+					wantAllFileTags,
+					gotFileTags,
+					cmpopts.SortSlices(func(a, b db.FileTag) bool {
+						if a.FileID == b.FileID {
+							return a.TagID < b.TagID
+						}
+						return a.FileID < b.FileID
+					}),
+					cmpopts.IgnoreFields(db.FileTag{}, "CreatedAt"),
+				)
+			}
 		})
 	}
 }
