@@ -26,7 +26,7 @@ export function directoryToTreeViewBaseItems(
   return {
     id: String(directory.id),
     label: directory.name,
-    tags: tagsMap ? tagsMap.map((tagId) => allTags[tagId].fullName) : [],
+    tags: tagsMap ? tagsMap.map((tagId) => allTags[tagId].name) : [],
 
     children: directory.children.map((child) => {
       return directoryToTreeViewBaseItems(child, allTags, directoryTagMap);

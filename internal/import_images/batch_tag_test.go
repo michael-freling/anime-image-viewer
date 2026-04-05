@@ -13,8 +13,8 @@ func TestBatchTagImporter_importTags(t *testing.T) {
 	tester := newTester(t)
 	dbTagBuilder := tester.dbClient.NewTagBuilder().
 		AddTag(t, db.Tag{ID: 1, Name: "New Tag 1"}).
-		AddTag(t, db.Tag{ID: 2, Name: "New Tag 10", ParentID: 1}).
-		AddTag(t, db.Tag{ID: 3, Name: "New Tag 100", ParentID: 2})
+		AddTag(t, db.Tag{ID: 2, Name: "New Tag 10"}).
+		AddTag(t, db.Tag{ID: 3, Name: "New Tag 100"})
 
 	testCases := []struct {
 		name string
@@ -50,24 +50,24 @@ func TestBatchTagImporter_importTags(t *testing.T) {
 			name: "Import images with existing tags without an error",
 			insertTags: dbTagBuilder.BuildTags(t,
 				db.Tag{ID: 6, Name: "Existing Tag 1"},
-				db.Tag{ID: 7, Name: "Existing Tag 10", ParentID: 6},
-				db.Tag{ID: 8, Name: "Existing Tag 100", ParentID: 7},
+				db.Tag{ID: 7, Name: "Existing Tag 10"},
+				db.Tag{ID: 8, Name: "Existing Tag 100"},
 				db.Tag{ID: 9, Name: "Overlapped tag name 100"},
 			),
 			importImages: []importImage{
 				{
 					image: db.File{ID: 1},
 					xmp: &XMP{RDF: RDF{TagsList: []string{
-						// existing tags
+						// existing tags - leaf tag is "Existing Tag 100"
 						"Existing Tag 1/Existing Tag 10/Existing Tag 100",
-						// use the same tag with the root tag
+						// "Overlapped tag name 100" already exists as flat tag
 						"Existing Tag 1/New Tag 10/Overlapped tag name 100",
 					}}},
 				},
 				{
 					image: db.File{ID: 2},
 					xmp: &XMP{RDF: RDF{TagsList: []string{
-						// use the same tag from the previous tag
+						// "New Tag 10" was created above, "New Tag 100" is new
 						"Existing Tag 1/New Tag 10/New Tag 100",
 					}}},
 				},
@@ -77,15 +77,15 @@ func TestBatchTagImporter_importTags(t *testing.T) {
 				dbTagBuilder.Build(t, 7),
 				dbTagBuilder.Build(t, 8),
 				dbTagBuilder.Build(t, 9),
-				// in the previous test, tags with id 3-5 are created
-				dbTagBuilder.AddTag(t, db.Tag{ID: 10, Name: "New Tag 10", ParentID: 6}).Build(t, 10),
-				dbTagBuilder.AddTag(t, db.Tag{ID: 11, Name: "Overlapped tag name 100", ParentID: 10}).Build(t, 11),
-				dbTagBuilder.AddTag(t, db.Tag{ID: 12, Name: "New Tag 100", ParentID: 10}).Build(t, 12),
+				// "New Tag 10" is not in pre-inserted tags, so it gets created
+				dbTagBuilder.AddTag(t, db.Tag{ID: 10, Name: "New Tag 10"}).Build(t, 10),
+				// "New Tag 100" is not in pre-inserted tags, so it gets created
+				dbTagBuilder.AddTag(t, db.Tag{ID: 11, Name: "New Tag 100"}).Build(t, 11),
 			},
 			wantInsertFileTags: []db.FileTag{
 				dbTagBuilder.AddFileTag(t, db.FileTag{FileID: 1, TagID: 8, AddedBy: db.FileTagAddedByImport}).BuildFileTag(t, 1, 8),
-				dbTagBuilder.AddFileTag(t, db.FileTag{FileID: 1, TagID: 11, AddedBy: db.FileTagAddedByImport}).BuildFileTag(t, 1, 11),
-				dbTagBuilder.AddFileTag(t, db.FileTag{FileID: 2, TagID: 12, AddedBy: db.FileTagAddedByImport}).BuildFileTag(t, 2, 12),
+				dbTagBuilder.AddFileTag(t, db.FileTag{FileID: 1, TagID: 9, AddedBy: db.FileTagAddedByImport}).BuildFileTag(t, 1, 9),
+				dbTagBuilder.AddFileTag(t, db.FileTag{FileID: 2, TagID: 11, AddedBy: db.FileTagAddedByImport}).BuildFileTag(t, 2, 11),
 			},
 		},
 		{
@@ -126,11 +126,11 @@ func TestBatchTagImporter_importTags(t *testing.T) {
 				},
 			},
 			wantInsertTags: dbTagBuilder.BuildTags(t,
-				db.Tag{ID: 13, Name: "Tag A"},
-				db.Tag{ID: 14, Name: "Tag B", ParentID: 13},
+				db.Tag{ID: 12, Name: "Tag A"},
+				db.Tag{ID: 13, Name: "Tag B"},
 			),
 			wantInsertFileTags: []db.FileTag{
-				dbTagBuilder.AddFileTag(t, db.FileTag{FileID: 1, TagID: 14, AddedBy: db.FileTagAddedByImport}).BuildFileTag(t, 1, 14),
+				dbTagBuilder.AddFileTag(t, db.FileTag{FileID: 1, TagID: 13, AddedBy: db.FileTagAddedByImport}).BuildFileTag(t, 1, 13),
 			},
 		},
 	}

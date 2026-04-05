@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestReader_ReadRootNode(t *testing.T) {
+func TestReader_ReadAllTags(t *testing.T) {
 	tester := newTester(t)
 	dbClient := tester.dbClient
 	reader := tester.getReader()
@@ -18,69 +18,31 @@ func TestReader_ReadRootNode(t *testing.T) {
 	testCases := []struct {
 		name       string
 		insertTags []db.Tag
-		wantTag    Tag
-		wantErr    bool
+		wantTags   []Tag
 	}{
 		{
-			name:       "no tags returns empty tag",
+			name:       "no tags returns nil",
 			insertTags: nil,
-			wantTag:    Tag{},
+			wantTags:   nil,
 		},
 		{
-			name: "single top-level tag",
+			name: "single tag",
 			insertTags: []db.Tag{
 				{ID: 1, Name: "tag1"},
 			},
-			wantTag: Tag{
-				Children: []*Tag{
-					{ID: 1, Name: "tag1", FullName: "tag1"},
-				},
+			wantTags: []Tag{
+				{ID: 1, Name: "tag1"},
 			},
 		},
 		{
-			name: "multiple top-level tags sorted by name",
+			name: "multiple tags",
 			insertTags: []db.Tag{
-				{ID: 1, Name: "zebra"},
-				{ID: 2, Name: "alpha"},
+				{ID: 1, Name: "alpha"},
+				{ID: 2, Name: "beta"},
 			},
-			wantTag: Tag{
-				Children: []*Tag{
-					{ID: 2, Name: "alpha", FullName: "alpha"},
-					{ID: 1, Name: "zebra", FullName: "zebra"},
-				},
-			},
-		},
-		{
-			name: "nested tags",
-			insertTags: []db.Tag{
-				{ID: 1, Name: "parent"},
-				{ID: 10, Name: "child", ParentID: 1},
-				{ID: 100, Name: "grandchild", ParentID: 10},
-			},
-			wantTag: Tag{
-				Children: []*Tag{
-					{
-						ID:       1,
-						Name:     "parent",
-						FullName: "parent",
-						Children: []*Tag{
-							{
-								ID:       10,
-								Name:     "child",
-								ParentID: 1,
-								FullName: "parent > child",
-								Children: []*Tag{
-									{
-										ID:       100,
-										Name:     "grandchild",
-										ParentID: 10,
-										FullName: "parent > child > grandchild",
-									},
-								},
-							},
-						},
-					},
-				},
+			wantTags: []Tag{
+				{ID: 1, Name: "alpha"},
+				{ID: 2, Name: "beta"},
 			},
 		},
 	}
@@ -92,15 +54,9 @@ func TestReader_ReadRootNode(t *testing.T) {
 				require.NoError(t, db.BatchCreate(dbClient, tc.insertTags))
 			}
 
-			got, err := reader.ReadRootNode()
-			if tc.wantErr {
-				assert.Error(t, err)
-				return
-			}
+			got, err := reader.ReadAllTags()
 			require.NoError(t, err)
-
-			// Compare IDs, names, and structure
-			assertTagTreeEqual(t, tc.wantTag, got)
+			assert.Equal(t, tc.wantTags, got)
 		})
 	}
 }
@@ -118,10 +74,10 @@ func TestReader_ReadDBTagRecursively(t *testing.T) {
 		wantFileTags   db.FileTagList
 	}{
 		{
-			name:         "no tags in db returns nil",
+			name:         "no file tags returns empty",
 			insertTags:   nil,
 			tagID:        1,
-			wantFileTags: nil,
+			wantFileTags: db.FileTagList{},
 		},
 		{
 			name: "tag not found returns empty",
@@ -132,10 +88,10 @@ func TestReader_ReadDBTagRecursively(t *testing.T) {
 			wantFileTags: db.FileTagList{},
 		},
 		{
-			name: "leaf tag with file tags",
+			name: "tag with file tags",
 			insertTags: []db.Tag{
 				{ID: 1, Name: "parent"},
-				{ID: 10, Name: "child", ParentID: 1},
+				{ID: 10, Name: "child"},
 			},
 			insertFileTags: []db.FileTag{
 				{FileID: 100, TagID: 10, AddedBy: db.FileTagAddedByUser},
@@ -148,11 +104,11 @@ func TestReader_ReadDBTagRecursively(t *testing.T) {
 			},
 		},
 		{
-			name: "parent tag includes descendants file tags",
+			name: "only returns file tags for the requested tag",
 			insertTags: []db.Tag{
 				{ID: 1, Name: "parent"},
-				{ID: 10, Name: "child", ParentID: 1},
-				{ID: 100, Name: "grandchild", ParentID: 10},
+				{ID: 10, Name: "child"},
+				{ID: 100, Name: "grandchild"},
 			},
 			insertFileTags: []db.FileTag{
 				{FileID: 1000, TagID: 1, AddedBy: db.FileTagAddedByUser},
@@ -162,8 +118,6 @@ func TestReader_ReadDBTagRecursively(t *testing.T) {
 			tagID: 1,
 			wantFileTags: db.FileTagList{
 				{FileID: 1000, TagID: 1, AddedBy: db.FileTagAddedByUser},
-				{FileID: 1001, TagID: 10, AddedBy: db.FileTagAddedByUser},
-				{FileID: 1002, TagID: 100, AddedBy: db.FileTagAddedByUser},
 			},
 		},
 	}
@@ -295,24 +249,5 @@ func TestReader_ReadDirectoryTags(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-// assertTagTreeEqual compares two Tag trees ignoring unexported fields (parent pointer).
-func assertTagTreeEqual(t *testing.T, want, got Tag) {
-	t.Helper()
-	assert.Equal(t, want.ID, got.ID, "ID mismatch")
-	assert.Equal(t, want.Name, got.Name, "Name mismatch for ID=%d", want.ID)
-	assert.Equal(t, want.FullName, got.FullName, "FullName mismatch for ID=%d", want.ID)
-	assert.Equal(t, want.ParentID, got.ParentID, "ParentID mismatch for ID=%d", want.ID)
-
-	if want.Children == nil {
-		assert.Nil(t, got.Children, "expected nil Children for ID=%d", want.ID)
-		return
-	}
-
-	require.Len(t, got.Children, len(want.Children), "Children length mismatch for ID=%d", want.ID)
-	for i := range want.Children {
-		assertTagTreeEqual(t, *want.Children[i], *got.Children[i])
 	}
 }

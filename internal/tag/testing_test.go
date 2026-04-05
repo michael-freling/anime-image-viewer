@@ -10,7 +10,7 @@ import (
 func TestTestTagBuilder_BuildDBTag(t *testing.T) {
 	builder := NewTestTagBuilder().
 		Add(Tag{ID: 1, Name: "parent"}).
-		Add(Tag{ID: 10, Name: "child", ParentID: 1})
+		Add(Tag{ID: 10, Name: "child"})
 
 	testCases := []struct {
 		name string
@@ -26,12 +26,11 @@ func TestTestTagBuilder_BuildDBTag(t *testing.T) {
 			},
 		},
 		{
-			name: "child tag with parent ID",
+			name: "another tag",
 			id:   10,
 			want: db.Tag{
-				ID:       10,
-				Name:     "child",
-				ParentID: 1,
+				ID:   10,
+				Name: "child",
 			},
 		},
 	}

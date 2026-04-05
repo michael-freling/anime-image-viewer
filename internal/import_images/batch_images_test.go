@@ -90,10 +90,10 @@ func TestBatchImageImporter_importImageFiles(t *testing.T) {
 			},
 			wantInsertTags: dbTagBuilder.BuildTags(t,
 				db.Tag{ID: 1, Name: "Test 1"},
-				db.Tag{ID: 2, Name: "Test 10", ParentID: 1},
-				db.Tag{ID: 3, Name: "Test 100", ParentID: 2},
+				db.Tag{ID: 2, Name: "Test 10"},
+				db.Tag{ID: 3, Name: "Test 100"},
 				db.Tag{ID: 4, Name: "Test 2"},
-				db.Tag{ID: 5, Name: "Test 20", ParentID: 4},
+				db.Tag{ID: 5, Name: "Test 20"},
 			),
 			wantInsertFileTags: []db.FileTag{
 				dbTagBuilder.AddFileTag(t, db.FileTag{FileID: 1, TagID: 3, AddedBy: db.FileTagAddedByImport}).BuildFileTag(t, 1, 3),

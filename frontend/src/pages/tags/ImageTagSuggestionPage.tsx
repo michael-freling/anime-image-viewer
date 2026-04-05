@@ -95,9 +95,6 @@ const ImageTagSuggestionPage: React.FC = () => {
           if (suggestion.hasTag) {
             continue;
           }
-          if (suggestion.hasDescendantTag) {
-            continue;
-          }
           if (suggestion.score * 100 < selectedScore) {
             continue;
           }
@@ -210,7 +207,7 @@ const ImageTagSuggestionPage: React.FC = () => {
 
                 return (
                   <Chip key={tagId} color="primary">
-                    {tags[tagId].full_name}
+                    {tags[tagId].name}
                   </Chip>
                 );
               })}
@@ -221,7 +218,7 @@ const ImageTagSuggestionPage: React.FC = () => {
                 if (!(tagId in tags)) {
                   return null;
                 }
-                if (suggestion.hasTag || suggestion.hasDescendantTag) {
+                if (suggestion.hasTag) {
                   return null;
                 }
                 const score = suggestion.score * 100;
@@ -231,7 +228,7 @@ const ImageTagSuggestionPage: React.FC = () => {
                 const color = disabled ? "neutral" : "success";
                 return (
                   <Chip key={tagId} color={color} disabled={disabled}>
-                    {tags[tagId].full_name} ({score.toFixed(0)}%)
+                    {tags[tagId].name} ({score.toFixed(0)}%)
                   </Chip>
                 );
               })}

@@ -40,12 +40,8 @@ export const TagsListPage: FC = () => {
 
   const treeItems = tagsToTreeViewBaseItems(tags, 0);
 
-  const addNewChild = async (parentID: string) => {
-    await LegacyTagFrontendService.Create({
-      Name: "New Tag",
-      ParentID: parseInt(parentID, 10),
-    });
-    // todo: Update only added tag
+  const addNewChild = async (_parentID: string) => {
+    await LegacyTagFrontendService.CreateTopTag("New Tag");
     await refresh();
   };
 

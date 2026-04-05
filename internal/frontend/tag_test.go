@@ -19,21 +19,9 @@ type tagBuilder struct {
 func (builder *tagBuilder) BuildFrontendTag(id uint) Tag {
 	source := builder.Build(id)
 	require.NotZero(builder.t, source.ID)
-
-	children := make([]Tag, len(source.Children))
-	for i, child := range source.Children {
-		children[i] = builder.BuildFrontendTag(child.ID)
-	}
-	if len(children) == 0 {
-		children = nil
-	}
-
 	return Tag{
-		ID:       source.ID,
-		Name:     source.Name,
-		FullName: source.FullName,
-		ParentID: source.ParentID,
-		Children: children,
+		ID:   source.ID,
+		Name: source.Name,
 	}
 }
 
@@ -44,9 +32,9 @@ func TestTagService_GetAll(t *testing.T) {
 	builder := tester.newTagBuilder(t)
 	builder.Add(tag.Tag{ID: 1, Name: "tag1"}).
 		Add(tag.Tag{ID: 2, Name: "tag2"}).
-		Add(tag.Tag{ID: 11, Name: "child1 tag under tag1", ParentID: 1}).
-		Add(tag.Tag{ID: 12, Name: "child2 tag under tag1", ParentID: 1}).
-		Add(tag.Tag{ID: 111, Name: "child tag under child1", ParentID: 11})
+		Add(tag.Tag{ID: 11, Name: "child1 tag under tag1"}).
+		Add(tag.Tag{ID: 12, Name: "child2 tag under tag1"}).
+		Add(tag.Tag{ID: 111, Name: "child tag under child1"})
 
 	testCases := []struct {
 		name     string
@@ -65,6 +53,9 @@ func TestTagService_GetAll(t *testing.T) {
 			want: []Tag{
 				builder.BuildFrontendTag(1),
 				builder.BuildFrontendTag(2),
+				builder.BuildFrontendTag(11),
+				builder.BuildFrontendTag(12),
+				builder.BuildFrontendTag(111),
 			},
 		},
 		{
@@ -101,9 +92,9 @@ func TestTagService_ReadAllMap(t *testing.T) {
 	builder := tester.newTagBuilder(t)
 	builder.Add(tag.Tag{ID: 1, Name: "tag1"}).
 		Add(tag.Tag{ID: 2, Name: "tag2"}).
-		Add(tag.Tag{ID: 11, Name: "child1 tag under tag1", ParentID: 1}).
-		Add(tag.Tag{ID: 12, Name: "child2 tag under tag1", ParentID: 1}).
-		Add(tag.Tag{ID: 111, Name: "child tag under child1", ParentID: 11})
+		Add(tag.Tag{ID: 11, Name: "child1 tag under tag1"}).
+		Add(tag.Tag{ID: 12, Name: "child2 tag under tag1"}).
+		Add(tag.Tag{ID: 111, Name: "child tag under child1"})
 
 	testCases := []struct {
 		name     string
@@ -111,7 +102,7 @@ func TestTagService_ReadAllMap(t *testing.T) {
 		want     map[uint]Tag
 	}{
 		{
-			name: "Multiple tags with hierarchy",
+			name: "Multiple tags",
 			tagsInDB: []db.Tag{
 				builder.BuildDBTag(1),
 				builder.BuildDBTag(2),
@@ -120,34 +111,11 @@ func TestTagService_ReadAllMap(t *testing.T) {
 				builder.BuildDBTag(111),
 			},
 			want: map[uint]Tag{
-				1: {
-					ID:       1,
-					Name:     "tag1",
-					FullName: "tag1",
-				},
-				2: {
-					ID:       2,
-					Name:     "tag2",
-					FullName: "tag2",
-				},
-				11: {
-					ID:       11,
-					Name:     "child1 tag under tag1",
-					FullName: "tag1 > child1 tag under tag1",
-					ParentID: 1,
-				},
-				12: {
-					ID:       12,
-					Name:     "child2 tag under tag1",
-					FullName: "tag1 > child2 tag under tag1",
-					ParentID: 1,
-				},
-				111: {
-					ID:       111,
-					Name:     "child tag under child1",
-					FullName: "tag1 > child1 tag under tag1 > child tag under child1",
-					ParentID: 11,
-				},
+				1:   {ID: 1, Name: "tag1"},
+				2:   {ID: 2, Name: "tag2"},
+				11:  {ID: 11, Name: "child1 tag under tag1"},
+				12:  {ID: 12, Name: "child2 tag under tag1"},
+				111: {ID: 111, Name: "child tag under child1"},
 			},
 		},
 		{
@@ -176,12 +144,9 @@ func TestTagService_ReadAllMap_Error(t *testing.T) {
 	// Close the database to cause an error
 	dbClient.Truncate(t, &db.Tag{})
 
-	// Insert a tag with a circular parent reference that will cause
-	// an issue during reading. Actually, that's hard to trigger.
-	// Instead, let's just make sure the happy path with empty returns works.
+	// Test: ReadAllMap returns empty map for no tags (not an error)
 	service := tester.getTagService()
 
-	// Test: ReadAllMap returns empty map for no tags (not an error)
 	got, gotErr := service.ReadAllMap()
 	require.NoError(t, gotErr)
 	assert.Equal(t, map[uint]Tag{}, got)
@@ -246,18 +211,16 @@ func TestTagService_ReadTagsByFileIDs(t *testing.T) {
 				{ID: 100, Type: db.FileTypeImage, ParentID: 10, Name: "image file 100"},
 			},
 			insertFileTags: []db.FileTag{
-				{FileID: 1, TagID: 1},     // a tag for a top directory
-				{FileID: 2, TagID: 2},     // tag in directory 1 and 2
+				{FileID: 1, TagID: 1},     // a tag for a top directory (not requested)
+				{FileID: 2, TagID: 2},     // tag for file 2
 				{FileID: 3, TagID: 1},     // a file isn't included in a query
-				{FileID: 10, TagID: 11},   // a tag for a parent directory
+				{FileID: 10, TagID: 11},   // a tag for a parent directory (not requested)
 				{FileID: 100, TagID: 111}, // a tag for a direct file
 			},
 			want: ReadTagsByFileIDsResponse{
 				TagStats: map[uint]TagStat{
-					1:   {FileCount: 2, IsAddedByAncestor: true, IsAddedBySelectedFiles: false},
-					2:   {FileCount: 1, IsAddedByAncestor: false, IsAddedBySelectedFiles: true},
-					11:  {FileCount: 1, IsAddedByAncestor: true, IsAddedBySelectedFiles: false},
-					111: {FileCount: 1, IsAddedByAncestor: false, IsAddedBySelectedFiles: true},
+					2:   {FileCount: 1, IsAddedBySelectedFiles: true},
+					111: {FileCount: 1, IsAddedBySelectedFiles: true},
 				},
 			},
 		},

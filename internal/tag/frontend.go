@@ -52,35 +52,17 @@ func (service TagFrontendService) CreateTopTag(name string) (Tag, error) {
 }
 
 type TagInput struct {
-	Name     string
-	ParentID uint
+	Name string
 }
 
 func (service TagFrontendService) Create(ctx context.Context, input TagInput) (Tag, error) {
 	tag := db.Tag{
-		Name:     input.Name,
-		ParentID: input.ParentID,
+		Name: input.Name,
 	}
-
-	err := db.NewTransaction(ctx, service.dbClient, func(ctx context.Context) error {
-		ormClient := service.dbClient.Tag()
-		_, err := ormClient.FindByValue(ctx, &db.Tag{
-			ID: input.ParentID,
-		})
-		if err != nil {
-			return fmt.Errorf("ormClient.FindByValue: %w", err)
-		}
-
-		if err := ormClient.Create(ctx, &tag); err != nil {
-			return fmt.Errorf("ormClient.Create: %w", err)
-		}
-
-		return nil
-	})
+	err := db.Create(service.dbClient, &tag)
 	if err != nil {
-		return Tag{}, err
+		return Tag{}, fmt.Errorf("db.Create: %w", err)
 	}
-
 	return Tag{
 		ID:   tag.ID,
 		Name: tag.Name,
