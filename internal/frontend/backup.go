@@ -122,6 +122,6 @@ func (s *BackupFrontendService) RunIdleBackup(ctx context.Context) (string, erro
 		return "", nil
 	}
 
-	s.logger.Info("running idle backup")
-	return s.backupService.Backup(ctx, "", false)
+	s.logger.Info("running idle backup", "includeImages", s.config.Backup.IdleBackupIncludeImages)
+	return s.backupService.Backup(ctx, "", s.config.Backup.IdleBackupIncludeImages)
 }

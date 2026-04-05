@@ -6,6 +6,8 @@ import {
   Checkbox,
   CircularProgress,
   Divider,
+  FormControl,
+  FormLabel,
   Input,
   Modal,
   ModalDialog,
@@ -15,15 +17,19 @@ import {
 } from "@mui/joy";
 import { FC, useCallback, useEffect, useState } from "react";
 import {
-  BackupConfig,
   BackupFrontendService,
   BackupInfo,
+  ConfigFrontendService,
+  ConfigSettings,
 } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import Layout from "../../Layout";
 
 const BackupRestorePage: FC = () => {
   const [backups, setBackups] = useState<BackupInfo[]>([]);
-  const [config, setConfig] = useState<BackupConfig | null>(null);
+  const [configSettings, setConfigSettings] = useState<ConfigSettings | null>(null);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [settingsSuccess, setSettingsSuccess] = useState<string | null>(null);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [includeImages, setIncludeImages] = useState(false);
@@ -45,12 +51,12 @@ const BackupRestorePage: FC = () => {
 
   const fetchData = useCallback(async () => {
     try {
-      const [backupList, backupConfig] = await Promise.all([
+      const [backupList, config] = await Promise.all([
         BackupFrontendService.ListBackups(),
-        BackupFrontendService.GetBackupConfig(),
+        ConfigFrontendService.GetConfig(),
       ]);
       setBackups(backupList ?? []);
-      setConfig(backupConfig);
+      setConfigSettings(config);
     } catch (err) {
       console.error("Failed to fetch backup data", err);
     }
@@ -276,63 +282,126 @@ const BackupRestorePage: FC = () => {
         </Card>
 
         {/* Settings Section */}
-        {config && (
+        {configSettings && (
           <Card variant="outlined">
             <CardContent>
               <Typography level="title-lg">Settings</Typography>
               <Divider sx={{ my: 1 }} />
-              <Table>
-                <tbody>
-                  <tr>
-                    <td>
-                      <Typography level="title-sm">
-                        Backup Directory
-                      </Typography>
-                    </td>
-                    <td>
-                      <Typography level="body-sm">
-                        {config.backupDirectory || "(not set)"}
-                      </Typography>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <Typography level="title-sm">
-                        Retention Count
-                      </Typography>
-                    </td>
-                    <td>
-                      <Typography level="body-sm">
-                        {config.retentionCount}
-                      </Typography>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <Typography level="title-sm">
-                        Idle Backup
-                      </Typography>
-                    </td>
-                    <td>
-                      <Typography level="body-sm">
-                        {config.idleBackupEnabled ? "Enabled" : "Disabled"}
-                      </Typography>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <Typography level="title-sm">
-                        Idle Minutes
-                      </Typography>
-                    </td>
-                    <td>
-                      <Typography level="body-sm">
-                        {config.idleMinutes}
-                      </Typography>
-                    </td>
-                  </tr>
-                </tbody>
-              </Table>
+              <Stack spacing={2}>
+                <FormControl>
+                  <FormLabel>Backup Directory</FormLabel>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Input
+                      fullWidth
+                      readOnly
+                      value={configSettings.backupDirectory}
+                      size="sm"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outlined"
+                      onClick={async () => {
+                        try {
+                          const dir =
+                            await ConfigFrontendService.SelectDirectory();
+                          if (dir) {
+                            setConfigSettings({
+                              ...configSettings,
+                              backupDirectory: dir,
+                            });
+                          }
+                        } catch (err) {
+                          console.error("Failed to select directory", err);
+                        }
+                      }}
+                    >
+                      Browse
+                    </Button>
+                  </Stack>
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Retention Count</FormLabel>
+                  <Input
+                    type="number"
+                    value={configSettings.retentionCount}
+                    onChange={(e) =>
+                      setConfigSettings({
+                        ...configSettings,
+                        retentionCount: parseInt(e.target.value, 10) || 0,
+                      })
+                    }
+                    slotProps={{ input: { min: 1 } }}
+                    size="sm"
+                    sx={{ maxWidth: 200 }}
+                  />
+                </FormControl>
+                <Checkbox
+                  label="Enable Idle Backup"
+                  checked={configSettings.idleBackupEnabled}
+                  onChange={(e) =>
+                    setConfigSettings({
+                      ...configSettings,
+                      idleBackupEnabled: e.target.checked,
+                    })
+                  }
+                />
+                <Checkbox
+                  label="Include Images in Idle Backup"
+                  checked={configSettings.idleBackupIncludeImages}
+                  onChange={(e) =>
+                    setConfigSettings({
+                      ...configSettings,
+                      idleBackupIncludeImages: e.target.checked,
+                    })
+                  }
+                />
+                <FormControl>
+                  <FormLabel>Idle Minutes</FormLabel>
+                  <Input
+                    type="number"
+                    value={configSettings.idleMinutes}
+                    onChange={(e) =>
+                      setConfigSettings({
+                        ...configSettings,
+                        idleMinutes: parseInt(e.target.value, 10) || 0,
+                      })
+                    }
+                    slotProps={{ input: { min: 1 } }}
+                    size="sm"
+                    sx={{ maxWidth: 200 }}
+                  />
+                </FormControl>
+                <Button
+                  variant="solid"
+                  color="primary"
+                  disabled={isSavingSettings}
+                  startDecorator={
+                    isSavingSettings ? <CircularProgress size="sm" /> : null
+                  }
+                  sx={{ alignSelf: "flex-start" }}
+                  onClick={async () => {
+                    setIsSavingSettings(true);
+                    setSettingsError(null);
+                    setSettingsSuccess(null);
+                    try {
+                      await ConfigFrontendService.UpdateConfig(configSettings);
+                      setSettingsSuccess("Settings saved.");
+                    } catch (err) {
+                      setSettingsError(String(err));
+                    } finally {
+                      setIsSavingSettings(false);
+                    }
+                  }}
+                >
+                  {isSavingSettings ? "Saving..." : "Save"}
+                </Button>
+                {settingsSuccess && (
+                  <Alert color="success">{settingsSuccess}</Alert>
+                )}
+                {settingsError && (
+                  <Alert color="danger">{settingsError}</Alert>
+                )}
+              </Stack>
             </CardContent>
           </Card>
         )}

@@ -201,6 +201,16 @@ const SettingsPage: FC = () => {
                   })
                 }
               />
+              <Checkbox
+                label="Include Images in Idle Backup"
+                checked={settings.idleBackupIncludeImages}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    idleBackupIncludeImages: e.target.checked,
+                  })
+                }
+              />
               <FormControl>
                 <FormLabel>Idle Minutes</FormLabel>
                 <Input
@@ -223,16 +233,33 @@ const SettingsPage: FC = () => {
 
         {/* Save Button and Alerts */}
         <Stack spacing={2}>
-          <Button
-            variant="solid"
-            color="primary"
-            onClick={handleSave}
-            disabled={isSaving}
-            startDecorator={isSaving ? <CircularProgress size="sm" /> : null}
-            sx={{ alignSelf: "flex-start" }}
-          >
-            {isSaving ? "Saving..." : "Save"}
-          </Button>
+          <Stack direction="row" spacing={2}>
+            <Button
+              variant="solid"
+              color="primary"
+              onClick={handleSave}
+              disabled={isSaving}
+              startDecorator={isSaving ? <CircularProgress size="sm" /> : null}
+            >
+              {isSaving ? "Saving..." : "Save"}
+            </Button>
+            <Button
+              variant="outlined"
+              color="neutral"
+              disabled={isSaving}
+              onClick={async () => {
+                try {
+                  const defaults =
+                    await ConfigFrontendService.GetDefaultConfig();
+                  setSettings(defaults);
+                } catch (err) {
+                  console.error("Failed to get default config", err);
+                }
+              }}
+            >
+              Reset to Defaults
+            </Button>
+          </Stack>
           {saveSuccess && <Alert color="success">{saveSuccess}</Alert>}
           {saveError && <Alert color="danger">{saveError}</Alert>}
         </Stack>

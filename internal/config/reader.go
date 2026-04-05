@@ -25,10 +25,11 @@ const (
 )
 
 type BackupConfig struct {
-	BackupDirectory   string `toml:"backup_directory"`
-	RetentionCount    int    `toml:"retention_count"`
-	IdleBackupEnabled bool   `toml:"idle_backup_enabled"`
-	IdleMinutes       int    `toml:"idle_minutes"`
+	BackupDirectory         string `toml:"backup_directory"`
+	RetentionCount          int    `toml:"retention_count"`
+	IdleBackupEnabled       bool   `toml:"idle_backup_enabled"`
+	IdleBackupIncludeImages bool   `toml:"idle_backup_include_images"`
+	IdleMinutes             int    `toml:"idle_minutes"`
 }
 
 type Config struct {
@@ -95,7 +96,7 @@ func ReadConfig(configFile string) (Config, error) {
 		if _, err := os.Stat(configFile); os.IsNotExist(err) {
 			tempDir := os.TempDir()
 			return Config{
-				ImageRootDirectory: filepath.Join(homeDir, "Pictures", "anime-image-viewer", string(runtimeEnv)),
+				ImageRootDirectory: defaultImageRootDirectory(homeDir),
 				ConfigDirectory:    configDir,
 				LogDirectory:       filepath.Join(tempDir, "anime-image-viewer", "logs"),
 				Backup:             defaultBackupConfig(configDir),
@@ -124,12 +125,38 @@ func ReadConfig(configFile string) (Config, error) {
 	return conf, nil
 }
 
+// DefaultConfig returns the default configuration values.
+func DefaultConfig() (Config, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return Config{}, fmt.Errorf("os.UserHomeDir: %w", err)
+	}
+	configDir := filepath.Join(homeDir, ".config", "anime-image-viewer")
+	tempDir := os.TempDir()
+	return Config{
+		ImageRootDirectory: defaultImageRootDirectory(homeDir),
+		ConfigDirectory:    configDir,
+		LogDirectory:       filepath.Join(tempDir, "anime-image-viewer", "logs"),
+		Backup:             defaultBackupConfig(configDir),
+		Environment:        runtimeEnv,
+	}, nil
+}
+
+func defaultImageRootDirectory(homeDir string) string {
+	base := filepath.Join(homeDir, "Pictures", "anime-image-viewer")
+	if runtimeEnv == EnvironmentDevelopment {
+		return filepath.Join(base, string(runtimeEnv))
+	}
+	return base
+}
+
 func defaultBackupConfig(configDirectory string) BackupConfig {
 	return BackupConfig{
-		BackupDirectory:   filepath.Join(configDirectory, "backups"),
-		RetentionCount:    7,
-		IdleBackupEnabled: runtimeEnv == EnvironmentProduction,
-		IdleMinutes:       30,
+		BackupDirectory:         filepath.Join(configDirectory, "backups"),
+		RetentionCount:          7,
+		IdleBackupEnabled:       runtimeEnv == EnvironmentProduction,
+		IdleBackupIncludeImages: true,
+		IdleMinutes:             30,
 	}
 }
 

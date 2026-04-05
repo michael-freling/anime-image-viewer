@@ -11,13 +11,14 @@ import (
 
 // ConfigSettings is the JSON-friendly representation of application config for the frontend.
 type ConfigSettings struct {
-	ImageRootDirectory string `json:"imageRootDirectory"`
-	ConfigDirectory    string `json:"configDirectory"`
-	LogDirectory       string `json:"logDirectory"`
-	BackupDirectory    string `json:"backupDirectory"`
-	RetentionCount     int    `json:"retentionCount"`
-	IdleBackupEnabled  bool   `json:"idleBackupEnabled"`
-	IdleMinutes        int    `json:"idleMinutes"`
+	ImageRootDirectory      string `json:"imageRootDirectory"`
+	ConfigDirectory         string `json:"configDirectory"`
+	LogDirectory            string `json:"logDirectory"`
+	BackupDirectory         string `json:"backupDirectory"`
+	RetentionCount          int    `json:"retentionCount"`
+	IdleBackupEnabled       bool   `json:"idleBackupEnabled"`
+	IdleBackupIncludeImages bool   `json:"idleBackupIncludeImages"`
+	IdleMinutes             int    `json:"idleMinutes"`
 }
 
 // ConfigFrontendService provides methods for reading and updating application configuration
@@ -38,13 +39,14 @@ func NewConfigFrontendService(logger *slog.Logger, conf config.Config) *ConfigFr
 // GetConfig returns the current application configuration as ConfigSettings.
 func (s *ConfigFrontendService) GetConfig(ctx context.Context) ConfigSettings {
 	return ConfigSettings{
-		ImageRootDirectory: s.config.ImageRootDirectory,
-		ConfigDirectory:    s.config.ConfigDirectory,
-		LogDirectory:       s.config.LogDirectory,
-		BackupDirectory:    s.config.Backup.BackupDirectory,
-		RetentionCount:     s.config.Backup.RetentionCount,
-		IdleBackupEnabled:  s.config.Backup.IdleBackupEnabled,
-		IdleMinutes:        s.config.Backup.IdleMinutes,
+		ImageRootDirectory:      s.config.ImageRootDirectory,
+		ConfigDirectory:         s.config.ConfigDirectory,
+		LogDirectory:            s.config.LogDirectory,
+		BackupDirectory:         s.config.Backup.BackupDirectory,
+		RetentionCount:          s.config.Backup.RetentionCount,
+		IdleBackupEnabled:       s.config.Backup.IdleBackupEnabled,
+		IdleBackupIncludeImages: s.config.Backup.IdleBackupIncludeImages,
+		IdleMinutes:             s.config.Backup.IdleMinutes,
 	}
 }
 
@@ -56,6 +58,7 @@ func (s *ConfigFrontendService) UpdateConfig(ctx context.Context, settings Confi
 	s.config.Backup.BackupDirectory = settings.BackupDirectory
 	s.config.Backup.RetentionCount = settings.RetentionCount
 	s.config.Backup.IdleBackupEnabled = settings.IdleBackupEnabled
+	s.config.Backup.IdleBackupIncludeImages = settings.IdleBackupIncludeImages
 	s.config.Backup.IdleMinutes = settings.IdleMinutes
 
 	if err := config.WriteConfig("", s.config); err != nil {
@@ -64,6 +67,24 @@ func (s *ConfigFrontendService) UpdateConfig(ctx context.Context, settings Confi
 
 	s.logger.Info("config updated and saved")
 	return nil
+}
+
+// GetDefaultConfig returns the default configuration values.
+func (s *ConfigFrontendService) GetDefaultConfig(ctx context.Context) (ConfigSettings, error) {
+	defaults, err := config.DefaultConfig()
+	if err != nil {
+		return ConfigSettings{}, err
+	}
+	return ConfigSettings{
+		ImageRootDirectory:      defaults.ImageRootDirectory,
+		ConfigDirectory:         defaults.ConfigDirectory,
+		LogDirectory:            defaults.LogDirectory,
+		BackupDirectory:         defaults.Backup.BackupDirectory,
+		RetentionCount:          defaults.Backup.RetentionCount,
+		IdleBackupEnabled:       defaults.Backup.IdleBackupEnabled,
+		IdleBackupIncludeImages: defaults.Backup.IdleBackupIncludeImages,
+		IdleMinutes:             defaults.Backup.IdleMinutes,
+	}, nil
 }
 
 // SelectDirectory opens a native directory picker dialog and returns the selected path.

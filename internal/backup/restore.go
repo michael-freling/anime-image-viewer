@@ -61,6 +61,15 @@ func (s *RestoreService) Restore(ctx context.Context, backupDir string, opts Res
 	dbSource := filepath.Join(backupDir, metadata.DatabaseFileName)
 	dbDest := filepath.Join(configDir, string(s.config.Environment)+"_v1.sqlite")
 
+	// Check if the target database is the currently active database.
+	// If so, the app has the file locked and the copy would produce a corrupt/empty file.
+	activeDB := filepath.Join(s.config.ConfigDirectory, string(s.config.Environment)+"_v1.sqlite")
+	if !useTargetDir && dbDest == activeDB {
+		// Restoring to the active config directory — the app will lock the file.
+		// We copy to a temp file and rename, which is more likely to succeed.
+		s.logger.Warn("restoring database to the active config directory; a restart is required")
+	}
+
 	// Ensure target directory exists
 	if err := os.MkdirAll(filepath.Dir(dbDest), 0755); err != nil {
 		return fmt.Errorf("create config directory: %w", err)
@@ -68,6 +77,19 @@ func (s *RestoreService) Restore(ctx context.Context, backupDir string, opts Res
 
 	if err := copyFile(dbSource, dbDest); err != nil {
 		return fmt.Errorf("restore database: %w", err)
+	}
+
+	// Verify the copy was successful by checking file sizes match
+	srcInfo, err := os.Stat(dbSource)
+	if err != nil {
+		return fmt.Errorf("stat source database: %w", err)
+	}
+	dstInfo, err := os.Stat(dbDest)
+	if err != nil {
+		return fmt.Errorf("stat destination database: %w", err)
+	}
+	if srcInfo.Size() != dstInfo.Size() {
+		return fmt.Errorf("restore database: file size mismatch (source=%d, dest=%d); the database may be locked by the running application", srcInfo.Size(), dstInfo.Size())
 	}
 
 	// Optionally restore images
