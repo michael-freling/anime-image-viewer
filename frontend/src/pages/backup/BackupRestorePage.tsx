@@ -27,6 +27,7 @@ const BackupRestorePage: FC = () => {
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [includeImages, setIncludeImages] = useState(false);
+  const [backupTargetDir, setBackupTargetDir] = useState("");
   const [backupError, setBackupError] = useState<string | null>(null);
   const [backupSuccess, setBackupSuccess] = useState<string | null>(null);
   const [restoreError, setRestoreError] = useState<string | null>(null);
@@ -35,8 +36,7 @@ const BackupRestorePage: FC = () => {
   // Restore confirmation dialog state
   const [confirmRestore, setConfirmRestore] = useState<BackupInfo | null>(null);
   const [restoreImages, setRestoreImages] = useState(false);
-  const [targetConfigDir, setTargetConfigDir] = useState("");
-  const [targetImageDir, setTargetImageDir] = useState("");
+  const [targetDir, setTargetDir] = useState("");
 
   // Delete confirmation dialog state
   const [confirmDelete, setConfirmDelete] = useState<BackupInfo | null>(null);
@@ -65,7 +65,7 @@ const BackupRestorePage: FC = () => {
     setBackupError(null);
     setBackupSuccess(null);
     try {
-      const path = await BackupFrontendService.Backup(includeImages);
+      const path = await BackupFrontendService.Backup(includeImages, backupTargetDir);
       setBackupSuccess(`Backup created: ${path}`);
       await fetchData();
     } catch (err) {
@@ -84,8 +84,7 @@ const BackupRestorePage: FC = () => {
       await BackupFrontendService.Restore(
         backup.path,
         withImages,
-        targetConfigDir,
-        targetImageDir
+        targetDir
       );
       setRestoreSuccess(true);
     } catch (err) {
@@ -133,6 +132,46 @@ const BackupRestorePage: FC = () => {
                 onChange={(e) => setIncludeImages(e.target.checked)}
                 disabled={isBackingUp}
               />
+              <Stack spacing={1}>
+                <Typography level="title-sm">Target Directory</Typography>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Input
+                    fullWidth
+                    readOnly
+                    value={backupTargetDir}
+                    placeholder="(default)"
+                    size="sm"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outlined"
+                    disabled={isBackingUp}
+                    onClick={async () => {
+                      try {
+                        const dir =
+                          await BackupFrontendService.SelectDirectory();
+                        if (dir) {
+                          setBackupTargetDir(dir);
+                        }
+                      } catch (err) {
+                        console.error("Failed to select directory", err);
+                      }
+                    }}
+                  >
+                    Browse
+                  </Button>
+                  {backupTargetDir && (
+                    <Button
+                      size="sm"
+                      variant="plain"
+                      color="neutral"
+                      onClick={() => setBackupTargetDir("")}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </Stack>
+              </Stack>
               <Button
                 variant="solid"
                 color="primary"
@@ -208,8 +247,7 @@ const BackupRestorePage: FC = () => {
                             disabled={isRestoring || isDeleting}
                             onClick={() => {
                               setRestoreImages(false);
-                              setTargetConfigDir("");
-                              setTargetImageDir("");
+                              setTargetDir("");
                               setConfirmRestore(backup);
                             }}
                           >
@@ -326,13 +364,13 @@ const BackupRestorePage: FC = () => {
               )}
               <Stack spacing={1}>
                 <Typography level="title-sm">
-                  Target Config Directory
+                  Target Directory
                 </Typography>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <Input
                     fullWidth
                     readOnly
-                    value={targetConfigDir}
+                    value={targetDir}
                     placeholder="(default)"
                     size="sm"
                   />
@@ -344,7 +382,7 @@ const BackupRestorePage: FC = () => {
                         const dir =
                           await BackupFrontendService.SelectDirectory();
                         if (dir) {
-                          setTargetConfigDir(dir);
+                          setTargetDir(dir);
                         }
                       } catch (err) {
                         console.error("Failed to select directory", err);
@@ -353,61 +391,18 @@ const BackupRestorePage: FC = () => {
                   >
                     Browse
                   </Button>
-                  {targetConfigDir && (
+                  {targetDir && (
                     <Button
                       size="sm"
                       variant="plain"
                       color="neutral"
-                      onClick={() => setTargetConfigDir("")}
+                      onClick={() => setTargetDir("")}
                     >
                       Clear
                     </Button>
                   )}
                 </Stack>
               </Stack>
-              {restoreImages && confirmRestore?.includesImages && (
-                <Stack spacing={1}>
-                  <Typography level="title-sm">
-                    Target Image Directory
-                  </Typography>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Input
-                      fullWidth
-                      readOnly
-                      value={targetImageDir}
-                      placeholder="(default)"
-                      size="sm"
-                    />
-                    <Button
-                      size="sm"
-                      variant="outlined"
-                      onClick={async () => {
-                        try {
-                          const dir =
-                            await BackupFrontendService.SelectDirectory();
-                          if (dir) {
-                            setTargetImageDir(dir);
-                          }
-                        } catch (err) {
-                          console.error("Failed to select directory", err);
-                        }
-                      }}
-                    >
-                      Browse
-                    </Button>
-                    {targetImageDir && (
-                      <Button
-                        size="sm"
-                        variant="plain"
-                        color="neutral"
-                        onClick={() => setTargetImageDir("")}
-                      >
-                        Clear
-                      </Button>
-                    )}
-                  </Stack>
-                </Stack>
-              )}
               <Stack direction="row" spacing={1} justifyContent="flex-end">
                 <Button
                   variant="plain"

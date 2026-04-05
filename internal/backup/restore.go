@@ -23,13 +23,12 @@ func NewRestoreService(logger *slog.Logger, conf config.Config) *RestoreService 
 }
 
 // RestoreOptions configures where to restore data.
-// If TargetConfigDir or TargetImageDir are set, the restore writes to those
-// directories instead of the configured defaults, allowing testing without
+// If TargetDirectory is set, the database is restored into that directory and
+// images are restored into TargetDirectory/images/, allowing testing without
 // overwriting existing data.
 type RestoreOptions struct {
-	RestoreImages  bool
-	TargetConfigDir string
-	TargetImageDir  string
+	RestoreImages   bool
+	TargetDirectory string
 }
 
 // Restore restores a backup from the given backup directory.
@@ -51,12 +50,11 @@ func (s *RestoreService) Restore(ctx context.Context, backupDir string, opts Res
 
 	// Determine target directories
 	configDir := s.config.ConfigDirectory
-	if opts.TargetConfigDir != "" {
-		configDir = opts.TargetConfigDir
-	}
 	imageDir := s.config.ImageRootDirectory
-	if opts.TargetImageDir != "" {
-		imageDir = opts.TargetImageDir
+	useTargetDir := opts.TargetDirectory != ""
+	if useTargetDir {
+		configDir = opts.TargetDirectory
+		imageDir = filepath.Join(opts.TargetDirectory, "images")
 	}
 
 	// Restore database
@@ -76,8 +74,12 @@ func (s *RestoreService) Restore(ctx context.Context, backupDir string, opts Res
 	if opts.RestoreImages && metadata.IncludesImages {
 		imagesSource := filepath.Join(backupDir, imagesDirName)
 		if _, err := os.Stat(imagesSource); err == nil {
-			if err := os.RemoveAll(imageDir); err != nil {
-				return fmt.Errorf("remove existing images: %w", err)
+			// When restoring to the default location, remove existing images first.
+			// When restoring to a target directory, just copy into it.
+			if !useTargetDir {
+				if err := os.RemoveAll(imageDir); err != nil {
+					return fmt.Errorf("remove existing images: %w", err)
+				}
 			}
 			if err := copyDirectory(ctx, imagesSource, imageDir); err != nil {
 				return fmt.Errorf("restore images: %w", err)

@@ -52,7 +52,7 @@ func TestBackupFrontendService_Backup(t *testing.T) {
 
 	svc := NewBackupFrontendService(logger, conf)
 
-	backupPath, err := svc.Backup(context.Background(), false)
+	backupPath, err := svc.Backup(context.Background(), false, "")
 	require.NoError(t, err)
 	assert.NotEmpty(t, backupPath, "backup path should not be empty")
 	assert.DirExists(t, backupPath, "backup directory should exist")
@@ -82,7 +82,7 @@ func TestBackupFrontendService_ListBackups(t *testing.T) {
 	assert.Empty(t, backups)
 
 	// Create a backup
-	backupPath, err := svc.Backup(context.Background(), false)
+	backupPath, err := svc.Backup(context.Background(), false, "")
 	require.NoError(t, err)
 	require.NotEmpty(t, backupPath)
 
@@ -147,7 +147,7 @@ func TestBackupFrontendService_RunIdleBackup_RecentBackupExists(t *testing.T) {
 	svc := NewBackupFrontendService(logger, conf)
 
 	// Create a backup first so a recent one exists
-	backupPath, err := svc.Backup(context.Background(), false)
+	backupPath, err := svc.Backup(context.Background(), false, "")
 	require.NoError(t, err)
 	require.NotEmpty(t, backupPath)
 
@@ -239,7 +239,7 @@ func TestBackupFrontendService_DeleteBackup(t *testing.T) {
 	svc := NewBackupFrontendService(logger, conf)
 
 	// Create a backup
-	backupPath, err := svc.Backup(context.Background(), false)
+	backupPath, err := svc.Backup(context.Background(), false, "")
 	require.NoError(t, err)
 	require.NotEmpty(t, backupPath)
 	assert.DirExists(t, backupPath)
@@ -284,7 +284,7 @@ func TestBackupFrontendService_Restore(t *testing.T) {
 	svc := NewBackupFrontendService(logger, conf)
 
 	// Create a backup
-	backupPath, err := svc.Backup(context.Background(), false)
+	backupPath, err := svc.Backup(context.Background(), false, "")
 	require.NoError(t, err)
 	require.NotEmpty(t, backupPath)
 
@@ -299,7 +299,7 @@ func TestBackupFrontendService_Restore(t *testing.T) {
 	assert.Equal(t, "modified-database-content", string(content))
 
 	// Restore from backup
-	err = svc.Restore(context.Background(), backupPath, false, "", "")
+	err = svc.Restore(context.Background(), backupPath, false, "")
 	require.NoError(t, err)
 
 	// Verify the database was restored to the original content

@@ -44,8 +44,9 @@ func NewBackupFrontendService(
 }
 
 // Backup creates a backup. Returns the backup directory path.
-func (s *BackupFrontendService) Backup(ctx context.Context, includeImages bool) (string, error) {
-	return s.backupService.Backup(ctx, "", includeImages)
+// If targetDir is non-empty, the backup is created there instead of the configured default.
+func (s *BackupFrontendService) Backup(ctx context.Context, includeImages bool, targetDir string) (string, error) {
+	return s.backupService.Backup(ctx, targetDir, includeImages)
 }
 
 // SelectDirectory opens a native directory picker dialog and returns the selected path.
@@ -63,11 +64,12 @@ func (s *BackupFrontendService) SelectDirectory(ctx context.Context) (string, er
 }
 
 // Restore restores from a backup directory path.
-func (s *BackupFrontendService) Restore(ctx context.Context, backupPath string, restoreImages bool, targetConfigDir string, targetImageDir string) error {
+// If targetDir is non-empty, the database restores into that directory and images
+// restore into targetDir/images/.
+func (s *BackupFrontendService) Restore(ctx context.Context, backupPath string, restoreImages bool, targetDir string) error {
 	return s.restoreService.Restore(ctx, backupPath, backup.RestoreOptions{
 		RestoreImages:   restoreImages,
-		TargetConfigDir: targetConfigDir,
-		TargetImageDir:  targetImageDir,
+		TargetDirectory: targetDir,
 	})
 }
 
