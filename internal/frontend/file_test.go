@@ -461,4 +461,71 @@ func TestStaticFileService_ServeHTTP_Restore(t *testing.T) {
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
+
+	t.Run("nil restore service returns error for corrupted full-size image", func(t *testing.T) {
+		imageDir := t.TempDir()
+		logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		}))
+
+		relPath := "photos/corrupt_no_restore.jpg"
+
+		// Create a corrupted image on disk
+		corruptedPath := filepath.Join(imageDir, relPath)
+		require.NoError(t, os.MkdirAll(filepath.Dir(corruptedPath), 0755))
+		require.NoError(t, os.WriteFile(corruptedPath, []byte("not a real image"), 0644))
+
+		conf := config.Config{
+			ImageRootDirectory: imageDir,
+		}
+
+		// No restore service -- tryRestoreAndValidate will return "no restore service configured"
+		service := NewStaticFileService(logger, conf, nil)
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/"+relPath, nil)
+		service.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		assert.Contains(t, w.Body.String(), "image corrupted and restore failed")
+	})
+
+	t.Run("corrupted resized image with no valid backup returns error", func(t *testing.T) {
+		imageDir := t.TempDir()
+		backupDir := t.TempDir()
+		logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		}))
+
+		relPath := "photos/resize_no_backup.jpg"
+
+		// Create a corrupted image on disk
+		corruptedPath := filepath.Join(imageDir, relPath)
+		require.NoError(t, os.MkdirAll(filepath.Dir(corruptedPath), 0755))
+		require.NoError(t, os.WriteFile(corruptedPath, []byte("not a real image"), 0644))
+
+		// Create a backup with a corrupted copy (no valid backup available)
+		createTestBackup(t, backupDir, "backup_2024-01-01T10-00-00",
+			time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC), true, relPath, false)
+
+		conf := config.Config{
+			ImageRootDirectory: imageDir,
+			ConfigDirectory:    t.TempDir(),
+			Environment:        "development",
+			Backup: config.BackupConfig{
+				BackupDirectory: backupDir,
+				RetentionCount:  7,
+			},
+		}
+
+		restoreService := backup.NewRestoreService(logger, conf)
+		service := NewStaticFileService(logger, conf, restoreService)
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/"+relPath+"?width=100", nil)
+		service.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		assert.Contains(t, w.Body.String(), "image corrupted and restore failed")
+	})
 }

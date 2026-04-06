@@ -71,6 +71,26 @@ func TestValidateImageFile(t *testing.T) {
 		assert.True(t, errors.Is(err, ErrImageCorrupted), "expected ErrImageCorrupted, got: %v", err)
 	})
 
+	t.Run("stat error other than not found", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		// Create a directory with no execute permission so that stat on a
+		// file inside it returns a permission error, not a not-found error.
+		noExecDir := filepath.Join(tmpDir, "noperm")
+		require.NoError(t, os.MkdirAll(noExecDir, 0755))
+		filePath := filepath.Join(noExecDir, "image.jpg")
+		require.NoError(t, os.WriteFile(filePath, []byte("data"), 0644))
+		require.NoError(t, os.Chmod(noExecDir, 0000))
+		t.Cleanup(func() {
+			os.Chmod(noExecDir, 0755)
+		})
+
+		err := ValidateImageFile(filePath)
+
+		assert.Error(t, err)
+		assert.False(t, errors.Is(err, ErrImageNotFound), "should not be ErrImageNotFound")
+		assert.Contains(t, err.Error(), "stat image file")
+	})
+
 	t.Run("file with only jpeg header", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		filePath := filepath.Join(tmpDir, "header_only.jpg")

@@ -177,6 +177,22 @@ func TestRestoreSingleFile(t *testing.T) {
 		assert.True(t, errors.Is(err, ErrNoValidBackup), "expected ErrNoValidBackup, got: %v", err)
 	})
 
+	t.Run("ListBackups error returns error", func(t *testing.T) {
+		conf := newTestConfig(t)
+		logger := newTestLogger()
+		// Replace the backup directory with a regular file so that
+		// ListBackups (which uses os.ReadDir) fails.
+		require.NoError(t, os.RemoveAll(conf.Backup.BackupDirectory))
+		require.NoError(t, os.WriteFile(conf.Backup.BackupDirectory, []byte("not a directory"), 0644))
+
+		service := NewRestoreService(logger, conf)
+
+		err := service.RestoreSingleFile(ctx, "photos/image.jpg", conf.ImageRootDirectory)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "list backups")
+	})
+
 	t.Run("creates parent directories when restoring", func(t *testing.T) {
 		conf := newTestConfig(t)
 		logger := newTestLogger()
@@ -193,5 +209,50 @@ func TestRestoreSingleFile(t *testing.T) {
 		restoredPath := filepath.Join(conf.ImageRootDirectory, relPath)
 		_, err = os.Stat(restoredPath)
 		assert.NoError(t, err)
+	})
+
+	t.Run("MkdirAll error when destination parent is a file", func(t *testing.T) {
+		conf := newTestConfig(t)
+		logger := newTestLogger()
+		service := NewRestoreService(logger, conf)
+
+		relPath := "photos/subdir/image.jpg"
+
+		createBackupWithImage(t, conf.Backup.BackupDirectory, "backup_2024-01-01T10-00-00",
+			time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC), true, relPath, true)
+
+		// Create a regular file at the parent directory path to make MkdirAll fail
+		photosPath := filepath.Join(conf.ImageRootDirectory, "photos", "subdir")
+		require.NoError(t, os.MkdirAll(filepath.Join(conf.ImageRootDirectory, "photos"), 0755))
+		require.NoError(t, os.WriteFile(photosPath, []byte("blocking file"), 0644))
+
+		err := service.RestoreSingleFile(ctx, relPath, conf.ImageRootDirectory)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "create parent directory")
+	})
+
+	t.Run("copyFile error when destination is read-only", func(t *testing.T) {
+		conf := newTestConfig(t)
+		logger := newTestLogger()
+		service := NewRestoreService(logger, conf)
+
+		relPath := "photos/image.jpg"
+
+		createBackupWithImage(t, conf.Backup.BackupDirectory, "backup_2024-01-01T10-00-00",
+			time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC), true, relPath, true)
+
+		// Create the parent directory as read-only so the file cannot be created
+		destDir := filepath.Join(conf.ImageRootDirectory, "photos")
+		require.NoError(t, os.MkdirAll(destDir, 0755))
+		require.NoError(t, os.Chmod(destDir, 0555))
+		t.Cleanup(func() {
+			os.Chmod(destDir, 0755)
+		})
+
+		err := service.RestoreSingleFile(ctx, relPath, conf.ImageRootDirectory)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "copy restored file")
 	})
 }
