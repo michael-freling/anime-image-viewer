@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/michael-freling/anime-image-viewer/internal/anime"
+	"github.com/michael-freling/anime-image-viewer/internal/backup"
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/frontend"
@@ -138,6 +139,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 		directoryReader,
 	)
 
+	restoreService := backup.NewRestoreService(logger, conf)
 	backupFrontendService := frontend.NewBackupFrontendService(logger, conf)
 	configFrontendService := frontend.NewConfigFrontendService(logger, conf)
 
@@ -166,7 +168,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 			application.NewService(tagService),
 			application.NewService(legacyTagFrontendService),
 			application.NewService(
-				frontend.NewStaticFileService(logger, conf),
+				frontend.NewStaticFileService(logger, conf, restoreService),
 				application.ServiceOptions{
 					Route: "/files/",
 				},
