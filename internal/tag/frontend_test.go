@@ -120,6 +120,134 @@ func TestTagFrontendService_UpdateName(t *testing.T) {
 	}
 }
 
+func TestTagFrontendService_GetTagFileCount(t *testing.T) {
+	tester := newTester(t)
+
+	// setup: create tags and file tags
+	require.NoError(t, db.BatchCreate(tester.dbClient, []db.Tag{
+		{ID: 1, Name: "tag1"},
+		{ID: 2, Name: "tag2"},
+	}))
+	require.NoError(t, db.BatchCreate(tester.dbClient, []db.FileTag{
+		{TagID: 1, FileID: 100, AddedBy: db.FileTagAddedByUser},
+		{TagID: 1, FileID: 200, AddedBy: db.FileTagAddedByUser},
+	}))
+
+	service := tester.getFrontendService(frontendServiceMocks{})
+
+	count, err := service.GetTagFileCount(1)
+	require.NoError(t, err)
+	assert.Equal(t, uint(2), count)
+
+	count, err = service.GetTagFileCount(2)
+	require.NoError(t, err)
+	assert.Equal(t, uint(0), count)
+}
+
+func TestTagFrontendService_DeleteTag(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(&db.Tag{}, &db.FileTag{})
+
+	require.NoError(t, db.BatchCreate(tester.dbClient, []db.Tag{
+		{ID: 1, Name: "tag1"},
+		{ID: 2, Name: "tag2"},
+	}))
+	require.NoError(t, db.BatchCreate(tester.dbClient, []db.FileTag{
+		{TagID: 1, FileID: 100, AddedBy: db.FileTagAddedByUser},
+		{TagID: 1, FileID: 200, AddedBy: db.FileTagAddedByUser},
+	}))
+
+	ctx := context.Background()
+	service := tester.getFrontendService(frontendServiceMocks{})
+
+	// Delete tag with file associations
+	err := service.DeleteTag(ctx, 1)
+	require.NoError(t, err)
+
+	// Verify tag is deleted
+	tags, err := db.GetAll[db.Tag](tester.dbClient)
+	require.NoError(t, err)
+	assert.Len(t, tags, 1)
+	assert.Equal(t, uint(2), tags[0].ID)
+
+	// Verify file tags are deleted
+	fileTags, err := tester.dbClient.FileTag().FindAllByTagIDs([]uint{1})
+	require.NoError(t, err)
+	assert.Empty(t, fileTags)
+
+	// Delete tag without file associations
+	err = service.DeleteTag(ctx, 2)
+	require.NoError(t, err)
+
+	tags, err = db.GetAll[db.Tag](tester.dbClient)
+	require.NoError(t, err)
+	assert.Empty(t, tags)
+}
+
+func TestTagFrontendService_MergeTags(t *testing.T) {
+	tester := newTester(t)
+	ctx := context.Background()
+
+	t.Run("merge with file associations", func(t *testing.T) {
+		tester.dbClient.Truncate(&db.Tag{}, &db.FileTag{})
+
+		require.NoError(t, db.BatchCreate(tester.dbClient, []db.Tag{
+			{ID: 1, Name: "source"},
+			{ID: 2, Name: "target"},
+		}))
+		require.NoError(t, db.BatchCreate(tester.dbClient, []db.FileTag{
+			{TagID: 1, FileID: 100, AddedBy: db.FileTagAddedByUser},
+			{TagID: 1, FileID: 200, AddedBy: db.FileTagAddedByUser},
+			{TagID: 2, FileID: 200, AddedBy: db.FileTagAddedByUser}, // overlap
+			{TagID: 2, FileID: 300, AddedBy: db.FileTagAddedByUser},
+		}))
+
+		service := tester.getFrontendService(frontendServiceMocks{})
+		err := service.MergeTags(ctx, 1, 2)
+		require.NoError(t, err)
+
+		// Source tag should be deleted
+		tags, err := db.GetAll[db.Tag](tester.dbClient)
+		require.NoError(t, err)
+		assert.Len(t, tags, 1)
+		assert.Equal(t, uint(2), tags[0].ID)
+
+		// Source file-tags should be deleted
+		sourceFileTags, err := tester.dbClient.FileTag().FindAllByTagIDs([]uint{1})
+		require.NoError(t, err)
+		assert.Empty(t, sourceFileTags)
+
+		// Target should have file 100 (transferred), 200 (already had), 300 (already had)
+		targetFileTags, err := tester.dbClient.FileTag().FindAllByTagIDs([]uint{2})
+		require.NoError(t, err)
+		assert.Len(t, targetFileTags, 3)
+	})
+
+	t.Run("merge same tag returns error", func(t *testing.T) {
+		service := tester.getFrontendService(frontendServiceMocks{})
+		err := service.MergeTags(ctx, 1, 1)
+		assert.Error(t, err)
+	})
+
+	t.Run("merge with no file associations", func(t *testing.T) {
+		tester.dbClient.Truncate(&db.Tag{}, &db.FileTag{})
+
+		require.NoError(t, db.BatchCreate(tester.dbClient, []db.Tag{
+			{ID: 10, Name: "empty-source"},
+			{ID: 20, Name: "target"},
+		}))
+
+		service := tester.getFrontendService(frontendServiceMocks{})
+		err := service.MergeTags(ctx, 10, 20)
+		require.NoError(t, err)
+
+		tags, err := db.GetAll[db.Tag](tester.dbClient)
+		require.NoError(t, err)
+		assert.Len(t, tags, 1)
+		assert.Equal(t, uint(20), tags[0].ID)
+	})
+}
+
 func TestTagFrontendService_BatchUpdateTagsForFiles_NoChanges(t *testing.T) {
 	tester := newTester(t)
 	dbClient := tester.dbClient
