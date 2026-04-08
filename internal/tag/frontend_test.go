@@ -59,6 +59,7 @@ func TestTagFrontendService_Create(t *testing.T) {
 		assert.Equal(t, "mytag", got.Name)
 		assert.NotZero(t, got.ID)
 	})
+
 }
 
 func TestTagFrontendService_UpdateName(t *testing.T) {
@@ -245,6 +246,30 @@ func TestTagFrontendService_MergeTags(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, tags, 1)
 		assert.Equal(t, uint(20), tags[0].ID)
+	})
+
+	t.Run("merge with non-existent source tag returns error", func(t *testing.T) {
+		tester.dbClient.Truncate(&db.Tag{}, &db.FileTag{})
+
+		require.NoError(t, db.BatchCreate(tester.dbClient, []db.Tag{
+			{ID: 200, Name: "target"},
+		}))
+
+		service := tester.getFrontendService(frontendServiceMocks{})
+		err := service.MergeTags(ctx, 999, 200)
+		assert.Error(t, err)
+	})
+
+	t.Run("merge with non-existent target tag returns error", func(t *testing.T) {
+		tester.dbClient.Truncate(&db.Tag{}, &db.FileTag{})
+
+		require.NoError(t, db.BatchCreate(tester.dbClient, []db.Tag{
+			{ID: 201, Name: "source"},
+		}))
+
+		service := tester.getFrontendService(frontendServiceMocks{})
+		err := service.MergeTags(ctx, 201, 999)
+		assert.Error(t, err)
 	})
 }
 

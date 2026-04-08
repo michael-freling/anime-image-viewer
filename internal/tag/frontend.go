@@ -99,27 +99,14 @@ func (service TagFrontendService) UpdateName(ctx context.Context, id uint, name 
 
 func (service TagFrontendService) GetTagFileCount(tagID uint) (uint, error) {
 	fileTags, err := service.dbClient.FileTag().FindAllByTagIDs([]uint{tagID})
-	if err != nil {
-		return 0, fmt.Errorf("FileTag.FindAllByTagIDs: %w", err)
-	}
-	return uint(len(fileTags)), nil
+	return uint(len(fileTags)), err
 }
 
 func (service TagFrontendService) DeleteTag(ctx context.Context, tagID uint) error {
 	return db.NewTransaction(ctx, service.dbClient, func(ctx context.Context) error {
-		// Delete file-tag associations first
-		fileTags, err := service.dbClient.FileTag().FindAllByTagIDs([]uint{tagID})
-		if err != nil {
-			return fmt.Errorf("FileTag.FindAllByTagIDs: %w", err)
+		if err := service.dbClient.FileTag().DeleteByTagIDs(ctx, []uint{tagID}); err != nil {
+			return fmt.Errorf("FileTag.DeleteByTagIDs: %w", err)
 		}
-		if len(fileTags) > 0 {
-			fileIDs := fileTags.ToFileIDs()
-			if err := service.dbClient.FileTag().BatchDelete(ctx, []uint{tagID}, fileIDs); err != nil {
-				return fmt.Errorf("FileTag.BatchDelete: %w", err)
-			}
-		}
-
-		// Delete the tag itself
 		if err := service.dbClient.Tag().BatchDelete(ctx, []db.Tag{{ID: tagID}}); err != nil {
 			return fmt.Errorf("Tag.BatchDelete: %w", err)
 		}
@@ -148,41 +135,37 @@ func (service TagFrontendService) MergeTags(ctx context.Context, sourceTagID uin
 			return fmt.Errorf("FileTag.FindAllByTagIDs for source: %w", err)
 		}
 
-		if len(sourceFileTags) > 0 {
-			// Get existing file associations for target tag to avoid duplicates
-			targetFileTags, err := service.dbClient.FileTag().FindAllByTagIDs([]uint{targetTagID})
-			if err != nil {
-				return fmt.Errorf("FileTag.FindAllByTagIDs for target: %w", err)
-			}
-			targetFileIDSet := make(map[uint]bool)
-			for _, ft := range targetFileTags {
-				targetFileIDSet[ft.FileID] = true
-			}
+		// Get existing file associations for target tag to avoid duplicates
+		targetFileTags, err := service.dbClient.FileTag().FindAllByTagIDs([]uint{targetTagID})
+		if err != nil {
+			return fmt.Errorf("FileTag.FindAllByTagIDs for target: %w", err)
+		}
+		targetFileIDSet := make(map[uint]bool)
+		for _, ft := range targetFileTags {
+			targetFileIDSet[ft.FileID] = true
+		}
 
-			// Create new file-tag associations for the target tag (skip duplicates)
-			newFileTags := make([]db.FileTag, 0)
-			for _, ft := range sourceFileTags {
-				if targetFileIDSet[ft.FileID] {
-					continue // target already has this file
-				}
-				newFileTags = append(newFileTags, db.FileTag{
-					TagID:   targetTagID,
-					FileID:  ft.FileID,
-					AddedBy: ft.AddedBy,
-				})
+		// Create new file-tag associations for the target tag (skip duplicates)
+		newFileTags := make([]db.FileTag, 0)
+		for _, ft := range sourceFileTags {
+			if targetFileIDSet[ft.FileID] {
+				continue // target already has this file
 			}
-			if len(newFileTags) > 0 {
-				fileTagClient := service.dbClient.FileTag()
-				if err := fileTagClient.BatchCreate(ctx, newFileTags); err != nil {
-					return fmt.Errorf("FileTag.BatchCreate: %w", err)
-				}
+			newFileTags = append(newFileTags, db.FileTag{
+				TagID:   targetTagID,
+				FileID:  ft.FileID,
+				AddedBy: ft.AddedBy,
+			})
+		}
+		if len(newFileTags) > 0 {
+			if err := service.dbClient.FileTag().BatchCreate(ctx, newFileTags); err != nil {
+				return fmt.Errorf("FileTag.BatchCreate: %w", err)
 			}
+		}
 
-			// Delete source tag's file associations
-			sourceFileIDs := sourceFileTags.ToFileIDs()
-			if err := service.dbClient.FileTag().BatchDelete(ctx, []uint{sourceTagID}, sourceFileIDs); err != nil {
-				return fmt.Errorf("FileTag.BatchDelete: %w", err)
-			}
+		// Delete source tag's file associations (no-op if none)
+		if err := service.dbClient.FileTag().DeleteByTagIDs(ctx, []uint{sourceTagID}); err != nil {
+			return fmt.Errorf("FileTag.DeleteByTagIDs: %w", err)
 		}
 
 		// Delete the source tag
@@ -220,7 +203,7 @@ func (service TagFrontendService) BatchUpdateTagsForFiles(ctx context.Context, f
 		return nil
 	}
 
-	err = db.NewTransaction(ctx, service.dbClient, func(ctx context.Context) error {
+	return db.NewTransaction(ctx, service.dbClient, func(ctx context.Context) error {
 		ormClient := service.dbClient.FileTag()
 		if len(deletedTagIDs) > 0 {
 			if err := ormClient.BatchDelete(ctx, deletedTagIDs, fileIDs); err != nil {
@@ -234,10 +217,6 @@ func (service TagFrontendService) BatchUpdateTagsForFiles(ctx context.Context, f
 		}
 		return nil
 	})
-	if err != nil {
-		return fmt.Errorf("db.NewTransaction: %w", err)
-	}
-	return nil
 }
 
 type SuggestTagsResponse struct {

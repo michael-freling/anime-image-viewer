@@ -144,3 +144,12 @@ func (client *FileTagClient) BatchDelete(ctx context.Context, tagIDs []uint, fil
 
 	return client.ORMClient.BatchDelete(ctx, fileTags)
 }
+
+func (client *FileTagClient) DeleteByTagIDs(ctx context.Context, tagIDs []uint) error {
+	if len(tagIDs) == 0 {
+		return nil
+	}
+	return client.getTransaction(ctx).
+		Where("tag_id IN ?", tagIDs).
+		Delete(&FileTag{}).Error
+}
