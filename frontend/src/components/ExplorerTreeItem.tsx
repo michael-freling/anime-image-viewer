@@ -1,5 +1,5 @@
 // TreeView hasn't been supported by a Joy UI yet: https://github.com/mui/mui-x/issues/14687
-import { Add, EditOutlined, Upload } from "@mui/icons-material";
+import { Add, CallMerge, DeleteOutlined, EditOutlined, Upload } from "@mui/icons-material";
 import { Checkbox, Chip, IconButton, Stack } from "@mui/joy";
 import {
   TreeItem2,
@@ -15,6 +15,8 @@ export interface ExplorerTreeItemLabelProps
   editable: boolean;
   tags: string[];
   addNewChild: () => Promise<void>;
+  deleteItem?: () => Promise<void>;
+  mergeItem?: () => void;
   toggleItemEditing: (() => void) | null;
   importImages: () => Promise<void> | null;
 }
@@ -26,6 +28,8 @@ export function ExplorerTreeItemLabel({
   tags,
   toggleItemEditing, // only for editable
   addNewChild, // only for editable
+  deleteItem, // only for editable
+  mergeItem, // only for editable
   importImages, // only for editable
   ...other
 }: ExplorerTreeItemLabelProps) {
@@ -84,6 +88,30 @@ export function ExplorerTreeItemLabel({
           >
             <Add />
           </IconButton>
+          {mergeItem == null ? null : (
+            <IconButton
+              variant="outlined"
+              color="neutral"
+              onClick={(event: SyntheticEvent) => {
+                event.stopPropagation();
+                mergeItem();
+              }}
+            >
+              <CallMerge />
+            </IconButton>
+          )}
+          {deleteItem == null ? null : (
+            <IconButton
+              variant="outlined"
+              color="danger"
+              onClick={(event: SyntheticEvent) => {
+                event.stopPropagation();
+                deleteItem();
+              }}
+            >
+              <DeleteOutlined />
+            </IconButton>
+          )}
           {toggleItemEditing == null ? null : (
             <IconButton
               variant="outlined"
@@ -212,6 +240,8 @@ export const ExplorerTreeItemWithCheckbox = React.forwardRef(
 
 export interface ExplorerTreeItemProps extends TreeItem2Props {
   addNewChild: (parentID: string) => Promise<void>;
+  deleteItem?: (itemId: string) => Promise<void>;
+  mergeItem?: (itemId: string) => void;
   importImages?: (parentID: string) => Promise<void>;
 }
 export const ExplorerTreeItem = React.forwardRef(function CustomTreeItem(
@@ -229,7 +259,7 @@ export const ExplorerTreeItem = React.forwardRef(function CustomTreeItem(
       event.defaultMuiPrevented = true;
     };
 
-  const { addNewChild, importImages } = props as ExplorerTreeItemProps;
+  const { addNewChild, deleteItem, mergeItem, importImages } = props as ExplorerTreeItemProps;
 
   const onImportImages =
     importImages == null || itemId == "0"
@@ -258,6 +288,16 @@ export const ExplorerTreeItem = React.forwardRef(function CustomTreeItem(
           addNewChild: () => {
             addNewChild(itemId);
           },
+          deleteItem: deleteItem
+            ? () => {
+                deleteItem(itemId);
+              }
+            : undefined,
+          mergeItem: mergeItem
+            ? () => {
+                mergeItem(itemId);
+              }
+            : undefined,
           toggleItemEditing: onToggleItemEditing,
           importImages: onImportImages,
         } as ExplorerTreeItemLabelProps,

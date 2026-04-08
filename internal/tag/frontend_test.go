@@ -38,7 +38,6 @@ func TestTagFrontendService_CreateTopTag(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, allTags, 1)
 		assert.Equal(t, "MyTag", allTags[0].Name)
-		assert.Equal(t, uint(0), allTags[0].ParentID)
 	})
 }
 
@@ -50,52 +49,17 @@ func TestTagFrontendService_Create(t *testing.T) {
 		dbClient: dbClient,
 	}
 
-	testCases := []struct {
-		name       string
-		insertTags []db.Tag
-		input      TagInput
-		wantName   string
-		wantErr    bool
-	}{
-		{
-			name: "create a child tag successfully",
-			insertTags: []db.Tag{
-				{ID: 1, Name: "parent"},
-			},
-			input: TagInput{
-				Name:     "child",
-				ParentID: 1,
-			},
-			wantName: "child",
-		},
-		{
-			name:       "parent not found returns error",
-			insertTags: nil,
-			input: TagInput{
-				Name:     "orphan",
-				ParentID: 999,
-			},
-			wantErr: true,
-		},
-	}
+	t.Run("create a tag successfully", func(t *testing.T) {
+		dbClient.Truncate(&db.Tag{})
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			dbClient.Truncate(&db.Tag{})
-			if len(tc.insertTags) > 0 {
-				require.NoError(t, db.BatchCreate(dbClient, tc.insertTags))
-			}
-
-			got, err := service.Create(context.Background(), tc.input)
-			if tc.wantErr {
-				assert.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-			assert.Equal(t, tc.wantName, got.Name)
-			assert.NotZero(t, got.ID)
+		got, err := service.Create(context.Background(), TagInput{
+			Name: "mytag",
 		})
-	}
+		require.NoError(t, err)
+		assert.Equal(t, "mytag", got.Name)
+		assert.NotZero(t, got.ID)
+	})
+
 }
 
 func TestTagFrontendService_UpdateName(t *testing.T) {
@@ -155,6 +119,158 @@ func TestTagFrontendService_UpdateName(t *testing.T) {
 			assert.Equal(t, tc.wantName, allTags[0].Name)
 		})
 	}
+}
+
+func TestTagFrontendService_GetTagFileCount(t *testing.T) {
+	tester := newTester(t)
+
+	// setup: create tags and file tags
+	require.NoError(t, db.BatchCreate(tester.dbClient, []db.Tag{
+		{ID: 1, Name: "tag1"},
+		{ID: 2, Name: "tag2"},
+	}))
+	require.NoError(t, db.BatchCreate(tester.dbClient, []db.FileTag{
+		{TagID: 1, FileID: 100, AddedBy: db.FileTagAddedByUser},
+		{TagID: 1, FileID: 200, AddedBy: db.FileTagAddedByUser},
+	}))
+
+	service := tester.getFrontendService(frontendServiceMocks{})
+
+	count, err := service.GetTagFileCount(1)
+	require.NoError(t, err)
+	assert.Equal(t, uint(2), count)
+
+	count, err = service.GetTagFileCount(2)
+	require.NoError(t, err)
+	assert.Equal(t, uint(0), count)
+}
+
+func TestTagFrontendService_DeleteTag(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(&db.Tag{}, &db.FileTag{})
+
+	require.NoError(t, db.BatchCreate(tester.dbClient, []db.Tag{
+		{ID: 1, Name: "tag1"},
+		{ID: 2, Name: "tag2"},
+	}))
+	require.NoError(t, db.BatchCreate(tester.dbClient, []db.FileTag{
+		{TagID: 1, FileID: 100, AddedBy: db.FileTagAddedByUser},
+		{TagID: 1, FileID: 200, AddedBy: db.FileTagAddedByUser},
+	}))
+
+	ctx := context.Background()
+	service := tester.getFrontendService(frontendServiceMocks{})
+
+	// Delete tag with file associations
+	err := service.DeleteTag(ctx, 1)
+	require.NoError(t, err)
+
+	// Verify tag is deleted
+	tags, err := db.GetAll[db.Tag](tester.dbClient)
+	require.NoError(t, err)
+	assert.Len(t, tags, 1)
+	assert.Equal(t, uint(2), tags[0].ID)
+
+	// Verify file tags are deleted
+	fileTags, err := tester.dbClient.FileTag().FindAllByTagIDs([]uint{1})
+	require.NoError(t, err)
+	assert.Empty(t, fileTags)
+
+	// Delete tag without file associations
+	err = service.DeleteTag(ctx, 2)
+	require.NoError(t, err)
+
+	tags, err = db.GetAll[db.Tag](tester.dbClient)
+	require.NoError(t, err)
+	assert.Empty(t, tags)
+}
+
+func TestTagFrontendService_MergeTags(t *testing.T) {
+	tester := newTester(t)
+	ctx := context.Background()
+
+	t.Run("merge with file associations", func(t *testing.T) {
+		tester.dbClient.Truncate(&db.Tag{}, &db.FileTag{})
+
+		require.NoError(t, db.BatchCreate(tester.dbClient, []db.Tag{
+			{ID: 1, Name: "source"},
+			{ID: 2, Name: "target"},
+		}))
+		require.NoError(t, db.BatchCreate(tester.dbClient, []db.FileTag{
+			{TagID: 1, FileID: 100, AddedBy: db.FileTagAddedByUser},
+			{TagID: 1, FileID: 200, AddedBy: db.FileTagAddedByUser},
+			{TagID: 2, FileID: 200, AddedBy: db.FileTagAddedByUser}, // overlap
+			{TagID: 2, FileID: 300, AddedBy: db.FileTagAddedByUser},
+		}))
+
+		service := tester.getFrontendService(frontendServiceMocks{})
+		err := service.MergeTags(ctx, 1, 2)
+		require.NoError(t, err)
+
+		// Source tag should be deleted
+		tags, err := db.GetAll[db.Tag](tester.dbClient)
+		require.NoError(t, err)
+		assert.Len(t, tags, 1)
+		assert.Equal(t, uint(2), tags[0].ID)
+
+		// Source file-tags should be deleted
+		sourceFileTags, err := tester.dbClient.FileTag().FindAllByTagIDs([]uint{1})
+		require.NoError(t, err)
+		assert.Empty(t, sourceFileTags)
+
+		// Target should have file 100 (transferred), 200 (already had), 300 (already had)
+		targetFileTags, err := tester.dbClient.FileTag().FindAllByTagIDs([]uint{2})
+		require.NoError(t, err)
+		assert.Len(t, targetFileTags, 3)
+	})
+
+	t.Run("merge same tag returns error", func(t *testing.T) {
+		service := tester.getFrontendService(frontendServiceMocks{})
+		err := service.MergeTags(ctx, 1, 1)
+		assert.Error(t, err)
+	})
+
+	t.Run("merge with no file associations", func(t *testing.T) {
+		tester.dbClient.Truncate(&db.Tag{}, &db.FileTag{})
+
+		require.NoError(t, db.BatchCreate(tester.dbClient, []db.Tag{
+			{ID: 10, Name: "empty-source"},
+			{ID: 20, Name: "target"},
+		}))
+
+		service := tester.getFrontendService(frontendServiceMocks{})
+		err := service.MergeTags(ctx, 10, 20)
+		require.NoError(t, err)
+
+		tags, err := db.GetAll[db.Tag](tester.dbClient)
+		require.NoError(t, err)
+		assert.Len(t, tags, 1)
+		assert.Equal(t, uint(20), tags[0].ID)
+	})
+
+	t.Run("merge with non-existent source tag returns error", func(t *testing.T) {
+		tester.dbClient.Truncate(&db.Tag{}, &db.FileTag{})
+
+		require.NoError(t, db.BatchCreate(tester.dbClient, []db.Tag{
+			{ID: 200, Name: "target"},
+		}))
+
+		service := tester.getFrontendService(frontendServiceMocks{})
+		err := service.MergeTags(ctx, 999, 200)
+		assert.Error(t, err)
+	})
+
+	t.Run("merge with non-existent target tag returns error", func(t *testing.T) {
+		tester.dbClient.Truncate(&db.Tag{}, &db.FileTag{})
+
+		require.NoError(t, db.BatchCreate(tester.dbClient, []db.Tag{
+			{ID: 201, Name: "source"},
+		}))
+
+		service := tester.getFrontendService(frontendServiceMocks{})
+		err := service.MergeTags(ctx, 201, 999)
+		assert.Error(t, err)
+	})
 }
 
 func TestTagFrontendService_BatchUpdateTagsForFiles_NoChanges(t *testing.T) {
@@ -319,10 +435,10 @@ func TestTagFrontendService_SuggestTags(t *testing.T) {
 	tagBuilder := NewTestTagBuilder().
 		Add(Tag{ID: 1, Name: "tag1"}).
 		Add(Tag{ID: 2, Name: "tag2"}).
-		Add(Tag{ID: 10, Name: "tag 10", ParentID: 1}).
-		Add(Tag{ID: 20, Name: "tag 11", ParentID: 2}).
-		Add(Tag{ID: 100, Name: "tag 100", ParentID: 10}).
-		Add(Tag{ID: 200, Name: "tag 110", ParentID: 20})
+		Add(Tag{ID: 10, Name: "tag 10"}).
+		Add(Tag{ID: 20, Name: "tag 11"}).
+		Add(Tag{ID: 100, Name: "tag 100"}).
+		Add(Tag{ID: 200, Name: "tag 110"})
 
 	// tester.copyImageFile(t, "image.jpg", filepath.Join("Directory 1", "Directory 10", "image11.jpg"))
 	// tester.copyImageFile(t, "image.jpg", filepath.Join("Directory 1", "Directory 10", "Directory 100", "image101.jpg"))
@@ -353,10 +469,10 @@ func TestTagFrontendService_SuggestTags(t *testing.T) {
 			insertTags: []db.Tag{
 				{ID: 1, Name: "tag1"},
 				{ID: 2, Name: "tag2"},
-				{ID: 10, Name: "tag 10", ParentID: 1},
-				{ID: 20, Name: "tag 11", ParentID: 2},
-				{ID: 100, Name: "tag 100", ParentID: 10},
-				{ID: 200, Name: "tag 110", ParentID: 20},
+				{ID: 10, Name: "tag 10"},
+				{ID: 20, Name: "tag 11"},
+				{ID: 100, Name: "tag 100"},
+				{ID: 200, Name: "tag 110"},
 			},
 			insertDBFiles: []db.File{
 				{ID: 1, Name: "Directory 1", Type: db.FileTypeDirectory},
@@ -366,12 +482,12 @@ func TestTagFrontendService_SuggestTags(t *testing.T) {
 				{ID: 101, Name: "image101.jpg", Type: db.FileTypeImage, ParentID: 100},
 			},
 			insertFileTags: []db.FileTag{
-				{FileID: 11, TagID: 10},  // an image has a intermediate tag
-				{FileID: 100, TagID: 20}, // a directory has an intermediate tag
+				{FileID: 11, TagID: 10},  // an image has a tag
+				{FileID: 101, TagID: 20}, // an image has a tag
 			},
 			imageFileIDs: []uint{
 				11,  // an image has a tag
-				101, // a directory has a tag but not an image
+				101, // an image has a tag
 			},
 			setupMockClient: func(mock *tag_suggestionv1.MockTagSuggestionServiceClient) {
 				mock.EXPECT().
@@ -427,12 +543,11 @@ func TestTagFrontendService_SuggestTags(t *testing.T) {
 						{TagID: 100, Score: 0.7},
 						{TagID: 200, Score: 0.7},
 						{TagID: 2, Score: 0.6},
-						// a parent tag doesn't matter
-						{TagID: 1, Score: 0.5, HasDescendantTag: true},
+						{TagID: 1, Score: 0.5},
 					},
 					101: {
 						{TagID: 1, Score: 0.5},
-						{TagID: 2, Score: 0.4, HasDescendantTag: true},
+						{TagID: 2, Score: 0.4},
 						{TagID: 10, Score: 0.3},
 						{TagID: 20, Score: 0.2, HasTag: true},
 						{TagID: 100, Score: 0.1},
@@ -592,8 +707,8 @@ func TestTagFrontendService_AddSuggestedTags(t *testing.T) {
 			insertTags: []db.Tag{
 				{ID: 1, Name: "tag1"},
 				{ID: 2, Name: "tag2"},
-				{ID: 10, Name: "tag 10", ParentID: 1},
-				{ID: 100, Name: "tag 100", ParentID: 10},
+				{ID: 10, Name: "tag 10"},
+				{ID: 100, Name: "tag 100"},
 			},
 			insertFileTags: []db.FileTag{
 				{FileID: 11, TagID: 1, AddedBy: db.FileTagAddedByUser},
@@ -607,47 +722,32 @@ func TestTagFrontendService_AddSuggestedTags(t *testing.T) {
 			},
 		},
 		{
-			name: "request includes tags that are already added or of which children are added",
+			name: "request includes tags that are already added directly",
 			request: AddSuggestedTagsRequest{
 				SelectedTags: map[uint][]uint{
-					11:  {2},        // insert a tag successfully
-					98:  {1, 2},     // an image has a descendant tag
-					99:  {100},      // an image has a tag
-					998: {1},        // an ancestor has a descendant tag
-					999: {100, 200}, // an ancestor has a tag
+					11: {2},    // insert a tag successfully
+					98: {100},  // image has tag 100 directly - duplicated
+					99: {100},  // image has tag 100 directly - duplicated
 				},
 			},
 
 			insertFiles: slices.Concat(defaultInsertFiles, []db.File{
-				{ID: 10, Name: "Directory 10", Type: db.FileTypeDirectory, ParentID: 1},
 				{ID: 98, Name: "image98.jpg", Type: db.FileTypeImage, ParentID: 1},
 				{ID: 99, Name: "image99.jpg", Type: db.FileTypeImage, ParentID: 1},
-
-				{ID: 998, Name: "image998.jpg", Type: db.FileTypeImage, ParentID: 10},
-				{ID: 999, Name: "image999.jpg", Type: db.FileTypeImage, ParentID: 10},
 			}),
 			insertTags: []db.Tag{
 				{ID: 1, Name: "tag1"},
 				{ID: 2, Name: "tag2"},
-				{ID: 10, Name: "tag 10", ParentID: 1},
-				{ID: 20, Name: "tag 20", ParentID: 2},
-				{ID: 100, Name: "tag 100", ParentID: 10},
-				{ID: 200, Name: "tag 200", ParentID: 20},
+				{ID: 100, Name: "tag 100"},
 			},
 			insertFileTags: []db.FileTag{
-				{FileID: 10, TagID: 100, AddedBy: db.FileTagAddedBySuggestion},
-				{FileID: 10, TagID: 200, AddedBy: db.FileTagAddedBySuggestion},
 				{FileID: 98, TagID: 100, AddedBy: db.FileTagAddedBySuggestion},
-				{FileID: 98, TagID: 200, AddedBy: db.FileTagAddedBySuggestion},
 				{FileID: 99, TagID: 100, AddedBy: db.FileTagAddedBySuggestion},
-				{FileID: 99, TagID: 200, AddedBy: db.FileTagAddedBySuggestion},
 			},
 			want: AddSuggestedTagsResponse{
 				DuplicatedTags: map[uint][]uint{
-					98:  {1, 2},
-					99:  {100},
-					998: {1},
-					999: {100, 200},
+					98: {100},
+					99: {100},
 				},
 			},
 			wantInsertedFileTags: []db.FileTag{
@@ -658,15 +758,15 @@ func TestTagFrontendService_AddSuggestedTags(t *testing.T) {
 			name: "all tags are duplicated",
 			request: AddSuggestedTagsRequest{
 				SelectedTags: map[uint][]uint{
-					11: {10},
+					11: {100},
 					12: {100},
 				},
 			},
 			insertFiles: defaultInsertFiles,
 			insertTags: []db.Tag{
 				{ID: 1, Name: "tag1"},
-				{ID: 10, Name: "tag 10", ParentID: 1},
-				{ID: 100, Name: "tag 100", ParentID: 10},
+				{ID: 10, Name: "tag 10"},
+				{ID: 100, Name: "tag 100"},
 			},
 			insertFileTags: []db.FileTag{
 				{FileID: 11, TagID: 100, AddedBy: db.FileTagAddedByUser},
@@ -674,7 +774,7 @@ func TestTagFrontendService_AddSuggestedTags(t *testing.T) {
 			},
 			want: AddSuggestedTagsResponse{
 				DuplicatedTags: map[uint][]uint{
-					11: {10},
+					11: {100},
 					12: {100},
 				},
 			},

@@ -100,6 +100,43 @@ func TestConfigFrontendService_UpdateConfig(t *testing.T) {
 	assert.Equal(t, 60, diskConf.Backup.IdleMinutes)
 }
 
+func TestConfigFrontendService_GetDefaultConfig(t *testing.T) {
+	conf := config.Config{}
+	svc := NewConfigFrontendService(newConfigTestLogger(), conf)
+
+	got, err := svc.GetDefaultConfig(context.Background())
+	require.NoError(t, err)
+
+	// Verify defaults are populated
+	assert.NotEmpty(t, got.ImageRootDirectory)
+	assert.NotEmpty(t, got.ConfigDirectory)
+	assert.NotEmpty(t, got.LogDirectory)
+	assert.NotEmpty(t, got.BackupDirectory)
+	assert.Equal(t, 7, got.RetentionCount)
+	assert.Equal(t, 30, got.IdleMinutes)
+	assert.True(t, got.IdleBackupIncludeImages)
+}
+
+func TestConfigFrontendService_UpdateConfig_WriteError(t *testing.T) {
+	// Set HOME to an unwritable path so WriteConfig("", ...) fails
+	t.Setenv("HOME", "/nonexistent/path/that/does/not/exist")
+
+	conf := config.Config{
+		ImageRootDirectory: "/old/images",
+		ConfigDirectory:    "/old/config",
+	}
+
+	svc := NewConfigFrontendService(newConfigTestLogger(), conf)
+
+	newSettings := ConfigSettings{
+		ImageRootDirectory: "/new/images",
+		ConfigDirectory:    "/new/config",
+	}
+
+	err := svc.UpdateConfig(context.Background(), newSettings)
+	assert.Error(t, err, "UpdateConfig should fail when config file cannot be written")
+}
+
 func TestConfigFrontendService_RoundTrip(t *testing.T) {
 	tempHome := t.TempDir()
 	t.Setenv("HOME", tempHome)

@@ -8,11 +8,8 @@ import (
 )
 
 type Tag struct {
-	ID       uint   `json:"id"`
-	Name     string `json:"name"`
-	FullName string `json:"fullName"`
-	ParentID uint   `json:"parentId"`
-	Children []Tag  `json:"children"`
+	ID   uint   `json:"id"`
+	Name string `json:"name"`
 }
 
 type tagConverter struct {
@@ -23,52 +20,26 @@ func newTagConverter() tagConverter {
 }
 
 func (converter tagConverter) convert(t tag.Tag) Tag {
-	children := make([]Tag, len(t.Children))
-	for i, child := range t.Children {
-		children[i] = converter.convert(*child)
-	}
-	if len(children) == 0 {
-		children = nil
-	}
-
 	return Tag{
-		ID:       t.ID,
-		Name:     t.Name,
-		FullName: t.FullName,
-		ParentID: t.ParentID,
-		Children: children,
+		ID:   t.ID,
+		Name: t.Name,
 	}
 }
 
 type batchTagConverter struct {
-	tagTree   []tag.Tag
 	converter tagConverter
 }
 
-func newBatchTagConverterFromTagTree(tree []tag.Tag) batchTagConverter {
+func newBatchTagConverter() batchTagConverter {
 	return batchTagConverter{
-		tagTree:   tree,
 		converter: newTagConverter(),
 	}
 }
 
-func (batchConverter batchTagConverter) convert() []Tag {
+func (batchConverter batchTagConverter) convert(tags []tag.Tag) []Tag {
 	result := make([]Tag, 0)
-	for _, tag := range batchConverter.tagTree {
-		result = append(result, batchConverter.converter.convert(tag))
-	}
-	return result
-}
-
-func (converter batchTagConverter) convertToFlattenMap() map[uint]Tag {
-	result := make(map[uint]Tag)
-	for _, tag := range tag.ConvertTagsToMap(converter.tagTree) {
-		result[tag.ID] = Tag{
-			ID:       tag.ID,
-			Name:     tag.Name,
-			FullName: tag.FullName,
-			ParentID: tag.ParentID,
-		}
+	for _, t := range tags {
+		result = append(result, batchConverter.converter.convert(t))
 	}
 	return result
 }
@@ -88,7 +59,14 @@ func (service TagService) ReadAllMap() (map[uint]Tag, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ReadAllTags: %w", err)
 	}
-	return newBatchTagConverterFromTagTree(tags).convertToFlattenMap(), nil
+	result := make(map[uint]Tag)
+	for _, t := range tags {
+		result[t.ID] = Tag{
+			ID:   t.ID,
+			Name: t.Name,
+		}
+	}
+	return result, nil
 }
 
 func (service TagService) GetAll() ([]Tag, error) {
@@ -99,13 +77,11 @@ func (service TagService) GetAll() ([]Tag, error) {
 	if len(result) == 0 {
 		return nil, nil
 	}
-
-	return newBatchTagConverterFromTagTree(result).convert(), nil
+	return newBatchTagConverter().convert(result), nil
 }
 
 type TagStat struct {
 	FileCount              uint `json:"fileCount"`
-	IsAddedByAncestor      bool `json:"isAddedByAncestor"`
 	IsAddedBySelectedFiles bool `json:"isAddedBySelectedFiles"`
 }
 
@@ -127,7 +103,6 @@ func (service TagService) ReadTagsByFileIDs(
 	for tagID, tagStat := range batchImageTagChecker.GetStats() {
 		tagStats[tagID] = TagStat{
 			FileCount:              tagStat.Count,
-			IsAddedByAncestor:      tagStat.IsAddedByAncestor,
 			IsAddedBySelectedFiles: tagStat.IsAddedBySelectedFiles,
 		}
 	}

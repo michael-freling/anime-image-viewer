@@ -225,6 +225,53 @@ func TestFileTagClient_FindAllByTagIDs(t *testing.T) {
 	})
 }
 
+func TestFileTagClient_DeleteByTagIDs(t *testing.T) {
+	testClient := NewTestClient(t)
+	testClient.Truncate(t, FileTag{}, File{}, Tag{})
+
+	tags := []Tag{
+		{ID: 8501, Name: "tag1"},
+		{ID: 8502, Name: "tag2"},
+	}
+	files := []File{
+		{ID: 8510, ParentID: 0, Name: "img1.jpg", Type: FileTypeImage},
+		{ID: 8520, ParentID: 0, Name: "img2.jpg", Type: FileTypeImage},
+	}
+	fileTags := []FileTag{
+		{TagID: 8501, FileID: 8510, AddedBy: FileTagAddedByUser},
+		{TagID: 8501, FileID: 8520, AddedBy: FileTagAddedByUser},
+		{TagID: 8502, FileID: 8510, AddedBy: FileTagAddedByUser},
+		{TagID: 8502, FileID: 8520, AddedBy: FileTagAddedByUser},
+	}
+	LoadTestData(t, testClient, tags)
+	LoadTestData(t, testClient, files)
+	LoadTestData(t, testClient, fileTags)
+
+	ftClient := testClient.FileTag()
+	ctx := context.Background()
+
+	t.Run("empty tag IDs is a no-op", func(t *testing.T) {
+		err := ftClient.DeleteByTagIDs(ctx, nil)
+		assert.NoError(t, err)
+
+		remaining, err := ftClient.FindAllByTagIDs([]uint{8501, 8502})
+		assert.NoError(t, err)
+		assert.Len(t, remaining, 4)
+	})
+
+	t.Run("delete all file-tags for given tag IDs", func(t *testing.T) {
+		err := ftClient.DeleteByTagIDs(ctx, []uint{8501})
+		assert.NoError(t, err)
+
+		remaining, err := ftClient.FindAllByTagIDs([]uint{8501, 8502})
+		assert.NoError(t, err)
+		assert.Len(t, remaining, 2)
+		for _, ft := range remaining {
+			assert.Equal(t, uint(8502), ft.TagID)
+		}
+	})
+}
+
 func TestFileTagClient_BatchDelete(t *testing.T) {
 	testClient := NewTestClient(t)
 	testClient.Truncate(t, FileTag{}, File{}, Tag{})

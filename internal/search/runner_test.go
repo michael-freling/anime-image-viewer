@@ -253,7 +253,7 @@ func TestSearchImages(t *testing.T) {
 		assert.Empty(t, result)
 	})
 
-	t.Run("search with child tag finds images tagged with descendants", func(t *testing.T) {
+	t.Run("search by tag only finds images directly tagged", func(t *testing.T) {
 		env.truncate(t)
 
 		db.LoadTestData(t, env.dbClient, []db.File{
@@ -262,10 +262,10 @@ func TestSearchImages(t *testing.T) {
 			fileCreator.BuildDBImageFile(11),
 		})
 		db.LoadTestData(t, env.dbClient, []db.Tag{
-			{ID: 1, Name: "parent-tag"},
-			{ID: 2, Name: "child-tag", ParentID: 1},
+			{ID: 1, Name: "tag-a"},
+			{ID: 2, Name: "tag-b"},
 		})
-		// Image 10 is tagged with child tag, image 11 with parent tag
+		// Image 10 is tagged with tag-b, image 11 with tag-a
 		db.LoadTestData(t, env.dbClient, []db.FileTag{
 			{TagID: 2, FileID: 10, AddedBy: db.FileTagAddedByUser},
 			{TagID: 1, FileID: 11, AddedBy: db.FileTagAddedByUser},
@@ -273,17 +273,11 @@ func TestSearchImages(t *testing.T) {
 
 		runner := env.newRunner()
 
-		// Search by parent tag (ID=1) finds both since child tags are included
+		// Search by tag 1 only finds image 11 (directly tagged)
 		result, err := runner.SearchImages(context.Background(), 1, false, 0)
 		require.NoError(t, err)
-		require.Len(t, result, 2)
-
-		resultIDs := make([]uint, len(result))
-		for i, img := range result {
-			resultIDs[i] = img.ID
-		}
-		assert.Contains(t, resultIDs, uint(10))
-		assert.Contains(t, resultIDs, uint(11))
+		require.Len(t, result, 1)
+		assert.Equal(t, uint(11), result[0].ID)
 	})
 }
 

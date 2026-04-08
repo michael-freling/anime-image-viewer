@@ -300,6 +300,46 @@ func TestReadConfig_UnreadableFile(t *testing.T) {
 	assert.Contains(t, err.Error(), "os.OpenFile")
 }
 
+func TestDefaultConfig(t *testing.T) {
+	conf, err := DefaultConfig()
+	require.NoError(t, err)
+
+	homeDir, err := os.UserHomeDir()
+	require.NoError(t, err)
+
+	// Verify ImageRootDirectory contains the home directory
+	assert.Contains(t, conf.ImageRootDirectory, homeDir)
+	assert.Contains(t, conf.ImageRootDirectory, "anime-image-viewer")
+
+	// Verify ConfigDirectory
+	expectedConfigDir := filepath.Join(homeDir, ".config", "anime-image-viewer")
+	assert.Equal(t, expectedConfigDir, conf.ConfigDirectory)
+
+	// Verify LogDirectory contains temp dir
+	assert.Contains(t, conf.LogDirectory, "anime-image-viewer")
+	assert.Contains(t, conf.LogDirectory, "logs")
+
+	// Verify Backup defaults
+	assert.Equal(t, filepath.Join(expectedConfigDir, "backups"), conf.Backup.BackupDirectory)
+	assert.Equal(t, 7, conf.Backup.RetentionCount)
+	assert.Equal(t, 30, conf.Backup.IdleMinutes)
+	assert.True(t, conf.Backup.IdleBackupIncludeImages)
+
+	// Verify Environment is set
+	assert.NotEmpty(t, conf.Environment)
+}
+
+func TestDefaultImageRootDirectory(t *testing.T) {
+	homeDir := "/fake/home"
+	got := defaultImageRootDirectory(homeDir)
+	assert.Contains(t, got, homeDir)
+	assert.Contains(t, got, "anime-image-viewer")
+	// In development mode (the default for tests), it should contain the environment suffix
+	if runtimeEnv == EnvironmentDevelopment {
+		assert.Contains(t, got, string(EnvironmentDevelopment))
+	}
+}
+
 func TestReadConfig_BackupAllFieldsExplicit(t *testing.T) {
 	tomlContent := `
 image_root_directory = "/tmp/images"

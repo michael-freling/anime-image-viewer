@@ -128,9 +128,9 @@ func TestBatchImageExporter_Export(t *testing.T) {
 	for _, t := range []tag.Tag{
 		{ID: 1, Name: "tag1"},
 		{ID: 2, Name: "tag2"},
-		{ID: 3, Name: "tag10", ParentID: 1},
-		{ID: 4, Name: "tag11", ParentID: 1},
-		{ID: 5, Name: "tag100", ParentID: 3},
+		{ID: 3, Name: "tag10"},
+		{ID: 4, Name: "tag11"},
+		{ID: 5, Name: "tag100"},
 	} {
 		tagBuilder.Add(t)
 	}
@@ -205,13 +205,11 @@ func TestBatchImageExporter_Export(t *testing.T) {
 			},
 			wantImages: []string{
 				filepath.Join(includeTagDir, "train", fileCreator.BuildImageFile(11).Name),
-				filepath.Join(includeTagDir, "train", fileCreator.BuildImageFile(12).Name),
 				filepath.Join(includeTagDir, "train", fileCreator.BuildImageFile(101).Name),
 			},
 			wantMetadatas: []Metadata{
 				{FileName: fileCreator.BuildImageFile(11).Name, Tags: []float64{0, 1, 0, 0, 0, 0}},
-				// image12 inherits tag from directory but GetDirectTags returns only direct tags
-				{FileName: fileCreator.BuildImageFile(12).Name, Tags: []float64{0, 0, 0, 0, 0, 0}},
+				// image12 has no direct tags, so it's excluded from export
 				{FileName: fileCreator.BuildImageFile(101).Name, Tags: []float64{0, 0, 0, 0, 0, 1}},
 			},
 		},

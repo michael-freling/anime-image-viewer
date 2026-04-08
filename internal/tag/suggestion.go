@@ -12,10 +12,9 @@ import (
 )
 
 type TagSuggestion struct {
-	TagID            uint    `json:"tagId"`
-	Score            float64 `json:"score"`
-	HasTag           bool    `json:"hasTag"`
-	HasDescendantTag bool    `json:"hasDescendantTag"`
+	TagID  uint    `json:"tagId"`
+	Score  float64 `json:"score"`
+	HasTag bool    `json:"hasTag"`
 }
 
 type SuggestionService struct {
@@ -121,10 +120,9 @@ func (service *SuggestionService) suggestTags(ctx context.Context, imageFileIDs 
 			}
 
 			suggestions = append(suggestions, TagSuggestion{
-				TagID:            uint(score.TagId),
-				Score:            score.Score,
-				HasTag:           batchTagChecker.HasTag(tag.ID),
-				HasDescendantTag: batchTagChecker.hasDecendantTag(tag.ID),
+				TagID:  uint(score.TagId),
+				Score:  score.Score,
+				HasTag: batchTagChecker.HasTag(tag.ID),
 			})
 		}
 		suggestionsForImageFiles[imageFileID] = suggestions
@@ -152,7 +150,7 @@ func (service *SuggestionService) addSuggestedTags(ctx context.Context, selected
 	for fileID, tags := range selectedTags {
 		tagChecker := batchTagChecker.GetTagCheckerForImageFileID(fileID)
 		for _, tagID := range tags {
-			if tagChecker.HasTag(tagID) || tagChecker.hasDecendantTag(tagID) {
+			if tagChecker.HasTag(tagID) {
 				if _, ok := duplicatedTags[fileID]; !ok {
 					duplicatedTags[fileID] = make([]uint, 0)
 				}

@@ -25,9 +25,15 @@ func (batchImporter batchTagImporter) importTags(
 	ctx context.Context,
 	importedImages []importImage,
 ) error {
-	rootTag, err := batchImporter.tagReader.ReadRootNode()
+	allTags, err := batchImporter.tagReader.ReadAllTags()
 	if err != nil {
-		return fmt.Errorf("tagReader.ReadAllTagTree: %w", err)
+		return fmt.Errorf("tagReader.ReadAllTags: %w", err)
+	}
+
+	// Build a name-to-tag map for dedup
+	tagByName := make(map[string]*tag.Tag)
+	for i := range allTags {
+		tagByName[allTags[i].Name] = &allTags[i]
 	}
 
 	tagORMClient := batchImporter.dbClient.Tag()
@@ -41,7 +47,6 @@ OUTER_LOOP:
 			continue
 		}
 
-		// because tag can be created from a previous image, this cannot run concurrently
 		for _, t := range importedImage.xmp.RDF.TagsList {
 			if strings.TrimSpace(t) == "" {
 				continue OUTER_LOOP
@@ -51,47 +56,39 @@ OUTER_LOOP:
 				continue
 			}
 
-			// find existing tags by names
-			parent := &rootTag
-			index := 0
-			for ; index < len(importedTags); index++ {
-				currentTag := parent.FindChildByName(importedTags[index])
-				if currentTag == nil {
-					// Not found
-					break
-				}
-
-				parent = currentTag
-			}
-
-			for i := index; i < len(importedTags); i++ {
-				if importedTags[i] == "" {
+			// Create all tags in the path as flat tags
+			for _, tagName := range importedTags {
+				if tagName == "" {
 					continue
 				}
-
+				if _, exists := tagByName[tagName]; exists {
+					continue
+				}
 				dbTag := db.Tag{
-					Name:     importedTags[i],
-					ParentID: parent.ID,
+					Name: tagName,
 				}
 				if err := tagORMClient.Create(ctx, &dbTag); err != nil {
 					return fmt.Errorf("tagORMClient.Create: %w", err)
 				}
-
 				newTag := tag.Tag{
 					ID:   dbTag.ID,
-					Name: importedTags[i],
-					// parent id is set only the first new tag
-					ParentID: parent.ID,
+					Name: tagName,
 				}
-				// add new tag to a tree so that it can be searched later
-				parent.AddChild(&newTag)
-				parent = &newTag
+				tagByName[tagName] = &newTag
 			}
-			newFileTags = append(newFileTags, db.FileTag{
-				FileID:  importedImage.image.ID,
-				TagID:   parent.ID,
-				AddedBy: db.FileTagAddedByImport,
-			})
+
+			// Tag the image with the leaf tag (last in path)
+			leafTagName := importedTags[len(importedTags)-1]
+			if leafTagName == "" && len(importedTags) > 1 {
+				leafTagName = importedTags[len(importedTags)-2]
+			}
+			if leafTag, ok := tagByName[leafTagName]; ok {
+				newFileTags = append(newFileTags, db.FileTag{
+					FileID:  importedImage.image.ID,
+					TagID:   leafTag.ID,
+					AddedBy: db.FileTagAddedByImport,
+				})
+			}
 		}
 	}
 	if len(newFileTags) == 0 {

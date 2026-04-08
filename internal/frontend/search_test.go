@@ -183,9 +183,9 @@ func TestSearchService_Search(t *testing.T) {
 				insertTags: []db.Tag{
 					{ID: 1, Name: "tag 1"},
 					{ID: 2, Name: "tag 2"},
-					{ID: 10, Name: "tag 10", ParentID: 1},
-					{ID: 11, Name: "tag 11", ParentID: 1}, // a tag without an file
-					{ID: 100, Name: "tag 100", ParentID: 10},
+					{ID: 10, Name: "tag 10"},
+					{ID: 11, Name: "tag 11"}, // a tag without an file
+					{ID: 100, Name: "tag 100"},
 				},
 				insertFileTags: []db.FileTag{
 					{FileID: 1, TagID: 1},     // a top tag for a directory
@@ -237,16 +237,16 @@ func TestSearchService_Search(t *testing.T) {
 				},
 				insertTags: []db.Tag{
 					{ID: 1, Name: "tag 1"},
-					{ID: 10, Name: "tag 10", ParentID: 1},
-					{ID: 11, Name: "tag 11", ParentID: 1},
-					{ID: 100, Name: "tag 100", ParentID: 10},
+					{ID: 10, Name: "tag 10"},
+					{ID: 11, Name: "tag 11"},
+					{ID: 100, Name: "tag 100"},
 
 					{ID: 2, Name: "tag 2"},
 				},
 				insertFileTags: []db.FileTag{
-					{FileID: 11, TagID: 2},   // a file with a different tag
-					{FileID: 12, TagID: 100}, // a file with a tag
-					{FileID: 101, TagID: 1},  // a file not in a parent directory
+					{FileID: 11, TagID: 2},  // a file with a different tag
+					{FileID: 12, TagID: 1},  // a file with the searched tag (will be excluded)
+					{FileID: 101, TagID: 1}, // a file not in a parent directory
 				},
 				want: SearchImagesResponse{
 					Images: []Image{
@@ -269,12 +269,10 @@ func TestSearchService_Search(t *testing.T) {
 				},
 				insertTags: []db.Tag{
 					{ID: 1, Name: "tag 1"},
-					{ID: 10, Name: "tag 10", ParentID: 1},
-					{ID: 100, Name: "tag 100", ParentID: 10},
 				},
 				insertFileTags: []db.FileTag{
-					{FileID: 11, TagID: 100},
-					{FileID: 12, TagID: 100},
+					{FileID: 11, TagID: 1},
+					{FileID: 12, TagID: 1},
 				},
 			},
 			{
@@ -291,11 +289,9 @@ func TestSearchService_Search(t *testing.T) {
 				},
 				insertTags: []db.Tag{
 					{ID: 1, Name: "tag 1"},
-					{ID: 10, Name: "tag 10", ParentID: 1},
-					{ID: 100, Name: "tag 100", ParentID: 10},
 				},
 				insertFileTags: []db.FileTag{
-					{FileID: 10, TagID: 100},
+					{FileID: 10, TagID: 1},
 				},
 			},
 		}
@@ -310,7 +306,7 @@ func TestSearchService_Search(t *testing.T) {
 				name: "Search a tag added to a file",
 				request: SearchImagesRequest{
 					DirectoryID: 10,
-					TagID:       1,
+					TagID:       10,
 				},
 				insertFiles: []db.File{
 					fileBuilder.BuildDBDirectory(1),
@@ -322,9 +318,9 @@ func TestSearchService_Search(t *testing.T) {
 				insertTags: []db.Tag{
 					{ID: 1, Name: "tag 1"},
 					{ID: 2, Name: "tag 2"},
-					{ID: 10, Name: "tag 10", ParentID: 1},
-					{ID: 11, Name: "tag 11", ParentID: 1}, // a tag without an file
-					{ID: 100, Name: "tag 100", ParentID: 10},
+					{ID: 10, Name: "tag 10"},
+					{ID: 11, Name: "tag 11"}, // a tag without a file
+					{ID: 100, Name: "tag 100"},
 				},
 				insertFileTags: []db.FileTag{
 					{FileID: 11, TagID: 10},   // a tag for a direct file
@@ -357,13 +353,12 @@ func TestSearchService_Search(t *testing.T) {
 				},
 				insertTags: []db.Tag{
 					{ID: 1, Name: "tag 1"},
-					{ID: 10, Name: "tag 10", ParentID: 1},
-					{ID: 100, Name: "tag 100", ParentID: 10},
+					{ID: 10, Name: "tag 10"},
+					{ID: 100, Name: "tag 100"},
 				},
 				insertFileTags: []db.FileTag{
-					{FileID: 10, TagID: 100},  // a tag added to a directory
-					{FileID: 100, TagID: 100}, // a tag in a different directory. No recursive search for a directory
-					{FileID: 2, TagID: 10},    // a tag added to a directory but it's in a different directory
+					{FileID: 10, TagID: 10},  // a tag added to a directory
+					{FileID: 2, TagID: 10},   // a tag added to a directory but it's in a different directory
 				},
 				want: SearchImagesResponse{
 					Images: []Image{
@@ -385,8 +380,8 @@ func TestSearchService_Search(t *testing.T) {
 				},
 				insertTags: []db.Tag{
 					{ID: 1, Name: "tag 1"},
-					{ID: 10, Name: "tag 10", ParentID: 1},
-					{ID: 100, Name: "tag 100", ParentID: 10},
+					{ID: 10, Name: "tag 10"},
+					{ID: 100, Name: "tag 100"},
 				},
 				insertFileTags: []db.FileTag{
 					{FileID: 1, TagID: 10}, // a tag added to a directory
@@ -405,8 +400,8 @@ func TestSearchService_Search(t *testing.T) {
 				},
 				insertTags: []db.Tag{
 					{ID: 1, Name: "tag 1"},
-					{ID: 10, Name: "tag 10", ParentID: 1},
-					{ID: 100, Name: "tag 100", ParentID: 10},
+					{ID: 10, Name: "tag 10"},
+					{ID: 100, Name: "tag 100"},
 				},
 				insertFileTags: []db.FileTag{
 					{FileID: 1, TagID: 10}, // a tag added to a directory

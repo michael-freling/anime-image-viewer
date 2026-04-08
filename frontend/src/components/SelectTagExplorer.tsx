@@ -23,38 +23,29 @@ const tagsToTreeViewBaseItems = (
   indeterminate: boolean;
   checked: boolean;
 }>[] => {
-  return tags.map((child) => {
-    const isAdded = addedTagIds[child.id];
-    const isDeleted = deletedTagIds[child.id];
+  return tags.map((tag) => {
+    const isAdded = addedTagIds[tag.id];
+    const isDeleted = deletedTagIds[tag.id];
 
     let count: number | undefined = undefined;
-    let disabled = false;
+    const disabled = false;
     let indeterminate = false;
 
     if (tagStats != undefined) {
       count = 0;
-      const tagStat: TagStat = tagStats[child.id];
+      const tagStat: TagStat = tagStats[tag.id];
       if (tagStat != null) {
         if (tagStat.fileCount > 0) {
           count = tagStat.fileCount;
           indeterminate =
             isAdded == undefined && isDeleted == undefined && count < fileCount;
         }
-
-        disabled = !tagStat.isAddedBySelectedFiles && tagStat.isAddedByAncestor;
       }
     }
 
     return {
-      id: String(child.id),
-      label: child.name,
-      children: tagsToTreeViewBaseItems(
-        (child.children ?? []).filter((child) => child != null),
-        fileCount,
-        addedTagIds,
-        deletedTagIds,
-        tagStats
-      ),
+      id: String(tag.id),
+      label: tag.name,
       count,
       indeterminate,
       checked: isAdded || count == fileCount,
@@ -192,7 +183,7 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
     selectedTagIds = [props.selectedTagId];
   } else if (tagStats != undefined) {
     for (const [tagId, stats] of Object.entries(tagStats)) {
-      if (stats.isAddedBySelectedFiles || stats.isAddedByAncestor) {
+      if (stats.isAddedBySelectedFiles) {
         selectedTagIds.push(parseInt(tagId));
       }
     }
@@ -200,7 +191,7 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
   const defaultSelectedItems = selectedTagIds.map((id) => String(id));
   // selected items should be visible as default.
   // So, we need to expand all parent items of selected items.
-  const defaultExpandedItems = getDefaultExpandedItems(selectedTagIds, tagMap);
+  const defaultExpandedItems = getDefaultExpandedItems();
 
   return (
     <RichTreeView
