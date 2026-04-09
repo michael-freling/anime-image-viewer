@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/michael-freling/anime-image-viewer/internal/anime"
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/frontend"
@@ -140,6 +141,15 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 	backupFrontendService := frontend.NewBackupFrontendService(logger, conf)
 	configFrontendService := frontend.NewConfigFrontendService(logger, conf)
 
+	animeCoreService := anime.NewService(dbClient, directoryReader)
+	animeFrontendService := frontend.NewAnimeService(
+		animeCoreService,
+		dbClient,
+		directoryReader,
+		tagReader,
+		imageReader,
+	)
+
 	title := "anime-image-viewer"
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
@@ -174,6 +184,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 			)),
 			application.NewService(backupFrontendService),
 			application.NewService(configFrontendService),
+			application.NewService(animeFrontendService),
 		},
 		Assets: application.AssetOptions{
 			Handler:        application.AssetFileServerFS(assets),
