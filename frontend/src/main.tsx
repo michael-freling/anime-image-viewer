@@ -20,6 +20,8 @@ import {
 } from "react-router";
 import DirectoryExplorer from "./components/DirectoryExplorer";
 import Layout from "./Layout";
+import AnimeDetailPage from "./pages/anime/AnimeDetailPage";
+import AnimeListPage from "./pages/anime/AnimeListPage";
 import DirectoryEditPage from "./pages/directories/DirectoryEditPage";
 import DirectoryImageListPage from "./pages/directories/DirectoryImageListPage";
 import SearchPage from "./pages/search/SearchPage";
@@ -54,6 +56,12 @@ function Root() {
         {/* Search */}
         <Route element={<Layout.TwoColumnLayout />} path="search">
           <Route index element={<SearchPage />} />
+        </Route>
+
+        {/* Anime */}
+        <Route path="anime" element={<Layout.TwoColumnLayout />}>
+          <Route index element={<AnimeListPage />} />
+          <Route path=":animeId" element={<AnimeDetailPage />} />
         </Route>
 
         {/* Directory */}

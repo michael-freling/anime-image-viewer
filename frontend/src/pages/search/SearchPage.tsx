@@ -1,4 +1,4 @@
-import { Bookmark, Folder } from "@mui/icons-material";
+import { Bookmark, Folder, Tv } from "@mui/icons-material";
 import {
   Accordion,
   AccordionDetails,
@@ -7,6 +7,8 @@ import {
   Avatar,
   Box,
   ListItemContent,
+  Option,
+  Select,
   Stack,
   Switch,
   Typography,
@@ -14,6 +16,8 @@ import {
 import { FC, useEffect, useState } from "react";
 import { createSearchParams, useNavigate, useSearchParams } from "react-router";
 import {
+  AnimeListItem,
+  AnimeService,
   Image,
   SearchImagesRequest,
   SearchService,
@@ -25,19 +29,71 @@ import SelectDirectoryExplorer from "../../components/SelectDirectoryExplorer";
 import SelectTagExplorer from "../../components/SelectTagExplorer";
 import Layout from "../../Layout";
 
-type SearchCondition = SearchImagesRequest;
+type AnimeFilter = "all" | "unassigned" | number;
+
+interface SearchCondition extends SearchImagesRequest {
+  animeFilter?: AnimeFilter;
+}
 
 interface SearchSidebarProps {
   condition: SearchCondition;
+  animeList: AnimeListItem[];
   onSelect: (
     condition: SearchCondition,
     searchParams?: URLSearchParams
   ) => void;
+  onAnimeFilterChange: (filter: AnimeFilter) => void;
 }
 
-const SearchSidebar: FC<SearchSidebarProps> = ({ condition, onSelect }) => {
+const SearchSidebar: FC<SearchSidebarProps> = ({
+  condition,
+  animeList,
+  onSelect,
+  onAnimeFilterChange,
+}) => {
+  const animeFilter: AnimeFilter = condition.animeFilter ?? "all";
+  const animeSelectValue =
+    typeof animeFilter === "number" ? String(animeFilter) : animeFilter;
   return (
     <AccordionGroup>
+      <Accordion defaultExpanded={true}>
+        <AccordionSummary>
+          <Avatar color="primary">
+            <Tv />
+          </Avatar>
+          <ListItemContent>
+            <Typography level="title-md">Anime</Typography>
+          </ListItemContent>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Box sx={{ p: 1 }}>
+            <Select
+              value={animeSelectValue}
+              onChange={(_e, value) => {
+                if (value == null) return;
+                if (value === "all") {
+                  onAnimeFilterChange("all");
+                } else if (value === "unassigned") {
+                  onAnimeFilterChange("unassigned");
+                } else {
+                  const parsed = parseInt(value, 10);
+                  if (!Number.isNaN(parsed)) {
+                    onAnimeFilterChange(parsed);
+                  }
+                }
+              }}
+            >
+              <Option value="all">All</Option>
+              <Option value="unassigned">Unassigned</Option>
+              {animeList.map((a) => (
+                <Option key={a.id} value={String(a.id)}>
+                  {a.name}
+                </Option>
+              ))}
+            </Select>
+          </Box>
+        </AccordionDetails>
+      </Accordion>
       <Accordion defaultExpanded={true}>
         <AccordionSummary>
           <Avatar color="primary">
@@ -133,6 +189,17 @@ function useRequest(searchParams: URLSearchParams): SearchCondition {
     params.isInvertedTagSearch =
       searchParams.get("isInvertedTagSearch") === "true";
   }
+  if (searchParams.has("animeId")) {
+    const raw = searchParams.get("animeId")!;
+    if (raw === "unassigned") {
+      params.animeFilter = "unassigned";
+    } else {
+      const parsed = parseInt(raw, 10);
+      if (!Number.isNaN(parsed)) {
+        params.animeFilter = parsed;
+      }
+    }
+  }
   return params as SearchCondition;
 }
 
@@ -145,6 +212,7 @@ const SearchPage: FC = () => {
     [id: number]: Tag;
   }>({});
   const [images, setImages] = useState<Image[]>([]);
+  const [animeList, setAnimeList] = useState<AnimeListItem[]>([]);
 
   console.debug("SearchPage", {
     allTagMap,
@@ -163,10 +231,36 @@ const SearchPage: FC = () => {
   }, []);
 
   useEffect(() => {
-    SearchService.SearchImages(condition).then(({ images }) => {
-      setImages(images.map((image) => ({ ...image, selected: false })));
+    AnimeService.ListAnime().then((list) => {
+      setAnimeList(list ?? []);
     });
-  }, [condition.directoryId, condition.tagId, condition.isInvertedTagSearch]);
+  }, []);
+
+  useEffect(() => {
+    const fetcher = async () => {
+      const { animeFilter } = condition;
+      if (animeFilter === "unassigned") {
+        const { images } = await AnimeService.SearchImagesUnassigned();
+        return images ?? [];
+      }
+      if (typeof animeFilter === "number") {
+        const { images } = await AnimeService.SearchImagesByAnime(animeFilter);
+        return images ?? [];
+      }
+      const { images } = await SearchService.SearchImages(condition);
+      return images ?? [];
+    };
+    fetcher().then((fetched) => {
+      setImages(
+        fetched.map((image) => ({ ...image, selected: false }))
+      );
+    });
+  }, [
+    condition.directoryId,
+    condition.tagId,
+    condition.isInvertedTagSearch,
+    condition.animeFilter,
+  ]);
 
   const onSelect = (
     { directoryId, tagId, isInvertedTagSearch }: SearchCondition,
@@ -199,6 +293,22 @@ const SearchPage: FC = () => {
     });
   };
 
+  const onAnimeFilterChange = (filter: AnimeFilter) => {
+    const params: any = {};
+    for (const key of searchParams.keys()) {
+      if (key === "animeId") continue;
+      params[key] = searchParams.get(key);
+    }
+    if (filter === "unassigned") {
+      params.animeId = "unassigned";
+    } else if (typeof filter === "number") {
+      params.animeId = String(filter);
+    }
+    navigate({
+      search: createSearchParams(params).toString(),
+    });
+  };
+
   return (
     <Box
       sx={{
@@ -219,7 +329,12 @@ const SearchPage: FC = () => {
           overflowY: "auto",
         }}
       >
-        <SearchSidebar condition={condition} onSelect={onSelect} />
+        <SearchSidebar
+          condition={condition}
+          animeList={animeList}
+          onSelect={onSelect}
+          onAnimeFilterChange={onAnimeFilterChange}
+        />
       </Layout.SideNav>
       <ImageListMain
         loadedImages={images}
