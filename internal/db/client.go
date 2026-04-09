@@ -97,6 +97,8 @@ func (client *Client) Migrate() error {
 		&Tag{},
 		&File{},
 		&FileTag{},
+		&Anime{},
+		&AnimeTag{},
 	); err != nil {
 		return fmt.Errorf("AutoMigrate: %w", err)
 	}

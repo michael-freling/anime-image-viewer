@@ -48,7 +48,7 @@ func NewTestClient(t *testing.T) TestClient {
 	})
 	require.NoError(t, client.Migrate())
 	// delete auto created records and reset auto increment values
-	require.NoError(t, client.Truncate(Tag{}))
+	require.NoError(t, client.Truncate(Tag{}, Anime{}, AnimeTag{}))
 	client.Truncate(SqliteSequence{})
 
 	client.connection = client.connection.Session(&gorm.Session{

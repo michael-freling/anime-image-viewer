@@ -1,5 +1,7 @@
 package db
 
+import "context"
+
 type FileType string
 
 const (
@@ -14,6 +16,11 @@ type File struct {
 	ParentID uint   `gorm:"uniqueIndex:parent_id_name,index:parent_id_created_at"`
 	Name     string `gorm:"uniqueIndex:parent_id_name"`
 	Type     FileType
+
+	// AnimeID, when non-nil, marks this folder as the explicitly-assigned root
+	// of an anime. Descendants inherit by walking up the parent chain at read
+	// time (no propagation on write).
+	AnimeID *uint `gorm:"index"`
 
 	// ImageCreatedAt is a creation timestamp of an image file
 	// when an image is imported, a timestamp is copied from the source image file
@@ -79,4 +86,47 @@ func (client *FileClient) FindDirectoriesByIDs(ids []uint) ([]File, error) {
 		Find(&images).
 		Error
 	return images, err
+}
+
+// FindDirectoriesByAnimeID returns all directory rows whose AnimeID equals
+// the provided id. Used to look up explicitly-assigned anime root folders.
+func (client *FileClient) FindDirectoriesByAnimeID(animeID uint) ([]File, error) {
+	var dirs []File
+	err := client.connection.
+		Where("type = ?", FileTypeDirectory).
+		Where("anime_id = ?", animeID).
+		Find(&dirs).
+		Error
+	return dirs, err
+}
+
+// FindDirectoriesWithAnyAnime returns all directories that have a non-NULL
+// anime_id. Used by the anime list page to map all assignments at once.
+func (client *FileClient) FindDirectoriesWithAnyAnime() ([]File, error) {
+	var dirs []File
+	err := client.connection.
+		Where("type = ?", FileTypeDirectory).
+		Where("anime_id IS NOT NULL").
+		Find(&dirs).
+		Error
+	return dirs, err
+}
+
+// ClearAnimeIDByAnimeID sets AnimeID to NULL on all directories whose AnimeID
+// equals the provided id. Used when an anime is deleted (no cascade).
+func (client *FileClient) ClearAnimeIDByAnimeID(ctx context.Context, animeID uint) error {
+	return client.getTransaction(ctx).
+		Model(&File{}).
+		Where("type = ? AND anime_id = ?", FileTypeDirectory, animeID).
+		Update("anime_id", nil).
+		Error
+}
+
+// SetAnimeID writes a new (possibly nil) anime_id value for a directory by id.
+func (client *FileClient) SetAnimeID(ctx context.Context, fileID uint, animeID *uint) error {
+	return client.getTransaction(ctx).
+		Model(&File{}).
+		Where("id = ?", fileID).
+		Update("anime_id", animeID).
+		Error
 }
