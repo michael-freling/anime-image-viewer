@@ -65,6 +65,30 @@ func TestService_Create(t *testing.T) {
 		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrAnimeAlreadyExists)
 	})
+
+	t.Run("rejects when folder already exists in DB", func(t *testing.T) {
+		// Pre-create a db.File to prevent the unique constraint on files
+		// from interfering -- the anime row will be created but the
+		// file insert will hit the unique constraint first since a file
+		// with that name already exists under root.
+		preFile := db.File{Name: "PreExisting", ParentID: db.RootDirectoryID, Type: db.FileTypeDirectory}
+		require.NoError(t, te.dbClient.File().Create(ctx, &preFile))
+
+		_, err := svc.Create(ctx, "PreExisting")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrAnimeAlreadyExists)
+	})
+
+	t.Run("rejects when folder already exists on disk only", func(t *testing.T) {
+		// Create a directory on disk but not in DB. The anime and file rows
+		// will be created successfully, but os.Mkdir will fail.
+		dirPath := filepath.Join(te.config.ImageRootDirectory, "DiskOnly")
+		require.NoError(t, os.Mkdir(dirPath, 0755))
+
+		_, err := svc.Create(ctx, "DiskOnly")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrAnimeAlreadyExists)
+	})
 }
 
 func TestService_Rename(t *testing.T) {
@@ -108,6 +132,16 @@ func TestService_Rename(t *testing.T) {
 		assert.ErrorIs(t, err, ErrAnimeNotFound)
 	})
 
+	t.Run("renames anime with no root folder", func(t *testing.T) {
+		// Create an anime without a folder
+		animeRow := db.Anime{Name: "NoFolderAnime"}
+		require.NoError(t, te.dbClient.Anime().Create(ctx, &animeRow))
+
+		got, err := svc.Rename(ctx, animeRow.ID, "RenamedNoFolder")
+		require.NoError(t, err)
+		assert.Equal(t, "RenamedNoFolder", got.Name)
+	})
+
 	t.Run("rejects duplicate name", func(t *testing.T) {
 		other, err := svc.Create(ctx, "Other")
 		require.NoError(t, err)
@@ -122,7 +156,7 @@ func TestService_Delete(t *testing.T) {
 	svc := te.service()
 	ctx := context.Background()
 
-	t.Run("deletes anime, clears folder anime_id, removes anime_tag rows", func(t *testing.T) {
+	t.Run("deletes anime and clears folder anime_id", func(t *testing.T) {
 		a, err := svc.Create(ctx, "DelMe")
 		require.NoError(t, err)
 
@@ -130,11 +164,6 @@ func TestService_Delete(t *testing.T) {
 		animeID := a.ID
 		dir := db.File{ID: 4101, Name: "dir", Type: db.FileTypeDirectory, AnimeID: &animeID}
 		require.NoError(t, db.Create(te.dbClient.Client, &dir))
-
-		// tag
-		tagRow := db.Tag{ID: 4201, Name: "ch1"}
-		require.NoError(t, db.Create(te.dbClient.Client, &tagRow))
-		require.NoError(t, svc.AssignTag(ctx, a.ID, tagRow.ID))
 
 		// delete
 		require.NoError(t, svc.Delete(ctx, a.ID))
@@ -146,82 +175,12 @@ func TestService_Delete(t *testing.T) {
 		dirAfter, err := db.FindByValue(te.dbClient.Client, db.File{ID: 4101})
 		require.NoError(t, err)
 		assert.Nil(t, dirAfter.AnimeID)
-
-		// tag still exists, but anime_tag row is gone
-		_, err = db.FindByValue(te.dbClient.Client, db.Tag{ID: 4201})
-		require.NoError(t, err)
-		ats, err := te.dbClient.AnimeTag().FindAllByAnimeIDs([]uint{a.ID})
-		require.NoError(t, err)
-		assert.Empty(t, ats)
 	})
 
 	t.Run("returns not found for missing id", func(t *testing.T) {
 		err := svc.Delete(ctx, 99999)
 		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrAnimeNotFound)
-	})
-}
-
-func TestService_AssignTag(t *testing.T) {
-	te := newTester(t)
-	svc := te.service()
-	ctx := context.Background()
-
-	a, err := svc.Create(ctx, "AnimeX")
-	require.NoError(t, err)
-	tagRow := db.Tag{ID: 6001, Name: "tag1"}
-	require.NoError(t, db.Create(te.dbClient.Client, &tagRow))
-
-	t.Run("assigns tag", func(t *testing.T) {
-		require.NoError(t, svc.AssignTag(ctx, a.ID, tagRow.ID))
-		ats, err := te.dbClient.AnimeTag().FindAllByAnimeIDs([]uint{a.ID})
-		require.NoError(t, err)
-		require.Len(t, ats, 1)
-		assert.Equal(t, tagRow.ID, ats[0].TagID)
-	})
-
-	t.Run("re-assigning is a no-op", func(t *testing.T) {
-		require.NoError(t, svc.AssignTag(ctx, a.ID, tagRow.ID))
-		ats, err := te.dbClient.AnimeTag().FindAllByAnimeIDs([]uint{a.ID})
-		require.NoError(t, err)
-		assert.Len(t, ats, 1)
-	})
-
-	t.Run("rejects unknown anime", func(t *testing.T) {
-		err := svc.AssignTag(ctx, 99999, tagRow.ID)
-		assert.ErrorIs(t, err, ErrAnimeNotFound)
-	})
-
-	t.Run("rejects unknown tag", func(t *testing.T) {
-		err := svc.AssignTag(ctx, a.ID, 99999)
-		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
-	})
-
-	t.Run("rejects zero ids", func(t *testing.T) {
-		assert.ErrorIs(t, svc.AssignTag(ctx, 0, tagRow.ID), xerrors.ErrInvalidArgument)
-		assert.ErrorIs(t, svc.AssignTag(ctx, a.ID, 0), xerrors.ErrInvalidArgument)
-	})
-}
-
-func TestService_UnassignTag(t *testing.T) {
-	te := newTester(t)
-	svc := te.service()
-	ctx := context.Background()
-
-	a, err := svc.Create(ctx, "AnimeY")
-	require.NoError(t, err)
-	tagRow := db.Tag{ID: 6101, Name: "tag1"}
-	require.NoError(t, db.Create(te.dbClient.Client, &tagRow))
-	require.NoError(t, svc.AssignTag(ctx, a.ID, tagRow.ID))
-
-	require.NoError(t, svc.UnassignTag(ctx, a.ID, tagRow.ID))
-	ats, err := te.dbClient.AnimeTag().FindAllByAnimeIDs([]uint{a.ID})
-	require.NoError(t, err)
-	assert.Empty(t, ats)
-
-	t.Run("zero ids rejected", func(t *testing.T) {
-		assert.ErrorIs(t, svc.UnassignTag(ctx, 0, tagRow.ID), xerrors.ErrInvalidArgument)
-		assert.ErrorIs(t, svc.UnassignTag(ctx, a.ID, 0), xerrors.ErrInvalidArgument)
 	})
 }
 
@@ -481,21 +440,6 @@ func TestIsUniqueViolation(t *testing.T) {
 	assert.True(t, isUniqueViolation(errors.New("UNIQUE constraint failed: anime.name")))
 }
 
-func TestService_AssignTag_RejectsAfterDuplicate(t *testing.T) {
-	te := newTester(t)
-	svc := te.service()
-	ctx := context.Background()
-
-	a, err := svc.Create(ctx, "Anime")
-	require.NoError(t, err)
-	tagRow := db.Tag{ID: 9000, Name: "tag"}
-	require.NoError(t, db.Create(te.dbClient.Client, &tagRow))
-
-	require.NoError(t, svc.AssignTag(ctx, a.ID, tagRow.ID))
-	// duplicate is a no-op
-	require.NoError(t, svc.AssignTag(ctx, a.ID, tagRow.ID))
-}
-
 func TestService_ImportFolderAsAnime(t *testing.T) {
 	te := newTester(t)
 	svc := te.service()
@@ -605,6 +549,32 @@ func TestService_ImportFolderAsAnime_DuplicateName(t *testing.T) {
 	assert.Equal(t, "Existing2", got.Name)
 }
 
+func TestService_ImportFolderAsAnime_DuplicateAnimeName(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	// Create anime "Collide" which auto-creates folder "Collide"
+	_, err := svc.Create(ctx, "Collide")
+	require.NoError(t, err)
+
+	// Manually insert an unassigned folder with a name that matches another
+	// anime. We can't name it "Collide" because that already exists in files.
+	// Instead, create anime "OtherName" manually, then a folder "OtherName"
+	// with a different parent.
+	animeRow := db.Anime{Name: "CollideName"}
+	require.NoError(t, te.dbClient.Anime().Create(ctx, &animeRow))
+
+	folder := db.File{ParentID: 0, Name: "CollideName", Type: db.FileTypeDirectory}
+	require.NoError(t, te.dbClient.File().Create(ctx, &folder))
+	require.NoError(t, os.Mkdir(filepath.Join(te.config.ImageRootDirectory, "CollideName"), 0755))
+
+	// Import should fail with unique violation on anime name
+	_, err = svc.ImportFolderAsAnime(ctx, folder.ID)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrAnimeAlreadyExists)
+}
+
 func TestService_FindAnimeRootFolder_NoFolder(t *testing.T) {
 	te := newTester(t)
 	svc := te.service()
@@ -675,5 +645,249 @@ func TestService_GetAnimeFolderTree(t *testing.T) {
 		tree, err := svc.GetAnimeFolderTree(animeRow.ID)
 		require.NoError(t, err)
 		assert.Nil(t, tree)
+	})
+
+	t.Run("returns nil when root folder not reachable from tree root", func(t *testing.T) {
+		// Create an anime row and a File row whose ParentID references a
+		// non-existent parent. The directory tree builder will not be able
+		// to reach this file from root, so FindChildByID returns zero.
+		animeRow := db.Anime{Name: "GhostFolder"}
+		require.NoError(t, te.dbClient.Anime().Create(ctx, &animeRow))
+		ghostID := animeRow.ID
+		ghostFile := db.File{Name: "GhostFolder", ParentID: 99999, Type: db.FileTypeDirectory, AnimeID: &ghostID}
+		require.NoError(t, te.dbClient.File().Create(ctx, &ghostFile))
+		tree, err := svc.GetAnimeFolderTree(animeRow.ID)
+		require.NoError(t, err)
+		assert.Nil(t, tree)
+	})
+}
+
+func TestService_ImportMultipleFoldersAsAnime(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	// Create unassigned top-level folders
+	folder1 := db.File{ParentID: 0, Name: "ShowA", Type: db.FileTypeDirectory}
+	require.NoError(t, te.dbClient.File().Create(ctx, &folder1))
+	require.NoError(t, os.Mkdir(filepath.Join(te.config.ImageRootDirectory, "ShowA"), 0755))
+
+	folder2 := db.File{ParentID: 0, Name: "ShowB", Type: db.FileTypeDirectory}
+	require.NoError(t, te.dbClient.File().Create(ctx, &folder2))
+	require.NoError(t, os.Mkdir(filepath.Join(te.config.ImageRootDirectory, "ShowB"), 0755))
+
+	t.Run("imports multiple folders", func(t *testing.T) {
+		results, err := svc.ImportMultipleFoldersAsAnime(ctx, []uint{folder1.ID, folder2.ID})
+		require.NoError(t, err)
+		require.Len(t, results, 2)
+		assert.Equal(t, "ShowA", results[0].Name)
+		assert.Equal(t, "ShowB", results[1].Name)
+
+		// Verify both folders now have anime_id
+		dir1, err := db.FindByValue(te.dbClient.Client, db.File{ID: folder1.ID})
+		require.NoError(t, err)
+		require.NotNil(t, dir1.AnimeID)
+
+		dir2, err := db.FindByValue(te.dbClient.Client, db.File{ID: folder2.ID})
+		require.NoError(t, err)
+		require.NotNil(t, dir2.AnimeID)
+	})
+
+	t.Run("rejects empty list", func(t *testing.T) {
+		_, err := svc.ImportMultipleFoldersAsAnime(ctx, nil)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	})
+
+	t.Run("rejects zero id in list", func(t *testing.T) {
+		_, err := svc.ImportMultipleFoldersAsAnime(ctx, []uint{0})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	})
+
+	t.Run("rejects already-assigned folder", func(t *testing.T) {
+		_, err := svc.ImportMultipleFoldersAsAnime(ctx, []uint{folder1.ID})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrAnimeAlreadyExists)
+	})
+
+	t.Run("rejects unknown folder", func(t *testing.T) {
+		_, err := svc.ImportMultipleFoldersAsAnime(ctx, []uint{99999})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, image.ErrDirectoryNotFound)
+	})
+
+	t.Run("rejects non-directory", func(t *testing.T) {
+		img := db.File{ParentID: 0, Name: "batch_img.jpg", Type: db.FileTypeImage}
+		require.NoError(t, te.dbClient.File().Create(ctx, &img))
+		_, err := svc.ImportMultipleFoldersAsAnime(ctx, []uint{img.ID})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	})
+
+	t.Run("rejects child of assigned folder", func(t *testing.T) {
+		child := db.File{ParentID: folder1.ID, Name: "child", Type: db.FileTypeDirectory}
+		require.NoError(t, te.dbClient.File().Create(ctx, &child))
+		_, err := svc.ImportMultipleFoldersAsAnime(ctx, []uint{child.ID})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrAnimeAncestorAssigned)
+	})
+}
+
+func TestService_ImportMultipleFoldersAsAnime_DuplicateName(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	// Create an anime named "Clash" first (this also creates a folder named "Clash")
+	_, err := svc.Create(ctx, "Clash")
+	require.NoError(t, err)
+
+	// Create a folder named "ClashFolder" unassigned. Then manually insert
+	// an anime row named "ClashFolder" to simulate a name collision during import.
+	folder := db.File{ParentID: 0, Name: "ClashFolder", Type: db.FileTypeDirectory}
+	require.NoError(t, te.dbClient.File().Create(ctx, &folder))
+	require.NoError(t, os.Mkdir(filepath.Join(te.config.ImageRootDirectory, "ClashFolder"), 0755))
+
+	// Manually create an anime with the same name to cause a unique violation
+	clashAnime := db.Anime{Name: "ClashFolder"}
+	require.NoError(t, te.dbClient.Anime().Create(ctx, &clashAnime))
+
+	// The import should fail because "ClashFolder" anime already exists
+	_, err = svc.ImportMultipleFoldersAsAnime(ctx, []uint{folder.ID})
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrAnimeAlreadyExists)
+}
+
+func TestService_DeriveTagsForAnime(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "TaggedShow")
+	require.NoError(t, err)
+
+	rootFolder, err := svc.FindAnimeRootFolder(a.ID)
+	require.NoError(t, err)
+	require.NotNil(t, rootFolder)
+
+	// Create subfolder and images
+	season1 := db.File{ParentID: rootFolder.ID, Name: "S01", Type: db.FileTypeDirectory}
+	require.NoError(t, te.dbClient.File().Create(ctx, &season1))
+
+	img1 := db.File{ParentID: rootFolder.ID, Name: "a.jpg", Type: db.FileTypeImage}
+	require.NoError(t, te.dbClient.File().Create(ctx, &img1))
+
+	img2 := db.File{ParentID: season1.ID, Name: "b.jpg", Type: db.FileTypeImage}
+	require.NoError(t, te.dbClient.File().Create(ctx, &img2))
+
+	img3 := db.File{ParentID: season1.ID, Name: "c.jpg", Type: db.FileTypeImage}
+	require.NoError(t, te.dbClient.File().Create(ctx, &img3))
+
+	// Create tags
+	tagA := db.Tag{Name: "tagA"}
+	require.NoError(t, db.Create(te.dbClient.Client, &tagA))
+	tagB := db.Tag{Name: "tagB"}
+	require.NoError(t, db.Create(te.dbClient.Client, &tagB))
+
+	// Assign tags to images via FileTag
+	fileTags := []db.FileTag{
+		{FileID: img1.ID, TagID: tagA.ID, AddedBy: db.FileTagAddedByUser},
+		{FileID: img2.ID, TagID: tagA.ID, AddedBy: db.FileTagAddedByUser},
+		{FileID: img2.ID, TagID: tagB.ID, AddedBy: db.FileTagAddedByUser},
+		{FileID: img3.ID, TagID: tagB.ID, AddedBy: db.FileTagAddedByUser},
+	}
+	require.NoError(t, db.BatchCreate(te.dbClient.Client, fileTags))
+
+	derived, err := svc.DeriveTagsForAnime(a.ID)
+	require.NoError(t, err)
+	require.Len(t, derived, 2)
+
+	// Build a map for easy lookup
+	tagMap := make(map[uint]DerivedTagCount)
+	for _, d := range derived {
+		tagMap[d.TagID] = d
+	}
+
+	assert.Equal(t, "tagA", tagMap[tagA.ID].TagName)
+	assert.Equal(t, uint(2), tagMap[tagA.ID].ImageCount) // img1 + img2
+	assert.Equal(t, "tagB", tagMap[tagB.ID].TagName)
+	assert.Equal(t, uint(2), tagMap[tagB.ID].ImageCount) // img2 + img3
+
+	t.Run("returns nil for anime with no images", func(t *testing.T) {
+		empty, err := svc.Create(ctx, "EmptyAnime")
+		require.NoError(t, err)
+		derived, err := svc.DeriveTagsForAnime(empty.ID)
+		require.NoError(t, err)
+		assert.Nil(t, derived)
+	})
+
+	t.Run("returns nil for anime with untagged images", func(t *testing.T) {
+		untagged, err := svc.Create(ctx, "UntaggedAnime")
+		require.NoError(t, err)
+		untaggedRoot, err := svc.FindAnimeRootFolder(untagged.ID)
+		require.NoError(t, err)
+		require.NotNil(t, untaggedRoot)
+		untaggedImg := db.File{ParentID: untaggedRoot.ID, Name: "x.jpg", Type: db.FileTypeImage}
+		require.NoError(t, te.dbClient.File().Create(ctx, &untaggedImg))
+
+		derived, err := svc.DeriveTagsForAnime(untagged.ID)
+		require.NoError(t, err)
+		assert.Nil(t, derived)
+	})
+}
+
+func TestService_GetFolderImageIDs(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "FolderImagesAnime")
+	require.NoError(t, err)
+
+	rootFolder, err := svc.FindAnimeRootFolder(a.ID)
+	require.NoError(t, err)
+	require.NotNil(t, rootFolder)
+
+	// Create subfolder
+	season1 := db.File{ParentID: rootFolder.ID, Name: "S01", Type: db.FileTypeDirectory}
+	require.NoError(t, te.dbClient.File().Create(ctx, &season1))
+
+	// Create images
+	img1 := db.File{ParentID: rootFolder.ID, Name: "root.jpg", Type: db.FileTypeImage}
+	require.NoError(t, te.dbClient.File().Create(ctx, &img1))
+
+	img2 := db.File{ParentID: season1.ID, Name: "s01.jpg", Type: db.FileTypeImage}
+	require.NoError(t, te.dbClient.File().Create(ctx, &img2))
+
+	img3 := db.File{ParentID: season1.ID, Name: "s01b.jpg", Type: db.FileTypeImage}
+	require.NoError(t, te.dbClient.File().Create(ctx, &img3))
+
+	t.Run("non-recursive returns only direct images", func(t *testing.T) {
+		ids, err := svc.GetFolderImageIDs(rootFolder.ID, false)
+		require.NoError(t, err)
+		assert.Len(t, ids, 1)
+		assert.Contains(t, ids, img1.ID)
+	})
+
+	t.Run("recursive returns all descendant images", func(t *testing.T) {
+		ids, err := svc.GetFolderImageIDs(rootFolder.ID, true)
+		require.NoError(t, err)
+		assert.Len(t, ids, 3)
+		assert.Contains(t, ids, img1.ID)
+		assert.Contains(t, ids, img2.ID)
+		assert.Contains(t, ids, img3.ID)
+	})
+
+	t.Run("subfolder non-recursive", func(t *testing.T) {
+		ids, err := svc.GetFolderImageIDs(season1.ID, false)
+		require.NoError(t, err)
+		assert.Len(t, ids, 2)
+	})
+
+	t.Run("unknown folder returns error", func(t *testing.T) {
+		_, err := svc.GetFolderImageIDs(99999, false)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, image.ErrDirectoryNotFound)
 	})
 }

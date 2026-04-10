@@ -25,7 +25,8 @@ type AnimeListItem struct {
 	ImageCount uint   `json:"imageCount"`
 }
 
-// AnimeTagInfo is a tag row that belongs to a specific anime.
+// AnimeTagInfo is a derived tag computed from the images in the anime's folder
+// tree (read-only).
 type AnimeTagInfo struct {
 	ID         uint   `json:"id"`
 	Name       string `json:"name"`
@@ -102,7 +103,7 @@ func (s *AnimeService) RenameAnime(ctx context.Context, id uint, name string) (A
 	return Anime{ID: a.ID, Name: a.Name}, err
 }
 
-// DeleteAnime deletes an anime, clearing references on folders and tags.
+// DeleteAnime deletes an anime, clearing references on folders.
 func (s *AnimeService) DeleteAnime(ctx context.Context, id uint) error {
 	return s.core.Delete(ctx, id)
 }
@@ -132,35 +133,24 @@ func (s *AnimeService) ListAnime(ctx context.Context) ([]AnimeListItem, error) {
 }
 
 // GetAnimeDetails returns the landing page payload for a single anime.
+// Tags are derived from images in the anime's folder tree (read-only).
 func (s *AnimeService) GetAnimeDetails(ctx context.Context, id uint) (AnimeDetailsResponse, error) {
 	a, err := s.core.Read(ctx, id)
 	if err != nil {
 		return AnimeDetailsResponse{}, err
 	}
 
-	// tags
-	animeTags, err := s.dbClient.AnimeTag().FindAllByAnimeIDs([]uint{id})
+	// Derive tags from images in the anime's folder tree
+	derivedTags, err := s.core.DeriveTagsForAnime(id)
 	if err != nil {
-		return AnimeDetailsResponse{}, fmt.Errorf("AnimeTag.FindAllByAnimeIDs: %w", err)
+		return AnimeDetailsResponse{}, fmt.Errorf("core.DeriveTagsForAnime: %w", err)
 	}
-	tagIDs := make([]uint, 0, len(animeTags))
-	for _, at := range animeTags {
-		tagIDs = append(tagIDs, at.TagID)
-	}
-	dbTags, err := s.dbClient.Tag().FindAllByTagIDs(tagIDs)
-	if err != nil {
-		return AnimeDetailsResponse{}, fmt.Errorf("Tag.FindAllByTagIDs: %w", err)
-	}
-	tagInfos := make([]AnimeTagInfo, 0, len(dbTags))
-	for _, t := range dbTags {
-		fileTags, err := s.dbClient.FileTag().FindAllByTagIDs([]uint{t.ID})
-		if err != nil {
-			return AnimeDetailsResponse{}, fmt.Errorf("FileTag.FindAllByTagIDs: %w", err)
-		}
+	tagInfos := make([]AnimeTagInfo, 0, len(derivedTags))
+	for _, dt := range derivedTags {
 		tagInfos = append(tagInfos, AnimeTagInfo{
-			ID:         t.ID,
-			Name:       t.Name,
-			ImageCount: uint(len(fileTags)),
+			ID:         dt.TagID,
+			Name:       dt.TagName,
+			ImageCount: dt.ImageCount,
 		})
 	}
 	sort.SliceStable(tagInfos, func(i, j int) bool {
@@ -224,16 +214,6 @@ func (s *AnimeService) collectFoldersForAnime(animeID uint) ([]AnimeFolderInfo, 
 		return strings.ToLower(result[i].Name) < strings.ToLower(result[j].Name)
 	})
 	return result, nil
-}
-
-// AssignTagToAnime adds a tag to an anime (m2m).
-func (s *AnimeService) AssignTagToAnime(ctx context.Context, animeID uint, tagID uint) error {
-	return s.core.AssignTag(ctx, animeID, tagID)
-}
-
-// UnassignTagFromAnime removes a tag from an anime (m2m).
-func (s *AnimeService) UnassignTagFromAnime(ctx context.Context, animeID uint, tagID uint) error {
-	return s.core.UnassignTag(ctx, animeID, tagID)
 }
 
 // AssignFolderToAnime marks a folder as the explicitly-assigned root of the
@@ -402,6 +382,20 @@ func (s *AnimeService) ImportFolderAsAnime(ctx context.Context, folderID uint) (
 	return Anime{ID: a.ID, Name: a.Name}, nil
 }
 
+// ImportMultipleFoldersAsAnime creates a new anime for each of the given
+// folder IDs. Each folder becomes its own anime.
+func (s *AnimeService) ImportMultipleFoldersAsAnime(ctx context.Context, folderIDs []uint) ([]Anime, error) {
+	results, err := s.core.ImportMultipleFoldersAsAnime(ctx, folderIDs)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Anime, len(results))
+	for i, a := range results {
+		out[i] = Anime{ID: a.ID, Name: a.Name}
+	}
+	return out, nil
+}
+
 // ListUnassignedTopFolders returns top-level folders that are not assigned to
 // any anime and are candidates for import.
 func (s *AnimeService) ListUnassignedTopFolders(ctx context.Context) ([]UnassignedFolder, error) {
@@ -420,4 +414,28 @@ func (s *AnimeService) ListUnassignedTopFolders(ctx context.Context) ([]Unassign
 		return strings.ToLower(result[i].Name) < strings.ToLower(result[j].Name)
 	})
 	return result, nil
+}
+
+// GetFolderImages returns images for a specific folder in an anime's tree.
+// When recursive is true, images from descendant folders are included.
+func (s *AnimeService) GetFolderImages(ctx context.Context, folderID uint, recursive bool) (SearchImagesResponse, error) {
+	if folderID == 0 {
+		return SearchImagesResponse{}, fmt.Errorf("%w: folderID required", ErrInvalidArgument)
+	}
+	imageIDs, err := s.core.GetFolderImageIDs(folderID, recursive)
+	if err != nil {
+		return SearchImagesResponse{}, err
+	}
+	if len(imageIDs) == 0 {
+		return SearchImagesResponse{}, nil
+	}
+	imageFiles, err := s.imageReader.ReadImagesByIDs(imageIDs)
+	if err != nil {
+		return SearchImagesResponse{}, fmt.Errorf("imageReader.ReadImagesByIDs: %w", err)
+	}
+	results := make([]Image, 0, len(imageFiles))
+	for _, f := range imageFiles {
+		results = append(results, newImageConverterFromImageFiles(f).Convert())
+	}
+	return SearchImagesResponse{Images: results}, nil
 }

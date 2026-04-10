@@ -140,9 +140,8 @@ func (s *Service) Rename(ctx context.Context, id uint, name string) (Anime, erro
 	return Anime{ID: updated.ID, Name: updated.Name}, err
 }
 
-// Delete removes an anime, clears anime_id on associated folders, and removes
-// rows in anime_tag for the anime. Tags and folders themselves are not
-// deleted (no cascade).
+// Delete removes an anime and clears anime_id on associated folders. Tags and
+// folders themselves are not deleted (no cascade).
 func (s *Service) Delete(ctx context.Context, id uint) error {
 	return db.NewTransaction(ctx, s.dbClient, func(ctx context.Context) error {
 		// verify exists for a clean error
@@ -154,9 +153,6 @@ func (s *Service) Delete(ctx context.Context, id uint) error {
 			return err
 		}
 		if err := s.dbClient.File().ClearAnimeIDByAnimeID(ctx, id); err != nil {
-			return err
-		}
-		if err := s.dbClient.AnimeTag().DeleteByAnimeID(ctx, id); err != nil {
 			return err
 		}
 		return s.dbClient.Anime().BatchDelete(ctx, []db.Anime{{ID: id}})
@@ -185,48 +181,96 @@ func (s *Service) Read(ctx context.Context, id uint) (Anime, error) {
 	return Anime{ID: row.ID, Name: row.Name}, err
 }
 
-// AssignTag adds a tag to an anime. If the association already exists this is
-// a no-op.
-func (s *Service) AssignTag(ctx context.Context, animeID, tagID uint) error {
-	if animeID == 0 || tagID == 0 {
-		return fmt.Errorf("%w: animeID and tagID required", xerrors.ErrInvalidArgument)
-	}
-	return db.NewTransaction(ctx, s.dbClient, func(ctx context.Context) error {
-		_, err := s.dbClient.Anime().FindByValue(ctx, &db.Anime{ID: animeID})
-		if errors.Is(err, db.ErrRecordNotFound) {
-			return fmt.Errorf("%w: id %d", ErrAnimeNotFound, animeID)
-		}
-		if err != nil {
-			return err
-		}
-		_, err = s.dbClient.Tag().FindByValue(ctx, &db.Tag{ID: tagID})
-		if errors.Is(err, db.ErrRecordNotFound) {
-			return fmt.Errorf("%w: tag id %d", xerrors.ErrInvalidArgument, tagID)
-		}
-		if err != nil {
-			return err
-		}
-		// already assigned?
-		existing, err := s.dbClient.AnimeTag().FindAllByAnimeIDs([]uint{animeID})
-		if err != nil {
-			return err
-		}
-		for _, at := range existing {
-			if at.TagID == tagID {
-				return nil
-			}
-		}
-		row := db.AnimeTag{AnimeID: animeID, TagID: tagID}
-		return s.dbClient.AnimeTag().Create(ctx, &row)
-	})
+// DerivedTagCount is a tag with the number of images that have it in the
+// anime's folder tree.
+type DerivedTagCount struct {
+	TagID      uint   `json:"tagId"`
+	TagName    string `json:"tagName"`
+	ImageCount uint   `json:"imageCount"`
 }
 
-// UnassignTag removes a tag from an anime.
-func (s *Service) UnassignTag(ctx context.Context, animeID, tagID uint) error {
-	if animeID == 0 || tagID == 0 {
-		return fmt.Errorf("%w: animeID and tagID required", xerrors.ErrInvalidArgument)
+// DeriveTagsForAnime computes the tags for an anime by finding all image files
+// in its folder tree, looking up which tags are applied to those images, and
+// returning unique tags with counts.
+func (s *Service) DeriveTagsForAnime(animeID uint) ([]DerivedTagCount, error) {
+	tree, err := s.directoryReader.ReadDirectoryTree()
+	if err != nil {
+		return nil, fmt.Errorf("directoryReader.ReadDirectoryTree: %w", err)
 	}
-	return s.dbClient.AnimeTag().DeleteByAnimeAndTag(ctx, animeID, tagID)
+	stored, err := s.readStoredAnimeAssignments()
+	if err != nil {
+		return nil, err
+	}
+	resolved := make(map[uint]FolderAnimeAssignment)
+	walkDirectoryTree(&tree, 0, stored, resolved)
+
+	// Collect all image IDs belonging to this anime
+	imageIDs := make([]uint, 0)
+	collectImageIDsForAnimeFromTree(&tree, animeID, resolved, &imageIDs)
+	if len(imageIDs) == 0 {
+		return nil, nil
+	}
+
+	// Look up file tags for these images
+	fileTags, err := s.dbClient.FileTag().FindAllByFileID(imageIDs)
+	if err != nil {
+		return nil, fmt.Errorf("FileTag.FindAllByFileID: %w", err)
+	}
+	if len(fileTags) == 0 {
+		return nil, nil
+	}
+
+	// Count images per tag
+	tagCounts := make(map[uint]uint)
+	for _, ft := range fileTags {
+		tagCounts[ft.TagID]++
+	}
+
+	// Fetch tag names
+	tagIDs := make([]uint, 0, len(tagCounts))
+	for tid := range tagCounts {
+		tagIDs = append(tagIDs, tid)
+	}
+	tags, err := s.dbClient.Tag().FindAllByTagIDs(tagIDs)
+	if err != nil {
+		return nil, fmt.Errorf("Tag.FindAllByTagIDs: %w", err)
+	}
+	tagNameMap := make(map[uint]string, len(tags))
+	for _, t := range tags {
+		tagNameMap[t.ID] = t.Name
+	}
+
+	result := make([]DerivedTagCount, 0, len(tagCounts))
+	for tid, count := range tagCounts {
+		result = append(result, DerivedTagCount{
+			TagID:      tid,
+			TagName:    tagNameMap[tid],
+			ImageCount: count,
+		})
+	}
+	return result, nil
+}
+
+func collectImageIDsForAnimeFromTree(
+	dir *image.Directory,
+	animeID uint,
+	resolved map[uint]FolderAnimeAssignment,
+	out *[]uint,
+) {
+	if dir.ID != 0 {
+		if a, ok := resolved[dir.ID]; ok && a.AnimeID == animeID {
+			for _, child := range dir.ChildImageFiles {
+				*out = append(*out, child.ID)
+			}
+			for _, child := range dir.Children {
+				collectImageIDsForAnimeFromTree(child, animeID, resolved, out)
+			}
+			return
+		}
+	}
+	for _, child := range dir.Children {
+		collectImageIDsForAnimeFromTree(child, animeID, resolved, out)
+	}
 }
 
 // AssignFolder marks a folder as the explicitly-assigned root of the anime.
@@ -510,6 +554,68 @@ func (s *Service) ImportFolderAsAnime(ctx context.Context, folderID uint) (Anime
 	return Anime{ID: row.ID, Name: row.Name}, nil
 }
 
+// ImportMultipleFoldersAsAnime creates a new anime for each of the given
+// folder IDs. Each folder must be a top-level directory with no existing
+// anime_id (or ancestor with anime_id). Returns the list of created anime.
+// If any folder fails validation the entire batch is skipped.
+func (s *Service) ImportMultipleFoldersAsAnime(ctx context.Context, folderIDs []uint) ([]Anime, error) {
+	if len(folderIDs) == 0 {
+		return nil, fmt.Errorf("%w: folderIDs required", xerrors.ErrInvalidArgument)
+	}
+
+	// Pre-validate all folders before creating any anime
+	folders := make([]db.File, 0, len(folderIDs))
+	for _, fid := range folderIDs {
+		if fid == 0 {
+			return nil, fmt.Errorf("%w: folderID must be non-zero", xerrors.ErrInvalidArgument)
+		}
+		folder, err := s.dbClient.File().FindByValue(ctx, &db.File{ID: fid})
+		if errors.Is(err, db.ErrRecordNotFound) {
+			return nil, fmt.Errorf("%w: folder id %d", image.ErrDirectoryNotFound, fid)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if folder.Type != db.FileTypeDirectory {
+			return nil, fmt.Errorf("%w: file id %d is not a directory", xerrors.ErrInvalidArgument, fid)
+		}
+		if folder.AnimeID != nil {
+			return nil, fmt.Errorf("%w: folder %d already assigned to anime", ErrAnimeAlreadyExists, fid)
+		}
+		ancestorAnime, err := s.findAncestorAnimeID(fid)
+		if err != nil {
+			return nil, err
+		}
+		if ancestorAnime != nil {
+			return nil, ErrAnimeAncestorAssigned
+		}
+		folders = append(folders, folder)
+	}
+
+	results := make([]Anime, 0, len(folders))
+	err := db.NewTransaction(ctx, s.dbClient, func(ctx context.Context) error {
+		for _, folder := range folders {
+			row := db.Anime{Name: folder.Name}
+			if err := s.dbClient.Anime().Create(ctx, &row); err != nil {
+				if isUniqueViolation(err) {
+					return fmt.Errorf("%w: %s", ErrAnimeAlreadyExists, folder.Name)
+				}
+				return err
+			}
+			animeID := row.ID
+			if err := s.dbClient.File().SetAnimeID(ctx, folder.ID, &animeID); err != nil {
+				return err
+			}
+			results = append(results, Anime{ID: row.ID, Name: row.Name})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
 // ListUnassignedTopFolders returns top-level folders (children of root) that
 // have no anime_id and no ancestor with anime_id. These are candidates for
 // importing as anime.
@@ -543,6 +649,37 @@ func (s *Service) FindAnimeRootFolder(animeID uint) (*db.File, error) {
 		return nil, nil
 	}
 	return &dirs[0], nil
+}
+
+// GetFolderImageIDs returns the image file IDs for a given folder and
+// optionally its descendants. When recursive is true, images from all
+// descendant folders are included.
+func (s *Service) GetFolderImageIDs(folderID uint, recursive bool) ([]uint, error) {
+	tree, err := s.directoryReader.ReadDirectoryTree()
+	if err != nil {
+		return nil, fmt.Errorf("directoryReader.ReadDirectoryTree: %w", err)
+	}
+	dir := tree.FindChildByID(folderID)
+	if dir.ID == 0 {
+		return nil, fmt.Errorf("%w: folder id %d", image.ErrDirectoryNotFound, folderID)
+	}
+	ids := make([]uint, 0)
+	for _, img := range dir.ChildImageFiles {
+		ids = append(ids, img.ID)
+	}
+	if recursive {
+		collectDescendantImageIDs(&dir, &ids)
+	}
+	return ids, nil
+}
+
+func collectDescendantImageIDs(dir *image.Directory, out *[]uint) {
+	for _, child := range dir.Children {
+		for _, img := range child.ChildImageFiles {
+			*out = append(*out, img.ID)
+		}
+		collectDescendantImageIDs(child, out)
+	}
 }
 
 func isUniqueViolation(err error) bool {

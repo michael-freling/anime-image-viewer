@@ -16,7 +16,7 @@ type tester struct {
 func newTester(t *testing.T) tester {
 	t.Helper()
 	dbClient := db.NewTestClient(t)
-	dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.AnimeTag{}, db.FileTag{})
+	dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
 	cfg := config.Config{
 		ImageRootDirectory: t.TempDir(),
 	}
