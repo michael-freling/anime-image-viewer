@@ -585,6 +585,50 @@ func TestService_ListUnassignedTopFolders(t *testing.T) {
 	assert.NotContains(t, names, "AssignedShow")
 }
 
+func TestService_ImportFolderAsAnime_DuplicateName(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	// Create an anime named "Existing"
+	_, err := svc.Create(ctx, "Existing")
+	require.NoError(t, err)
+
+	// Create a folder named "Existing" (different from the auto-created one)
+	folder := db.File{ParentID: 0, Name: "Existing2", Type: db.FileTypeDirectory}
+	require.NoError(t, te.dbClient.File().Create(ctx, &folder))
+	require.NoError(t, os.Mkdir(filepath.Join(te.config.ImageRootDirectory, "Existing2"), 0755))
+
+	// Import succeeds with a different name
+	got, err := svc.ImportFolderAsAnime(ctx, folder.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Existing2", got.Name)
+}
+
+func TestService_FindAnimeRootFolder_NoFolder(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	// Manually create an anime without auto-creating a folder
+	row := db.Anime{Name: "OrphanAnime"}
+	require.NoError(t, te.dbClient.Anime().Create(ctx, &row))
+
+	folder, err := svc.FindAnimeRootFolder(row.ID)
+	require.NoError(t, err)
+	assert.Nil(t, folder)
+}
+
+func TestService_ListUnassignedTopFolders_Empty(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+
+	// With no folders at all, should return empty
+	dirs, err := svc.ListUnassignedTopFolders()
+	require.NoError(t, err)
+	assert.Empty(t, dirs)
+}
+
 func TestService_GetAnimeFolderTree(t *testing.T) {
 	te := newTester(t)
 	svc := te.service()

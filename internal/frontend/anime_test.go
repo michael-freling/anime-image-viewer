@@ -342,3 +342,130 @@ func TestAnimeService_SearchImagesUnassigned_Empty(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, resp.Images)
 }
+
+func TestAnimeService_ImportFolderAsAnime(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.AnimeTag{}, db.FileTag{})
+	svc := tester.getAnimeService()
+	ctx := context.Background()
+
+	// Create an unassigned top-level folder
+	fileCreator := tester.newFileCreator(t).
+		CreateDirectory(image.Directory{ID: 9001, Name: "ImportMe"})
+	files := []db.File{fileCreator.BuildDBDirectory(9001)}
+	db.LoadTestData(t, tester.dbClient, files)
+
+	imported, err := svc.ImportFolderAsAnime(ctx, 9001)
+	require.NoError(t, err)
+	assert.NotZero(t, imported.ID)
+	assert.Equal(t, "ImportMe", imported.Name)
+
+	// Verify the anime appears in the list
+	list, err := svc.ListAnime(ctx)
+	require.NoError(t, err)
+	found := false
+	for _, item := range list {
+		if item.Name == "ImportMe" {
+			found = true
+		}
+	}
+	assert.True(t, found)
+}
+
+func TestAnimeService_ListUnassignedTopFolders(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.AnimeTag{}, db.FileTag{})
+	svc := tester.getAnimeService()
+	ctx := context.Background()
+
+	// Create an anime (auto-creates assigned folder)
+	_, err := svc.CreateAnime(ctx, "Assigned")
+	require.NoError(t, err)
+
+	// Create unassigned folders
+	fileCreator := tester.newFileCreator(t).
+		CreateDirectory(image.Directory{ID: 9101, Name: "FolderB"}).
+		CreateDirectory(image.Directory{ID: 9102, Name: "FolderA"})
+	files := []db.File{
+		fileCreator.BuildDBDirectory(9101),
+		fileCreator.BuildDBDirectory(9102),
+	}
+	db.LoadTestData(t, tester.dbClient, files)
+
+	folders, err := svc.ListUnassignedTopFolders(ctx)
+	require.NoError(t, err)
+	require.Len(t, folders, 2)
+	// sorted alphabetically
+	assert.Equal(t, "FolderA", folders[0].Name)
+	assert.Equal(t, "FolderB", folders[1].Name)
+}
+
+func TestAnimeService_ListUnassignedTopFolders_Empty(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.AnimeTag{}, db.FileTag{})
+	svc := tester.getAnimeService()
+
+	folders, err := svc.ListUnassignedTopFolders(context.Background())
+	require.NoError(t, err)
+	assert.Empty(t, folders)
+}
+
+func TestAnimeService_GetAnimeDetails_FolderTree(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.AnimeTag{}, db.FileTag{})
+	svc := tester.getAnimeService()
+	ctx := context.Background()
+
+	a, err := svc.CreateAnime(ctx, "TreeShow")
+	require.NoError(t, err)
+
+	// The auto-created root folder has anime_id set. Find it so we can
+	// create subfolders under it.
+	coreSvc := tester.getAnimeCoreService()
+	rootDir, err := coreSvc.FindAnimeRootFolder(a.ID)
+	require.NoError(t, err)
+	require.NotNil(t, rootDir)
+
+	// Create subfolder with its own child (exercises convertFolderTreeNode recursion)
+	fileCreator := tester.newFileCreator(t).
+		CreateDirectory(image.Directory{ID: 9301, ParentID: rootDir.ID, Name: "Season 1"}).
+		CreateDirectory(image.Directory{ID: 9302, ParentID: 9301, Name: "Part 1"})
+	fileCreator.CreateImage(image.ImageFile{ID: 9310, ParentID: rootDir.ID, Name: "root.jpg"}, image.TestImageFileJpeg)
+	fileCreator.CreateImage(image.ImageFile{ID: 9311, ParentID: 9301, Name: "s1.jpg"}, image.TestImageFileJpeg)
+
+	files := []db.File{
+		fileCreator.BuildDBDirectory(9301),
+		fileCreator.BuildDBDirectory(9302),
+		fileCreator.BuildDBImageFile(9310),
+		fileCreator.BuildDBImageFile(9311),
+	}
+	db.LoadTestData(t, tester.dbClient, files)
+
+	details, err := svc.GetAnimeDetails(ctx, a.ID)
+	require.NoError(t, err)
+
+	// Verify folderTree is populated with hierarchy
+	require.NotNil(t, details.FolderTree)
+	assert.Equal(t, rootDir.ID, details.FolderTree.ID)
+	assert.Equal(t, "TreeShow", details.FolderTree.Name)
+	assert.Equal(t, uint(1), details.FolderTree.ImageCount) // 1 direct image
+
+	require.Len(t, details.FolderTree.Children, 1)
+	assert.Equal(t, "Season 1", details.FolderTree.Children[0].Name)
+	assert.Equal(t, uint(1), details.FolderTree.Children[0].ImageCount)
+
+	require.Len(t, details.FolderTree.Children[0].Children, 1)
+	assert.Equal(t, "Part 1", details.FolderTree.Children[0].Children[0].Name)
+	assert.Equal(t, uint(0), details.FolderTree.Children[0].Children[0].ImageCount)
+}
+
+func TestAnimeService_ImportFolderAsAnime_Error(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.AnimeTag{}, db.FileTag{})
+	svc := tester.getAnimeService()
+	ctx := context.Background()
+
+	// Try to import a non-existent folder
+	_, err := svc.ImportFolderAsAnime(ctx, 99999)
+	require.Error(t, err)
+}
