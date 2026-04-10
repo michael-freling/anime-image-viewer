@@ -1,4 +1,13 @@
-import { ArrowBack, Delete, Edit, Folder } from "@mui/icons-material";
+import {
+  Add,
+  ArrowBack,
+  ChevronRight,
+  Delete,
+  Edit,
+  ExpandMore,
+  Folder,
+  Upload,
+} from "@mui/icons-material";
 import {
   Box,
   Button,
@@ -8,8 +17,8 @@ import {
   List,
   ListDivider,
   ListItem,
+  ListItemButton,
   ListItemContent,
-  ListItemDecorator,
   Modal,
   ModalClose,
   ModalDialog,
@@ -20,9 +29,97 @@ import { FC, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   AnimeDetailsResponse,
+  AnimeFolderTreeNode,
   AnimeService,
+  BatchImportImageService,
+  DirectoryService,
+  Tag,
+  TagService,
 } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import Layout from "../../Layout";
+
+interface FolderTreeProps {
+  node: AnimeFolderTreeNode;
+  depth: number;
+  onAddSubfolder: (parentId: number, parentName: string) => void;
+  onUploadImages: (folderId: number) => void;
+}
+
+const FolderTreeItem: FC<FolderTreeProps> = ({
+  node,
+  depth,
+  onAddSubfolder,
+  onUploadImages,
+}) => {
+  const [expanded, setExpanded] = useState(depth < 2);
+  const hasChildren = node.children && node.children.length > 0;
+
+  return (
+    <Box sx={{ pl: depth > 0 ? 2 : 0 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          py: 0.5,
+          "&:hover .folder-actions": { opacity: 1 },
+        }}
+      >
+        <IconButton
+          size="sm"
+          variant="plain"
+          color="neutral"
+          onClick={() => setExpanded(!expanded)}
+          sx={{ visibility: hasChildren ? "visible" : "hidden", mr: 0.5 }}
+        >
+          {expanded ? <ExpandMore fontSize="small" /> : <ChevronRight fontSize="small" />}
+        </IconButton>
+        <Folder fontSize="small" sx={{ mr: 1, color: "primary.500" }} />
+        <Typography level="body-sm" sx={{ flex: 1 }}>
+          {node.name}
+        </Typography>
+        <Typography level="body-xs" sx={{ color: "text.secondary", mr: 1 }}>
+          {node.imageCount} image{node.imageCount === 1 ? "" : "s"}
+        </Typography>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          className="folder-actions"
+          sx={{ opacity: 0, transition: "opacity 0.15s" }}
+        >
+          <IconButton
+            size="sm"
+            variant="plain"
+            color="primary"
+            title="Add subfolder"
+            onClick={() => onAddSubfolder(node.id, node.name)}
+          >
+            <Add fontSize="small" />
+          </IconButton>
+          <IconButton
+            size="sm"
+            variant="plain"
+            color="primary"
+            title="Upload images"
+            onClick={() => onUploadImages(node.id)}
+          >
+            <Upload fontSize="small" />
+          </IconButton>
+        </Stack>
+      </Box>
+      {expanded &&
+        hasChildren &&
+        node.children.map((child) => (
+          <FolderTreeItem
+            key={child.id}
+            node={child}
+            depth={depth + 1}
+            onAddSubfolder={onAddSubfolder}
+            onUploadImages={onUploadImages}
+          />
+        ))}
+    </Box>
+  );
+};
 
 const AnimeDetailPage: FC = () => {
   const { animeId } = useParams<{ animeId: string }>();
@@ -33,6 +130,13 @@ const AnimeDetailPage: FC = () => {
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
+  const [subfolderOpen, setSubfolderOpen] = useState(false);
+  const [subfolderParentId, setSubfolderParentId] = useState<number>(0);
+  const [subfolderParentName, setSubfolderParentName] = useState<string>("");
+  const [subfolderName, setSubfolderName] = useState("");
+  const [subfolderError, setSubfolderError] = useState<string | null>(null);
+  const [allTags, setAllTags] = useState<Tag[]>([]);
+  const [tagPickerOpen, setTagPickerOpen] = useState(false);
 
   const id = animeId != null ? Number(animeId) : NaN;
 
@@ -86,15 +190,6 @@ const AnimeDetailPage: FC = () => {
     }
   };
 
-  const handleUnassignFolder = async (folderId: number) => {
-    try {
-      await AnimeService.UnassignFolderFromAnime(folderId);
-      await load();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  };
-
   const handleUnassignTag = async (tagId: number) => {
     try {
       await AnimeService.UnassignTagFromAnime(id, tagId);
@@ -103,6 +198,63 @@ const AnimeDetailPage: FC = () => {
       setError(err instanceof Error ? err.message : String(err));
     }
   };
+
+  const handleAddSubfolder = (parentId: number, parentName: string) => {
+    setSubfolderParentId(parentId);
+    setSubfolderParentName(parentName);
+    setSubfolderName("");
+    setSubfolderError(null);
+    setSubfolderOpen(true);
+  };
+
+  const handleCreateSubfolder = async () => {
+    const name = subfolderName.trim();
+    if (name === "") {
+      setSubfolderError("Name is required");
+      return;
+    }
+    try {
+      await DirectoryService.CreateDirectory(name, subfolderParentId);
+      setSubfolderOpen(false);
+      await load();
+    } catch (err: unknown) {
+      setSubfolderError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleUploadImages = async (folderId: number) => {
+    try {
+      await BatchImportImageService.ImportImages(folderId);
+      await load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const openTagPicker = async () => {
+    try {
+      const tags = await TagService.GetAll();
+      setAllTags(tags ?? []);
+      setTagPickerOpen(true);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleAssignTag = async (tagId: number) => {
+    try {
+      await AnimeService.AssignTagToAnime(id, tagId);
+      setTagPickerOpen(false);
+      await load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const assignedTagIds = new Set(
+    (details?.tags ?? []).map((t) => t.id)
+  );
+  const availableTags = allTags.filter((t) => !assignedTagIds.has(t.id));
 
   return (
     <Layout.Main
@@ -160,10 +312,48 @@ const AnimeDetailPage: FC = () => {
               </Button>
             </Box>
 
+            {/* Folder tree */}
             <Box>
               <Typography level="title-md" sx={{ mb: 1 }}>
-                Tags
+                Folders
               </Typography>
+              {details.folderTree != null ? (
+                <Box
+                  sx={{
+                    border: "1px solid",
+                    borderColor: "divider",
+                    borderRadius: "sm",
+                    p: 1,
+                    maxWidth: 640,
+                  }}
+                >
+                  <FolderTreeItem
+                    node={details.folderTree}
+                    depth={0}
+                    onAddSubfolder={handleAddSubfolder}
+                    onUploadImages={handleUploadImages}
+                  />
+                </Box>
+              ) : (
+                <Typography level="body-sm" sx={{ color: "text.secondary" }}>
+                  No folder tree. This anime has no root folder.
+                </Typography>
+              )}
+            </Box>
+
+            {/* Tags */}
+            <Box>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                <Typography level="title-md">Tags</Typography>
+                <Button
+                  size="sm"
+                  variant="outlined"
+                  startDecorator={<Add />}
+                  onClick={openTagPicker}
+                >
+                  Add tag
+                </Button>
+              </Stack>
               {details.tags.length === 0 ? (
                 <Typography level="body-sm" sx={{ color: "text.secondary" }}>
                   No tags assigned.
@@ -191,86 +381,11 @@ const AnimeDetailPage: FC = () => {
                 Click a tag to unassign it.
               </Typography>
             </Box>
-
-            <Box>
-              <Typography level="title-md" sx={{ mb: 1 }}>
-                Folders
-              </Typography>
-              {details.folders.length === 0 ? (
-                <Typography level="body-sm" sx={{ color: "text.secondary" }}>
-                  No folders assigned. Assign a folder from the folder edit
-                  page.
-                </Typography>
-              ) : (
-                <List
-                  variant="outlined"
-                  sx={{ borderRadius: "sm", maxWidth: 640 }}
-                >
-                  {details.folders.map((folder, idx) => (
-                    <Box key={folder.id}>
-                      {idx > 0 && <ListDivider inset="gutter" />}
-                      <ListItem>
-                        <ListItemDecorator>
-                          <Folder color="primary" />
-                        </ListItemDecorator>
-                        <ListItemContent>
-                          <Stack
-                            direction="row"
-                            justifyContent="space-between"
-                            alignItems="center"
-                          >
-                            <Box sx={{ minWidth: 0 }}>
-                              <Typography
-                                level="title-sm"
-                                sx={{
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {folder.name}
-                              </Typography>
-                              <Typography
-                                level="body-xs"
-                                sx={{ color: "text.tertiary" }}
-                              >
-                                {folder.path}
-                              </Typography>
-                            </Box>
-                            <Stack
-                              direction="row"
-                              spacing={1}
-                              alignItems="center"
-                            >
-                              <Typography
-                                level="body-sm"
-                                sx={{ color: "text.secondary" }}
-                              >
-                                {folder.imageCount} image
-                                {folder.imageCount === 1 ? "" : "s"}
-                              </Typography>
-                              <IconButton
-                                size="sm"
-                                color="danger"
-                                variant="plain"
-                                onClick={() => handleUnassignFolder(folder.id)}
-                                aria-label={`Unassign folder ${folder.name}`}
-                              >
-                                <Delete />
-                              </IconButton>
-                            </Stack>
-                          </Stack>
-                        </ListItemContent>
-                      </ListItem>
-                    </Box>
-                  ))}
-                </List>
-              )}
-            </Box>
           </Stack>
         )}
       </Box>
 
+      {/* Rename modal */}
       <Modal open={renameOpen} onClose={() => setRenameOpen(false)}>
         <ModalDialog sx={{ minWidth: 360 }}>
           <ModalClose />
@@ -305,6 +420,83 @@ const AnimeDetailPage: FC = () => {
               <Button onClick={handleRename}>Save</Button>
             </Stack>
           </Stack>
+        </ModalDialog>
+      </Modal>
+
+      {/* Add subfolder modal */}
+      <Modal open={subfolderOpen} onClose={() => setSubfolderOpen(false)}>
+        <ModalDialog sx={{ minWidth: 360 }}>
+          <ModalClose />
+          <Typography level="title-md">
+            Add subfolder under &quot;{subfolderParentName}&quot;
+          </Typography>
+          <Stack spacing={2} sx={{ mt: 2 }}>
+            <Input
+              autoFocus
+              placeholder="Folder name"
+              value={subfolderName}
+              onChange={(e) => {
+                setSubfolderName(e.target.value);
+                setSubfolderError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleCreateSubfolder();
+                }
+              }}
+            />
+            {subfolderError && (
+              <Typography level="body-sm" color="danger">
+                {subfolderError}
+              </Typography>
+            )}
+            <Stack direction="row" spacing={1} justifyContent="flex-end">
+              <Button
+                variant="plain"
+                color="neutral"
+                onClick={() => setSubfolderOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleCreateSubfolder}>Create</Button>
+            </Stack>
+          </Stack>
+        </ModalDialog>
+      </Modal>
+
+      {/* Tag picker modal */}
+      <Modal open={tagPickerOpen} onClose={() => setTagPickerOpen(false)}>
+        <ModalDialog sx={{ minWidth: 360, maxHeight: "60vh" }}>
+          <ModalClose />
+          <Typography level="title-md">Assign a tag</Typography>
+          {availableTags.length === 0 ? (
+            <Typography level="body-sm" sx={{ mt: 2, color: "text.secondary" }}>
+              No available tags to assign.
+            </Typography>
+          ) : (
+            <List
+              variant="outlined"
+              sx={{
+                borderRadius: "sm",
+                mt: 2,
+                maxHeight: 300,
+                overflow: "auto",
+              }}
+            >
+              {availableTags.map((tag, idx) => (
+                <Box key={tag.id}>
+                  {idx > 0 && <ListDivider inset="gutter" />}
+                  <ListItem>
+                    <ListItemButton onClick={() => handleAssignTag(tag.id)}>
+                      <ListItemContent>
+                        <Typography level="body-sm">{tag.name}</Typography>
+                      </ListItemContent>
+                    </ListItemButton>
+                  </ListItem>
+                </Box>
+              ))}
+            </List>
+          )}
         </ModalDialog>
       </Modal>
     </Layout.Main>

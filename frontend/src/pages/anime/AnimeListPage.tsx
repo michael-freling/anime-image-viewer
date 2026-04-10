@@ -1,4 +1,4 @@
-import { Add } from "@mui/icons-material";
+import { Add, FileOpen } from "@mui/icons-material";
 import {
   Box,
   Button,
@@ -19,6 +19,7 @@ import { useNavigate } from "react-router";
 import {
   AnimeListItem,
   AnimeService,
+  UnassignedFolder,
 } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import Layout from "../../Layout";
 
@@ -28,6 +29,10 @@ const AnimeListPage: FC = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [unassignedFolders, setUnassignedFolders] = useState<UnassignedFolder[]>([]);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const refresh = async () => {
@@ -61,23 +66,57 @@ const AnimeListPage: FC = () => {
     }
   };
 
+  const handleOpenImport = async () => {
+    setImportError(null);
+    setImportLoading(true);
+    setImportOpen(true);
+    try {
+      const folders = await AnimeService.ListUnassignedTopFolders();
+      setUnassignedFolders(folders ?? []);
+    } catch (err: unknown) {
+      setImportError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const handleImportFolder = async (folderId: number) => {
+    try {
+      const created = await AnimeService.ImportFolderAsAnime(folderId);
+      setImportOpen(false);
+      navigate(`/anime/${created.id}`);
+    } catch (err: unknown) {
+      setImportError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
   return (
     <Layout.Main
       actionHeader={
         <>
           <Typography level="title-lg">Anime</Typography>
-          <Button
-            variant="outlined"
-            color="primary"
-            startDecorator={<Add />}
-            onClick={() => {
-              setCreateError(null);
-              setNewName("");
-              setCreateOpen(true);
-            }}
-          >
-            Create anime
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              color="primary"
+              startDecorator={<Add />}
+              onClick={() => {
+                setCreateError(null);
+                setNewName("");
+                setCreateOpen(true);
+              }}
+            >
+              Create anime
+            </Button>
+            <Button
+              variant="outlined"
+              color="neutral"
+              startDecorator={<FileOpen />}
+              onClick={handleOpenImport}
+            >
+              Import folder
+            </Button>
+          </Stack>
         </>
       }
     >
@@ -85,7 +124,8 @@ const AnimeListPage: FC = () => {
         {loading && <Typography>Loading...</Typography>}
         {!loading && items != null && items.length === 0 && (
           <Typography level="body-md" sx={{ color: "text.secondary" }}>
-            No anime yet. Click &quot;Create anime&quot; to get started.
+            No anime yet. Click &quot;Create anime&quot; to get started, or
+            &quot;Import folder&quot; to import an existing folder.
           </Typography>
         )}
         {!loading && items != null && items.length > 0 && (
@@ -124,6 +164,7 @@ const AnimeListPage: FC = () => {
         )}
       </Box>
 
+      {/* Create anime modal */}
       <Modal open={createOpen} onClose={() => setCreateOpen(false)}>
         <ModalDialog sx={{ minWidth: 360 }}>
           <ModalClose />
@@ -159,6 +200,52 @@ const AnimeListPage: FC = () => {
               <Button onClick={handleCreate}>Create</Button>
             </Stack>
           </Stack>
+        </ModalDialog>
+      </Modal>
+
+      {/* Import folder modal */}
+      <Modal open={importOpen} onClose={() => setImportOpen(false)}>
+        <ModalDialog sx={{ minWidth: 400, maxHeight: "60vh" }}>
+          <ModalClose />
+          <Typography level="title-md">Import existing folder as anime</Typography>
+          <Box sx={{ mt: 2 }}>
+            {importLoading && <Typography>Loading folders...</Typography>}
+            {importError && (
+              <Typography level="body-sm" color="danger" sx={{ mb: 1 }}>
+                {importError}
+              </Typography>
+            )}
+            {!importLoading && unassignedFolders.length === 0 && (
+              <Typography level="body-sm" sx={{ color: "text.secondary" }}>
+                No unassigned top-level folders available.
+              </Typography>
+            )}
+            {!importLoading && unassignedFolders.length > 0 && (
+              <List
+                variant="outlined"
+                sx={{
+                  borderRadius: "sm",
+                  maxHeight: 300,
+                  overflow: "auto",
+                }}
+              >
+                {unassignedFolders.map((folder, idx) => (
+                  <Box key={folder.id}>
+                    {idx > 0 && <ListDivider inset="gutter" />}
+                    <ListItem>
+                      <ListItemButton
+                        onClick={() => handleImportFolder(folder.id)}
+                      >
+                        <ListItemContent>
+                          <Typography level="body-sm">{folder.name}</Typography>
+                        </ListItemContent>
+                      </ListItemButton>
+                    </ListItem>
+                  </Box>
+                ))}
+              </List>
+            )}
+          </Box>
         </ModalDialog>
       </Modal>
     </Layout.Main>
