@@ -106,9 +106,6 @@ func (service DirectoryService) CreateDirectory(ctx context.Context, name string
 		if err != nil {
 			return Directory{}, fmt.Errorf("service.readDirectory: %w", err)
 		}
-		if currentDirectory.ID == 0 {
-			return Directory{}, fmt.Errorf("%w: parent id %d", image.ErrDirectoryNotFound, parentID)
-		}
 		rootDirectory = currentDirectory.Path
 	}
 
