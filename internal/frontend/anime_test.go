@@ -208,8 +208,9 @@ func TestAnimeService_GetAnimeDetails_FoldersAndCounts(t *testing.T) {
 	a, err := svc.CreateAnime(ctx, "Show")
 	require.NoError(t, err)
 
-	// Two top-level folders both mapped to the anime, with intentionally
-	// unsorted names so the folder sort comparator is exercised.
+	// Create also auto-creates a root folder "Show" with anime_id set.
+	// Add two additional top-level folders assigned to the anime, with
+	// intentionally unsorted names so the folder sort comparator is exercised.
 	fileCreator := tester.newFileCreator(t).
 		CreateDirectory(image.Directory{ID: 8101, Name: "zeta"}).
 		CreateDirectory(image.Directory{ID: 8102, ParentID: 8101, Name: "season1"}).
@@ -235,14 +236,17 @@ func TestAnimeService_GetAnimeDetails_FoldersAndCounts(t *testing.T) {
 
 	details, err := svc.GetAnimeDetails(ctx, a.ID)
 	require.NoError(t, err)
-	require.Len(t, details.Folders, 2)
-	// sorted alphabetically (case-insensitive)
+	// 3 folders: auto-created "Show" root + manually assigned "alpha" + "zeta"
+	require.Len(t, details.Folders, 3)
+	// sorted alphabetically (case-insensitive): alpha, Show, zeta
 	assert.Equal(t, uint(8120), details.Folders[0].ID)
 	assert.Equal(t, "alpha", details.Folders[0].Name)
 	assert.Equal(t, uint(1), details.Folders[0].ImageCount)
-	assert.Equal(t, uint(8101), details.Folders[1].ID)
-	assert.Equal(t, "zeta", details.Folders[1].Name)
-	assert.Equal(t, uint(3), details.Folders[1].ImageCount)
+	assert.Equal(t, "Show", details.Folders[1].Name)
+	assert.Equal(t, uint(0), details.Folders[1].ImageCount) // auto-created, no images
+	assert.Equal(t, uint(8101), details.Folders[2].ID)
+	assert.Equal(t, "zeta", details.Folders[2].Name)
+	assert.Equal(t, uint(3), details.Folders[2].ImageCount)
 
 	list, err := svc.ListAnime(ctx)
 	require.NoError(t, err)

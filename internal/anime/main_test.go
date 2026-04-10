@@ -31,5 +31,5 @@ func (te tester) directoryReader() *image.DirectoryReader {
 }
 
 func (te tester) service() *Service {
-	return NewService(te.dbClient.Client, te.directoryReader())
+	return NewService(te.dbClient.Client, te.directoryReader(), te.config)
 }

@@ -43,11 +43,26 @@ type AnimeFolderInfo struct {
 	Inherited bool `json:"inherited"`
 }
 
+// AnimeFolderTreeNode is a node in the anime's folder tree.
+type AnimeFolderTreeNode struct {
+	ID         uint                  `json:"id"`
+	Name       string                `json:"name"`
+	ImageCount uint                  `json:"imageCount"`
+	Children   []AnimeFolderTreeNode `json:"children"`
+}
+
+// UnassignedFolder is a top-level folder not assigned to any anime.
+type UnassignedFolder struct {
+	ID   uint   `json:"id"`
+	Name string `json:"name"`
+}
+
 // AnimeDetailsResponse is the payload of the landing page request.
 type AnimeDetailsResponse struct {
-	Anime   Anime             `json:"anime"`
-	Tags    []AnimeTagInfo    `json:"tags"`
-	Folders []AnimeFolderInfo `json:"folders"`
+	Anime      Anime                `json:"anime"`
+	Tags       []AnimeTagInfo       `json:"tags"`
+	Folders    []AnimeFolderInfo    `json:"folders"`
+	FolderTree *AnimeFolderTreeNode `json:"folderTree"`
 }
 
 // AnimeService is the Wails-bound service for anime CRUD and assignments.
@@ -158,10 +173,22 @@ func (s *AnimeService) GetAnimeDetails(ctx context.Context, id uint) (AnimeDetai
 		return AnimeDetailsResponse{}, err
 	}
 
+	// folder tree
+	coreTree, err := s.core.GetAnimeFolderTree(id)
+	if err != nil {
+		return AnimeDetailsResponse{}, fmt.Errorf("core.GetAnimeFolderTree: %w", err)
+	}
+	var folderTree *AnimeFolderTreeNode
+	if coreTree != nil {
+		converted := convertFolderTreeNode(*coreTree)
+		folderTree = &converted
+	}
+
 	return AnimeDetailsResponse{
-		Anime:   Anime{ID: a.ID, Name: a.Name},
-		Tags:    tagInfos,
-		Folders: folderInfos,
+		Anime:      Anime{ID: a.ID, Name: a.Name},
+		Tags:       tagInfos,
+		Folders:    folderInfos,
+		FolderTree: folderTree,
 	}, nil
 }
 
@@ -351,4 +378,46 @@ func collectImageIDsForUnassigned(
 	for _, child := range dir.Children {
 		collectImageIDsForUnassigned(child, resolved, out)
 	}
+}
+
+func convertFolderTreeNode(node anime.AnimeFolderTreeNode) AnimeFolderTreeNode {
+	children := make([]AnimeFolderTreeNode, 0, len(node.Children))
+	for _, child := range node.Children {
+		children = append(children, convertFolderTreeNode(child))
+	}
+	return AnimeFolderTreeNode{
+		ID:         node.ID,
+		Name:       node.Name,
+		ImageCount: node.ImageCount,
+		Children:   children,
+	}
+}
+
+// ImportFolderAsAnime creates a new anime from an existing top-level folder.
+func (s *AnimeService) ImportFolderAsAnime(ctx context.Context, folderID uint) (Anime, error) {
+	a, err := s.core.ImportFolderAsAnime(ctx, folderID)
+	if err != nil {
+		return Anime{}, err
+	}
+	return Anime{ID: a.ID, Name: a.Name}, nil
+}
+
+// ListUnassignedTopFolders returns top-level folders that are not assigned to
+// any anime and are candidates for import.
+func (s *AnimeService) ListUnassignedTopFolders(ctx context.Context) ([]UnassignedFolder, error) {
+	dirs, err := s.core.ListUnassignedTopFolders()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]UnassignedFolder, 0, len(dirs))
+	for _, d := range dirs {
+		result = append(result, UnassignedFolder{
+			ID:   d.ID,
+			Name: d.Name,
+		})
+	}
+	sort.SliceStable(result, func(i, j int) bool {
+		return strings.ToLower(result[i].Name) < strings.ToLower(result[j].Name)
+	})
+	return result, nil
 }

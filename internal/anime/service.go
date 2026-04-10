@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"github.com/michael-freling/anime-image-viewer/internal/xerrors"
@@ -17,34 +20,74 @@ import (
 type Service struct {
 	dbClient        *db.Client
 	directoryReader *image.DirectoryReader
+	config          config.Config
 }
 
-func NewService(dbClient *db.Client, directoryReader *image.DirectoryReader) *Service {
+func NewService(dbClient *db.Client, directoryReader *image.DirectoryReader, cfg config.Config) *Service {
 	return &Service{
 		dbClient:        dbClient,
 		directoryReader: directoryReader,
+		config:          cfg,
 	}
 }
 
-// Create inserts a new anime row. The name is required and must be unique;
-// duplicate names return ErrAnimeAlreadyExists.
+// Create inserts a new anime row, creates a folder on disk at
+// <ImageRootDirectory>/<name>/, and creates a db.File record for the folder
+// with anime_id set. The name is required and must be unique; duplicate names
+// return ErrAnimeAlreadyExists.
 func (s *Service) Create(ctx context.Context, name string) (Anime, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return Anime{}, fmt.Errorf("%w: name is required", xerrors.ErrInvalidArgument)
 	}
 
-	row := db.Anime{Name: name}
-	err := s.dbClient.Anime().Create(ctx, &row)
-	if isUniqueViolation(err) {
-		return Anime{}, fmt.Errorf("%w: %s", ErrAnimeAlreadyExists, name)
+	dirPath := filepath.Join(s.config.ImageRootDirectory, name)
+
+	var row db.Anime
+	err := db.NewTransaction(ctx, s.dbClient, func(ctx context.Context) error {
+		// 1. Create the anime DB row
+		row = db.Anime{Name: name}
+		if err := s.dbClient.Anime().Create(ctx, &row); err != nil {
+			if isUniqueViolation(err) {
+				return fmt.Errorf("%w: %s", ErrAnimeAlreadyExists, name)
+			}
+			return err
+		}
+
+		// 2. Create the db.File record for the folder
+		animeID := row.ID
+		dirFile := db.File{
+			Name:     name,
+			ParentID: db.RootDirectoryID,
+			Type:     db.FileTypeDirectory,
+			AnimeID:  &animeID,
+		}
+		if err := s.dbClient.File().Create(ctx, &dirFile); err != nil {
+			if isUniqueViolation(err) {
+				return fmt.Errorf("%w: folder %s already exists on disk", ErrAnimeAlreadyExists, name)
+			}
+			return fmt.Errorf("File.Create: %w", err)
+		}
+
+		// 3. Create the folder on disk
+		if err := os.Mkdir(dirPath, 0755); err != nil {
+			if os.IsExist(err) {
+				return fmt.Errorf("%w: folder %s already exists on disk", ErrAnimeAlreadyExists, name)
+			}
+			return fmt.Errorf("os.Mkdir: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return Anime{}, err
 	}
-	return Anime{ID: row.ID, Name: row.Name}, err
+	return Anime{ID: row.ID, Name: row.Name}, nil
 }
 
-// Rename updates the name of an existing anime. Returns ErrAnimeNotFound if no
-// such id exists, ErrAnimeAlreadyExists if the new name collides with another
-// anime, and ErrInvalidArgument for an empty name.
+// Rename updates the name of an existing anime and renames its root folder on
+// disk. Returns ErrAnimeNotFound if no such id exists, ErrAnimeAlreadyExists
+// if the new name collides with another anime, and ErrInvalidArgument for an
+// empty name.
 func (s *Service) Rename(ctx context.Context, id uint, name string) (Anime, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -61,6 +104,7 @@ func (s *Service) Rename(ctx context.Context, id uint, name string) (Anime, erro
 		if err != nil {
 			return err
 		}
+		oldName := row.Name
 		row.Name = name
 		if err := client.Update(ctx, &row); err != nil {
 			if isUniqueViolation(err) {
@@ -69,6 +113,28 @@ func (s *Service) Rename(ctx context.Context, id uint, name string) (Anime, erro
 			return err
 		}
 		updated = row
+
+		// Find the anime's root folder and rename it on disk + in DB
+		dirs, err := s.dbClient.File().FindDirectoriesByAnimeID(id)
+		if err != nil {
+			return fmt.Errorf("File.FindDirectoriesByAnimeID: %w", err)
+		}
+		if len(dirs) > 0 {
+			rootDir := dirs[0]
+			oldPath := filepath.Join(s.config.ImageRootDirectory, oldName)
+			newPath := filepath.Join(s.config.ImageRootDirectory, name)
+
+			// Rename in DB
+			rootDir.Name = name
+			if err := s.dbClient.File().Update(ctx, &rootDir); err != nil {
+				return fmt.Errorf("File.Update: %w", err)
+			}
+
+			// Rename on disk
+			if err := os.Rename(oldPath, newPath); err != nil {
+				return fmt.Errorf("os.Rename: %w", err)
+			}
+		}
 		return nil
 	})
 	return Anime{ID: updated.ID, Name: updated.Name}, err
@@ -348,6 +414,135 @@ func collectImageCounts(
 	for _, child := range dir.Children {
 		collectImageCounts(child, currentAnime, stored, out)
 	}
+}
+
+// AnimeFolderTreeNode represents a node in the anime's folder tree for the
+// detail page.
+type AnimeFolderTreeNode struct {
+	ID         uint                  `json:"id"`
+	Name       string                `json:"name"`
+	ImageCount uint                  `json:"imageCount"`
+	Children   []AnimeFolderTreeNode `json:"children"`
+}
+
+// GetAnimeFolderTree returns the folder tree rooted at the anime's root folder.
+// It finds the File with anime_id = animeID and returns its subtree.
+func (s *Service) GetAnimeFolderTree(animeID uint) (*AnimeFolderTreeNode, error) {
+	dirs, err := s.dbClient.File().FindDirectoriesByAnimeID(animeID)
+	if err != nil {
+		return nil, fmt.Errorf("File.FindDirectoriesByAnimeID: %w", err)
+	}
+	if len(dirs) == 0 {
+		return nil, nil
+	}
+	rootDir := dirs[0]
+
+	tree, err := s.directoryReader.ReadDirectoryTree()
+	if err != nil {
+		return nil, fmt.Errorf("directoryReader.ReadDirectoryTree: %w", err)
+	}
+	treeDir := tree.FindChildByID(rootDir.ID)
+	if treeDir.ID == 0 {
+		return nil, nil
+	}
+	result := buildFolderTreeNode(&treeDir)
+	return &result, nil
+}
+
+func buildFolderTreeNode(dir *image.Directory) AnimeFolderTreeNode {
+	children := make([]AnimeFolderTreeNode, 0, len(dir.Children))
+	for _, child := range dir.Children {
+		children = append(children, buildFolderTreeNode(child))
+	}
+	return AnimeFolderTreeNode{
+		ID:         dir.ID,
+		Name:       dir.Name,
+		ImageCount: uint(len(dir.ChildImageFiles)),
+		Children:   children,
+	}
+}
+
+// ImportFolderAsAnime creates a new anime from an existing top-level folder.
+// It checks that the folder has no anime_id (or ancestor with anime_id),
+// creates an anime with the folder's name, and sets anime_id on the folder.
+func (s *Service) ImportFolderAsAnime(ctx context.Context, folderID uint) (Anime, error) {
+	if folderID == 0 {
+		return Anime{}, fmt.Errorf("%w: folderID required", xerrors.ErrInvalidArgument)
+	}
+
+	folder, err := s.dbClient.File().FindByValue(ctx, &db.File{ID: folderID})
+	if errors.Is(err, db.ErrRecordNotFound) {
+		return Anime{}, fmt.Errorf("%w: folder id %d", image.ErrDirectoryNotFound, folderID)
+	}
+	if err != nil {
+		return Anime{}, err
+	}
+	if folder.Type != db.FileTypeDirectory {
+		return Anime{}, fmt.Errorf("%w: file id %d is not a directory", xerrors.ErrInvalidArgument, folderID)
+	}
+	if folder.AnimeID != nil {
+		return Anime{}, fmt.Errorf("%w: folder already assigned to anime", ErrAnimeAlreadyExists)
+	}
+
+	ancestorAnime, err := s.findAncestorAnimeID(folderID)
+	if err != nil {
+		return Anime{}, err
+	}
+	if ancestorAnime != nil {
+		return Anime{}, ErrAnimeAncestorAssigned
+	}
+
+	var row db.Anime
+	err = db.NewTransaction(ctx, s.dbClient, func(ctx context.Context) error {
+		row = db.Anime{Name: folder.Name}
+		if err := s.dbClient.Anime().Create(ctx, &row); err != nil {
+			if isUniqueViolation(err) {
+				return fmt.Errorf("%w: %s", ErrAnimeAlreadyExists, folder.Name)
+			}
+			return err
+		}
+		animeID := row.ID
+		return s.dbClient.File().SetAnimeID(ctx, folderID, &animeID)
+	})
+	if err != nil {
+		return Anime{}, err
+	}
+	return Anime{ID: row.ID, Name: row.Name}, nil
+}
+
+// ListUnassignedTopFolders returns top-level folders (children of root) that
+// have no anime_id and no ancestor with anime_id. These are candidates for
+// importing as anime.
+func (s *Service) ListUnassignedTopFolders() ([]image.Directory, error) {
+	tree, err := s.directoryReader.ReadDirectoryTree()
+	if err != nil {
+		return nil, fmt.Errorf("directoryReader.ReadDirectoryTree: %w", err)
+	}
+	storedMap, err := s.readStoredAnimeAssignments()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]image.Directory, 0)
+	for _, child := range tree.Children {
+		if _, ok := storedMap[child.ID]; !ok {
+			result = append(result, *child)
+		}
+	}
+	return result, nil
+}
+
+// FindAnimeRootFolder returns the db.File row that is the root folder for the
+// given anime. Returns nil if no folder is assigned.
+func (s *Service) FindAnimeRootFolder(animeID uint) (*db.File, error) {
+	dirs, err := s.dbClient.File().FindDirectoriesByAnimeID(animeID)
+	if err != nil {
+		return nil, err
+	}
+	if len(dirs) == 0 {
+		return nil, nil
+	}
+	return &dirs[0], nil
 }
 
 func isUniqueViolation(err error) bool {

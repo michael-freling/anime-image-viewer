@@ -106,7 +106,7 @@ func (tester tester) getTagService() *TagService {
 }
 
 func (tester tester) getAnimeCoreService() *anime.Service {
-	return anime.NewService(tester.dbClient.Client, tester.getDirectoryReader())
+	return anime.NewService(tester.dbClient.Client, tester.getDirectoryReader(), tester.config)
 }
 
 func (tester tester) getAnimeService() *AnimeService {

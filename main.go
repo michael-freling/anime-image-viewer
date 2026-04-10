@@ -141,7 +141,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 	backupFrontendService := frontend.NewBackupFrontendService(logger, conf)
 	configFrontendService := frontend.NewConfigFrontendService(logger, conf)
 
-	animeCoreService := anime.NewService(dbClient, directoryReader)
+	animeCoreService := anime.NewService(dbClient, directoryReader, conf)
 	animeFrontendService := frontend.NewAnimeService(
 		animeCoreService,
 		dbClient,
