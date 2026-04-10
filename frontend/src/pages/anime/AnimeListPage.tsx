@@ -2,6 +2,7 @@ import { Add, FileOpen } from "@mui/icons-material";
 import {
   Box,
   Button,
+  Checkbox,
   Input,
   List,
   ListDivider,
@@ -33,6 +34,8 @@ const AnimeListPage: FC = () => {
   const [unassignedFolders, setUnassignedFolders] = useState<UnassignedFolder[]>([]);
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [selectedFolderIds, setSelectedFolderIds] = useState<Set<number>>(new Set());
+  const [importingBatch, setImportingBatch] = useState(false);
   const navigate = useNavigate();
 
   const refresh = async () => {
@@ -70,6 +73,7 @@ const AnimeListPage: FC = () => {
     setImportError(null);
     setImportLoading(true);
     setImportOpen(true);
+    setSelectedFolderIds(new Set());
     try {
       const folders = await AnimeService.ListUnassignedTopFolders();
       setUnassignedFolders(folders ?? []);
@@ -80,13 +84,40 @@ const AnimeListPage: FC = () => {
     }
   };
 
-  const handleImportFolder = async (folderId: number) => {
+  const toggleFolder = (id: number) => {
+    setSelectedFolderIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedFolderIds.size === unassignedFolders.length) {
+      setSelectedFolderIds(new Set());
+    } else {
+      setSelectedFolderIds(new Set(unassignedFolders.map((f) => f.id)));
+    }
+  };
+
+  const handleImportSelected = async () => {
+    if (selectedFolderIds.size === 0) return;
+    setImportingBatch(true);
+    setImportError(null);
     try {
-      const created = await AnimeService.ImportFolderAsAnime(folderId);
+      await AnimeService.ImportMultipleFoldersAsAnime(
+        Array.from(selectedFolderIds)
+      );
       setImportOpen(false);
-      navigate(`/anime/${created.id}`);
+      await refresh();
     } catch (err: unknown) {
       setImportError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setImportingBatch(false);
     }
   };
 
@@ -114,7 +145,7 @@ const AnimeListPage: FC = () => {
               startDecorator={<FileOpen />}
               onClick={handleOpenImport}
             >
-              Import folder
+              Import folders
             </Button>
           </Stack>
         </>
@@ -125,7 +156,7 @@ const AnimeListPage: FC = () => {
         {!loading && items != null && items.length === 0 && (
           <Typography level="body-md" sx={{ color: "text.secondary" }}>
             No anime yet. Click &quot;Create anime&quot; to get started, or
-            &quot;Import folder&quot; to import an existing folder.
+            &quot;Import folders&quot; to import existing folders.
           </Typography>
         )}
         {!loading && items != null && items.length > 0 && (
@@ -203,11 +234,11 @@ const AnimeListPage: FC = () => {
         </ModalDialog>
       </Modal>
 
-      {/* Import folder modal */}
+      {/* Import folders modal */}
       <Modal open={importOpen} onClose={() => setImportOpen(false)}>
-        <ModalDialog sx={{ minWidth: 400, maxHeight: "60vh" }}>
+        <ModalDialog sx={{ minWidth: 440, maxHeight: "70vh" }}>
           <ModalClose />
-          <Typography level="title-md">Import existing folder as anime</Typography>
+          <Typography level="title-md">Import folders as anime</Typography>
           <Box sx={{ mt: 2 }}>
             {importLoading && <Typography>Loading folders...</Typography>}
             {importError && (
@@ -221,29 +252,70 @@ const AnimeListPage: FC = () => {
               </Typography>
             )}
             {!importLoading && unassignedFolders.length > 0 && (
-              <List
-                variant="outlined"
-                sx={{
-                  borderRadius: "sm",
-                  maxHeight: 300,
-                  overflow: "auto",
-                }}
-              >
-                {unassignedFolders.map((folder, idx) => (
-                  <Box key={folder.id}>
-                    {idx > 0 && <ListDivider inset="gutter" />}
-                    <ListItem>
-                      <ListItemButton
-                        onClick={() => handleImportFolder(folder.id)}
-                      >
-                        <ListItemContent>
-                          <Typography level="body-sm">{folder.name}</Typography>
-                        </ListItemContent>
-                      </ListItemButton>
-                    </ListItem>
-                  </Box>
-                ))}
-              </List>
+              <>
+                <Box sx={{ mb: 1 }}>
+                  <Checkbox
+                    label="Select all"
+                    checked={selectedFolderIds.size === unassignedFolders.length}
+                    indeterminate={
+                      selectedFolderIds.size > 0 &&
+                      selectedFolderIds.size < unassignedFolders.length
+                    }
+                    onChange={toggleAll}
+                  />
+                </Box>
+                <List
+                  variant="outlined"
+                  sx={{
+                    borderRadius: "sm",
+                    maxHeight: 300,
+                    overflow: "auto",
+                  }}
+                >
+                  {unassignedFolders.map((folder, idx) => (
+                    <Box key={folder.id}>
+                      {idx > 0 && <ListDivider inset="gutter" />}
+                      <ListItem>
+                        <ListItemButton onClick={() => toggleFolder(folder.id)}>
+                          <Checkbox
+                            checked={selectedFolderIds.has(folder.id)}
+                            sx={{ mr: 1 }}
+                            readOnly
+                          />
+                          <ListItemContent>
+                            <Typography level="body-sm">
+                              {folder.name}
+                            </Typography>
+                          </ListItemContent>
+                        </ListItemButton>
+                      </ListItem>
+                    </Box>
+                  ))}
+                </List>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  justifyContent="flex-end"
+                  sx={{ mt: 2 }}
+                >
+                  <Button
+                    variant="plain"
+                    color="neutral"
+                    onClick={() => setImportOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    disabled={selectedFolderIds.size === 0 || importingBatch}
+                    loading={importingBatch}
+                    onClick={handleImportSelected}
+                  >
+                    Import {selectedFolderIds.size > 0
+                      ? `${selectedFolderIds.size} folder${selectedFolderIds.size === 1 ? "" : "s"}`
+                      : ""}
+                  </Button>
+                </Stack>
+              </>
             )}
           </Box>
         </ModalDialog>
