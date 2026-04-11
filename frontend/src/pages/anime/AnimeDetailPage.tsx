@@ -975,6 +975,7 @@ const AnimeDetailPage: FC = () => {
           loadedImages={filteredImages}
           searchParams={searchParams}
           setSearchParams={setSearchParams}
+          animeId={id}
         />
       </Box>
       {modals}

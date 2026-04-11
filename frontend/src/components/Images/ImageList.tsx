@@ -284,12 +284,15 @@ export interface ImageListContainerProps {
   loadedImages: Image[];
   searchParams: URLSearchParams;
   setSearchParams(searchParams: URLSearchParams): void;
+  /** When set, the "Edit tags manually" button navigates to the anime-specific tag edit page. */
+  animeId?: number;
 }
 
 const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
   loadedImages,
   searchParams,
   setSearchParams,
+  animeId,
 }) => {
   const [images, setImages] = useState<ViewImageType[]>([]);
 
@@ -411,12 +414,22 @@ const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
                   const imageIds = images
                     .filter((image) => image.selected)
                     .map((image) => String(image.id));
-                  navigate({
-                    pathname: "/images/edit/tags",
-                    search: createSearchParams({
-                      imageIds: imageIds,
-                    }).toString(),
-                  });
+                  if (animeId != null && animeId > 0) {
+                    navigate({
+                      pathname: "/images/edit/anime-tags",
+                      search: createSearchParams({
+                        imageIds: imageIds,
+                        animeId: String(animeId),
+                      }).toString(),
+                    });
+                  } else {
+                    navigate({
+                      pathname: "/images/edit/tags",
+                      search: createSearchParams({
+                        imageIds: imageIds,
+                      }).toString(),
+                    });
+                  }
                 }}
               >
                 Edit tags manually

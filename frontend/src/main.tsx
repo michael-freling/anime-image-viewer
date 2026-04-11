@@ -26,6 +26,7 @@ import DirectoryEditPage from "./pages/directories/DirectoryEditPage";
 import DirectoryImageListPage from "./pages/directories/DirectoryImageListPage";
 import SearchPage from "./pages/search/SearchPage";
 import DirectoryTagsEditPage from "./pages/tags/DirectoryTagEditPage";
+import AnimeTagEditPage from "./pages/tags/AnimeTagEditPage";
 import ImageTagEditPage from "./pages/tags/ImageTagEditPage";
 import ImageTagSuggestionPage from "./pages/tags/ImageTagSuggestionPage";
 import TagsListPage from "./pages/tags/TagsListPage";
@@ -78,6 +79,7 @@ function Root() {
         {/* Image edit */}
         <Route path="images" element={<Layout.TwoColumnLayout />}>
           <Route path="edit/tags" element={<ImageTagEditPage />} />
+          <Route path="edit/anime-tags" element={<AnimeTagEditPage />} />
           <Route
             path="edit/tags/suggestion"
             element={<ImageTagSuggestionPage />}
