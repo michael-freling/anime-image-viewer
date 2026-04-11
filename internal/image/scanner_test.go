@@ -3,6 +3,7 @@ package image
 import (
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -14,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/stretchr/testify/assert"
@@ -382,4 +384,184 @@ func TestBackgroundScanner_HandlesMissingParentDirectory(t *testing.T) {
 	ctx := context.Background()
 	scanner.run(ctx)
 	assert.Empty(t, restorer.calls)
+}
+
+func TestIsSQLiteBusyOrLocked(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+		{
+			name:     "non-sqlite error",
+			err:      fmt.Errorf("some other error"),
+			expected: false,
+		},
+		{
+			name: "sqlite busy error",
+			err: sqlite3.Error{
+				Code: sqlite3.ErrBusy,
+			},
+			expected: true,
+		},
+		{
+			name: "sqlite locked error",
+			err: sqlite3.Error{
+				Code: sqlite3.ErrLocked,
+			},
+			expected: true,
+		},
+		{
+			name: "wrapped sqlite busy error",
+			err: fmt.Errorf("db operation failed: %w", sqlite3.Error{
+				Code: sqlite3.ErrBusy,
+			}),
+			expected: true,
+		},
+		{
+			name: "wrapped sqlite locked error",
+			err: fmt.Errorf("db operation failed: %w", sqlite3.Error{
+				Code: sqlite3.ErrLocked,
+			}),
+			expected: true,
+		},
+		{
+			name: "other sqlite error code",
+			err: sqlite3.Error{
+				Code: sqlite3.ErrConstraint,
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, isSQLiteBusyOrLocked(tt.err))
+		})
+	}
+}
+
+func TestRetryOnSQLiteBusy_SucceedsFirstTry(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	calls := 0
+	err := retryOnSQLiteBusy(context.Background(), logger, "test", retryBackoffs, func() error {
+		calls++
+		return nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, calls)
+}
+
+func TestRetryOnSQLiteBusy_NonRetryableError(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	calls := 0
+	permanentErr := fmt.Errorf("constraint violation")
+	err := retryOnSQLiteBusy(context.Background(), logger, "test", retryBackoffs, func() error {
+		calls++
+		return permanentErr
+	})
+	require.ErrorIs(t, err, permanentErr)
+	assert.Equal(t, 1, calls, "should not retry on non-SQLite-busy errors")
+}
+
+func TestRetryOnSQLiteBusy_RetriesOnBusyThenSucceeds(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	calls := 0
+	busyErr := sqlite3.Error{Code: sqlite3.ErrBusy}
+	// Use very short backoffs for the test.
+	shortBackoffs := []time.Duration{1 * time.Millisecond, 1 * time.Millisecond, 1 * time.Millisecond}
+	err := retryOnSQLiteBusy(context.Background(), logger, "test", shortBackoffs, func() error {
+		calls++
+		if calls < 3 {
+			return busyErr
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 3, calls, "should succeed on third attempt")
+}
+
+func TestRetryOnSQLiteBusy_RetriesOnLockedThenSucceeds(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	calls := 0
+	lockedErr := sqlite3.Error{Code: sqlite3.ErrLocked}
+	shortBackoffs := []time.Duration{1 * time.Millisecond, 1 * time.Millisecond, 1 * time.Millisecond}
+	err := retryOnSQLiteBusy(context.Background(), logger, "test", shortBackoffs, func() error {
+		calls++
+		if calls < 2 {
+			return lockedErr
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 2, calls, "should succeed on second attempt")
+}
+
+func TestRetryOnSQLiteBusy_ExhaustsRetries(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	calls := 0
+	busyErr := sqlite3.Error{Code: sqlite3.ErrBusy}
+	shortBackoffs := []time.Duration{1 * time.Millisecond, 1 * time.Millisecond, 1 * time.Millisecond}
+	err := retryOnSQLiteBusy(context.Background(), logger, "test", shortBackoffs, func() error {
+		calls++
+		return busyErr
+	})
+	require.Error(t, err)
+	// Initial attempt + 3 retries = 4 total calls
+	assert.Equal(t, 4, calls, "should attempt 1 initial + 3 retries")
+}
+
+func TestRetryOnSQLiteBusy_RespectsContextCancellation(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	calls := 0
+	busyErr := sqlite3.Error{Code: sqlite3.ErrBusy}
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Use longer backoffs so the cancel has time to take effect.
+	longBackoffs := []time.Duration{1 * time.Second, 1 * time.Second, 1 * time.Second}
+	go func() {
+		// Give the first attempt time to execute, then cancel.
+		time.Sleep(10 * time.Millisecond)
+		cancel()
+	}()
+	err := retryOnSQLiteBusy(ctx, logger, "test", longBackoffs, func() error {
+		calls++
+		return busyErr
+	})
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, 1, calls, "should stop retrying after context cancellation")
+}
+
+func TestUpdateContentHashWithRetry_SucceedsWithRealDB(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	dbClient := db.NewTestClient(t)
+	dbClient.Truncate(t, db.File{})
+
+	db.LoadTestData(t, dbClient, []db.File{
+		{ID: 1, Name: "photos", ParentID: 0, Type: db.FileTypeDirectory},
+		{ID: 2, Name: "test.jpg", ParentID: 1, Type: db.FileTypeImage},
+	})
+
+	scanner := NewBackgroundScanner(logger, dbClient.Client, config.Config{}, &mockRestorer{})
+	ctx := context.Background()
+
+	err := scanner.updateContentHashWithRetry(ctx, 2, "abcdef1234567890")
+	require.NoError(t, err)
+
+	files, err := dbClient.File().FindAllImageFiles()
+	require.NoError(t, err)
+	require.Len(t, files, 1)
+	assert.Equal(t, "abcdef1234567890", files[0].ContentHash)
+}
+
+func TestRetryBackoffs_HasExpectedValues(t *testing.T) {
+	require.Len(t, retryBackoffs, 3)
+	assert.Equal(t, 100*time.Millisecond, retryBackoffs[0])
+	assert.Equal(t, 500*time.Millisecond, retryBackoffs[1])
+	assert.Equal(t, 1*time.Second, retryBackoffs[2])
 }

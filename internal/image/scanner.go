@@ -198,31 +198,39 @@ func isSQLiteBusyOrLocked(err error) bool {
 // retryBackoffs defines the sleep durations between retries for SQLite busy/locked errors.
 var retryBackoffs = []time.Duration{100 * time.Millisecond, 500 * time.Millisecond, 1 * time.Second}
 
-// updateContentHashWithRetry attempts to store a content hash, retrying on SQLite
-// busy/locked errors with increasing backoff delays. The scanner runs in the
-// background so it can afford to wait.
-func (s *BackgroundScanner) updateContentHashWithRetry(ctx context.Context, imageID uint, hash string) error {
+// retryOnSQLiteBusy calls fn, retrying with increasing backoff when the error is
+// a SQLite BUSY or LOCKED error. It respects ctx cancellation between retries.
+func retryOnSQLiteBusy(ctx context.Context, logger *slog.Logger, label string, backoffs []time.Duration, fn func() error) error {
 	var err error
-	for attempt := 0; attempt <= len(retryBackoffs); attempt++ {
-		err = s.dbClient.File().UpdateContentHash(imageID, hash)
+	for attempt := 0; attempt <= len(backoffs); attempt++ {
+		err = fn()
 		if err == nil {
 			return nil
 		}
 		if !isSQLiteBusyOrLocked(err) {
 			return err
 		}
-		if attempt < len(retryBackoffs) {
-			s.logger.DebugContext(ctx, "background scan: SQLite busy, retrying",
-				"imageID", imageID, "attempt", attempt+1, "backoff", retryBackoffs[attempt],
+		if attempt < len(backoffs) {
+			logger.DebugContext(ctx, label+": SQLite busy, retrying",
+				"attempt", attempt+1, "backoff", backoffs[attempt],
 			)
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case <-time.After(retryBackoffs[attempt]):
+			case <-time.After(backoffs[attempt]):
 			}
 		}
 	}
 	return err
+}
+
+// updateContentHashWithRetry attempts to store a content hash, retrying on SQLite
+// busy/locked errors with increasing backoff delays. The scanner runs in the
+// background so it can afford to wait.
+func (s *BackgroundScanner) updateContentHashWithRetry(ctx context.Context, imageID uint, hash string) error {
+	return retryOnSQLiteBusy(ctx, s.logger, "background scan", retryBackoffs, func() error {
+		return s.dbClient.File().UpdateContentHash(imageID, hash)
+	})
 }
 
 // buildDirectoryMap flattens a Directory tree into a map keyed by directory ID.
