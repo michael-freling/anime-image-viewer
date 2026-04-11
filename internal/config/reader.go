@@ -41,7 +41,7 @@ type Config struct {
 }
 
 // WriteConfig writes the config to a TOML file.
-// If configFile is empty, the default path (~/.config/anime-image-viewer/default.toml) is used.
+// If configFile is empty, the default path (~/.config/anime-image-viewer/config.toml) is used.
 func WriteConfig(configFile string, conf Config) error {
 	if configFile == "" {
 		homeDir, err := os.UserHomeDir()
@@ -52,7 +52,7 @@ func WriteConfig(configFile string, conf Config) error {
 		if err = os.MkdirAll(configDir, 0755); err != nil {
 			return fmt.Errorf("os.MkdirAll: %w", err)
 		}
-		configFile = filepath.Join(configDir, "default.toml")
+		configFile = filepath.Join(configDir, "config.toml")
 	}
 
 	file, err := os.Create(configFile)
@@ -74,54 +74,105 @@ func WriteConfig(configFile string, conf Config) error {
 	return nil
 }
 
-func ReadConfig(configFile string) (Config, error) {
-	var conf Config
-
-	if configFile != "" {
-		if _, err := os.Stat(configFile); os.IsNotExist(err) {
-			return conf, fmt.Errorf("config file %s does not exist", configFile)
-		}
-	} else {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return conf, fmt.Errorf("os.UserHomeDir: %w", err)
-		}
-
-		configDir := filepath.Join(homeDir, ".config", "anime-image-viewer")
-		if err = os.MkdirAll(configDir, 0755); err != nil {
-			return conf, fmt.Errorf("os.MkdirAll: %w", err)
-		}
-
-		configFile = filepath.Join(configDir, "default.toml")
-		if _, err := os.Stat(configFile); os.IsNotExist(err) {
-			tempDir := os.TempDir()
-			return Config{
-				ImageRootDirectory: defaultImageRootDirectory(homeDir),
-				ConfigDirectory:    configDir,
-				LogDirectory:       filepath.Join(tempDir, "anime-image-viewer", "logs"),
-				Backup:             defaultBackupConfig(configDir),
-				Environment:        runtimeEnv,
-			}, nil
-		}
-	}
-
-	file, err := os.Open(configFile)
+// decodeConfigFile reads and decodes a TOML file into the given Config struct.
+// Fields present in the file overwrite existing values; fields absent from the
+// file are left untouched. Returns true if the file was found and decoded.
+func decodeConfigFile(path string, conf *Config) (bool, error) {
+	file, err := os.Open(path)
 	if err != nil {
-		return conf, fmt.Errorf("os.OpenFile: %w", err)
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("os.OpenFile: %w", err)
 	}
 	defer file.Close()
 
 	contents, err := io.ReadAll(file)
 	if err != nil {
-		return conf, fmt.Errorf("io.ReadAll: %w", err)
+		return false, fmt.Errorf("io.ReadAll: %w", err)
 	}
 
-	if _, err := toml.Decode(string(contents), &conf); err != nil {
-		return conf, fmt.Errorf("toml.Decode: %w", err)
+	if _, err := toml.Decode(string(contents), conf); err != nil {
+		return false, fmt.Errorf("toml.Decode: %w", err)
+	}
+	return true, nil
+}
+
+func ReadConfig(configFile string) (Config, error) {
+	// When an explicit config file is provided, use the original single-file behavior.
+	if configFile != "" {
+		if _, err := os.Stat(configFile); os.IsNotExist(err) {
+			return Config{}, fmt.Errorf("config file %s does not exist", configFile)
+		}
+
+		var conf Config
+		if _, err := decodeConfigFile(configFile, &conf); err != nil {
+			return conf, err
+		}
+		conf.Environment = runtimeEnv
+		applyBackupDefaults(&conf)
+		return conf, nil
+	}
+
+	// No explicit file: use layered config (base + environment overlay).
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return Config{}, fmt.Errorf("os.UserHomeDir: %w", err)
+	}
+
+	configDir := filepath.Join(homeDir, ".config", "anime-image-viewer")
+	if err = os.MkdirAll(configDir, 0755); err != nil {
+		return Config{}, fmt.Errorf("os.MkdirAll: %w", err)
+	}
+
+	tempDir := os.TempDir()
+
+	// Start with non-backup defaults. Backup defaults are applied after
+	// all config files are decoded so that BackupDirectory can be derived
+	// from the final ConfigDirectory value.
+	conf := Config{
+		ImageRootDirectory: defaultImageRootDirectory(homeDir),
+		ConfigDirectory:    configDir,
+		LogDirectory:       filepath.Join(tempDir, "anime-image-viewer", "logs"),
+		Environment:        runtimeEnv,
+	}
+
+	// 1. Decode base config: config.toml (fall back to default.toml for
+	//    backward compatibility with older setups).
+	basePath := filepath.Join(configDir, "config.toml")
+	anyFileFound := false
+	baseFound, err := decodeConfigFile(basePath, &conf)
+	if err != nil {
+		return conf, err
+	}
+	anyFileFound = anyFileFound || baseFound
+	if !baseFound {
+		// Backward compat: try the legacy filename.
+		legacyPath := filepath.Join(configDir, "default.toml")
+		legacyFound, err := decodeConfigFile(legacyPath, &conf)
+		if err != nil {
+			return conf, err
+		}
+		anyFileFound = anyFileFound || legacyFound
+	}
+
+	// 2. Decode environment-specific overlay (e.g. config.development.toml).
+	//    If the file does not exist this is silently skipped.
+	overlayPath := filepath.Join(configDir, fmt.Sprintf("config.%s.toml", runtimeEnv))
+	overlayFound, err := decodeConfigFile(overlayPath, &conf)
+	if err != nil {
+		return conf, err
+	}
+	anyFileFound = anyFileFound || overlayFound
+
+	if !anyFileFound {
+		// No config files found at all — use full defaults including backup booleans.
+		conf.Backup = defaultBackupConfig(configDir)
+	} else {
+		applyBackupDefaults(&conf)
 	}
 
 	conf.Environment = runtimeEnv
-	applyBackupDefaults(&conf)
 	return conf, nil
 }
 
