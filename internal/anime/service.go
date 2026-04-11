@@ -818,9 +818,11 @@ func (s *Service) GetAnimeEntries(animeID uint) ([]AnimeEntry, error) {
 		return nil, fmt.Errorf("File.FindDirectChildDirectories: %w", err)
 	}
 
-	// Collect all folder IDs (root + children + grandchildren) for image counting
+	// Collect all folder IDs (root + children + grandchildren + great-grandchildren)
+	// for image counting, and build the grandchild/great-grandchild maps.
 	allFolderIDs := []uint{rootDir.ID}
 	childGrandchildren := make(map[uint][]db.File)
+	gcGreatGrandchildren := make(map[uint][]db.File)
 	for _, child := range children {
 		allFolderIDs = append(allFolderIDs, child.ID)
 		grandchildren, err := s.dbClient.File().FindDirectChildDirectories(child.ID)
@@ -830,6 +832,14 @@ func (s *Service) GetAnimeEntries(animeID uint) ([]AnimeEntry, error) {
 		childGrandchildren[child.ID] = grandchildren
 		for _, gc := range grandchildren {
 			allFolderIDs = append(allFolderIDs, gc.ID)
+			greatGrandchildren, err := s.dbClient.File().FindDirectChildDirectories(gc.ID)
+			if err != nil {
+				return nil, fmt.Errorf("File.FindDirectChildDirectories (great-grandchild): %w", err)
+			}
+			gcGreatGrandchildren[gc.ID] = greatGrandchildren
+			for _, ggc := range greatGrandchildren {
+				allFolderIDs = append(allFolderIDs, ggc.ID)
+			}
 		}
 	}
 
@@ -843,12 +853,23 @@ func (s *Service) GetAnimeEntries(animeID uint) ([]AnimeEntry, error) {
 	for _, child := range children {
 		subEntries := make([]AnimeEntry, 0)
 		for _, gc := range childGrandchildren[child.ID] {
+			subSubEntries := make([]AnimeEntry, 0)
+			for _, ggc := range gcGreatGrandchildren[gc.ID] {
+				subSubEntries = append(subSubEntries, AnimeEntry{
+					ID:          ggc.ID,
+					Name:        ggc.Name,
+					EntryType:   ggc.EntryType,
+					EntryNumber: ggc.EntryNumber,
+					ImageCount:  imageCounts[ggc.ID],
+				})
+			}
 			subEntries = append(subEntries, AnimeEntry{
 				ID:          gc.ID,
 				Name:        gc.Name,
 				EntryType:   gc.EntryType,
 				EntryNumber: gc.EntryNumber,
 				ImageCount:  imageCounts[gc.ID],
+				Children:    subSubEntries,
 			})
 		}
 		entries = append(entries, AnimeEntry{
@@ -1035,18 +1056,29 @@ func (s *Service) CreateSubEntry(ctx context.Context, parentEntryID uint, name s
 		return AnimeEntry{}, fmt.Errorf("%w: parent id %d is not a directory", xerrors.ErrInvalidArgument, parentEntryID)
 	}
 
-	// Enforce depth limit: the parent must be a direct child of the anime root folder.
-	// Load the grandparent (parent's parent) and verify it has anime_id set,
-	// which means the grandparent is the anime root folder and the parent is at depth 1.
-	grandparent, err := s.dbClient.File().FindByValue(ctx, &db.File{ID: parent.ParentID})
-	if errors.Is(err, db.ErrRecordNotFound) {
-		return AnimeEntry{}, fmt.Errorf("sub-entries cannot be nested more than 2 levels deep")
+	// Enforce depth limit: the new child will be at depth = parentDepth + 1.
+	// Max allowed depth is 3 (root=0, entry=1, sub=2, sub-sub=3), so the
+	// parent must be at depth 1 or 2 (i.e. at most 2 hops from the anime root).
+	// Walk up ancestors from the parent to find the anime root (has anime_id set).
+	parentDepth := 0
+	cur := parent
+	for cur.AnimeID == nil {
+		parentDepth++
+		if parentDepth > 2 {
+			return AnimeEntry{}, fmt.Errorf("sub-entries cannot be nested more than 3 levels deep")
+		}
+		ancestor, err := s.dbClient.File().FindByValue(ctx, &db.File{ID: cur.ParentID})
+		if errors.Is(err, db.ErrRecordNotFound) {
+			return AnimeEntry{}, fmt.Errorf("sub-entries cannot be nested more than 3 levels deep")
+		}
+		if err != nil {
+			return AnimeEntry{}, err
+		}
+		cur = ancestor
 	}
-	if err != nil {
-		return AnimeEntry{}, err
-	}
-	if grandparent.AnimeID == nil {
-		return AnimeEntry{}, fmt.Errorf("sub-entries cannot be nested more than 2 levels deep")
+	if parentDepth == 0 {
+		// parent IS the anime root folder; cannot create entries directly under root via CreateSubEntry
+		return AnimeEntry{}, fmt.Errorf("sub-entries cannot be nested more than 3 levels deep")
 	}
 
 	parentDiskPath, err := s.resolveFileDiskPath(parent.ID)

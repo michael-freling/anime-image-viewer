@@ -38,7 +38,7 @@ interface EntryListProps {
 function totalEntryImageCount(entry: AnimeEntryInfo): number {
   let count = entry.imageCount;
   for (const child of entry.children) {
-    count += child.imageCount;
+    count += totalEntryImageCount(child);
   }
   return count;
 }
@@ -89,147 +89,11 @@ function entryIcon(type: string) {
   }
 }
 
-const SubEntryRow: FC<{
+const MAX_ADD_DEPTH = 2; // can add sub-entries at depth 0, 1; not at 2+
+
+const EntryNode: FC<{
   entry: AnimeEntryInfo;
-  isLast: boolean;
-  selectedEntryId: number | null;
-  onSelectEntry: (entryId: number | null) => void;
-  onUploadImages: (entryId: number) => void;
-  onRenameEntry: (entryId: number, currentName: string) => void;
-  onDeleteEntry: (entryId: number, name: string) => void;
-}> = ({
-  entry,
-  isLast,
-  selectedEntryId,
-  onSelectEntry,
-  onUploadImages,
-  onRenameEntry,
-  onDeleteEntry,
-}) => {
-  const isSelected = selectedEntryId === entry.id;
-
-  return (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        pl: 4,
-        pr: 0.5,
-        py: 0.25,
-        minHeight: 32,
-        cursor: "pointer",
-        borderRadius: "sm",
-        bgcolor: isSelected ? "primary.softBg" : "transparent",
-        "&:hover": {
-          bgcolor: isSelected ? "primary.softBg" : "neutral.softHoverBg",
-        },
-        "&:hover .sub-entry-actions": { opacity: 1 },
-        position: "relative",
-      }}
-      onClick={() => onSelectEntry(entry.id)}
-    >
-      {/* Tree-line connector */}
-      <Box
-        sx={{
-          position: "absolute",
-          left: 20,
-          top: 0,
-          bottom: isLast ? "50%" : 0,
-          width: 1,
-          bgcolor: "#e0e0e0",
-        }}
-      />
-      <Box
-        sx={{
-          position: "absolute",
-          left: 20,
-          top: "50%",
-          width: 12,
-          height: 1,
-          bgcolor: "#e0e0e0",
-        }}
-      />
-
-      <Typography
-        level="body-xs"
-        sx={{
-          flex: 1,
-          ml: 2,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {entry.name}
-      </Typography>
-      <Typography
-        level="body-xs"
-        sx={{ color: "text.tertiary", mr: 0.5, flexShrink: 0 }}
-      >
-        {entry.imageCount}
-      </Typography>
-      <Stack
-        direction="row"
-        spacing={0.25}
-        className="sub-entry-actions"
-        sx={{ opacity: 0, transition: "opacity 0.15s", flexShrink: 0 }}
-      >
-        <IconButton
-          size="sm"
-          variant="plain"
-          color="primary"
-          title="Upload images"
-          onClick={(e) => {
-            e.stopPropagation();
-            onUploadImages(entry.id);
-          }}
-          sx={{ minWidth: 24, minHeight: 24, p: 0.25 }}
-        >
-          <Upload sx={{ fontSize: 14 }} />
-        </IconButton>
-        <Dropdown>
-          <MenuButton
-            slots={{ root: IconButton }}
-            slotProps={{
-              root: {
-                size: "sm",
-                variant: "plain",
-                color: "neutral",
-                sx: { minWidth: 24, minHeight: 24, p: 0.25 },
-              },
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <MoreVert sx={{ fontSize: 14 }} />
-          </MenuButton>
-          <Menu size="sm" placement="bottom-start">
-            <MenuItem
-              onClick={() => onRenameEntry(entry.id, entry.name)}
-            >
-              <ListItemDecorator>
-                <Edit fontSize="small" />
-              </ListItemDecorator>
-              Rename
-            </MenuItem>
-            <ListDivider />
-            <MenuItem
-              color="danger"
-              onClick={() => onDeleteEntry(entry.id, entry.name)}
-            >
-              <ListItemDecorator>
-                <Delete fontSize="small" />
-              </ListItemDecorator>
-              Delete
-            </MenuItem>
-          </Menu>
-        </Dropdown>
-      </Stack>
-    </Box>
-  );
-};
-
-const EntryRow: FC<{
-  entry: AnimeEntryInfo;
+  depth: number;
   selectedEntryId: number | null;
   onSelectEntry: (entryId: number | null) => void;
   onAddSubEntry: (parentId: number) => void;
@@ -238,6 +102,7 @@ const EntryRow: FC<{
   onDeleteEntry: (entryId: number, name: string) => void;
 }> = ({
   entry,
+  depth,
   selectedEntryId,
   onSelectEntry,
   onAddSubEntry,
@@ -246,18 +111,24 @@ const EntryRow: FC<{
   onDeleteEntry,
 }) => {
   const isSelected = selectedEntryId === entry.id;
-  const badge = entryBadge(entry.entryType, entry.entryNumber ?? undefined);
-  const color = entryColor(entry.entryType);
-  const bgColor = entryBgColor(entry.entryType);
   const hasChildren = entry.children && entry.children.length > 0;
+  const badge =
+    depth === 0
+      ? entryBadge(entry.entryType, entry.entryNumber ?? undefined)
+      : "";
+  const color = depth === 0 ? entryColor(entry.entryType) : "";
+  const bgColor = depth === 0 ? entryBgColor(entry.entryType) : "";
+  const iconSize = depth === 0 ? 16 : 14;
+  const actionsClass = depth === 0 ? "entry-actions" : "sub-entry-actions";
 
   return (
     <Box>
+      {/* Row: the clickable entry */}
       <Box
         sx={{
           display: "flex",
           alignItems: "center",
-          minHeight: 38,
+          minHeight: depth === 0 ? 38 : 32,
           px: 0.5,
           py: 0.25,
           cursor: "pointer",
@@ -266,61 +137,73 @@ const EntryRow: FC<{
           "&:hover": {
             bgcolor: isSelected ? "primary.softBg" : "neutral.softHoverBg",
           },
-          "&:hover .entry-actions": { opacity: 1 },
+          [`&:hover .${actionsClass}`]: { opacity: 1 },
         }}
         onClick={() => onSelectEntry(entry.id)}
       >
-        {/* Left color bar */}
-        <Box
-          sx={{
-            width: 4,
-            height: 24,
-            borderRadius: 2,
-            bgcolor: color,
-            flexShrink: 0,
-            mr: 1,
-          }}
-        />
-
-        {/* Type badge */}
-        {badge && (
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              bgcolor: bgColor,
-              borderRadius: "xs",
-              px: 0.75,
-              py: 0.125,
-              mr: 1,
-              minWidth: 24,
-              flexShrink: 0,
-            }}
-          >
-            <Typography
+        {/* Only show color bar + badge at depth 0 */}
+        {depth === 0 && (
+          <>
+            {/* Left color bar */}
+            <Box
               sx={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: color,
-                lineHeight: 1.2,
+                width: 4,
+                height: 24,
+                borderRadius: 2,
+                bgcolor: color,
+                flexShrink: 0,
+                mr: 1,
               }}
-            >
-              {badge}
-            </Typography>
-          </Box>
-        )}
+            />
 
-        {/* Icon for legacy entries without a type */}
-        {!badge && (
-          <Box sx={{ mr: 1, display: "flex", alignItems: "center", flexShrink: 0 }}>
-            {entryIcon(entry.entryType)}
-          </Box>
+            {/* Type badge */}
+            {badge && (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  bgcolor: bgColor,
+                  borderRadius: "xs",
+                  px: 0.75,
+                  py: 0.125,
+                  mr: 1,
+                  minWidth: 24,
+                  flexShrink: 0,
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: color,
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {badge}
+                </Typography>
+              </Box>
+            )}
+
+            {/* Icon for legacy entries without a type */}
+            {!badge && (
+              <Box
+                sx={{
+                  mr: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  flexShrink: 0,
+                }}
+              >
+                {entryIcon(entry.entryType)}
+              </Box>
+            )}
+          </>
         )}
 
         {/* Name */}
         <Typography
-          level="body-sm"
+          level={depth === 0 ? "body-sm" : "body-xs"}
           sx={{
             flex: 1,
             overflow: "hidden",
@@ -331,7 +214,7 @@ const EntryRow: FC<{
           {entry.name}
         </Typography>
 
-        {/* Image count (includes sub-entry images) */}
+        {/* Image count (includes all descendant images) */}
         <Typography
           level="body-xs"
           sx={{ color: "text.tertiary", mr: 0.5, flexShrink: 0 }}
@@ -343,7 +226,7 @@ const EntryRow: FC<{
         <Stack
           direction="row"
           spacing={0.25}
-          className="entry-actions"
+          className={actionsClass}
           sx={{ opacity: 0, transition: "opacity 0.15s", flexShrink: 0 }}
         >
           <IconButton
@@ -357,21 +240,23 @@ const EntryRow: FC<{
             }}
             sx={{ minWidth: 24, minHeight: 24, p: 0.25 }}
           >
-            <Upload sx={{ fontSize: 16 }} />
+            <Upload sx={{ fontSize: iconSize }} />
           </IconButton>
-          <IconButton
-            size="sm"
-            variant="plain"
-            color="primary"
-            title="Add sub-entry"
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddSubEntry(entry.id);
-            }}
-            sx={{ minWidth: 24, minHeight: 24, p: 0.25 }}
-          >
-            <Add sx={{ fontSize: 16 }} />
-          </IconButton>
+          {depth < MAX_ADD_DEPTH && (
+            <IconButton
+              size="sm"
+              variant="plain"
+              color="primary"
+              title="Add sub-entry"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddSubEntry(entry.id);
+              }}
+              sx={{ minWidth: 24, minHeight: 24, p: 0.25 }}
+            >
+              <Add sx={{ fontSize: iconSize }} />
+            </IconButton>
+          )}
           <Dropdown>
             <MenuButton
               slots={{ root: IconButton }}
@@ -385,7 +270,7 @@ const EntryRow: FC<{
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <MoreVert sx={{ fontSize: 16 }} />
+              <MoreVert sx={{ fontSize: iconSize }} />
             </MenuButton>
             <Menu size="sm" placement="bottom-start">
               <MenuItem
@@ -411,20 +296,26 @@ const EntryRow: FC<{
         </Stack>
       </Box>
 
-      {/* Sub-entries */}
-      {hasChildren &&
-        entry.children.map((child, idx) => (
-          <SubEntryRow
-            key={child.id}
-            entry={child}
-            isLast={idx === entry.children.length - 1}
-            selectedEntryId={selectedEntryId}
-            onSelectEntry={onSelectEntry}
-            onUploadImages={onUploadImages}
-            onRenameEntry={onRenameEntry}
-            onDeleteEntry={onDeleteEntry}
-          />
-        ))}
+      {/* Children: indented with left border */}
+      {hasChildren && (
+        <Box
+          sx={{ ml: 2, borderLeft: "2px solid", borderColor: "divider", pl: 1 }}
+        >
+          {entry.children.map((child) => (
+            <EntryNode
+              key={child.id}
+              entry={child}
+              depth={depth + 1}
+              selectedEntryId={selectedEntryId}
+              onSelectEntry={onSelectEntry}
+              onAddSubEntry={onAddSubEntry}
+              onUploadImages={onUploadImages}
+              onRenameEntry={onRenameEntry}
+              onDeleteEntry={onDeleteEntry}
+            />
+          ))}
+        </Box>
+      )}
     </Box>
   );
 };
@@ -480,9 +371,10 @@ const EntryList: FC<EntryListProps> = ({
       {entries.length > 0 && (
         <Box sx={{ mt: 0.5 }}>
           {entries.map((entry) => (
-            <EntryRow
+            <EntryNode
               key={entry.id}
               entry={entry}
+              depth={0}
               selectedEntryId={selectedEntryId}
               onSelectEntry={onSelectEntry}
               onAddSubEntry={onAddSubEntry}

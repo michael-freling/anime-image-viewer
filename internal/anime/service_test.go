@@ -1240,7 +1240,11 @@ func TestService_GetAnimeEntries(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create sub-entry
-	_, err = svc.CreateSubEntry(ctx, season1.ID, "Part A")
+	partA, err := svc.CreateSubEntry(ctx, season1.ID, "Part A")
+	require.NoError(t, err)
+
+	// Create sub-sub-entry (3rd level)
+	_, err = svc.CreateSubEntry(ctx, partA.ID, "Episode 1")
 	require.NoError(t, err)
 
 	// Create images under the entries
@@ -1262,6 +1266,9 @@ func TestService_GetAnimeEntries(t *testing.T) {
 	assert.Equal(t, uint(1), entries[0].ImageCount) // 1 image
 	require.Len(t, entries[0].Children, 1)
 	assert.Equal(t, "Part A", entries[0].Children[0].Name)
+	// Verify 3rd level: Part A has Episode 1
+	require.Len(t, entries[0].Children[0].Children, 1)
+	assert.Equal(t, "Episode 1", entries[0].Children[0].Children[0].Name)
 
 	assert.Equal(t, db.EntryTypeSeason, entries[1].EntryType)
 	require.NotNil(t, entries[1].EntryNumber)
@@ -1667,10 +1674,26 @@ func TestService_CreateSubEntry_DepthLimit(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "Part 1", sub.Name)
 
-	t.Run("rejects creating sub-entry on a sub-entry (depth >= 2)", func(t *testing.T) {
-		_, err := svc.CreateSubEntry(ctx, sub.ID, "Part 1a")
+	t.Run("allows creating sub-sub-entry (depth 3)", func(t *testing.T) {
+		subSub, err := svc.CreateSubEntry(ctx, sub.ID, "Episode 1")
+		require.NoError(t, err)
+		assert.Equal(t, "Episode 1", subSub.Name)
+
+		// Verify disk
+		dirPath := filepath.Join(te.config.ImageRootDirectory, "DepthAnime", "Season 1", "Part 1", "Episode 1")
+		info, err := os.Stat(dirPath)
+		require.NoError(t, err)
+		assert.True(t, info.IsDir())
+	})
+
+	t.Run("rejects creating sub-entry at depth 4 (too deep)", func(t *testing.T) {
+		// First create the depth-3 entry
+		subSub, err := svc.CreateSubEntry(ctx, sub.ID, "Episode 2")
+		require.NoError(t, err)
+
+		_, err = svc.CreateSubEntry(ctx, subSub.ID, "Too Deep")
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "sub-entries cannot be nested more than 2 levels deep")
+		assert.Contains(t, err.Error(), "sub-entries cannot be nested more than 3 levels deep")
 	})
 }
 
