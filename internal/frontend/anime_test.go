@@ -863,3 +863,153 @@ func TestAnimeService_DeleteAnime_ClearsAnimeIDOnTags(t *testing.T) {
 	require.Len(t, allTags, 1)
 	assert.Nil(t, allTags[0].AnimeID)
 }
+
+func TestAnimeService_EntryOperations(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
+	svc := tester.getAnimeService()
+	ctx := context.Background()
+
+	a, err := svc.CreateAnime(ctx, "EntryShow")
+	require.NoError(t, err)
+
+	t.Run("GetAnimeEntries empty", func(t *testing.T) {
+		entries, err := svc.GetAnimeEntries(a.ID)
+		require.NoError(t, err)
+		assert.Empty(t, entries)
+	})
+
+	t.Run("CreateAnimeEntry season", func(t *testing.T) {
+		entry, err := svc.CreateAnimeEntry(ctx, a.ID, db.EntryTypeSeason, nil, "")
+		require.NoError(t, err)
+		assert.NotZero(t, entry.ID)
+		assert.Equal(t, "Season 1", entry.Name)
+		assert.Equal(t, db.EntryTypeSeason, entry.EntryType)
+		require.NotNil(t, entry.EntryNumber)
+		assert.Equal(t, uint(1), *entry.EntryNumber)
+	})
+
+	t.Run("CreateAnimeEntry movie", func(t *testing.T) {
+		year := uint(2024)
+		entry, err := svc.CreateAnimeEntry(ctx, a.ID, db.EntryTypeMovie, &year, "The Movie")
+		require.NoError(t, err)
+		assert.Equal(t, "The Movie", entry.Name)
+		assert.Equal(t, db.EntryTypeMovie, entry.EntryType)
+	})
+
+	t.Run("CreateAnimeEntry other", func(t *testing.T) {
+		entry, err := svc.CreateAnimeEntry(ctx, a.ID, db.EntryTypeOther, nil, "Specials")
+		require.NoError(t, err)
+		assert.Equal(t, "Specials", entry.Name)
+		assert.Equal(t, db.EntryTypeOther, entry.EntryType)
+	})
+
+	t.Run("GetAnimeEntries returns sorted entries", func(t *testing.T) {
+		entries, err := svc.GetAnimeEntries(a.ID)
+		require.NoError(t, err)
+		require.Len(t, entries, 3)
+		// Canonical order: season, movie, other
+		assert.Equal(t, db.EntryTypeSeason, entries[0].EntryType)
+		assert.Equal(t, db.EntryTypeMovie, entries[1].EntryType)
+		assert.Equal(t, db.EntryTypeOther, entries[2].EntryType)
+	})
+
+	t.Run("GetAnimeDetails includes entries", func(t *testing.T) {
+		details, err := svc.GetAnimeDetails(ctx, a.ID)
+		require.NoError(t, err)
+		require.Len(t, details.Entries, 3)
+		assert.Equal(t, db.EntryTypeSeason, details.Entries[0].EntryType)
+	})
+
+	t.Run("GetNextEntryNumber", func(t *testing.T) {
+		n, err := svc.GetNextEntryNumber(a.ID, db.EntryTypeSeason)
+		require.NoError(t, err)
+		assert.Equal(t, uint(2), n)
+	})
+}
+
+func TestAnimeService_EntryErrorPaths(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
+	svc := tester.getAnimeService()
+	ctx := context.Background()
+
+	t.Run("GetAnimeEntries for nonexistent anime returns nil", func(t *testing.T) {
+		// An anime with no root folder returns nil entries
+		animeRow := db.Anime{Name: "NoRootEntries"}
+		require.NoError(t, db.Create(tester.dbClient.Client, &animeRow))
+		entries, err := svc.GetAnimeEntries(animeRow.ID)
+		require.NoError(t, err)
+		assert.Nil(t, entries)
+	})
+
+	t.Run("CreateAnimeEntry with invalid type", func(t *testing.T) {
+		a, err := svc.CreateAnime(ctx, "InvalidTypeShow")
+		require.NoError(t, err)
+		_, err = svc.CreateAnimeEntry(ctx, a.ID, "badtype", nil, "")
+		require.Error(t, err)
+	})
+
+	t.Run("CreateSubEntry with unknown parent", func(t *testing.T) {
+		_, err := svc.CreateSubEntry(ctx, 99999, "Part X")
+		require.Error(t, err)
+	})
+
+	t.Run("RenameEntry with unknown entry", func(t *testing.T) {
+		err := svc.RenameEntry(ctx, 99999, "NewName")
+		require.Error(t, err)
+	})
+
+	t.Run("DeleteEntry with unknown entry", func(t *testing.T) {
+		err := svc.DeleteEntry(ctx, 99999)
+		require.Error(t, err)
+	})
+
+	t.Run("GetNextEntryNumber for anime without root", func(t *testing.T) {
+		animeRow := db.Anime{Name: "NoRootNext"}
+		require.NoError(t, db.Create(tester.dbClient.Client, &animeRow))
+		n, err := svc.GetNextEntryNumber(animeRow.ID, db.EntryTypeSeason)
+		require.NoError(t, err)
+		assert.Equal(t, uint(1), n)
+	})
+}
+
+func TestAnimeService_SubEntryAndRenameAndDelete(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
+	svc := tester.getAnimeService()
+	ctx := context.Background()
+
+	a, err := svc.CreateAnime(ctx, "SubEntryShow")
+	require.NoError(t, err)
+
+	entry, err := svc.CreateAnimeEntry(ctx, a.ID, db.EntryTypeSeason, nil, "")
+	require.NoError(t, err)
+
+	t.Run("CreateSubEntry", func(t *testing.T) {
+		sub, err := svc.CreateSubEntry(ctx, entry.ID, "Part 1")
+		require.NoError(t, err)
+		assert.NotZero(t, sub.ID)
+		assert.Equal(t, "Part 1", sub.Name)
+		assert.Empty(t, sub.EntryType)
+		assert.Nil(t, sub.EntryNumber)
+	})
+
+	t.Run("RenameEntry", func(t *testing.T) {
+		require.NoError(t, svc.RenameEntry(ctx, entry.ID, "Season One"))
+
+		// Verify via GetAnimeEntries
+		entries, err := svc.GetAnimeEntries(a.ID)
+		require.NoError(t, err)
+		require.Len(t, entries, 1)
+		assert.Equal(t, "Season One", entries[0].Name)
+	})
+
+	t.Run("DeleteEntry", func(t *testing.T) {
+		require.NoError(t, svc.DeleteEntry(ctx, entry.ID))
+
+		entries, err := svc.GetAnimeEntries(a.ID)
+		require.NoError(t, err)
+		assert.Empty(t, entries)
+	})
+}

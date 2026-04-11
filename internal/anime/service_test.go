@@ -939,3 +939,802 @@ func TestService_GetFolderImageIDs(t *testing.T) {
 		assert.ErrorIs(t, err, image.ErrDirectoryNotFound)
 	})
 }
+
+func TestService_CreateEntry(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "EntryAnime")
+	require.NoError(t, err)
+
+	t.Run("creates season entry with auto-number and auto-name", func(t *testing.T) {
+		entry, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeSeason, nil, "")
+		require.NoError(t, err)
+		assert.NotZero(t, entry.ID)
+		assert.Equal(t, "Season 1", entry.Name)
+		assert.Equal(t, db.EntryTypeSeason, entry.EntryType)
+		require.NotNil(t, entry.EntryNumber)
+		assert.Equal(t, uint(1), *entry.EntryNumber)
+
+		// Verify disk
+		dirPath := filepath.Join(te.config.ImageRootDirectory, "EntryAnime", "Season 1")
+		info, err := os.Stat(dirPath)
+		require.NoError(t, err)
+		assert.True(t, info.IsDir())
+	})
+
+	t.Run("creates season with explicit number and name", func(t *testing.T) {
+		num := uint(5)
+		entry, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeSeason, &num, "Season Five")
+		require.NoError(t, err)
+		assert.Equal(t, "Season Five", entry.Name)
+		require.NotNil(t, entry.EntryNumber)
+		assert.Equal(t, uint(5), *entry.EntryNumber)
+	})
+
+	t.Run("auto-numbers next season correctly", func(t *testing.T) {
+		entry, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeSeason, nil, "")
+		require.NoError(t, err)
+		// Max existing season number is 5, so next is 6
+		require.NotNil(t, entry.EntryNumber)
+		assert.Equal(t, uint(6), *entry.EntryNumber)
+		assert.Equal(t, "Season 6", entry.Name)
+	})
+
+	t.Run("creates movie entry", func(t *testing.T) {
+		year := uint(2024)
+		entry, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeMovie, &year, "The Great Movie")
+		require.NoError(t, err)
+		assert.Equal(t, "The Great Movie", entry.Name)
+		assert.Equal(t, db.EntryTypeMovie, entry.EntryType)
+		require.NotNil(t, entry.EntryNumber)
+		assert.Equal(t, uint(2024), *entry.EntryNumber)
+	})
+
+	t.Run("rejects movie without display name", func(t *testing.T) {
+		year := uint(2025)
+		_, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeMovie, &year, "")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	})
+
+	t.Run("creates other entry", func(t *testing.T) {
+		entry, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeOther, nil, "Specials")
+		require.NoError(t, err)
+		assert.Equal(t, "Specials", entry.Name)
+		assert.Equal(t, db.EntryTypeOther, entry.EntryType)
+		assert.Nil(t, entry.EntryNumber)
+	})
+
+	t.Run("rejects other without display name", func(t *testing.T) {
+		_, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeOther, nil, "")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	})
+
+	t.Run("rejects invalid entry type", func(t *testing.T) {
+		_, err := svc.CreateEntry(ctx, a.ID, "invalid", nil, "Test")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	})
+
+	t.Run("rejects unknown anime", func(t *testing.T) {
+		_, err := svc.CreateEntry(ctx, 99999, db.EntryTypeSeason, nil, "")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrAnimeNotFound)
+	})
+
+	t.Run("rejects duplicate name", func(t *testing.T) {
+		_, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeOther, nil, "Specials")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	})
+}
+
+func TestService_CreateSubEntry(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "SubEntryAnime")
+	require.NoError(t, err)
+
+	season, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeSeason, nil, "")
+	require.NoError(t, err)
+
+	t.Run("creates sub-entry", func(t *testing.T) {
+		sub, err := svc.CreateSubEntry(ctx, season.ID, "Part 1")
+		require.NoError(t, err)
+		assert.NotZero(t, sub.ID)
+		assert.Equal(t, "Part 1", sub.Name)
+		assert.Equal(t, "", sub.EntryType)
+		assert.Nil(t, sub.EntryNumber)
+
+		// Verify disk
+		dirPath := filepath.Join(te.config.ImageRootDirectory, "SubEntryAnime", "Season 1", "Part 1")
+		info, err := os.Stat(dirPath)
+		require.NoError(t, err)
+		assert.True(t, info.IsDir())
+	})
+
+	t.Run("rejects empty name", func(t *testing.T) {
+		_, err := svc.CreateSubEntry(ctx, season.ID, "  ")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	})
+
+	t.Run("rejects unknown parent", func(t *testing.T) {
+		_, err := svc.CreateSubEntry(ctx, 99999, "Part X")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, image.ErrDirectoryNotFound)
+	})
+
+	t.Run("rejects duplicate sub-entry name", func(t *testing.T) {
+		_, err := svc.CreateSubEntry(ctx, season.ID, "Part 1")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	})
+}
+
+func TestService_RenameEntry(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "RenameEntryAnime")
+	require.NoError(t, err)
+
+	entry, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeOther, nil, "OldName")
+	require.NoError(t, err)
+
+	t.Run("renames entry on disk and in DB", func(t *testing.T) {
+		require.NoError(t, svc.RenameEntry(ctx, entry.ID, "NewName"))
+
+		// Verify old folder is gone
+		_, err := os.Stat(filepath.Join(te.config.ImageRootDirectory, "RenameEntryAnime", "OldName"))
+		assert.True(t, os.IsNotExist(err))
+
+		// Verify new folder exists
+		info, err := os.Stat(filepath.Join(te.config.ImageRootDirectory, "RenameEntryAnime", "NewName"))
+		require.NoError(t, err)
+		assert.True(t, info.IsDir())
+
+		// Verify DB
+		file, err := db.FindByValue(te.dbClient.Client, db.File{ID: entry.ID})
+		require.NoError(t, err)
+		assert.Equal(t, "NewName", file.Name)
+	})
+
+	t.Run("no-op when same name", func(t *testing.T) {
+		require.NoError(t, svc.RenameEntry(ctx, entry.ID, "NewName"))
+	})
+
+	t.Run("rejects empty name", func(t *testing.T) {
+		err := svc.RenameEntry(ctx, entry.ID, "  ")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	})
+
+	t.Run("rejects unknown entry", func(t *testing.T) {
+		err := svc.RenameEntry(ctx, 99999, "X")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, image.ErrDirectoryNotFound)
+	})
+}
+
+func TestService_DeleteEntry(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "DeleteEntryAnime")
+	require.NoError(t, err)
+
+	entry, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeSeason, nil, "")
+	require.NoError(t, err)
+
+	sub, err := svc.CreateSubEntry(ctx, entry.ID, "Part 1")
+	require.NoError(t, err)
+
+	// Create an image under the sub-entry
+	imgFile := db.File{ParentID: sub.ID, Name: "img.jpg", Type: db.FileTypeImage}
+	require.NoError(t, te.dbClient.File().Create(ctx, &imgFile))
+
+	// Add a file_tag
+	ft := db.FileTag{TagID: 1, FileID: imgFile.ID, AddedBy: db.FileTagAddedByUser}
+	require.NoError(t, db.Create(te.dbClient.Client, &ft))
+
+	t.Run("deletes entry, sub-entries, images, and file_tags", func(t *testing.T) {
+		require.NoError(t, svc.DeleteEntry(ctx, entry.ID))
+
+		// Entry is gone from DB
+		_, err := db.FindByValue(te.dbClient.Client, db.File{ID: entry.ID})
+		assert.ErrorIs(t, err, db.ErrRecordNotFound)
+
+		// Sub-entry is gone
+		_, err = db.FindByValue(te.dbClient.Client, db.File{ID: sub.ID})
+		assert.ErrorIs(t, err, db.ErrRecordNotFound)
+
+		// Image is gone
+		_, err = db.FindByValue(te.dbClient.Client, db.File{ID: imgFile.ID})
+		assert.ErrorIs(t, err, db.ErrRecordNotFound)
+
+		// File tag is gone
+		fileTags, err := te.dbClient.FileTag().FindAllByFileID([]uint{imgFile.ID})
+		require.NoError(t, err)
+		assert.Empty(t, fileTags)
+
+		// Disk folder is gone
+		_, err = os.Stat(filepath.Join(te.config.ImageRootDirectory, "DeleteEntryAnime", "Season 1"))
+		assert.True(t, os.IsNotExist(err))
+	})
+
+	t.Run("rejects unknown entry", func(t *testing.T) {
+		err := svc.DeleteEntry(ctx, 99999)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, image.ErrDirectoryNotFound)
+	})
+}
+
+func TestService_NextEntryNumber(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "NextNumAnime")
+	require.NoError(t, err)
+
+	t.Run("returns 1 when no entries exist", func(t *testing.T) {
+		n, err := svc.NextEntryNumber(a.ID, db.EntryTypeSeason)
+		require.NoError(t, err)
+		assert.Equal(t, uint(1), n)
+	})
+
+	t.Run("returns max+1", func(t *testing.T) {
+		num3 := uint(3)
+		_, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeSeason, &num3, "Season 3")
+		require.NoError(t, err)
+
+		num1 := uint(1)
+		_, err = svc.CreateEntry(ctx, a.ID, db.EntryTypeSeason, &num1, "Season 1")
+		require.NoError(t, err)
+
+		n, err := svc.NextEntryNumber(a.ID, db.EntryTypeSeason)
+		require.NoError(t, err)
+		assert.Equal(t, uint(4), n) // max(3)+1
+	})
+
+	t.Run("rejects non-season type", func(t *testing.T) {
+		_, err := svc.NextEntryNumber(a.ID, db.EntryTypeMovie)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "NextEntryNumber only supports season type")
+	})
+
+	t.Run("returns 1 for anime with no root folder", func(t *testing.T) {
+		animeRow := db.Anime{Name: "NoRootAnime"}
+		require.NoError(t, te.dbClient.Anime().Create(ctx, &animeRow))
+		n, err := svc.NextEntryNumber(animeRow.ID, db.EntryTypeSeason)
+		require.NoError(t, err)
+		assert.Equal(t, uint(1), n)
+	})
+}
+
+func TestService_GetAnimeEntries(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "EntriesAnime")
+	require.NoError(t, err)
+
+	// Create entries in non-canonical order
+	year := uint(2023)
+	_, err = svc.CreateEntry(ctx, a.ID, db.EntryTypeMovie, &year, "The Movie")
+	require.NoError(t, err)
+	_, err = svc.CreateEntry(ctx, a.ID, db.EntryTypeOther, nil, "Specials")
+	require.NoError(t, err)
+	season1, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeSeason, nil, "")
+	require.NoError(t, err)
+	_, err = svc.CreateEntry(ctx, a.ID, db.EntryTypeSeason, nil, "")
+	require.NoError(t, err)
+
+	// Create sub-entry
+	_, err = svc.CreateSubEntry(ctx, season1.ID, "Part A")
+	require.NoError(t, err)
+
+	// Create images under the entries
+	rootFolder, err := svc.FindAnimeRootFolder(a.ID)
+	require.NoError(t, err)
+	require.NotNil(t, rootFolder)
+
+	img := db.File{ParentID: season1.ID, Name: "img.jpg", Type: db.FileTypeImage}
+	require.NoError(t, te.dbClient.File().Create(ctx, &img))
+
+	entries, err := svc.GetAnimeEntries(a.ID)
+	require.NoError(t, err)
+	require.Len(t, entries, 4)
+
+	// Canonical order: season(1), season(2), movie(2023), other(Specials)
+	assert.Equal(t, db.EntryTypeSeason, entries[0].EntryType)
+	require.NotNil(t, entries[0].EntryNumber)
+	assert.Equal(t, uint(1), *entries[0].EntryNumber)
+	assert.Equal(t, uint(1), entries[0].ImageCount) // 1 image
+	require.Len(t, entries[0].Children, 1)
+	assert.Equal(t, "Part A", entries[0].Children[0].Name)
+
+	assert.Equal(t, db.EntryTypeSeason, entries[1].EntryType)
+	require.NotNil(t, entries[1].EntryNumber)
+	assert.Equal(t, uint(2), *entries[1].EntryNumber)
+
+	assert.Equal(t, db.EntryTypeMovie, entries[2].EntryType)
+	assert.Equal(t, "The Movie", entries[2].Name)
+
+	assert.Equal(t, db.EntryTypeOther, entries[3].EntryType)
+	assert.Equal(t, "Specials", entries[3].Name)
+
+	t.Run("returns nil for anime with no root folder", func(t *testing.T) {
+		animeRow := db.Anime{Name: "NoRootEntries"}
+		require.NoError(t, te.dbClient.Anime().Create(ctx, &animeRow))
+		entries, err := svc.GetAnimeEntries(animeRow.ID)
+		require.NoError(t, err)
+		assert.Nil(t, entries)
+	})
+
+	t.Run("returns empty for anime with root folder but no entries", func(t *testing.T) {
+		empty, err := svc.Create(ctx, "EmptyEntries")
+		require.NoError(t, err)
+		entries, err := svc.GetAnimeEntries(empty.ID)
+		require.NoError(t, err)
+		assert.Empty(t, entries)
+	})
+}
+
+func TestService_RenameEntry_NonDirectory(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	// Create an image file and try to rename it as an entry
+	a, err := svc.Create(ctx, "RenameNonDirAnime")
+	require.NoError(t, err)
+	rootFolder, err := svc.FindAnimeRootFolder(a.ID)
+	require.NoError(t, err)
+	require.NotNil(t, rootFolder)
+
+	imgFile := db.File{ParentID: rootFolder.ID, Name: "img.jpg", Type: db.FileTypeImage}
+	require.NoError(t, te.dbClient.File().Create(ctx, &imgFile))
+
+	err = svc.RenameEntry(ctx, imgFile.ID, "NewName")
+	require.Error(t, err)
+	assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+}
+
+func TestService_DeleteEntry_NonDirectory(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "DeleteNonDirAnime")
+	require.NoError(t, err)
+	rootFolder, err := svc.FindAnimeRootFolder(a.ID)
+	require.NoError(t, err)
+	require.NotNil(t, rootFolder)
+
+	imgFile := db.File{ParentID: rootFolder.ID, Name: "img.jpg", Type: db.FileTypeImage}
+	require.NoError(t, te.dbClient.File().Create(ctx, &imgFile))
+
+	err = svc.DeleteEntry(ctx, imgFile.ID)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+}
+
+func TestService_CreateSubEntry_NonDirectory(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "SubNonDirAnime")
+	require.NoError(t, err)
+	rootFolder, err := svc.FindAnimeRootFolder(a.ID)
+	require.NoError(t, err)
+	require.NotNil(t, rootFolder)
+
+	imgFile := db.File{ParentID: rootFolder.ID, Name: "img.jpg", Type: db.FileTypeImage}
+	require.NoError(t, te.dbClient.File().Create(ctx, &imgFile))
+
+	_, err = svc.CreateSubEntry(ctx, imgFile.ID, "Sub")
+	require.Error(t, err)
+	assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+}
+
+func TestService_CreateEntry_WhitespaceOnlyName(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "WhitespaceAnime")
+	require.NoError(t, err)
+
+	// For season: displayName = "  " after trim -> empty -> auto-generate
+	// No error because season auto-generates the name
+	entry, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeSeason, nil, "  ")
+	require.NoError(t, err)
+	assert.Equal(t, "Season 1", entry.Name)
+}
+
+func TestService_CreateEntry_DiskFolderExists(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "DiskExistsAnime")
+	require.NoError(t, err)
+
+	// Pre-create the folder on disk
+	require.NoError(t, os.Mkdir(filepath.Join(te.config.ImageRootDirectory, "DiskExistsAnime", "Season 1"), 0755))
+
+	_, err = svc.CreateEntry(ctx, a.ID, db.EntryTypeSeason, nil, "")
+	require.Error(t, err)
+	assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+}
+
+func TestService_CreateSubEntry_DiskFolderExists(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "SubDiskExistsAnime")
+	require.NoError(t, err)
+
+	entry, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeSeason, nil, "")
+	require.NoError(t, err)
+
+	// Pre-create the sub-folder on disk
+	require.NoError(t, os.Mkdir(filepath.Join(te.config.ImageRootDirectory, "SubDiskExistsAnime", "Season 1", "Part 1"), 0755))
+
+	_, err = svc.CreateSubEntry(ctx, entry.ID, "Part 1")
+	require.Error(t, err)
+	assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+}
+
+func TestService_RenameEntry_DuplicateName(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "RenameDupAnime")
+	require.NoError(t, err)
+
+	entry1, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeOther, nil, "EntryA")
+	require.NoError(t, err)
+	_, err = svc.CreateEntry(ctx, a.ID, db.EntryTypeOther, nil, "EntryB")
+	require.NoError(t, err)
+
+	// Try to rename EntryA to EntryB (duplicate)
+	err = svc.RenameEntry(ctx, entry1.ID, "EntryB")
+	require.Error(t, err)
+	assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+}
+
+func TestService_DeleteEntry_AlreadyRemovedFromDisk(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "DeleteGhostAnime")
+	require.NoError(t, err)
+
+	entry, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeSeason, nil, "")
+	require.NoError(t, err)
+
+	// Remove the folder from disk before calling DeleteEntry
+	require.NoError(t, os.RemoveAll(filepath.Join(te.config.ImageRootDirectory, "DeleteGhostAnime", "Season 1")))
+
+	// Should still succeed (os.RemoveAll on non-existent is fine)
+	require.NoError(t, svc.DeleteEntry(ctx, entry.ID))
+
+	// Verify DB record is gone
+	_, err = db.FindByValue(te.dbClient.Client, db.File{ID: entry.ID})
+	assert.ErrorIs(t, err, db.ErrRecordNotFound)
+}
+
+func TestService_CreateEntry_AnimeNoRootFolder(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	// Create anime without a root folder (directly in DB)
+	animeRow := db.Anime{Name: "NoRootEntryAnime"}
+	require.NoError(t, te.dbClient.Anime().Create(ctx, &animeRow))
+
+	_, err := svc.CreateEntry(ctx, animeRow.ID, db.EntryTypeSeason, nil, "")
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrAnimeNotFound)
+}
+
+func TestService_countImagesPerFolder_Empty(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+
+	counts, err := svc.countImagesPerFolder(nil)
+	require.NoError(t, err)
+	assert.Nil(t, counts)
+}
+
+func TestService_RenameEntry_BrokenParentChain(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	// Create a directory whose parent_id points to a non-existent file.
+	// This should cause resolveFileDiskPath to fail when walking up.
+	orphan := db.File{ParentID: 99999, Name: "orphan", Type: db.FileTypeDirectory}
+	require.NoError(t, te.dbClient.File().Create(ctx, &orphan))
+
+	err := svc.RenameEntry(ctx, orphan.ID, "newName")
+	require.Error(t, err) // resolveFileDiskPath fails
+}
+
+func TestService_DeleteEntry_BrokenParentChain(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	orphan := db.File{ParentID: 99999, Name: "orphanDel", Type: db.FileTypeDirectory}
+	require.NoError(t, te.dbClient.File().Create(ctx, &orphan))
+
+	err := svc.DeleteEntry(ctx, orphan.ID)
+	require.Error(t, err) // resolveFileDiskPath fails
+}
+
+func TestService_CreateSubEntry_BrokenParentChain(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	orphan := db.File{ParentID: 99999, Name: "orphanSub", Type: db.FileTypeDirectory}
+	require.NoError(t, te.dbClient.File().Create(ctx, &orphan))
+
+	_, err := svc.CreateSubEntry(ctx, orphan.ID, "child")
+	require.Error(t, err) // resolveFileDiskPath fails
+}
+
+func TestService_GetAnimeEntries_LegacyFolders(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "LegacyAnime")
+	require.NoError(t, err)
+
+	rootFolder, err := svc.FindAnimeRootFolder(a.ID)
+	require.NoError(t, err)
+	require.NotNil(t, rootFolder)
+
+	// Create legacy folders (no entry_type) directly in DB
+	legacyB := db.File{ParentID: rootFolder.ID, Name: "Bravo", Type: db.FileTypeDirectory}
+	require.NoError(t, te.dbClient.File().Create(ctx, &legacyB))
+	require.NoError(t, os.Mkdir(filepath.Join(te.config.ImageRootDirectory, "LegacyAnime", "Bravo"), 0755))
+
+	legacyA := db.File{ParentID: rootFolder.ID, Name: "Alpha", Type: db.FileTypeDirectory}
+	require.NoError(t, te.dbClient.File().Create(ctx, &legacyA))
+	require.NoError(t, os.Mkdir(filepath.Join(te.config.ImageRootDirectory, "LegacyAnime", "Alpha"), 0755))
+
+	entries, err := svc.GetAnimeEntries(a.ID)
+	require.NoError(t, err)
+	require.Len(t, entries, 2)
+	// Legacy folders sorted alphabetically
+	assert.Equal(t, "Alpha", entries[0].Name)
+	assert.Equal(t, "Bravo", entries[1].Name)
+	assert.Equal(t, "", entries[0].EntryType)
+	assert.Equal(t, "", entries[1].EntryType)
+}
+
+func TestSortEntries(t *testing.T) {
+	num1 := uint(1)
+	num2 := uint(2)
+	year2023 := uint(2023)
+	year2024 := uint(2024)
+
+	entries := []AnimeEntry{
+		{Name: "Specials", EntryType: db.EntryTypeOther},
+		{Name: "Zebra", EntryType: ""},        // legacy
+		{Name: "Alpha", EntryType: ""},         // legacy
+		{Name: "Movie B", EntryType: db.EntryTypeMovie, EntryNumber: &year2024},
+		{Name: "Movie A", EntryType: db.EntryTypeMovie, EntryNumber: &year2023},
+		{Name: "Season 2", EntryType: db.EntryTypeSeason, EntryNumber: &num2},
+		{Name: "Season 1", EntryType: db.EntryTypeSeason, EntryNumber: &num1},
+		{Name: "Extras", EntryType: db.EntryTypeOther},
+	}
+
+	sortEntries(entries)
+
+	expected := []string{
+		"Season 1", "Season 2",     // seasons by number
+		"Movie A", "Movie B",       // movies by year
+		"Extras", "Specials",       // other alphabetical
+		"Alpha", "Zebra",           // legacy alphabetical
+	}
+	got := make([]string, len(entries))
+	for i, e := range entries {
+		got[i] = e.Name
+	}
+	assert.Equal(t, expected, got)
+}
+
+func TestValidateFolderName(t *testing.T) {
+	t.Run("rejects empty name", func(t *testing.T) {
+		err := validateFolderName("")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot be empty")
+	})
+
+	t.Run("rejects name with invalid characters", func(t *testing.T) {
+		for _, name := range []string{"foo<bar", "foo>bar", `foo"bar`, "foo|bar", "foo?bar", "foo*bar", "foo:bar", "foo\\bar", "foo/bar"} {
+			err := validateFolderName(name)
+			require.Error(t, err, "expected error for name: %s", name)
+			assert.Contains(t, err.Error(), "invalid characters")
+		}
+	})
+
+	t.Run("rejects dot names", func(t *testing.T) {
+		require.Error(t, validateFolderName("."))
+		require.Error(t, validateFolderName(".."))
+	})
+
+	t.Run("accepts valid names", func(t *testing.T) {
+		for _, name := range []string{"Season 1", "Part A", "Specials", "Bocchi the Rock!"} {
+			require.NoError(t, validateFolderName(name), "expected no error for name: %s", name)
+		}
+	})
+}
+
+func TestService_CreateEntry_Validation(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "ValidationAnime")
+	require.NoError(t, err)
+
+	t.Run("rejects season number 0", func(t *testing.T) {
+		num := uint(0)
+		_, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeSeason, &num, "Season Zero")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+		assert.Contains(t, err.Error(), "season number must be > 0")
+	})
+
+	t.Run("rejects movie year out of range (9999)", func(t *testing.T) {
+		year := uint(9999)
+		_, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeMovie, &year, "Future Movie")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+		assert.Contains(t, err.Error(), "movie year must be between 1900 and 2100")
+	})
+
+	t.Run("rejects movie year below 1900", func(t *testing.T) {
+		year := uint(1800)
+		_, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeMovie, &year, "Old Movie")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+		assert.Contains(t, err.Error(), "movie year must be between 1900 and 2100")
+	})
+
+	t.Run("rejects name with invalid characters", func(t *testing.T) {
+		_, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeOther, nil, "Bad<Name")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+		assert.Contains(t, err.Error(), "invalid characters")
+	})
+
+	t.Run("rejects name with colon", func(t *testing.T) {
+		_, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeOther, nil, "Bad:Name")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	})
+
+	t.Run("accepts valid season with explicit number", func(t *testing.T) {
+		num := uint(10)
+		entry, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeSeason, &num, "Season 10")
+		require.NoError(t, err)
+		assert.Equal(t, uint(10), *entry.EntryNumber)
+	})
+
+	t.Run("accepts valid movie with year in range", func(t *testing.T) {
+		year := uint(2024)
+		entry, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeMovie, &year, "Good Movie")
+		require.NoError(t, err)
+		assert.Equal(t, uint(2024), *entry.EntryNumber)
+	})
+}
+
+func TestService_CreateSubEntry_DepthLimit(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "DepthAnime")
+	require.NoError(t, err)
+
+	// Create a season (depth 1 under anime root)
+	season, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeSeason, nil, "")
+	require.NoError(t, err)
+
+	// Create a sub-entry (depth 2 -- should succeed)
+	sub, err := svc.CreateSubEntry(ctx, season.ID, "Part 1")
+	require.NoError(t, err)
+	assert.Equal(t, "Part 1", sub.Name)
+
+	t.Run("rejects creating sub-entry on a sub-entry (depth >= 2)", func(t *testing.T) {
+		_, err := svc.CreateSubEntry(ctx, sub.ID, "Part 1a")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "sub-entries cannot be nested more than 2 levels deep")
+	})
+}
+
+func TestService_NextEntryNumber_RejectsNonSeason(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "NextNumRejectAnime")
+	require.NoError(t, err)
+
+	t.Run("rejects movie type", func(t *testing.T) {
+		_, err := svc.NextEntryNumber(a.ID, db.EntryTypeMovie)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "NextEntryNumber only supports season type")
+	})
+
+	t.Run("rejects other type", func(t *testing.T) {
+		_, err := svc.NextEntryNumber(a.ID, db.EntryTypeOther)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "NextEntryNumber only supports season type")
+	})
+
+	t.Run("rejects empty type", func(t *testing.T) {
+		_, err := svc.NextEntryNumber(a.ID, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "NextEntryNumber only supports season type")
+	})
+}
+
+func TestService_RenameEntry_InvalidChars(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "RenameCharAnime")
+	require.NoError(t, err)
+
+	entry, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeOther, nil, "ValidName")
+	require.NoError(t, err)
+
+	t.Run("rejects rename with invalid characters", func(t *testing.T) {
+		err := svc.RenameEntry(ctx, entry.ID, "Bad|Name")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+		assert.Contains(t, err.Error(), "invalid characters")
+	})
+}
+
+func TestService_CreateSubEntry_InvalidChars(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "SubCharAnime")
+	require.NoError(t, err)
+
+	season, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeSeason, nil, "")
+	require.NoError(t, err)
+
+	t.Run("rejects sub-entry with invalid characters", func(t *testing.T) {
+		_, err := svc.CreateSubEntry(ctx, season.ID, "Bad*Name")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+		assert.Contains(t, err.Error(), "invalid characters")
+	})
+}

@@ -194,6 +194,54 @@ func TestFileClient_DeleteByIDs(t *testing.T) {
 	})
 }
 
+func TestFileClient_FindDirectChildDirectories(t *testing.T) {
+	testClient := NewTestClient(t)
+	testClient.Truncate(t, File{})
+
+	season1Num := uint(1)
+	season2Num := uint(2)
+	movieYear := uint(2023)
+	files := []File{
+		{ID: 5001, ParentID: 0, Name: "anime-root", Type: FileTypeDirectory},
+		{ID: 5002, ParentID: 5001, Name: "Season 2", Type: FileTypeDirectory, EntryType: EntryTypeSeason, EntryNumber: &season2Num},
+		{ID: 5003, ParentID: 5001, Name: "Season 1", Type: FileTypeDirectory, EntryType: EntryTypeSeason, EntryNumber: &season1Num},
+		{ID: 5004, ParentID: 5001, Name: "The Movie", Type: FileTypeDirectory, EntryType: EntryTypeMovie, EntryNumber: &movieYear},
+		{ID: 5005, ParentID: 5001, Name: "Specials", Type: FileTypeDirectory, EntryType: EntryTypeOther},
+		{ID: 5006, ParentID: 5001, Name: "Legacy Folder", Type: FileTypeDirectory},
+		{ID: 5007, ParentID: 5001, Name: "img.jpg", Type: FileTypeImage}, // should be excluded
+		{ID: 5008, ParentID: 5002, Name: "Part 1", Type: FileTypeDirectory},
+	}
+	LoadTestData(t, testClient, files)
+
+	fileClient := testClient.File()
+
+	t.Run("returns only direct child directories ordered by entry_type, entry_number, name", func(t *testing.T) {
+		got, err := fileClient.FindDirectChildDirectories(5001)
+		assert.NoError(t, err)
+		assert.Len(t, got, 5) // excludes image and grandchild
+		// SQLite string order: "" < "movie" < "other" < "season"
+		assert.Equal(t, uint(5006), got[0].ID) // Legacy Folder (empty entry_type)
+		assert.Equal(t, uint(5004), got[1].ID) // The Movie (movie)
+		assert.Equal(t, uint(5005), got[2].ID) // Specials (other)
+		assert.Equal(t, uint(5003), got[3].ID) // Season 1 (season, number=1)
+		assert.Equal(t, uint(5002), got[4].ID) // Season 2 (season, number=2)
+	})
+
+	t.Run("returns empty for directory with no child directories", func(t *testing.T) {
+		got, err := fileClient.FindDirectChildDirectories(9999)
+		assert.NoError(t, err)
+		assert.Empty(t, got)
+	})
+
+	t.Run("returns sub-entries for child directory", func(t *testing.T) {
+		got, err := fileClient.FindDirectChildDirectories(5002)
+		assert.NoError(t, err)
+		assert.Len(t, got, 1)
+		assert.Equal(t, uint(5008), got[0].ID)
+		assert.Equal(t, "Part 1", got[0].Name)
+	})
+}
+
 func TestFileClient_FindDirectoriesByIDs(t *testing.T) {
 	testClient := NewTestClient(t)
 	testClient.Truncate(t, File{})

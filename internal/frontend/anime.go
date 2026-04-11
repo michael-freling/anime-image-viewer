@@ -59,12 +59,23 @@ type UnassignedFolder struct {
 	Name string `json:"name"`
 }
 
+// AnimeEntryInfo is an entry (season, movie, other) in the anime's folder tree.
+type AnimeEntryInfo struct {
+	ID          uint             `json:"id"`
+	Name        string           `json:"name"`
+	EntryType   string           `json:"entryType"`
+	EntryNumber *uint            `json:"entryNumber"`
+	ImageCount  uint             `json:"imageCount"`
+	Children    []AnimeEntryInfo `json:"children"`
+}
+
 // AnimeDetailsResponse is the payload of the landing page request.
 type AnimeDetailsResponse struct {
 	Anime      Anime                `json:"anime"`
 	Tags       []AnimeTagInfo       `json:"tags"`
 	Folders    []AnimeFolderInfo    `json:"folders"`
 	FolderTree *AnimeFolderTreeNode `json:"folderTree"`
+	Entries    []AnimeEntryInfo     `json:"entries"`
 }
 
 // AnimeService is the Wails-bound service for anime CRUD and assignments.
@@ -176,11 +187,19 @@ func (s *AnimeService) GetAnimeDetails(ctx context.Context, id uint) (AnimeDetai
 		folderTree = &converted
 	}
 
+	// entries
+	coreEntries, err := s.core.GetAnimeEntries(id)
+	if err != nil {
+		return AnimeDetailsResponse{}, fmt.Errorf("core.GetAnimeEntries: %w", err)
+	}
+	entryInfos := convertEntries(coreEntries)
+
 	return AnimeDetailsResponse{
 		Anime:      Anime{ID: a.ID, Name: a.Name},
 		Tags:       tagInfos,
 		Folders:    folderInfos,
 		FolderTree: folderTree,
+		Entries:    entryInfos,
 	}, nil
 }
 
@@ -457,4 +476,72 @@ func (s *AnimeService) GetFolderImages(ctx context.Context, folderID uint, recur
 		results = append(results, newImageConverterFromImageFiles(f).Convert())
 	}
 	return SearchImagesResponse{Images: results}, nil
+}
+
+// GetAnimeEntries returns the structured entries for an anime.
+func (s *AnimeService) GetAnimeEntries(animeID uint) ([]AnimeEntryInfo, error) {
+	entries, err := s.core.GetAnimeEntries(animeID)
+	if err != nil {
+		return nil, err
+	}
+	return convertEntries(entries), nil
+}
+
+// CreateAnimeEntry creates a new entry (season, movie, other) under an anime.
+func (s *AnimeService) CreateAnimeEntry(ctx context.Context, animeID uint, entryType string, entryNumber *uint, displayName string) (AnimeEntryInfo, error) {
+	entry, err := s.core.CreateEntry(ctx, animeID, entryType, entryNumber, displayName)
+	if err != nil {
+		return AnimeEntryInfo{}, err
+	}
+	return convertEntry(entry), nil
+}
+
+// CreateSubEntry creates a child folder under an existing entry.
+func (s *AnimeService) CreateSubEntry(ctx context.Context, parentEntryID uint, name string) (AnimeEntryInfo, error) {
+	entry, err := s.core.CreateSubEntry(ctx, parentEntryID, name)
+	if err != nil {
+		return AnimeEntryInfo{}, err
+	}
+	return convertEntry(entry), nil
+}
+
+// RenameEntry renames an entry.
+func (s *AnimeService) RenameEntry(ctx context.Context, entryID uint, newName string) error {
+	return s.core.RenameEntry(ctx, entryID, newName)
+}
+
+// DeleteEntry deletes an entry and all descendants.
+func (s *AnimeService) DeleteEntry(ctx context.Context, entryID uint) error {
+	return s.core.DeleteEntry(ctx, entryID)
+}
+
+// GetNextEntryNumber returns the next entry number for the given type.
+func (s *AnimeService) GetNextEntryNumber(animeID uint, entryType string) (uint, error) {
+	return s.core.NextEntryNumber(animeID, entryType)
+}
+
+func convertEntries(entries []anime.AnimeEntry) []AnimeEntryInfo {
+	if entries == nil {
+		return nil
+	}
+	result := make([]AnimeEntryInfo, len(entries))
+	for i, e := range entries {
+		result[i] = convertEntry(e)
+	}
+	return result
+}
+
+func convertEntry(e anime.AnimeEntry) AnimeEntryInfo {
+	children := make([]AnimeEntryInfo, 0, len(e.Children))
+	for _, c := range e.Children {
+		children = append(children, convertEntry(c))
+	}
+	return AnimeEntryInfo{
+		ID:          e.ID,
+		Name:        e.Name,
+		EntryType:   e.EntryType,
+		EntryNumber: e.EntryNumber,
+		ImageCount:  e.ImageCount,
+		Children:    children,
+	}
 }

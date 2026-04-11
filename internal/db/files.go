@@ -9,6 +9,10 @@ const (
 
 	FileTypeDirectory FileType = "directory"
 	FileTypeImage     FileType = "image"
+
+	EntryTypeSeason = "season"
+	EntryTypeMovie  = "movie"
+	EntryTypeOther  = "other"
 )
 
 type File struct {
@@ -25,6 +29,13 @@ type File struct {
 	// ImageCreatedAt is a creation timestamp of an image file
 	// when an image is imported, a timestamp is copied from the source image file
 	ImageCreatedAt uint `gorm:"index:parent_id_image_created_at"`
+
+	// EntryType is the type of entry: "season", "movie", or "other".
+	// NULL for legacy folders or sub-entries.
+	EntryType string `gorm:"column:entry_type"`
+
+	// EntryNumber is the season number or movie year. NULL when not applicable.
+	EntryNumber *uint `gorm:"column:entry_number"`
 
 	// CreatedAt is a timestamp of the record creation
 	CreatedAt uint `gorm:"autoCreateTime,index:parent_id_created_at"`
@@ -144,6 +155,19 @@ func (client *FileClient) DeleteByIDs(ctx context.Context, ids []uint) error {
 		Where("id IN ?", ids).
 		Delete(&File{}).
 		Error
+}
+
+// FindDirectChildDirectories returns all directory-type children of a parent,
+// ordered by entry_type, entry_number, name.
+func (client *FileClient) FindDirectChildDirectories(parentID uint) ([]File, error) {
+	var dirs []File
+	err := client.connection.
+		Where("parent_id = ?", parentID).
+		Where("type = ?", FileTypeDirectory).
+		Order("entry_type, entry_number, name").
+		Find(&dirs).
+		Error
+	return dirs, err
 }
 
 // SetAnimeID writes a new (possibly nil) anime_id value for a directory by id.

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
@@ -13,6 +15,21 @@ import (
 	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"github.com/michael-freling/anime-image-viewer/internal/xerrors"
 )
+
+var invalidFolderChars = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1f]`)
+
+func validateFolderName(name string) error {
+	if name == "" {
+		return fmt.Errorf("name cannot be empty")
+	}
+	if invalidFolderChars.MatchString(name) {
+		return fmt.Errorf("name contains invalid characters")
+	}
+	if name == "." || name == ".." {
+		return fmt.Errorf("name cannot be . or ..")
+	}
+	return nil
+}
 
 // Service exposes anime CRUD plus tag and folder assignment logic. It is the
 // core anime business layer; the frontend.AnimeService is a thin Wails
@@ -771,6 +788,450 @@ func collectDescendantImageIDs(dir *image.Directory, out *[]uint) {
 		}
 		collectDescendantImageIDs(child, out)
 	}
+}
+
+// AnimeEntry represents a structured entry (season, movie, other) within an
+// anime's folder tree. Each entry is backed by a physical directory on disk.
+type AnimeEntry struct {
+	ID          uint         `json:"id"`
+	Name        string       `json:"name"`
+	EntryType   string       `json:"entryType"`
+	EntryNumber *uint        `json:"entryNumber"` // season number or movie year
+	ImageCount  uint         `json:"imageCount"`
+	Children    []AnimeEntry `json:"children"` // sub-entries (parts)
+}
+
+// GetAnimeEntries returns the structured entries for an anime, sorted by
+// canonical order: seasons by number, movies by year, other/legacy alphabetical.
+func (s *Service) GetAnimeEntries(animeID uint) ([]AnimeEntry, error) {
+	dirs, err := s.dbClient.File().FindDirectoriesByAnimeID(animeID)
+	if err != nil {
+		return nil, fmt.Errorf("File.FindDirectoriesByAnimeID: %w", err)
+	}
+	if len(dirs) == 0 {
+		return nil, nil
+	}
+	rootDir := dirs[0]
+
+	children, err := s.dbClient.File().FindDirectChildDirectories(rootDir.ID)
+	if err != nil {
+		return nil, fmt.Errorf("File.FindDirectChildDirectories: %w", err)
+	}
+
+	// Collect all folder IDs (root + children + grandchildren) for image counting
+	allFolderIDs := []uint{rootDir.ID}
+	childGrandchildren := make(map[uint][]db.File)
+	for _, child := range children {
+		allFolderIDs = append(allFolderIDs, child.ID)
+		grandchildren, err := s.dbClient.File().FindDirectChildDirectories(child.ID)
+		if err != nil {
+			return nil, fmt.Errorf("File.FindDirectChildDirectories (grandchild): %w", err)
+		}
+		childGrandchildren[child.ID] = grandchildren
+		for _, gc := range grandchildren {
+			allFolderIDs = append(allFolderIDs, gc.ID)
+		}
+	}
+
+	// Count images for each folder
+	imageCounts, err := s.countImagesPerFolder(allFolderIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	entries := make([]AnimeEntry, 0, len(children))
+	for _, child := range children {
+		subEntries := make([]AnimeEntry, 0)
+		for _, gc := range childGrandchildren[child.ID] {
+			subEntries = append(subEntries, AnimeEntry{
+				ID:          gc.ID,
+				Name:        gc.Name,
+				EntryType:   gc.EntryType,
+				EntryNumber: gc.EntryNumber,
+				ImageCount:  imageCounts[gc.ID],
+			})
+		}
+		entries = append(entries, AnimeEntry{
+			ID:          child.ID,
+			Name:        child.Name,
+			EntryType:   child.EntryType,
+			EntryNumber: child.EntryNumber,
+			ImageCount:  imageCounts[child.ID],
+			Children:    subEntries,
+		})
+	}
+
+	sortEntries(entries)
+	return entries, nil
+}
+
+// countImagesPerFolder returns image counts keyed by folder ID.
+func (s *Service) countImagesPerFolder(folderIDs []uint) (map[uint]uint, error) {
+	if len(folderIDs) == 0 {
+		return nil, nil
+	}
+	images, err := s.dbClient.File().FindImageFilesByParentIDs(folderIDs)
+	if err != nil {
+		return nil, fmt.Errorf("File.FindImageFilesByParentIDs: %w", err)
+	}
+	counts := make(map[uint]uint)
+	for _, img := range images {
+		counts[img.ParentID]++
+	}
+	return counts, nil
+}
+
+// sortEntries applies canonical sort: seasons by number asc, movies by year
+// asc, other alphabetically, legacy/empty type alphabetically.
+func sortEntries(entries []AnimeEntry) {
+	typeOrder := func(entryType string) int {
+		switch entryType {
+		case db.EntryTypeSeason:
+			return 0
+		case db.EntryTypeMovie:
+			return 1
+		case db.EntryTypeOther:
+			return 2
+		default:
+			return 3 // legacy/empty
+		}
+	}
+
+	sort.SliceStable(entries, func(i, j int) bool {
+		oi, oj := typeOrder(entries[i].EntryType), typeOrder(entries[j].EntryType)
+		if oi != oj {
+			return oi < oj
+		}
+		// Within same type group, sort by number (season number or movie year)
+		ni := uint(0)
+		if entries[i].EntryNumber != nil {
+			ni = *entries[i].EntryNumber
+		}
+		nj := uint(0)
+		if entries[j].EntryNumber != nil {
+			nj = *entries[j].EntryNumber
+		}
+		if ni != nj {
+			return ni < nj
+		}
+		// Fall back to alphabetical
+		return strings.ToLower(entries[i].Name) < strings.ToLower(entries[j].Name)
+	})
+}
+
+// CreateEntry creates a new entry (season, movie, or other) under an anime's
+// root folder. It creates both the DB record and the directory on disk.
+func (s *Service) CreateEntry(ctx context.Context, animeID uint, entryType string, entryNumber *uint, displayName string) (AnimeEntry, error) {
+	if entryType != db.EntryTypeSeason && entryType != db.EntryTypeMovie && entryType != db.EntryTypeOther {
+		return AnimeEntry{}, fmt.Errorf("%w: entryType must be season, movie, or other", xerrors.ErrInvalidArgument)
+	}
+
+	displayName = strings.TrimSpace(displayName)
+
+	rootFolder, err := s.FindAnimeRootFolder(animeID)
+	if err != nil {
+		return AnimeEntry{}, err
+	}
+	if rootFolder == nil {
+		return AnimeEntry{}, fmt.Errorf("%w: id %d has no root folder", ErrAnimeNotFound, animeID)
+	}
+
+	switch entryType {
+	case db.EntryTypeSeason:
+		if entryNumber != nil && *entryNumber == 0 {
+			return AnimeEntry{}, fmt.Errorf("%w: season number must be > 0", xerrors.ErrInvalidArgument)
+		}
+		if entryNumber == nil {
+			n, err := s.NextEntryNumber(animeID, db.EntryTypeSeason)
+			if err != nil {
+				return AnimeEntry{}, err
+			}
+			entryNumber = &n
+		}
+		if displayName == "" {
+			displayName = fmt.Sprintf("Season %d", *entryNumber)
+		}
+	case db.EntryTypeMovie:
+		if displayName == "" {
+			return AnimeEntry{}, fmt.Errorf("%w: displayName is required for movie entries", xerrors.ErrInvalidArgument)
+		}
+		if entryNumber != nil && (*entryNumber < 1900 || *entryNumber > 2100) {
+			return AnimeEntry{}, fmt.Errorf("%w: movie year must be between 1900 and 2100", xerrors.ErrInvalidArgument)
+		}
+	case db.EntryTypeOther:
+		if displayName == "" {
+			return AnimeEntry{}, fmt.Errorf("%w: displayName is required for other entries", xerrors.ErrInvalidArgument)
+		}
+		entryNumber = nil // other entries don't have a number
+	}
+
+	if err := validateFolderName(displayName); err != nil {
+		return AnimeEntry{}, fmt.Errorf("%w: %s", xerrors.ErrInvalidArgument, err)
+	}
+
+	// Build disk path: <ImageRootDirectory>/<anime-name>/<displayName>
+	rootDirPath, err := s.resolveFileDiskPath(rootFolder.ID)
+	if err != nil {
+		return AnimeEntry{}, fmt.Errorf("resolveFileDiskPath: %w", err)
+	}
+	dirPath := filepath.Join(rootDirPath, displayName)
+
+	var newFile db.File
+	err = db.NewTransaction(ctx, s.dbClient, func(ctx context.Context) error {
+		newFile = db.File{
+			Name:        displayName,
+			ParentID:    rootFolder.ID,
+			Type:        db.FileTypeDirectory,
+			EntryType:   entryType,
+			EntryNumber: entryNumber,
+		}
+		if err := s.dbClient.File().Create(ctx, &newFile); err != nil {
+			if isUniqueViolation(err) {
+				return fmt.Errorf("%w: entry %s already exists", xerrors.ErrInvalidArgument, displayName)
+			}
+			return fmt.Errorf("File.Create: %w", err)
+		}
+		if err := os.Mkdir(dirPath, 0755); err != nil {
+			if os.IsExist(err) {
+				return fmt.Errorf("%w: folder %s already exists on disk", xerrors.ErrInvalidArgument, displayName)
+			}
+			return fmt.Errorf("os.Mkdir: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return AnimeEntry{}, err
+	}
+
+	return AnimeEntry{
+		ID:          newFile.ID,
+		Name:        newFile.Name,
+		EntryType:   newFile.EntryType,
+		EntryNumber: newFile.EntryNumber,
+		ImageCount:  0,
+	}, nil
+}
+
+// CreateSubEntry creates a child folder under an existing entry (for "parts").
+// Sub-entries do not have entry_type or entry_number.
+func (s *Service) CreateSubEntry(ctx context.Context, parentEntryID uint, name string) (AnimeEntry, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return AnimeEntry{}, fmt.Errorf("%w: name is required", xerrors.ErrInvalidArgument)
+	}
+
+	if err := validateFolderName(name); err != nil {
+		return AnimeEntry{}, fmt.Errorf("%w: %s", xerrors.ErrInvalidArgument, err)
+	}
+
+	parent, err := s.dbClient.File().FindByValue(ctx, &db.File{ID: parentEntryID})
+	if errors.Is(err, db.ErrRecordNotFound) {
+		return AnimeEntry{}, fmt.Errorf("%w: parent entry id %d", image.ErrDirectoryNotFound, parentEntryID)
+	}
+	if err != nil {
+		return AnimeEntry{}, err
+	}
+	if parent.Type != db.FileTypeDirectory {
+		return AnimeEntry{}, fmt.Errorf("%w: parent id %d is not a directory", xerrors.ErrInvalidArgument, parentEntryID)
+	}
+
+	// Enforce depth limit: the parent must be a direct child of the anime root folder.
+	// Load the grandparent (parent's parent) and verify it has anime_id set,
+	// which means the grandparent is the anime root folder and the parent is at depth 1.
+	grandparent, err := s.dbClient.File().FindByValue(ctx, &db.File{ID: parent.ParentID})
+	if errors.Is(err, db.ErrRecordNotFound) {
+		return AnimeEntry{}, fmt.Errorf("sub-entries cannot be nested more than 2 levels deep")
+	}
+	if err != nil {
+		return AnimeEntry{}, err
+	}
+	if grandparent.AnimeID == nil {
+		return AnimeEntry{}, fmt.Errorf("sub-entries cannot be nested more than 2 levels deep")
+	}
+
+	parentDiskPath, err := s.resolveFileDiskPath(parent.ID)
+	if err != nil {
+		return AnimeEntry{}, fmt.Errorf("resolveFileDiskPath: %w", err)
+	}
+	dirPath := filepath.Join(parentDiskPath, name)
+
+	var newFile db.File
+	err = db.NewTransaction(ctx, s.dbClient, func(ctx context.Context) error {
+		newFile = db.File{
+			Name:     name,
+			ParentID: parentEntryID,
+			Type:     db.FileTypeDirectory,
+		}
+		if err := s.dbClient.File().Create(ctx, &newFile); err != nil {
+			if isUniqueViolation(err) {
+				return fmt.Errorf("%w: sub-entry %s already exists", xerrors.ErrInvalidArgument, name)
+			}
+			return fmt.Errorf("File.Create: %w", err)
+		}
+		if err := os.Mkdir(dirPath, 0755); err != nil {
+			if os.IsExist(err) {
+				return fmt.Errorf("%w: folder %s already exists on disk", xerrors.ErrInvalidArgument, name)
+			}
+			return fmt.Errorf("os.Mkdir: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return AnimeEntry{}, err
+	}
+
+	return AnimeEntry{
+		ID:         newFile.ID,
+		Name:       newFile.Name,
+		ImageCount: 0,
+	}, nil
+}
+
+// RenameEntry renames an entry (directory) in both the DB and on disk.
+func (s *Service) RenameEntry(ctx context.Context, entryID uint, newName string) error {
+	newName = strings.TrimSpace(newName)
+	if newName == "" {
+		return fmt.Errorf("%w: name is required", xerrors.ErrInvalidArgument)
+	}
+	if err := validateFolderName(newName); err != nil {
+		return fmt.Errorf("%w: %s", xerrors.ErrInvalidArgument, err)
+	}
+
+	file, err := s.dbClient.File().FindByValue(ctx, &db.File{ID: entryID})
+	if errors.Is(err, db.ErrRecordNotFound) {
+		return fmt.Errorf("%w: entry id %d", image.ErrDirectoryNotFound, entryID)
+	}
+	if err != nil {
+		return err
+	}
+	if file.Type != db.FileTypeDirectory {
+		return fmt.Errorf("%w: entry id %d is not a directory", xerrors.ErrInvalidArgument, entryID)
+	}
+
+	oldName := file.Name
+	if oldName == newName {
+		return nil // no-op
+	}
+
+	oldPath, err := s.resolveFileDiskPath(file.ID)
+	if err != nil {
+		return fmt.Errorf("resolveFileDiskPath: %w", err)
+	}
+	newPath := filepath.Join(filepath.Dir(oldPath), newName)
+
+	return db.NewTransaction(ctx, s.dbClient, func(ctx context.Context) error {
+		file.Name = newName
+		if err := s.dbClient.File().Update(ctx, &file); err != nil {
+			if isUniqueViolation(err) {
+				return fmt.Errorf("%w: entry %s already exists", xerrors.ErrInvalidArgument, newName)
+			}
+			return fmt.Errorf("File.Update: %w", err)
+		}
+		if err := os.Rename(oldPath, newPath); err != nil {
+			return fmt.Errorf("os.Rename: %w", err)
+		}
+		return nil
+	})
+}
+
+// DeleteEntry deletes an entry and all its descendants from both DB and disk.
+func (s *Service) DeleteEntry(ctx context.Context, entryID uint) error {
+	file, err := s.dbClient.File().FindByValue(ctx, &db.File{ID: entryID})
+	if errors.Is(err, db.ErrRecordNotFound) {
+		return fmt.Errorf("%w: entry id %d", image.ErrDirectoryNotFound, entryID)
+	}
+	if err != nil {
+		return err
+	}
+	if file.Type != db.FileTypeDirectory {
+		return fmt.Errorf("%w: entry id %d is not a directory", xerrors.ErrInvalidArgument, entryID)
+	}
+
+	diskPath, err := s.resolveFileDiskPath(file.ID)
+	if err != nil {
+		return fmt.Errorf("resolveFileDiskPath: %w", err)
+	}
+
+	// BFS to collect all descendant file IDs
+	allFileIDs := []uint{file.ID}
+	queue := []uint{file.ID}
+	for len(queue) > 0 {
+		children, err := s.dbClient.File().FindFilesByParentIDs(queue)
+		if err != nil {
+			return fmt.Errorf("File.FindFilesByParentIDs: %w", err)
+		}
+		queue = queue[:0]
+		for _, child := range children {
+			allFileIDs = append(allFileIDs, child.ID)
+			if child.Type == db.FileTypeDirectory {
+				queue = append(queue, child.ID)
+			}
+		}
+	}
+
+	return db.NewTransaction(ctx, s.dbClient, func(ctx context.Context) error {
+		if len(allFileIDs) > 0 {
+			if err := s.dbClient.FileTag().DeleteByFileIDs(ctx, allFileIDs); err != nil {
+				return fmt.Errorf("FileTag.DeleteByFileIDs: %w", err)
+			}
+			if err := s.dbClient.File().DeleteByIDs(ctx, allFileIDs); err != nil {
+				return fmt.Errorf("File.DeleteByIDs: %w", err)
+			}
+		}
+		if err := os.RemoveAll(diskPath); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("os.RemoveAll: %w", err)
+		}
+		return nil
+	})
+}
+
+// NextEntryNumber returns the next entry number for the season type
+// under the anime's root folder. Returns max(existing)+1 or 1 if none exist.
+// Only season type is supported; other types return an error.
+func (s *Service) NextEntryNumber(animeID uint, entryType string) (uint, error) {
+	if entryType != db.EntryTypeSeason {
+		return 0, fmt.Errorf("NextEntryNumber only supports season type")
+	}
+
+	rootFolder, err := s.FindAnimeRootFolder(animeID)
+	if err != nil {
+		return 0, err
+	}
+	if rootFolder == nil {
+		return 1, nil
+	}
+
+	children, err := s.dbClient.File().FindDirectChildDirectories(rootFolder.ID)
+	if err != nil {
+		return 0, fmt.Errorf("File.FindDirectChildDirectories: %w", err)
+	}
+
+	var maxNum uint
+	for _, child := range children {
+		if child.EntryType == entryType && child.EntryNumber != nil {
+			if *child.EntryNumber > maxNum {
+				maxNum = *child.EntryNumber
+			}
+		}
+	}
+	return maxNum + 1, nil
+}
+
+// resolveFileDiskPath walks up the parent chain to build the full disk path
+// for a file. The root directory (parent_id=0) is mapped to
+// s.config.ImageRootDirectory.
+func (s *Service) resolveFileDiskPath(fileID uint) (string, error) {
+	var parts []string
+	current := fileID
+	for current != db.RootDirectoryID {
+		file, err := db.FindByValue(s.dbClient, db.File{ID: current})
+		if err != nil {
+			return "", fmt.Errorf("FindByValue(%d): %w", current, err)
+		}
+		parts = append([]string{file.Name}, parts...)
+		current = file.ParentID
+	}
+	return filepath.Join(append([]string{s.config.ImageRootDirectory}, parts...)...), nil
 }
 
 func isUniqueViolation(err error) bool {
