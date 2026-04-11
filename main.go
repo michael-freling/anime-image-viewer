@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"io"
@@ -140,6 +141,13 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 	)
 
 	restoreService := backup.NewRestoreService(logger, conf)
+
+	// Start background image scanner — runs in a goroutine, non-blocking.
+	scanner := image.NewBackgroundScanner(logger, dbClient, conf, restoreService)
+	appCtx, appCancel := context.WithCancel(context.Background())
+	defer appCancel()
+	scanner.Start(appCtx)
+
 	backupFrontendService := frontend.NewBackupFrontendService(logger, conf)
 	configFrontendService := frontend.NewConfigFrontendService(logger, conf)
 
@@ -199,6 +207,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 			logger.Error("panic happens", "v", v)
 		},
 		OnShutdown: func() {
+			appCancel()
 			dbClient.Close()
 		},
 	})
