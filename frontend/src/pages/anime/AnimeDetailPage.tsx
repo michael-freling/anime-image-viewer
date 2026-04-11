@@ -298,13 +298,8 @@ const AnimeDetailPage: FC = () => {
       return;
     }
     try {
-      if (addTagCategory === "character") {
-        // Create character tag with anime_id so it always shows on this anime
-        await TagFrontendService.CreateTagForAnime(name, "character", id);
-      } else {
-        // Uncategorized tags are derived-only (no anime_id)
-        await TagFrontendService.CreateTopTag(name);
-      }
+      // Set anime_id so the tag always shows on this anime
+      await TagFrontendService.CreateTagForAnime(name, addTagCategory, id);
       setAddTagOpen(false);
       setAddTagName("");
       setAddTagError(null);
