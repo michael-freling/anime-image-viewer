@@ -52,6 +52,27 @@ func (service TagFrontendService) CreateTopTag(name string) (Tag, error) {
 	}, nil
 }
 
+// CreateTagForAnime creates a new tag with the given category and anime_id set
+// in one shot. This is used when adding a character from the anime detail page
+// so the character is always visible on that anime, even with 0 images.
+func (service TagFrontendService) CreateTagForAnime(ctx context.Context, name string, category string, animeID uint) (Tag, error) {
+	tag := db.Tag{
+		Name:     name,
+		Category: category,
+		AnimeID:  &animeID,
+	}
+	err := db.Create(service.dbClient, &tag)
+	if err != nil {
+		return Tag{}, fmt.Errorf("db.Create: %w", err)
+	}
+
+	return Tag{
+		ID:       tag.ID,
+		Name:     tag.Name,
+		Category: tag.Category,
+	}, nil
+}
+
 type TagInput struct {
 	Name string
 }

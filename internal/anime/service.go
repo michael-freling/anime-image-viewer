@@ -197,6 +197,13 @@ func (s *Service) Delete(ctx context.Context, id uint) error {
 			}
 		}
 
+		// Clear anime_id on tags that were explicitly assigned to this anime.
+		// We clear (set to NULL) rather than deleting the tags because they
+		// may also be used on images outside this anime.
+		if err := s.dbClient.Tag().ClearAnimeIDByAnimeID(ctx, id); err != nil {
+			return fmt.Errorf("Tag.ClearAnimeIDByAnimeID: %w", err)
+		}
+
 		// Delete the anime row
 		if err := s.dbClient.Anime().BatchDelete(ctx, []db.Anime{{ID: id}}); err != nil {
 			return err
@@ -246,7 +253,10 @@ type DerivedTagCount struct {
 
 // DeriveTagsForAnime computes the tags for an anime by finding all image files
 // in its folder tree, looking up which tags are applied to those images, and
-// returning unique tags with counts.
+// returning unique tags with counts. It also includes tags that are explicitly
+// assigned to this anime via the anime_id column on the tags table (e.g.
+// characters created from the anime detail page), merging and deduplicating
+// so each tag appears once with the correct image count.
 func (s *Service) DeriveTagsForAnime(animeID uint) ([]DerivedTagCount, error) {
 	tree, err := s.directoryReader.ReadDirectoryTree()
 	if err != nil {
@@ -262,41 +272,61 @@ func (s *Service) DeriveTagsForAnime(animeID uint) ([]DerivedTagCount, error) {
 	// Collect all image IDs belonging to this anime
 	imageIDs := make([]uint, 0)
 	collectImageIDsForAnimeFromTree(&tree, animeID, resolved, &imageIDs)
-	if len(imageIDs) == 0 {
-		return nil, nil
-	}
 
-	// Look up file tags for these images
-	fileTags, err := s.dbClient.FileTag().FindAllByFileID(imageIDs)
-	if err != nil {
-		return nil, fmt.Errorf("FileTag.FindAllByFileID: %w", err)
-	}
-	if len(fileTags) == 0 {
-		return nil, nil
-	}
-
-	// Count images per tag
+	// Count images per tag from file_tags
 	tagCounts := make(map[uint]uint)
-	for _, ft := range fileTags {
-		tagCounts[ft.TagID]++
+	if len(imageIDs) > 0 {
+		fileTags, err := s.dbClient.FileTag().FindAllByFileID(imageIDs)
+		if err != nil {
+			return nil, fmt.Errorf("FileTag.FindAllByFileID: %w", err)
+		}
+		for _, ft := range fileTags {
+			tagCounts[ft.TagID]++
+		}
 	}
 
-	// Fetch tag names and categories
-	tagIDs := make([]uint, 0, len(tagCounts))
-	for tid := range tagCounts {
-		tagIDs = append(tagIDs, tid)
-	}
-	tags, err := s.dbClient.Tag().FindAllByTagIDs(tagIDs)
+	// Fetch tags explicitly assigned to this anime (e.g. characters created
+	// from the anime detail page)
+	animeTags, err := s.dbClient.Tag().FindTagsByAnimeID(animeID)
 	if err != nil {
-		return nil, fmt.Errorf("Tag.FindAllByTagIDs: %w", err)
+		return nil, fmt.Errorf("Tag.FindTagsByAnimeID: %w", err)
 	}
+
+	// Build a tag info map from both sources
 	type tagInfo struct {
 		Name     string
 		Category string
 	}
-	tagInfoMap := make(map[uint]tagInfo, len(tags))
-	for _, t := range tags {
+	tagInfoMap := make(map[uint]tagInfo)
+
+	// Add anime-assigned tags first (they may have 0 images)
+	for _, t := range animeTags {
 		tagInfoMap[t.ID] = tagInfo{Name: t.Name, Category: t.Category}
+		// Ensure tag appears in tagCounts even if count is 0
+		if _, ok := tagCounts[t.ID]; !ok {
+			tagCounts[t.ID] = 0
+		}
+	}
+
+	if len(tagCounts) == 0 {
+		return nil, nil
+	}
+
+	// Fetch tag info for derived tags not already in the map
+	missingIDs := make([]uint, 0)
+	for tid := range tagCounts {
+		if _, ok := tagInfoMap[tid]; !ok {
+			missingIDs = append(missingIDs, tid)
+		}
+	}
+	if len(missingIDs) > 0 {
+		tags, err := s.dbClient.Tag().FindAllByTagIDs(missingIDs)
+		if err != nil {
+			return nil, fmt.Errorf("Tag.FindAllByTagIDs: %w", err)
+		}
+		for _, t := range tags {
+			tagInfoMap[t.ID] = tagInfo{Name: t.Name, Category: t.Category}
+		}
 	}
 
 	result := make([]DerivedTagCount, 0, len(tagCounts))

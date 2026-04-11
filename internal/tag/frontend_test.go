@@ -41,6 +41,34 @@ func TestTagFrontendService_CreateTopTag(t *testing.T) {
 	})
 }
 
+func TestTagFrontendService_CreateTagForAnime(t *testing.T) {
+	tester := newTester(t)
+	dbClient := tester.dbClient
+
+	service := &TagFrontendService{
+		dbClient: dbClient,
+	}
+
+	t.Run("creates tag with category and anime_id", func(t *testing.T) {
+		dbClient.Truncate(&db.Tag{})
+		ctx := context.Background()
+		got, err := service.CreateTagForAnime(ctx, "Bocchi", "character", 42)
+		require.NoError(t, err)
+		assert.Equal(t, "Bocchi", got.Name)
+		assert.Equal(t, "character", got.Category)
+		assert.NotZero(t, got.ID)
+
+		// Verify it was persisted with anime_id
+		allTags, err := db.GetAll[db.Tag](dbClient)
+		require.NoError(t, err)
+		require.Len(t, allTags, 1)
+		assert.Equal(t, "Bocchi", allTags[0].Name)
+		assert.Equal(t, "character", allTags[0].Category)
+		require.NotNil(t, allTags[0].AnimeID)
+		assert.Equal(t, uint(42), *allTags[0].AnimeID)
+	})
+}
+
 func TestTagFrontendService_Create(t *testing.T) {
 	tester := newTester(t)
 	dbClient := tester.dbClient

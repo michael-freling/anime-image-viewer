@@ -710,3 +710,156 @@ func TestAnimeService_GetImageTagIDs(t *testing.T) {
 		assert.Nil(t, result)
 	})
 }
+
+func TestAnimeService_CharacterAssignedToAnime_ZeroImages(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
+	svc := tester.getAnimeService()
+	ctx := context.Background()
+
+	a, err := svc.CreateAnime(ctx, "ShowWithChar")
+	require.NoError(t, err)
+
+	// Create a character tag explicitly assigned to this anime (no images)
+	animeID := a.ID
+	charTag := db.Tag{ID: 10001, Name: "Hitori", Category: "character", AnimeID: &animeID}
+	require.NoError(t, db.Create(tester.dbClient.Client, &charTag))
+
+	details, err := svc.GetAnimeDetails(ctx, a.ID)
+	require.NoError(t, err)
+
+	// The character should appear with imageCount=0
+	require.Len(t, details.Tags, 1)
+	assert.Equal(t, "Hitori", details.Tags[0].Name)
+	assert.Equal(t, "character", details.Tags[0].Category)
+	assert.Equal(t, uint(0), details.Tags[0].ImageCount)
+}
+
+func TestAnimeService_CharacterAssignedToAnime_WithImages(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
+	svc := tester.getAnimeService()
+	ctx := context.Background()
+
+	a, err := svc.CreateAnime(ctx, "ShowWithCharImages")
+	require.NoError(t, err)
+
+	coreSvc := tester.getAnimeCoreService()
+	rootDir, err := coreSvc.FindAnimeRootFolder(a.ID)
+	require.NoError(t, err)
+	require.NotNil(t, rootDir)
+
+	fileCreator := tester.newFileCreator(t)
+	fileCreator.CreateImage(image.ImageFile{ID: 10100, ParentID: rootDir.ID, Name: "img1.jpg"}, image.TestImageFileJpeg)
+	fileCreator.CreateImage(image.ImageFile{ID: 10101, ParentID: rootDir.ID, Name: "img2.jpg"}, image.TestImageFileJpeg)
+
+	files := []db.File{
+		fileCreator.BuildDBImageFile(10100),
+		fileCreator.BuildDBImageFile(10101),
+	}
+	db.LoadTestData(t, tester.dbClient, files)
+
+	// Create a character tag assigned to this anime AND used on images
+	animeID := a.ID
+	charTag := db.Tag{ID: 10002, Name: "Nijika", Category: "character", AnimeID: &animeID}
+	require.NoError(t, db.Create(tester.dbClient.Client, &charTag))
+
+	fileTags := []db.FileTag{
+		{FileID: 10100, TagID: charTag.ID, AddedBy: db.FileTagAddedByUser},
+		{FileID: 10101, TagID: charTag.ID, AddedBy: db.FileTagAddedByUser},
+	}
+	db.LoadTestData(t, tester.dbClient, fileTags)
+
+	details, err := svc.GetAnimeDetails(ctx, a.ID)
+	require.NoError(t, err)
+
+	// The character should appear once with imageCount=2 (deduped)
+	require.Len(t, details.Tags, 1)
+	assert.Equal(t, "Nijika", details.Tags[0].Name)
+	assert.Equal(t, "character", details.Tags[0].Category)
+	assert.Equal(t, uint(2), details.Tags[0].ImageCount)
+}
+
+func TestAnimeService_CharacterDedup_AssignedAndDerived(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
+	svc := tester.getAnimeService()
+	ctx := context.Background()
+
+	a, err := svc.CreateAnime(ctx, "DedupeShow")
+	require.NoError(t, err)
+
+	coreSvc := tester.getAnimeCoreService()
+	rootDir, err := coreSvc.FindAnimeRootFolder(a.ID)
+	require.NoError(t, err)
+	require.NotNil(t, rootDir)
+
+	fileCreator := tester.newFileCreator(t)
+	fileCreator.CreateImage(image.ImageFile{ID: 10200, ParentID: rootDir.ID, Name: "img1.jpg"}, image.TestImageFileJpeg)
+
+	files := []db.File{
+		fileCreator.BuildDBImageFile(10200),
+	}
+	db.LoadTestData(t, tester.dbClient, files)
+
+	// Character assigned to anime AND also tagged on an image (same tag ID)
+	animeID := a.ID
+	charTag := db.Tag{ID: 10003, Name: "Ryo", Category: "character", AnimeID: &animeID}
+	require.NoError(t, db.Create(tester.dbClient.Client, &charTag))
+
+	// Also create an uncategorized tag only from images (not assigned to anime)
+	normalTag := db.Tag{ID: 10004, Name: "guitar"}
+	require.NoError(t, db.Create(tester.dbClient.Client, &normalTag))
+
+	fileTags := []db.FileTag{
+		{FileID: 10200, TagID: charTag.ID, AddedBy: db.FileTagAddedByUser},
+		{FileID: 10200, TagID: normalTag.ID, AddedBy: db.FileTagAddedByUser},
+	}
+	db.LoadTestData(t, tester.dbClient, fileTags)
+
+	details, err := svc.GetAnimeDetails(ctx, a.ID)
+	require.NoError(t, err)
+
+	// Should have 2 tags: Ryo (character, count=1) and guitar (uncategorized, count=1)
+	require.Len(t, details.Tags, 2)
+	// Sorted case-insensitive: guitar, Ryo
+	assert.Equal(t, "guitar", details.Tags[0].Name)
+	assert.Equal(t, uint(1), details.Tags[0].ImageCount)
+	assert.Equal(t, "Ryo", details.Tags[1].Name)
+	assert.Equal(t, "character", details.Tags[1].Category)
+	assert.Equal(t, uint(1), details.Tags[1].ImageCount)
+}
+
+func TestAnimeService_DeleteAnime_ClearsAnimeIDOnTags(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
+	svc := tester.getAnimeService()
+	ctx := context.Background()
+
+	a, err := svc.CreateAnime(ctx, "DeleteCharShow")
+	require.NoError(t, err)
+
+	// Create a character tag assigned to this anime
+	animeID := a.ID
+	charTag := db.Tag{ID: 10005, Name: "Bocchi", Category: "character", AnimeID: &animeID}
+	require.NoError(t, db.Create(tester.dbClient.Client, &charTag))
+
+	// Verify tag has anime_id before deletion
+	tags, err := tester.dbClient.Client.Tag().FindTagsByAnimeID(a.ID)
+	require.NoError(t, err)
+	require.Len(t, tags, 1)
+
+	// Delete the anime
+	require.NoError(t, svc.DeleteAnime(ctx, a.ID))
+
+	// Verify anime_id is cleared (tag still exists but no longer assigned)
+	tags, err = tester.dbClient.Client.Tag().FindTagsByAnimeID(a.ID)
+	require.NoError(t, err)
+	assert.Empty(t, tags)
+
+	// Verify the tag itself still exists
+	allTags, err := tester.dbClient.Client.Tag().FindAllByTagIDs([]uint{charTag.ID})
+	require.NoError(t, err)
+	require.Len(t, allTags, 1)
+	assert.Nil(t, allTags[0].AnimeID)
+}

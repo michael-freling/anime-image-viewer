@@ -9,6 +9,7 @@ type Tag struct {
 	ID        uint `gorm:"primarykey"`
 	Name      string
 	Category  string
+	AnimeID   *uint `gorm:"index"`
 	CreatedAt uint
 	UpdatedAt uint
 }
@@ -33,6 +34,25 @@ func (client TagClient) FindAllByTagIDs(tagIDs []uint) (TagList, error) {
 		Find(&values).
 		Error
 	return values, err
+}
+
+// FindTagsByAnimeID returns all tags whose anime_id equals the provided id.
+func (client TagClient) FindTagsByAnimeID(animeID uint) (TagList, error) {
+	var values []Tag
+	err := client.connection.Where("anime_id = ?", animeID).
+		Find(&values).
+		Error
+	return values, err
+}
+
+// ClearAnimeIDByAnimeID sets anime_id to NULL on all tags whose anime_id
+// equals the provided id. Used when an anime is deleted.
+func (client TagClient) ClearAnimeIDByAnimeID(ctx context.Context, animeID uint) error {
+	return client.getTransaction(ctx).
+		Model(&Tag{}).
+		Where("anime_id = ?", animeID).
+		Update("anime_id", nil).
+		Error
 }
 
 type FileTagAddedBy string

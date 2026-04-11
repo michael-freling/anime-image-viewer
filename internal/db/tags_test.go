@@ -48,6 +48,82 @@ func TestTagClient_FindAllByTagIDs(t *testing.T) {
 	})
 }
 
+func TestTagClient_FindTagsByAnimeID(t *testing.T) {
+	testClient := NewTestClient(t)
+	testClient.Truncate(t, Tag{})
+
+	animeID1 := uint(100)
+	animeID2 := uint(200)
+	tags := []Tag{
+		{ID: 6001, Name: "char1", Category: "character", AnimeID: &animeID1},
+		{ID: 6002, Name: "char2", Category: "character", AnimeID: &animeID1},
+		{ID: 6003, Name: "char3", Category: "character", AnimeID: &animeID2},
+		{ID: 6004, Name: "unassigned"},
+	}
+	LoadTestData(t, testClient, tags)
+
+	tagClient := testClient.Tag()
+
+	t.Run("finds tags for anime 100", func(t *testing.T) {
+		got, err := tagClient.FindTagsByAnimeID(100)
+		assert.NoError(t, err)
+		assert.Len(t, got, 2)
+	})
+
+	t.Run("finds tags for anime 200", func(t *testing.T) {
+		got, err := tagClient.FindTagsByAnimeID(200)
+		assert.NoError(t, err)
+		assert.Len(t, got, 1)
+		assert.Equal(t, "char3", got[0].Name)
+	})
+
+	t.Run("returns empty for unknown anime", func(t *testing.T) {
+		got, err := tagClient.FindTagsByAnimeID(999)
+		assert.NoError(t, err)
+		assert.Empty(t, got)
+	})
+}
+
+func TestTagClient_ClearAnimeIDByAnimeID(t *testing.T) {
+	testClient := NewTestClient(t)
+	testClient.Truncate(t, Tag{})
+
+	animeID1 := uint(100)
+	animeID2 := uint(200)
+	tags := []Tag{
+		{ID: 6101, Name: "char1", Category: "character", AnimeID: &animeID1},
+		{ID: 6102, Name: "char2", Category: "character", AnimeID: &animeID1},
+		{ID: 6103, Name: "char3", Category: "character", AnimeID: &animeID2},
+	}
+	LoadTestData(t, testClient, tags)
+
+	tagClient := testClient.Tag()
+	ctx := context.Background()
+
+	t.Run("clears anime_id for anime 100", func(t *testing.T) {
+		err := tagClient.ClearAnimeIDByAnimeID(ctx, 100)
+		require.NoError(t, err)
+
+		// Tags for anime 100 should now be empty
+		got, err := tagClient.FindTagsByAnimeID(100)
+		assert.NoError(t, err)
+		assert.Empty(t, got)
+
+		// Tags for anime 200 should be unchanged
+		got, err = tagClient.FindTagsByAnimeID(200)
+		assert.NoError(t, err)
+		assert.Len(t, got, 1)
+
+		// The tags should still exist with nil anime_id
+		all, err := tagClient.FindAllByTagIDs([]uint{6101, 6102})
+		assert.NoError(t, err)
+		assert.Len(t, all, 2)
+		for _, tg := range all {
+			assert.Nil(t, tg.AnimeID)
+		}
+	})
+}
+
 func TestFileTagClient_FileTag(t *testing.T) {
 	testClient := NewTestClient(t)
 	ftClient := testClient.FileTag()
