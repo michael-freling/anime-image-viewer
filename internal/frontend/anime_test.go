@@ -1013,3 +1013,54 @@ func TestAnimeService_SubEntryAndRenameAndDelete(t *testing.T) {
 		assert.Empty(t, entries)
 	})
 }
+
+func TestAnimeService_UpdateEntryType(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
+	svc := tester.getAnimeService()
+	ctx := context.Background()
+
+	a, err := svc.CreateAnime(ctx, "UpdateTypeShow")
+	require.NoError(t, err)
+
+	// Create a legacy (untyped) entry
+	coreSvc := tester.getAnimeCoreService()
+	rootFolder, err := coreSvc.FindAnimeRootFolder(a.ID)
+	require.NoError(t, err)
+	legacyDir := db.File{
+		Name:     "Legacy Folder",
+		ParentID: rootFolder.ID,
+		Type:     db.FileTypeDirectory,
+	}
+	require.NoError(t, tester.dbClient.Client.File().Create(ctx, &legacyDir))
+
+	t.Run("sets season type", func(t *testing.T) {
+		num := uint(1)
+		err := svc.UpdateEntryType(ctx, legacyDir.ID, db.EntryTypeSeason, &num)
+		require.NoError(t, err)
+
+		// Verify via entries list
+		entries, err := svc.GetAnimeEntries(a.ID)
+		require.NoError(t, err)
+		found := false
+		for _, e := range entries {
+			if e.ID == legacyDir.ID {
+				found = true
+				assert.Equal(t, db.EntryTypeSeason, e.EntryType)
+				require.NotNil(t, e.EntryNumber)
+				assert.Equal(t, uint(1), *e.EntryNumber)
+			}
+		}
+		assert.True(t, found, "should find updated entry in list")
+	})
+
+	t.Run("rejects invalid type", func(t *testing.T) {
+		err := svc.UpdateEntryType(ctx, legacyDir.ID, "badtype", nil)
+		require.Error(t, err)
+	})
+
+	t.Run("rejects season with nil number", func(t *testing.T) {
+		err := svc.UpdateEntryType(ctx, legacyDir.ID, db.EntryTypeSeason, nil)
+		require.Error(t, err)
+	})
+}

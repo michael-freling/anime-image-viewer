@@ -6,14 +6,18 @@ import {
   LocalOffer,
   MoreVert,
   Person,
+  SwapHoriz,
 } from "@mui/icons-material";
 import {
   Box,
   Button,
   Chip,
   Dropdown,
+  FormControl,
+  FormLabel,
   IconButton,
   Input,
+  ListDivider,
   ListItemDecorator,
   Menu,
   MenuButton,
@@ -21,6 +25,8 @@ import {
   Modal,
   ModalClose,
   ModalDialog,
+  Radio,
+  RadioGroup,
   Stack,
   Typography,
 } from "@mui/joy";
@@ -92,6 +98,20 @@ const AnimeDetailPage: FC = () => {
   const [deleteEntryOpen, setDeleteEntryOpen] = useState(false);
   const [deleteEntryId, setDeleteEntryId] = useState(0);
   const [deleteEntryName, setDeleteEntryName] = useState("");
+
+  // Set entry type modal state
+  const [setTypeOpen, setSetTypeOpen] = useState(false);
+  const [setTypeEntryId, setSetTypeEntryId] = useState(0);
+  const [setTypeEntryName, setSetTypeEntryName] = useState("");
+  const [setTypeType, setSetTypeType] = useState<"season" | "movie" | "other">(
+    "season"
+  );
+  const [setTypeSeasonNumber, setSetTypeSeasonNumber] = useState(1);
+  const [setTypeMovieYear, setSetTypeMovieYear] = useState(
+    new Date().getFullYear()
+  );
+  const [setTypeError, setSetTypeError] = useState<string | null>(null);
+  const [setTypeSubmitting, setSetTypeSubmitting] = useState(false);
 
   // Folder image panel state
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
@@ -389,6 +409,47 @@ const AnimeDetailPage: FC = () => {
     }
   };
 
+  // Set entry type handler
+  const handleSetEntryType = async () => {
+    setSetTypeSubmitting(true);
+    setSetTypeError(null);
+    try {
+      let numberValue: number | null = null;
+      switch (setTypeType) {
+        case "season":
+          numberValue = setTypeSeasonNumber;
+          break;
+        case "movie":
+          numberValue = setTypeMovieYear;
+          break;
+        case "other":
+          numberValue = null;
+          break;
+      }
+      await AnimeService.UpdateEntryType(setTypeEntryId, setTypeType, numberValue);
+      setSetTypeOpen(false);
+      await load();
+      await loadEntries();
+    } catch (err: unknown) {
+      setSetTypeError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSetTypeSubmitting(false);
+    }
+  };
+
+  // Convert tag category handler
+  const handleConvertTagCategory = async (
+    tagId: number,
+    newCategory: "character" | ""
+  ) => {
+    try {
+      await TagFrontendService.UpdateCategory(tagId, newCategory);
+      await load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
   const handleToggleTag = (tagId: number) => {
     setSelectedTagIds((prev) => {
       const next = new Set(prev);
@@ -605,6 +666,86 @@ const AnimeDetailPage: FC = () => {
         </ModalDialog>
       </Modal>
 
+      {/* Set entry type modal */}
+      <Modal open={setTypeOpen} onClose={() => setSetTypeOpen(false)}>
+        <ModalDialog sx={{ minWidth: 400 }}>
+          <ModalClose />
+          <Typography level="title-md">
+            Set Type for &quot;{setTypeEntryName}&quot;
+          </Typography>
+          <Stack spacing={2} sx={{ mt: 2 }}>
+            <FormControl>
+              <FormLabel>Type</FormLabel>
+              <RadioGroup
+                orientation="horizontal"
+                value={setTypeType}
+                onChange={(e) => {
+                  setSetTypeType(
+                    e.target.value as "season" | "movie" | "other"
+                  );
+                  setSetTypeError(null);
+                }}
+              >
+                <Radio value="season" label="Season" />
+                <Radio value="movie" label="Movie" />
+                <Radio value="other" label="Other" />
+              </RadioGroup>
+            </FormControl>
+
+            {setTypeType === "season" && (
+              <FormControl>
+                <FormLabel>Number</FormLabel>
+                <Input
+                  type="number"
+                  value={setTypeSeasonNumber}
+                  onChange={(e) =>
+                    setSetTypeSeasonNumber(Number(e.target.value))
+                  }
+                  slotProps={{ input: { min: 1 } }}
+                />
+              </FormControl>
+            )}
+
+            {setTypeType === "movie" && (
+              <FormControl>
+                <FormLabel>Year</FormLabel>
+                <Input
+                  type="number"
+                  value={setTypeMovieYear}
+                  onChange={(e) =>
+                    setSetTypeMovieYear(Number(e.target.value))
+                  }
+                  slotProps={{ input: { min: 1900, max: 2100 } }}
+                />
+              </FormControl>
+            )}
+
+            {setTypeError && (
+              <Typography level="body-sm" color="danger">
+                {setTypeError}
+              </Typography>
+            )}
+
+            <Stack direction="row" spacing={1} justifyContent="flex-end">
+              <Button
+                variant="plain"
+                color="neutral"
+                onClick={() => setSetTypeOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={setTypeSubmitting}
+                loading={setTypeSubmitting}
+                onClick={handleSetEntryType}
+              >
+                Save
+              </Button>
+            </Stack>
+          </Stack>
+        </ModalDialog>
+      </Modal>
+
       {/* Add tag/character modal */}
       <Modal open={addTagOpen} onClose={() => setAddTagOpen(false)}>
         <ModalDialog sx={{ minWidth: 360 }}>
@@ -765,6 +906,16 @@ const AnimeDetailPage: FC = () => {
               setDeleteEntryName(name);
               setDeleteEntryOpen(true);
             }}
+            onSetEntryType={(entryId, name) => {
+              setSetTypeEntryId(entryId);
+              setSetTypeEntryName(name);
+              setSetTypeType("season");
+              setSetTypeSeasonNumber(nextSeasonNumber);
+              setSetTypeMovieYear(new Date().getFullYear());
+              setSetTypeError(null);
+              setSetTypeSubmitting(false);
+              setSetTypeOpen(true);
+            }}
           />
         </Box>
 
@@ -861,6 +1012,17 @@ const AnimeDetailPage: FC = () => {
                               </ListItemDecorator>
                               Rename
                             </MenuItem>
+                            <MenuItem
+                              onClick={() =>
+                                handleConvertTagCategory(tag.id, "")
+                              }
+                            >
+                              <ListItemDecorator>
+                                <SwapHoriz fontSize="small" />
+                              </ListItemDecorator>
+                              Convert to tag
+                            </MenuItem>
+                            <ListDivider />
                             <MenuItem
                               color="danger"
                               onClick={() =>
@@ -990,6 +1152,17 @@ const AnimeDetailPage: FC = () => {
                             </ListItemDecorator>
                             Rename
                           </MenuItem>
+                          <MenuItem
+                            onClick={() =>
+                              handleConvertTagCategory(tag.id, "character")
+                            }
+                          >
+                            <ListItemDecorator>
+                              <SwapHoriz fontSize="small" />
+                            </ListItemDecorator>
+                            Convert to character
+                          </MenuItem>
+                          <ListDivider />
                           <MenuItem
                             color="danger"
                             onClick={() =>

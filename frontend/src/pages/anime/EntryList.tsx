@@ -3,6 +3,7 @@ import {
   Delete,
   Edit,
   Folder as FolderIcon,
+  Label,
   Movie as MovieIcon,
   MoreVert,
   Tv,
@@ -33,6 +34,7 @@ interface EntryListProps {
   onUploadImages: (entryId: number) => void;
   onRenameEntry: (entryId: number, currentName: string) => void;
   onDeleteEntry: (entryId: number, name: string) => void;
+  onSetEntryType: (entryId: number, currentName: string) => void;
 }
 
 function totalEntryImageCount(entry: AnimeEntryInfo): number {
@@ -100,6 +102,7 @@ const EntryNode: FC<{
   onUploadImages: (entryId: number) => void;
   onRenameEntry: (entryId: number, currentName: string) => void;
   onDeleteEntry: (entryId: number, name: string) => void;
+  onSetEntryType: (entryId: number, currentName: string) => void;
 }> = ({
   entry,
   depth,
@@ -109,6 +112,7 @@ const EntryNode: FC<{
   onUploadImages,
   onRenameEntry,
   onDeleteEntry,
+  onSetEntryType,
 }) => {
   const isSelected = selectedEntryId === entry.id;
   const hasChildren = entry.children && entry.children.length > 0;
@@ -273,6 +277,16 @@ const EntryNode: FC<{
               <MoreVert sx={{ fontSize: iconSize }} />
             </MenuButton>
             <Menu size="sm" placement="bottom-start">
+              {entry.entryType === "" && (
+                <MenuItem
+                  onClick={() => onSetEntryType(entry.id, entry.name)}
+                >
+                  <ListItemDecorator>
+                    <Label fontSize="small" />
+                  </ListItemDecorator>
+                  Set Type
+                </MenuItem>
+              )}
               <MenuItem
                 onClick={() => onRenameEntry(entry.id, entry.name)}
               >
@@ -312,6 +326,7 @@ const EntryNode: FC<{
               onUploadImages={onUploadImages}
               onRenameEntry={onRenameEntry}
               onDeleteEntry={onDeleteEntry}
+              onSetEntryType={onSetEntryType}
             />
           ))}
         </Box>
@@ -329,6 +344,7 @@ const EntryList: FC<EntryListProps> = ({
   onUploadImages,
   onRenameEntry,
   onDeleteEntry,
+  onSetEntryType,
 }) => {
   return (
     <Box
@@ -381,6 +397,7 @@ const EntryList: FC<EntryListProps> = ({
               onUploadImages={onUploadImages}
               onRenameEntry={onRenameEntry}
               onDeleteEntry={onDeleteEntry}
+              onSetEntryType={onSetEntryType}
             />
           ))}
         </Box>

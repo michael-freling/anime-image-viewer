@@ -515,6 +515,11 @@ func (s *AnimeService) DeleteEntry(ctx context.Context, entryID uint) error {
 	return s.core.DeleteEntry(ctx, entryID)
 }
 
+// UpdateEntryType updates entry_type and entry_number on an existing entry.
+func (s *AnimeService) UpdateEntryType(ctx context.Context, entryID uint, entryType string, entryNumber *uint) error {
+	return s.core.UpdateEntryType(ctx, entryID, entryType, entryNumber)
+}
+
 // GetNextEntryNumber returns the next entry number for the given type.
 func (s *AnimeService) GetNextEntryNumber(animeID uint, entryType string) (uint, error) {
 	return s.core.NextEntryNumber(animeID, entryType)

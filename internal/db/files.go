@@ -170,6 +170,20 @@ func (client *FileClient) FindDirectChildDirectories(parentID uint) ([]File, err
 	return dirs, err
 }
 
+// UpdateEntryFields updates entry_type and entry_number on the given file ID.
+// Uses GORM's Updates with a map so that nil/zero values are properly saved.
+func (client *FileClient) UpdateEntryFields(ctx context.Context, fileID uint, entryType string, entryNumber *uint) error {
+	updates := map[string]interface{}{
+		"entry_type":   entryType,
+		"entry_number": entryNumber,
+	}
+	return client.getTransaction(ctx).
+		Model(&File{}).
+		Where("id = ?", fileID).
+		Updates(updates).
+		Error
+}
+
 // SetAnimeID writes a new (possibly nil) anime_id value for a directory by id.
 func (client *FileClient) SetAnimeID(ctx context.Context, fileID uint, animeID *uint) error {
 	return client.getTransaction(ctx).

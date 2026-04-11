@@ -940,6 +940,31 @@ func sortEntries(entries []AnimeEntry) {
 	})
 }
 
+// UpdateEntryType updates entry_type and entry_number on an existing folder.
+// Used to convert legacy (untyped) folders to a typed entry.
+func (s *Service) UpdateEntryType(ctx context.Context, entryID uint, entryType string, entryNumber *uint) error {
+	if entryType != db.EntryTypeSeason && entryType != db.EntryTypeMovie && entryType != db.EntryTypeOther {
+		return fmt.Errorf("%w: entryType must be season, movie, or other", xerrors.ErrInvalidArgument)
+	}
+
+	switch entryType {
+	case db.EntryTypeSeason:
+		if entryNumber == nil || *entryNumber == 0 {
+			return fmt.Errorf("%w: season number must be > 0", xerrors.ErrInvalidArgument)
+		}
+	case db.EntryTypeMovie:
+		if entryNumber != nil && (*entryNumber < 1900 || *entryNumber > 2100) {
+			return fmt.Errorf("%w: movie year must be between 1900 and 2100", xerrors.ErrInvalidArgument)
+		}
+	case db.EntryTypeOther:
+		if entryNumber != nil {
+			return fmt.Errorf("%w: other entries must not have a number", xerrors.ErrInvalidArgument)
+		}
+	}
+
+	return s.dbClient.File().UpdateEntryFields(ctx, entryID, entryType, entryNumber)
+}
+
 // CreateEntry creates a new entry (season, movie, or other) under an anime's
 // root folder. It creates both the DB record and the directory on disk.
 func (s *Service) CreateEntry(ctx context.Context, animeID uint, entryType string, entryNumber *uint, displayName string) (AnimeEntry, error) {

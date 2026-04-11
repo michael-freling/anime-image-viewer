@@ -1761,3 +1761,99 @@ func TestService_CreateSubEntry_InvalidChars(t *testing.T) {
 		assert.Contains(t, err.Error(), "invalid characters")
 	})
 }
+
+func TestService_UpdateEntryType(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "UpdateTypeAnime")
+	require.NoError(t, err)
+
+	// Create a legacy (untyped) entry to convert
+	rootFolder, err := svc.FindAnimeRootFolder(a.ID)
+	require.NoError(t, err)
+	legacyDir := db.File{
+		Name:     "Legacy Folder",
+		ParentID: rootFolder.ID,
+		Type:     db.FileTypeDirectory,
+	}
+	require.NoError(t, te.dbClient.File().Create(ctx, &legacyDir))
+
+	t.Run("sets season type with valid number", func(t *testing.T) {
+		num := uint(3)
+		err := svc.UpdateEntryType(ctx, legacyDir.ID, db.EntryTypeSeason, &num)
+		require.NoError(t, err)
+
+		got, err := te.dbClient.File().FindByValue(ctx, &db.File{ID: legacyDir.ID})
+		require.NoError(t, err)
+		assert.Equal(t, db.EntryTypeSeason, got.EntryType)
+		require.NotNil(t, got.EntryNumber)
+		assert.Equal(t, uint(3), *got.EntryNumber)
+	})
+
+	t.Run("sets movie type with valid year", func(t *testing.T) {
+		year := uint(2024)
+		err := svc.UpdateEntryType(ctx, legacyDir.ID, db.EntryTypeMovie, &year)
+		require.NoError(t, err)
+
+		got, err := te.dbClient.File().FindByValue(ctx, &db.File{ID: legacyDir.ID})
+		require.NoError(t, err)
+		assert.Equal(t, db.EntryTypeMovie, got.EntryType)
+		require.NotNil(t, got.EntryNumber)
+		assert.Equal(t, uint(2024), *got.EntryNumber)
+	})
+
+	t.Run("sets other type with nil number", func(t *testing.T) {
+		err := svc.UpdateEntryType(ctx, legacyDir.ID, db.EntryTypeOther, nil)
+		require.NoError(t, err)
+
+		got, err := te.dbClient.File().FindByValue(ctx, &db.File{ID: legacyDir.ID})
+		require.NoError(t, err)
+		assert.Equal(t, db.EntryTypeOther, got.EntryType)
+		assert.Nil(t, got.EntryNumber)
+	})
+
+	t.Run("rejects invalid entry type", func(t *testing.T) {
+		err := svc.UpdateEntryType(ctx, legacyDir.ID, "invalid", nil)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	})
+
+	t.Run("rejects season with nil number", func(t *testing.T) {
+		err := svc.UpdateEntryType(ctx, legacyDir.ID, db.EntryTypeSeason, nil)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	})
+
+	t.Run("rejects season with zero number", func(t *testing.T) {
+		zero := uint(0)
+		err := svc.UpdateEntryType(ctx, legacyDir.ID, db.EntryTypeSeason, &zero)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	})
+
+	t.Run("rejects movie with year out of range", func(t *testing.T) {
+		badYear := uint(1800)
+		err := svc.UpdateEntryType(ctx, legacyDir.ID, db.EntryTypeMovie, &badYear)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	})
+
+	t.Run("rejects other with non-nil number", func(t *testing.T) {
+		num := uint(5)
+		err := svc.UpdateEntryType(ctx, legacyDir.ID, db.EntryTypeOther, &num)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	})
+
+	t.Run("allows movie without year", func(t *testing.T) {
+		err := svc.UpdateEntryType(ctx, legacyDir.ID, db.EntryTypeMovie, nil)
+		require.NoError(t, err)
+
+		got, err := te.dbClient.File().FindByValue(ctx, &db.File{ID: legacyDir.ID})
+		require.NoError(t, err)
+		assert.Equal(t, db.EntryTypeMovie, got.EntryType)
+		assert.Nil(t, got.EntryNumber)
+	})
+}

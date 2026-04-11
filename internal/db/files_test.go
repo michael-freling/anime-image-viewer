@@ -242,6 +242,57 @@ func TestFileClient_FindDirectChildDirectories(t *testing.T) {
 	})
 }
 
+func TestFileClient_UpdateEntryFields(t *testing.T) {
+	testClient := NewTestClient(t)
+	testClient.Truncate(t, File{})
+
+	season1Num := uint(1)
+	files := []File{
+		{ID: 6001, ParentID: 0, Name: "anime-root", Type: FileTypeDirectory},
+		{ID: 6002, ParentID: 6001, Name: "Legacy Folder", Type: FileTypeDirectory},
+		{ID: 6003, ParentID: 6001, Name: "Season 1", Type: FileTypeDirectory, EntryType: EntryTypeSeason, EntryNumber: &season1Num},
+	}
+	LoadTestData(t, testClient, files)
+
+	fileClient := testClient.File()
+	ctx := context.Background()
+
+	t.Run("sets entry_type and entry_number on legacy folder", func(t *testing.T) {
+		num := uint(2)
+		err := fileClient.UpdateEntryFields(ctx, 6002, EntryTypeSeason, &num)
+		assert.NoError(t, err)
+
+		// Verify the update
+		got, err := fileClient.FindByValue(ctx, &File{ID: 6002})
+		require.NoError(t, err)
+		assert.Equal(t, EntryTypeSeason, got.EntryType)
+		require.NotNil(t, got.EntryNumber)
+		assert.Equal(t, uint(2), *got.EntryNumber)
+	})
+
+	t.Run("sets entry_type with nil entry_number", func(t *testing.T) {
+		err := fileClient.UpdateEntryFields(ctx, 6002, EntryTypeOther, nil)
+		assert.NoError(t, err)
+
+		got, err := fileClient.FindByValue(ctx, &File{ID: 6002})
+		require.NoError(t, err)
+		assert.Equal(t, EntryTypeOther, got.EntryType)
+		assert.Nil(t, got.EntryNumber)
+	})
+
+	t.Run("overwrites existing entry fields", func(t *testing.T) {
+		num := uint(2024)
+		err := fileClient.UpdateEntryFields(ctx, 6003, EntryTypeMovie, &num)
+		assert.NoError(t, err)
+
+		got, err := fileClient.FindByValue(ctx, &File{ID: 6003})
+		require.NoError(t, err)
+		assert.Equal(t, EntryTypeMovie, got.EntryType)
+		require.NotNil(t, got.EntryNumber)
+		assert.Equal(t, uint(2024), *got.EntryNumber)
+	})
+}
+
 func TestFileClient_FindDirectoriesByIDs(t *testing.T) {
 	testClient := NewTestClient(t)
 	testClient.Truncate(t, File{})
