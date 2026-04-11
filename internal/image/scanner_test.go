@@ -237,6 +237,131 @@ func TestBackgroundScanner_RespectsContextCancellation(t *testing.T) {
 	// No assertion needed beyond "no panic/deadlock".
 }
 
+func TestBackgroundScanner_RestoreFailsStillContinues(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	dbClient := db.NewTestClient(t)
+	dbClient.Truncate(t, db.File{})
+
+	imageRootDir := t.TempDir()
+	conf := config.Config{
+		ImageRootDirectory: imageRootDir,
+	}
+
+	// Create a corrupted image AND a valid image
+	dirPath := filepath.Join(imageRootDir, "photos")
+	require.NoError(t, os.MkdirAll(dirPath, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(dirPath, "bad.jpg"), []byte("not an image"), 0644))
+	createScannerTestJPEG(t, filepath.Join(dirPath, "good.jpg"))
+
+	db.LoadTestData(t, dbClient, []db.File{
+		{ID: 1, Name: "photos", ParentID: 0, Type: db.FileTypeDirectory},
+		{ID: 2, Name: "bad.jpg", ParentID: 1, Type: db.FileTypeImage},
+		{ID: 3, Name: "good.jpg", ParentID: 1, Type: db.FileTypeImage},
+	})
+
+	// Restorer always fails
+	restorer := &mockRestorer{}
+	scanner := NewBackgroundScanner(logger, dbClient.Client, conf, restorer)
+
+	ctx := context.Background()
+	scanner.run(ctx)
+
+	// Should have attempted restore for the corrupted file
+	require.Len(t, restorer.calls, 1)
+
+	// The valid image should still get its hash backfilled
+	files, err := dbClient.File().FindAllImageFiles()
+	require.NoError(t, err)
+	hashFilled := 0
+	for _, f := range files {
+		if f.ContentHash != "" {
+			hashFilled++
+		}
+	}
+	assert.Equal(t, 1, hashFilled, "valid image should still have hash backfilled even when another image fails restore")
+}
+
+func TestBackgroundScanner_EmptyDB(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	dbClient := db.NewTestClient(t)
+	dbClient.Truncate(t, db.File{})
+
+	imageRootDir := t.TempDir()
+	conf := config.Config{
+		ImageRootDirectory: imageRootDir,
+	}
+
+	restorer := &mockRestorer{}
+	scanner := NewBackgroundScanner(logger, dbClient.Client, conf, restorer)
+
+	ctx := context.Background()
+	// Should complete without errors when there are no images
+	scanner.run(ctx)
+	assert.Empty(t, restorer.calls)
+}
+
+func TestBackgroundScanner_MissingFileWithStoredHash(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	dbClient := db.NewTestClient(t)
+	dbClient.Truncate(t, db.File{})
+
+	imageRootDir := t.TempDir()
+	conf := config.Config{
+		ImageRootDirectory: imageRootDir,
+	}
+
+	// Create directory on disk but NOT the image file
+	dirPath := filepath.Join(imageRootDir, "photos")
+	require.NoError(t, os.MkdirAll(dirPath, 0755))
+
+	// DB says the file has a hash, but the file doesn't exist on disk
+	db.LoadTestData(t, dbClient, []db.File{
+		{ID: 1, Name: "photos", ParentID: 0, Type: db.FileTypeDirectory},
+		{ID: 2, Name: "missing.jpg", ParentID: 1, Type: db.FileTypeImage, ContentHash: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"},
+	})
+
+	restorer := &mockRestorer{}
+	scanner := NewBackgroundScanner(logger, dbClient.Client, conf, restorer)
+
+	ctx := context.Background()
+	scanner.run(ctx)
+
+	// Should have attempted restore because the file cannot be hashed
+	require.Len(t, restorer.calls, 1)
+	assert.Equal(t, filepath.Join("photos", "missing.jpg"), restorer.calls[0].RelPath)
+}
+
+func TestBackgroundScanner_MissingFileWithoutHash(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	dbClient := db.NewTestClient(t)
+	dbClient.Truncate(t, db.File{})
+
+	imageRootDir := t.TempDir()
+	conf := config.Config{
+		ImageRootDirectory: imageRootDir,
+	}
+
+	// Create directory on disk but NOT the image file
+	dirPath := filepath.Join(imageRootDir, "photos")
+	require.NoError(t, os.MkdirAll(dirPath, 0755))
+
+	// DB has no hash and file doesn't exist on disk — triggers validation error
+	db.LoadTestData(t, dbClient, []db.File{
+		{ID: 1, Name: "photos", ParentID: 0, Type: db.FileTypeDirectory},
+		{ID: 2, Name: "gone.jpg", ParentID: 1, Type: db.FileTypeImage},
+	})
+
+	restorer := &mockRestorer{}
+	scanner := NewBackgroundScanner(logger, dbClient.Client, conf, restorer)
+
+	ctx := context.Background()
+	scanner.run(ctx)
+
+	// Should have attempted restore because ValidateImageFile fails on missing file
+	require.Len(t, restorer.calls, 1)
+	assert.Equal(t, filepath.Join("photos", "gone.jpg"), restorer.calls[0].RelPath)
+}
+
 func TestBackgroundScanner_HandlesMissingParentDirectory(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	dbClient := db.NewTestClient(t)

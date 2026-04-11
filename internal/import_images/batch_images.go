@@ -46,6 +46,23 @@ func NewBatchImageImporter(
 	}
 }
 
+// storeContentHash computes and stores the SHA256 hash for a file. Errors are
+// logged but do not fail the import.
+func (batchImporter *BatchImageImporter) storeContentHash(fileID uint, filePath string) {
+	hash, err := image.ComputeFileHash(filePath)
+	if err != nil {
+		batchImporter.logger.Warn("failed to compute hash on import",
+			"path", filePath, "error", err,
+		)
+		return
+	}
+	if err := batchImporter.dbClient.File().UpdateContentHash(fileID, hash); err != nil {
+		batchImporter.logger.Warn("failed to store hash on import",
+			"path", filePath, "error", err,
+		)
+	}
+}
+
 func (batchImporter *BatchImageImporter) readImageFilePaths(
 	ctx context.Context,
 	paths []string,
@@ -191,18 +208,8 @@ func (batchImporter *BatchImageImporter) ImportImages(
 			}
 
 			// Compute and store the content hash for integrity tracking.
-			hash, hashErr := image.ComputeFileHash(destinationFilePath)
-			if hashErr != nil {
-				batchImporter.logger.Warn("failed to compute hash on import",
-					"path", destinationFilePath, "error", hashErr,
-				)
-			} else {
-				if dbErr := batchImporter.dbClient.File().UpdateContentHash(newImage.image.ID, hash); dbErr != nil {
-					batchImporter.logger.Warn("failed to store hash on import",
-						"path", destinationFilePath, "error", dbErr,
-					)
-				}
-			}
+			// Errors are logged but do not fail the import.
+			batchImporter.storeContentHash(newImage.image.ID, destinationFilePath)
 
 			resultImage, err := batchImporter.imageFileConverter.ConvertImageFile(destinationParentDirectory, newImage.image)
 			if err != nil {

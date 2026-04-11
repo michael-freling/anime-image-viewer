@@ -109,7 +109,8 @@ func (s *BackupService) validateAndRestoreImages(ctx context.Context) {
 
 	err := filepath.Walk(imageRootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			s.logger.Warn("backup: cannot access path during validation", "path", path, "error", err)
+			return nil // skip inaccessible entries
 		}
 		select {
 		case <-ctx.Done():

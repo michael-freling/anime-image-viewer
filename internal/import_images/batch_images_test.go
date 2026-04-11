@@ -270,3 +270,33 @@ func TestBatchImageImporter_importImageFiles(t *testing.T) {
 		assert.Equal(t, 1, progressNotifier.Failed, "should have 1 failed")
 	})
 }
+
+func TestBatchImageImporter_storeContentHash(t *testing.T) {
+	tester := newTester(t)
+	batchImporter := tester.getBatchImageImporter()
+
+	t.Run("nonexistent file logs warning without panic", func(t *testing.T) {
+		// Should not panic when file does not exist
+		batchImporter.storeContentHash(999, "/nonexistent/path/image.jpg")
+	})
+
+	t.Run("successful hash storage", func(t *testing.T) {
+		tester.dbClient.Truncate(t, db.File{})
+		db.LoadTestData(t, tester.dbClient, []db.File{
+			{ID: 1, ParentID: 0, Name: "dir", Type: db.FileTypeDirectory},
+			{ID: 2, ParentID: 1, Name: "test.jpg", Type: db.FileTypeImage},
+		})
+
+		// Create a real file to hash
+		tmpDir := t.TempDir()
+		filePath := filepath.Join(tmpDir, "test.jpg")
+		assert.NoError(t, os.WriteFile(filePath, []byte("image data"), 0644))
+
+		batchImporter.storeContentHash(2, filePath)
+
+		files, err := tester.dbClient.File().FindAllImageFiles()
+		assert.NoError(t, err)
+		assert.Len(t, files, 1)
+		assert.NotEmpty(t, files[0].ContentHash)
+	})
+}
