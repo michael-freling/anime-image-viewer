@@ -13,6 +13,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import {
   createBrowserRouter,
+  Navigate,
   Route,
   RouterProvider,
   Routes,
@@ -44,14 +45,8 @@ function Root() {
   return (
     <Routes>
       <Route>
-        {/* Home. Currently same as /directories */}
-        <Route
-          element={
-            <Layout.ThreeColumnLayout sideNavigation={<DirectoryExplorer />} />
-          }
-        >
-          <Route index element={<DirectoryImageListPage />} />
-        </Route>
+        {/* Home. Redirect to /anime */}
+        <Route index element={<Navigate to="/anime" replace />} />
 
         {/* Search */}
         <Route element={<Layout.TwoColumnLayout />} path="search">

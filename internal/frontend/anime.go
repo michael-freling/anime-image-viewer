@@ -373,6 +373,23 @@ func convertFolderTreeNode(node anime.AnimeFolderTreeNode) AnimeFolderTreeNode {
 	}
 }
 
+// GetImageTagIDs returns a map from image ID to the list of tag IDs for each image.
+// This is used by the frontend to filter images by tags on the anime detail page.
+func (s *AnimeService) GetImageTagIDs(ctx context.Context, imageIDs []uint) (map[uint][]uint, error) {
+	if len(imageIDs) == 0 {
+		return nil, nil
+	}
+	fileTags, err := s.dbClient.FileTag().FindAllByFileID(imageIDs)
+	if err != nil {
+		return nil, fmt.Errorf("FileTag.FindAllByFileID: %w", err)
+	}
+	result := make(map[uint][]uint, len(imageIDs))
+	for _, ft := range fileTags {
+		result[ft.FileID] = append(result[ft.FileID], ft.TagID)
+	}
+	return result, nil
+}
+
 // ImportFolderAsAnime creates a new anime from an existing top-level folder.
 func (s *AnimeService) ImportFolderAsAnime(ctx context.Context, folderID uint) (Anime, error) {
 	a, err := s.core.ImportFolderAsAnime(ctx, folderID)

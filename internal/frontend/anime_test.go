@@ -609,3 +609,53 @@ func TestAnimeService_GetFolderImages(t *testing.T) {
 		assert.Empty(t, resp.Images)
 	})
 }
+
+func TestAnimeService_GetImageTagIDs(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
+	svc := tester.getAnimeService()
+	ctx := context.Background()
+
+	// Create directories and images
+	fileCreator := tester.newFileCreator(t).
+		CreateDirectory(image.Directory{ID: 9701, Name: "show"})
+	fileCreator.CreateImage(image.ImageFile{ID: 9710, ParentID: 9701, Name: "img1.jpg"}, image.TestImageFileJpeg)
+	fileCreator.CreateImage(image.ImageFile{ID: 9711, ParentID: 9701, Name: "img2.jpg"}, image.TestImageFileJpeg)
+	fileCreator.CreateImage(image.ImageFile{ID: 9712, ParentID: 9701, Name: "img3.jpg"}, image.TestImageFileJpeg)
+
+	files := []db.File{
+		fileCreator.BuildDBDirectory(9701),
+		fileCreator.BuildDBImageFile(9710),
+		fileCreator.BuildDBImageFile(9711),
+		fileCreator.BuildDBImageFile(9712),
+	}
+	db.LoadTestData(t, tester.dbClient, files)
+
+	// Create tags
+	tag1 := db.Tag{ID: 9700, Name: "action"}
+	tag2 := db.Tag{ID: 9702, Name: "comedy"}
+	require.NoError(t, db.Create(tester.dbClient.Client, &tag1))
+	require.NoError(t, db.Create(tester.dbClient.Client, &tag2))
+
+	fileTags := []db.FileTag{
+		{FileID: 9710, TagID: tag1.ID, AddedBy: db.FileTagAddedByUser},
+		{FileID: 9710, TagID: tag2.ID, AddedBy: db.FileTagAddedByUser},
+		{FileID: 9711, TagID: tag1.ID, AddedBy: db.FileTagAddedByUser},
+		// img3 (9712) has no tags
+	}
+	db.LoadTestData(t, tester.dbClient, fileTags)
+
+	t.Run("returns tag IDs per image", func(t *testing.T) {
+		result, err := svc.GetImageTagIDs(ctx, []uint{9710, 9711, 9712})
+		require.NoError(t, err)
+		assert.ElementsMatch(t, []uint{tag1.ID, tag2.ID}, result[9710])
+		assert.ElementsMatch(t, []uint{tag1.ID}, result[9711])
+		assert.Empty(t, result[9712])
+	})
+
+	t.Run("empty input returns nil", func(t *testing.T) {
+		result, err := svc.GetImageTagIDs(ctx, nil)
+		require.NoError(t, err)
+		assert.Nil(t, result)
+	})
+}

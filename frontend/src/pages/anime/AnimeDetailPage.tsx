@@ -20,7 +20,7 @@ import {
   Stack,
   Typography,
 } from "@mui/joy";
-import { FC, useEffect, useState } from "react";
+import { FC, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import {
   AnimeDetailsResponse,
@@ -164,6 +164,10 @@ const AnimeDetailPage: FC = () => {
   const [folderImages, setFolderImages] = useState<Image[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // Tag filtering state
+  const [selectedTagIds, setSelectedTagIds] = useState<Set<number>>(new Set());
+  const [imageTagMap, setImageTagMap] = useState<Record<number, number[]>>({});
+
   const id = animeId != null ? Number(animeId) : NaN;
 
   const load = async () => {
@@ -254,11 +258,22 @@ const AnimeDetailPage: FC = () => {
 
   const loadFolderImages = async (folderId: number) => {
     try {
-      const resp = await AnimeService.GetFolderImages(folderId, false);
-      setFolderImages(resp.images ?? []);
+      const resp = await AnimeService.GetFolderImages(folderId, true);
+      const images = resp.images ?? [];
+      setFolderImages(images);
+      // Fetch tag mapping for loaded images
+      if (images.length > 0) {
+        const tagMap = await AnimeService.GetImageTagIDs(
+          images.map((img) => img.id)
+        );
+        setImageTagMap(tagMap ?? {});
+      } else {
+        setImageTagMap({});
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
       setFolderImages([]);
+      setImageTagMap({});
     }
   };
 
@@ -267,11 +282,37 @@ const AnimeDetailPage: FC = () => {
       // Deselect
       setSelectedFolderId(null);
       setFolderImages([]);
+      setSelectedTagIds(new Set());
+      setImageTagMap({});
       return;
     }
     setSelectedFolderId(folderId);
+    setSelectedTagIds(new Set());
     loadFolderImages(folderId);
   };
+
+  const handleToggleTag = (tagId: number) => {
+    setSelectedTagIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(tagId)) {
+        next.delete(tagId);
+      } else {
+        next.add(tagId);
+      }
+      return next;
+    });
+  };
+
+  // Filter images by selected tags (AND logic: image must have ALL selected tags)
+  const filteredImages = useMemo(() => {
+    if (selectedTagIds.size === 0) {
+      return folderImages;
+    }
+    return folderImages.filter((img) => {
+      const tags = imageTagMap[img.id] ?? [];
+      return [...selectedTagIds].every((tagId) => tags.includes(tagId));
+    });
+  }, [folderImages, selectedTagIds, imageTagMap]);
 
   const actionHeader = (
     <>
@@ -415,27 +456,32 @@ const AnimeDetailPage: FC = () => {
             </Typography>
           ) : (
             <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-              {details.tags.map((tag) => (
-                <Chip
-                  key={tag.id}
-                  variant="soft"
-                  color="neutral"
-                  endDecorator={
-                    <Typography level="body-xs" sx={{ ml: 0.5 }}>
-                      {tag.imageCount}
-                    </Typography>
-                  }
-                >
-                  {tag.name}
-                </Chip>
-              ))}
+              {details.tags.map((tag) => {
+                const isTagSelected = selectedTagIds.has(tag.id);
+                return (
+                  <Chip
+                    key={tag.id}
+                    variant={isTagSelected ? "solid" : "soft"}
+                    color={isTagSelected ? "primary" : "neutral"}
+                    onClick={() => handleToggleTag(tag.id)}
+                    sx={{ cursor: "pointer" }}
+                    endDecorator={
+                      <Typography level="body-xs" sx={{ ml: 0.5 }}>
+                        {tag.imageCount}
+                      </Typography>
+                    }
+                  >
+                    {tag.name}
+                  </Chip>
+                );
+              })}
             </Stack>
           )}
           <Typography
             level="body-xs"
             sx={{ color: "text.tertiary", mt: 1 }}
           >
-            Tags are automatically derived from images in the folder tree.
+            Click tags to filter images. Multiple tags use AND logic.
           </Typography>
         </Box>
 
@@ -498,7 +544,7 @@ const AnimeDetailPage: FC = () => {
           {sidebarContent}
         </Layout.SideNav>
         <ImageListMain
-          loadedImages={folderImages}
+          loadedImages={filteredImages}
           searchParams={searchParams}
           setSearchParams={setSearchParams}
         />
