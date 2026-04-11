@@ -6,6 +6,7 @@ import {
   Edit,
   ExpandMore,
   Folder,
+  Person,
   Upload,
 } from "@mui/icons-material";
 import {
@@ -470,38 +471,95 @@ const AnimeDetailPage: FC = () => {
           </Button>
         </Box>
 
-        {/* Tags (derived, read-only) */}
+        {/* Characters (tags where category === "character") */}
+        {(() => {
+          const characterTags = details.tags.filter(
+            (t) => t.category === "character"
+          );
+          if (characterTags.length === 0) return null;
+          return (
+            <Box>
+              <Typography
+                level="title-md"
+                sx={{ mb: 1 }}
+                startDecorator={<Person fontSize="small" />}
+              >
+                Characters
+              </Typography>
+              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                {characterTags.map((tag) => {
+                  const isTagSelected = selectedTagIds.has(tag.id);
+                  return (
+                    <Chip
+                      key={tag.id}
+                      variant={isTagSelected ? "solid" : "soft"}
+                      color={isTagSelected ? "warning" : "neutral"}
+                      onClick={() => handleToggleTag(tag.id)}
+                      sx={{ cursor: "pointer" }}
+                      startDecorator={<Person fontSize="small" />}
+                      endDecorator={
+                        <Typography level="body-xs" sx={{ ml: 0.5 }}>
+                          {tag.imageCount}
+                        </Typography>
+                      }
+                    >
+                      {tag.name}
+                    </Chip>
+                  );
+                })}
+              </Stack>
+            </Box>
+          );
+        })()}
+
+        {/* Tags (uncategorized, derived, read-only) */}
         <Box>
           <Typography level="title-md" sx={{ mb: 1 }}>
             Tags
           </Typography>
-          {details.tags.length === 0 ? (
-            <Typography level="body-sm" sx={{ color: "text.secondary" }}>
-              No tags found. Tags are derived from images in the folder tree.
-            </Typography>
-          ) : (
-            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-              {details.tags.map((tag) => {
-                const isTagSelected = selectedTagIds.has(tag.id);
-                return (
-                  <Chip
-                    key={tag.id}
-                    variant={isTagSelected ? "solid" : "soft"}
-                    color={isTagSelected ? "primary" : "neutral"}
-                    onClick={() => handleToggleTag(tag.id)}
-                    sx={{ cursor: "pointer" }}
-                    endDecorator={
-                      <Typography level="body-xs" sx={{ ml: 0.5 }}>
-                        {tag.imageCount}
-                      </Typography>
-                    }
-                  >
-                    {tag.name}
-                  </Chip>
-                );
-              })}
-            </Stack>
-          )}
+          {(() => {
+            const uncategorizedTags = details.tags.filter(
+              (t) => t.category !== "character"
+            );
+            if (details.tags.length === 0) {
+              return (
+                <Typography level="body-sm" sx={{ color: "text.secondary" }}>
+                  No tags found. Tags are derived from images in the folder
+                  tree.
+                </Typography>
+              );
+            }
+            if (uncategorizedTags.length === 0) {
+              return (
+                <Typography level="body-sm" sx={{ color: "text.secondary" }}>
+                  All tags are categorized as characters.
+                </Typography>
+              );
+            }
+            return (
+              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                {uncategorizedTags.map((tag) => {
+                  const isTagSelected = selectedTagIds.has(tag.id);
+                  return (
+                    <Chip
+                      key={tag.id}
+                      variant={isTagSelected ? "solid" : "soft"}
+                      color={isTagSelected ? "primary" : "neutral"}
+                      onClick={() => handleToggleTag(tag.id)}
+                      sx={{ cursor: "pointer" }}
+                      endDecorator={
+                        <Typography level="body-xs" sx={{ ml: 0.5 }}>
+                          {tag.imageCount}
+                        </Typography>
+                      }
+                    >
+                      {tag.name}
+                    </Chip>
+                  );
+                })}
+              </Stack>
+            );
+          })()}
           <Typography
             level="body-xs"
             sx={{ color: "text.tertiary", mt: 1 }}

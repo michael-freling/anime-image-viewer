@@ -238,9 +238,10 @@ func (s *Service) Read(ctx context.Context, id uint) (Anime, error) {
 // DerivedTagCount is a tag with the number of images that have it in the
 // anime's folder tree.
 type DerivedTagCount struct {
-	TagID      uint   `json:"tagId"`
-	TagName    string `json:"tagName"`
-	ImageCount uint   `json:"imageCount"`
+	TagID       uint   `json:"tagId"`
+	TagName     string `json:"tagName"`
+	TagCategory string `json:"tagCategory"`
+	ImageCount  uint   `json:"imageCount"`
 }
 
 // DeriveTagsForAnime computes the tags for an anime by finding all image files
@@ -280,7 +281,7 @@ func (s *Service) DeriveTagsForAnime(animeID uint) ([]DerivedTagCount, error) {
 		tagCounts[ft.TagID]++
 	}
 
-	// Fetch tag names
+	// Fetch tag names and categories
 	tagIDs := make([]uint, 0, len(tagCounts))
 	for tid := range tagCounts {
 		tagIDs = append(tagIDs, tid)
@@ -289,17 +290,23 @@ func (s *Service) DeriveTagsForAnime(animeID uint) ([]DerivedTagCount, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Tag.FindAllByTagIDs: %w", err)
 	}
-	tagNameMap := make(map[uint]string, len(tags))
+	type tagInfo struct {
+		Name     string
+		Category string
+	}
+	tagInfoMap := make(map[uint]tagInfo, len(tags))
 	for _, t := range tags {
-		tagNameMap[t.ID] = t.Name
+		tagInfoMap[t.ID] = tagInfo{Name: t.Name, Category: t.Category}
 	}
 
 	result := make([]DerivedTagCount, 0, len(tagCounts))
 	for tid, count := range tagCounts {
+		info := tagInfoMap[tid]
 		result = append(result, DerivedTagCount{
-			TagID:      tid,
-			TagName:    tagNameMap[tid],
-			ImageCount: count,
+			TagID:       tid,
+			TagName:     info.Name,
+			TagCategory: info.Category,
+			ImageCount:  count,
 		})
 	}
 	return result, nil

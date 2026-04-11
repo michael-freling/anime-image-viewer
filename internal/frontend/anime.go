@@ -30,6 +30,7 @@ type AnimeListItem struct {
 type AnimeTagInfo struct {
 	ID         uint   `json:"id"`
 	Name       string `json:"name"`
+	Category   string `json:"category"`
 	ImageCount uint   `json:"imageCount"`
 }
 
@@ -150,6 +151,7 @@ func (s *AnimeService) GetAnimeDetails(ctx context.Context, id uint) (AnimeDetai
 		tagInfos = append(tagInfos, AnimeTagInfo{
 			ID:         dt.TagID,
 			Name:       dt.TagName,
+			Category:   dt.TagCategory,
 			ImageCount: dt.ImageCount,
 		})
 	}

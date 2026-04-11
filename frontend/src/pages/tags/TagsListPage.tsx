@@ -9,6 +9,8 @@ import {
   ModalClose,
   ModalDialog,
   ModalOverflow,
+  Option,
+  Select,
   Sheet,
   Stack,
   Typography,
@@ -324,6 +326,27 @@ export const TagsListPage: FC = () => {
               </Typography>
             ) : (
               <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
+                <Box sx={{ flexShrink: 0 }}>
+                  <Typography level="title-md" sx={{ mb: 1 }}>
+                    Category
+                  </Typography>
+                  <Select
+                    size="sm"
+                    value={tags.find((t) => t.id === selectedTagId)?.category ?? ""}
+                    onChange={async (_event, newValue) => {
+                      if (selectedTagId == null) return;
+                      await LegacyTagFrontendService.UpdateCategory(selectedTagId, newValue ?? "");
+                      await refresh();
+                    }}
+                    sx={{ maxWidth: 200 }}
+                  >
+                    <Option value="">(uncategorized)</Option>
+                    <Option value="character">Character</Option>
+                  </Select>
+                </Box>
+
+                <Divider />
+
                 <Box sx={{ flexShrink: 0, maxHeight: "50%", overflowY: "auto", minHeight: 0 }}>
                   <Typography level="title-md" sx={{ mb: 1 }}>
                     Folders with this tag

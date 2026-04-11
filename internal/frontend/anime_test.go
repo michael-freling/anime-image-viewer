@@ -152,6 +152,57 @@ func TestAnimeService_DerivedTags(t *testing.T) {
 	})
 }
 
+func TestAnimeService_DerivedTags_WithCategory(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
+	svc := tester.getAnimeService()
+	ctx := context.Background()
+
+	a, err := svc.CreateAnime(ctx, "CategoryShow")
+	require.NoError(t, err)
+
+	coreSvc := tester.getAnimeCoreService()
+	rootDir, err := coreSvc.FindAnimeRootFolder(a.ID)
+	require.NoError(t, err)
+	require.NotNil(t, rootDir)
+
+	fileCreator := tester.newFileCreator(t)
+	fileCreator.CreateImage(image.ImageFile{ID: 7200, ParentID: rootDir.ID, Name: "img1.jpg"}, image.TestImageFileJpeg)
+	fileCreator.CreateImage(image.ImageFile{ID: 7201, ParentID: rootDir.ID, Name: "img2.jpg"}, image.TestImageFileJpeg)
+
+	files := []db.File{
+		fileCreator.BuildDBImageFile(7200),
+		fileCreator.BuildDBImageFile(7201),
+	}
+	db.LoadTestData(t, tester.dbClient, files)
+
+	// Create tags: one character, one uncategorized
+	charTag := db.Tag{ID: 7100, Name: "Sakura", Category: "character"}
+	normalTag := db.Tag{ID: 7101, Name: "action", Category: ""}
+	require.NoError(t, db.Create(tester.dbClient.Client, &charTag))
+	require.NoError(t, db.Create(tester.dbClient.Client, &normalTag))
+
+	fileTags := []db.FileTag{
+		{FileID: 7200, TagID: charTag.ID, AddedBy: db.FileTagAddedByUser},
+		{FileID: 7200, TagID: normalTag.ID, AddedBy: db.FileTagAddedByUser},
+		{FileID: 7201, TagID: charTag.ID, AddedBy: db.FileTagAddedByUser},
+	}
+	db.LoadTestData(t, tester.dbClient, fileTags)
+
+	details, err := svc.GetAnimeDetails(ctx, a.ID)
+	require.NoError(t, err)
+	require.Len(t, details.Tags, 2)
+
+	// Tags are sorted case-insensitive: action, Sakura
+	assert.Equal(t, "action", details.Tags[0].Name)
+	assert.Equal(t, "", details.Tags[0].Category)
+	assert.Equal(t, uint(1), details.Tags[0].ImageCount)
+
+	assert.Equal(t, "Sakura", details.Tags[1].Name)
+	assert.Equal(t, "character", details.Tags[1].Category)
+	assert.Equal(t, uint(2), details.Tags[1].ImageCount)
+}
+
 func TestAnimeService_FolderAssignmentsAndAncestor(t *testing.T) {
 	tester := newTester(t)
 	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})

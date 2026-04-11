@@ -8,8 +8,9 @@ import (
 )
 
 type Tag struct {
-	ID   uint   `json:"id"`
-	Name string `json:"name"`
+	ID       uint   `json:"id"`
+	Name     string `json:"name"`
+	Category string `json:"category"`
 }
 
 type tagConverter struct {
@@ -21,8 +22,9 @@ func newTagConverter() tagConverter {
 
 func (converter tagConverter) convert(t tag.Tag) Tag {
 	return Tag{
-		ID:   t.ID,
-		Name: t.Name,
+		ID:       t.ID,
+		Name:     t.Name,
+		Category: t.Category,
 	}
 }
 
@@ -62,8 +64,9 @@ func (service TagService) ReadAllMap() (map[uint]Tag, error) {
 	result := make(map[uint]Tag)
 	for _, t := range tags {
 		result[t.ID] = Tag{
-			ID:   t.ID,
-			Name: t.Name,
+			ID:       t.ID,
+			Name:     t.Name,
+			Category: t.Category,
 		}
 	}
 	return result, nil

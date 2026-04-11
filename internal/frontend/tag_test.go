@@ -20,8 +20,9 @@ func (builder *tagBuilder) BuildFrontendTag(id uint) Tag {
 	source := builder.Build(id)
 	require.NotZero(builder.t, source.ID)
 	return Tag{
-		ID:   source.ID,
-		Name: source.Name,
+		ID:       source.ID,
+		Name:     source.Name,
+		Category: source.Category,
 	}
 }
 
@@ -111,16 +112,17 @@ func TestTagService_ReadAllMap(t *testing.T) {
 				builder.BuildDBTag(111),
 			},
 			want: map[uint]Tag{
-				1:   {ID: 1, Name: "tag1"},
-				2:   {ID: 2, Name: "tag2"},
-				11:  {ID: 11, Name: "child1 tag under tag1"},
-				12:  {ID: 12, Name: "child2 tag under tag1"},
-				111: {ID: 111, Name: "child tag under child1"},
+				1:   {ID: 1, Name: "tag1", Category: ""},
+				2:   {ID: 2, Name: "tag2", Category: ""},
+				11:  {ID: 11, Name: "child1 tag under tag1", Category: ""},
+				12:  {ID: 12, Name: "child2 tag under tag1", Category: ""},
+				111: {ID: 111, Name: "child tag under child1", Category: ""},
 			},
 		},
 		{
-			name: "No tags",
-			want: map[uint]Tag{},
+			name:     "No tags",
+			tagsInDB: nil,
+			want:     map[uint]Tag{},
 		},
 	}
 

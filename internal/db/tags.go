@@ -8,6 +8,7 @@ type Tag struct {
 	// gorm.Model
 	ID        uint `gorm:"primarykey"`
 	Name      string
+	Category  string
 	CreatedAt uint
 	UpdatedAt uint
 }

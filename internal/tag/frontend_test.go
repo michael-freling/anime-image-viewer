@@ -121,6 +121,74 @@ func TestTagFrontendService_UpdateName(t *testing.T) {
 	}
 }
 
+func TestTagFrontendService_UpdateCategory(t *testing.T) {
+	tester := newTester(t)
+	dbClient := tester.dbClient
+
+	service := &TagFrontendService{
+		dbClient: dbClient,
+	}
+
+	testCases := []struct {
+		name         string
+		insertTags   []db.Tag
+		tagID        uint
+		newCategory  string
+		wantCategory string
+		wantErr      bool
+	}{
+		{
+			name: "set category to character",
+			insertTags: []db.Tag{
+				{ID: 1, Name: "Sakura"},
+			},
+			tagID:        1,
+			newCategory:  "character",
+			wantCategory: "character",
+		},
+		{
+			name: "clear category back to empty",
+			insertTags: []db.Tag{
+				{ID: 1, Name: "Sakura", Category: "character"},
+			},
+			tagID:        1,
+			newCategory:  "",
+			wantCategory: "",
+		},
+		{
+			name:        "tag not found returns error",
+			insertTags:  nil,
+			tagID:       999,
+			newCategory: "character",
+			wantErr:     true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			dbClient.Truncate(&db.Tag{})
+			if len(tc.insertTags) > 0 {
+				require.NoError(t, db.BatchCreate(dbClient, tc.insertTags))
+			}
+
+			got, err := service.UpdateCategory(context.Background(), tc.tagID, tc.newCategory)
+			if tc.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantCategory, got.Category)
+			assert.Equal(t, tc.tagID, got.ID)
+
+			// Verify persistence
+			allTags, err := db.GetAll[db.Tag](dbClient)
+			require.NoError(t, err)
+			assert.Len(t, allTags, 1)
+			assert.Equal(t, tc.wantCategory, allTags[0].Category)
+		})
+	}
+}
+
 func TestTagFrontendService_GetTagFileCount(t *testing.T) {
 	tester := newTester(t)
 
