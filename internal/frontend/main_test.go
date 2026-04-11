@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/michael-freling/anime-image-viewer/internal/anime"
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
@@ -102,6 +103,20 @@ func (tester tester) newFileCreator(t *testing.T) *fileCreator {
 
 func (tester tester) getTagService() *TagService {
 	return NewTagService(tester.getTagReader())
+}
+
+func (tester tester) getAnimeCoreService() *anime.Service {
+	return anime.NewService(tester.dbClient.Client, tester.getDirectoryReader(), tester.config)
+}
+
+func (tester tester) getAnimeService() *AnimeService {
+	return NewAnimeService(
+		tester.getAnimeCoreService(),
+		tester.dbClient.Client,
+		tester.getDirectoryReader(),
+		tester.getTagReader(),
+		tester.getFileReader(),
+	)
 }
 
 func (tester tester) newTagBuilder(t *testing.T) *tagBuilder {

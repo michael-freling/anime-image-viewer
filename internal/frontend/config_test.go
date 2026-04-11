@@ -84,7 +84,7 @@ func TestConfigFrontendService_UpdateConfig(t *testing.T) {
 	assert.Equal(t, 60, got.IdleMinutes)
 
 	// Verify the file was written to disk
-	expectedFile := filepath.Join(tempHome, ".config", "anime-image-viewer", "default.toml")
+	expectedFile := filepath.Join(tempHome, ".config", "anime-image-viewer", "config.toml")
 	_, statErr := os.Stat(expectedFile)
 	assert.NoError(t, statErr, "config file should exist at default path")
 
@@ -115,6 +115,17 @@ func TestConfigFrontendService_GetDefaultConfig(t *testing.T) {
 	assert.Equal(t, 7, got.RetentionCount)
 	assert.Equal(t, 30, got.IdleMinutes)
 	assert.True(t, got.IdleBackupIncludeImages)
+}
+
+func TestConfigFrontendService_GetDefaultConfig_Error(t *testing.T) {
+	// Set HOME to empty string so os.UserHomeDir() fails, triggering the error path
+	t.Setenv("HOME", "")
+
+	conf := config.Config{}
+	svc := NewConfigFrontendService(newConfigTestLogger(), conf)
+
+	_, err := svc.GetDefaultConfig(context.Background())
+	assert.Error(t, err, "GetDefaultConfig should fail when HOME is not set")
 }
 
 func TestConfigFrontendService_UpdateConfig_WriteError(t *testing.T) {

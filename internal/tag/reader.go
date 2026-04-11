@@ -34,8 +34,9 @@ func (reader Reader) ReadAllTags() ([]Tag, error) {
 	result := make([]Tag, len(allTags))
 	for i, t := range allTags {
 		result[i] = Tag{
-			ID:   t.ID,
-			Name: t.Name,
+			ID:       t.ID,
+			Name:     t.Name,
+			Category: t.Category,
 		}
 	}
 	return result, nil

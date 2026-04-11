@@ -48,7 +48,7 @@ func NewTestClient(t *testing.T) TestClient {
 	})
 	require.NoError(t, client.Migrate())
 	// delete auto created records and reset auto increment values
-	require.NoError(t, client.Truncate(Tag{}))
+	require.NoError(t, client.Truncate(Tag{}, Anime{}))
 	client.Truncate(SqliteSequence{})
 
 	client.connection = client.connection.Session(&gorm.Session{
@@ -86,6 +86,16 @@ func (client *TestClient) Truncate(t *testing.T, models ...interface{}) {
 		err := client.Client.connection.Session(&gorm.Session{
 			AllowGlobalUpdate: true,
 		}).Delete(&model).Error
+		require.NoError(t, err)
+	}
+}
+
+// DropTable drops the database table for the given model.
+// This is useful for testing error paths where queries should fail.
+func (client *TestClient) DropTable(t *testing.T, models ...interface{}) {
+	t.Helper()
+	for _, model := range models {
+		err := client.Client.connection.Migrator().DropTable(model)
 		require.NoError(t, err)
 	}
 }

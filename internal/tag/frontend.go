@@ -46,8 +46,30 @@ func (service TagFrontendService) CreateTopTag(name string) (Tag, error) {
 	}
 
 	return Tag{
-		ID:   tag.ID,
-		Name: tag.Name,
+		ID:       tag.ID,
+		Name:     tag.Name,
+		Category: tag.Category,
+	}, nil
+}
+
+// CreateTagForAnime creates a new tag with the given category and anime_id set
+// in one shot. This is used when adding a character from the anime detail page
+// so the character is always visible on that anime, even with 0 images.
+func (service TagFrontendService) CreateTagForAnime(ctx context.Context, name string, category string, animeID uint) (Tag, error) {
+	tag := db.Tag{
+		Name:     name,
+		Category: category,
+		AnimeID:  &animeID,
+	}
+	err := db.Create(service.dbClient, &tag)
+	if err != nil {
+		return Tag{}, fmt.Errorf("db.Create: %w", err)
+	}
+
+	return Tag{
+		ID:       tag.ID,
+		Name:     tag.Name,
+		Category: tag.Category,
 	}, nil
 }
 
@@ -64,8 +86,9 @@ func (service TagFrontendService) Create(ctx context.Context, input TagInput) (T
 		return Tag{}, fmt.Errorf("db.Create: %w", err)
 	}
 	return Tag{
-		ID:   tag.ID,
-		Name: tag.Name,
+		ID:       tag.ID,
+		Name:     tag.Name,
+		Category: tag.Category,
 	}, nil
 }
 
@@ -92,8 +115,38 @@ func (service TagFrontendService) UpdateName(ctx context.Context, id uint, name 
 	}
 
 	return Tag{
-		ID:   newTag.ID,
-		Name: newTag.Name,
+		ID:       newTag.ID,
+		Name:     newTag.Name,
+		Category: newTag.Category,
+	}, nil
+}
+
+func (service TagFrontendService) UpdateCategory(ctx context.Context, id uint, category string) (Tag, error) {
+	var newTag db.Tag
+	err := db.NewTransaction(ctx, service.dbClient, func(ctx context.Context) error {
+		ormClient := service.dbClient.Tag()
+		var err error
+		newTag, err = ormClient.FindByValue(ctx, &db.Tag{
+			ID: id,
+		})
+		if err != nil {
+			return fmt.Errorf("ormClient.FindByValue: %w", err)
+		}
+
+		newTag.Category = category
+		if err := ormClient.Update(ctx, &newTag); err != nil {
+			return fmt.Errorf("ormClient.Update: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return Tag{}, err
+	}
+
+	return Tag{
+		ID:       newTag.ID,
+		Name:     newTag.Name,
+		Category: newTag.Category,
 	}, nil
 }
 

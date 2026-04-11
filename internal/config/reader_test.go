@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -84,7 +85,7 @@ func TestWriteConfig_DefaultPath(t *testing.T) {
 	err := WriteConfig("", conf)
 	require.NoError(t, err)
 
-	expectedFile := filepath.Join(tempHome, ".config", "anime-image-viewer", "default.toml")
+	expectedFile := filepath.Join(tempHome, ".config", "anime-image-viewer", "config.toml")
 	_, statErr := os.Stat(expectedFile)
 	assert.NoError(t, statErr, "config file should exist at default path")
 
@@ -257,7 +258,7 @@ config_directory = "/tmp/my-config"
 }
 
 func TestReadConfig_ExistingConfigFileDefaultPath(t *testing.T) {
-	// Create a fake HOME with a valid config file
+	// Create a fake HOME with a valid config file using the new name
 	tempHome := t.TempDir()
 	t.Setenv("HOME", tempHome)
 
@@ -271,7 +272,7 @@ config_directory = "/tmp/cfg"
 [backup]
 retention_count = 10
 `
-	configFile := filepath.Join(configDir, "default.toml")
+	configFile := filepath.Join(configDir, "config.toml")
 	require.NoError(t, os.WriteFile(configFile, []byte(tomlContent), 0644))
 
 	conf, err := ReadConfig("")
@@ -283,6 +284,139 @@ retention_count = 10
 	// Defaults should be applied for unset fields
 	assert.Equal(t, 30, conf.Backup.IdleMinutes)
 	assert.Equal(t, filepath.Join("/tmp/cfg", "backups"), conf.Backup.BackupDirectory)
+}
+
+func TestReadConfig_LegacyDefaultTomlFallback(t *testing.T) {
+	// When config.toml does not exist but default.toml does, it should be
+	// used as the base config for backward compatibility.
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+
+	configDir := filepath.Join(tempHome, ".config", "anime-image-viewer")
+	require.NoError(t, os.MkdirAll(configDir, 0755))
+
+	tomlContent := `
+image_root_directory = "/tmp/legacy-images"
+config_directory = "/tmp/legacy-cfg"
+
+[backup]
+retention_count = 12
+`
+	legacyFile := filepath.Join(configDir, "default.toml")
+	require.NoError(t, os.WriteFile(legacyFile, []byte(tomlContent), 0644))
+
+	conf, err := ReadConfig("")
+	require.NoError(t, err)
+
+	assert.Equal(t, "/tmp/legacy-images", conf.ImageRootDirectory)
+	assert.Equal(t, "/tmp/legacy-cfg", conf.ConfigDirectory)
+	assert.Equal(t, 12, conf.Backup.RetentionCount)
+	assert.Equal(t, 30, conf.Backup.IdleMinutes)
+}
+
+func TestReadConfig_ConfigTomlTakesPrecedenceOverDefaultToml(t *testing.T) {
+	// When both config.toml and default.toml exist, only config.toml is used
+	// as the base (default.toml is the legacy fallback).
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+
+	configDir := filepath.Join(tempHome, ".config", "anime-image-viewer")
+	require.NoError(t, os.MkdirAll(configDir, 0755))
+
+	legacyContent := `image_root_directory = "/tmp/legacy"`
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "default.toml"), []byte(legacyContent), 0644))
+
+	newContent := `image_root_directory = "/tmp/new"`
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.toml"), []byte(newContent), 0644))
+
+	conf, err := ReadConfig("")
+	require.NoError(t, err)
+	assert.Equal(t, "/tmp/new", conf.ImageRootDirectory)
+}
+
+func TestReadConfig_OverlayOverridesBase(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+
+	configDir := filepath.Join(tempHome, ".config", "anime-image-viewer")
+	require.NoError(t, os.MkdirAll(configDir, 0755))
+
+	baseContent := `
+image_root_directory = "/base/images"
+config_directory = "/base/cfg"
+log_directory = "/base/logs"
+
+[backup]
+backup_directory = "/base/backups"
+retention_count = 5
+idle_minutes = 20
+`
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.toml"), []byte(baseContent), 0644))
+
+	// The overlay only overrides image_root_directory and backup.retention_count.
+	overlayContent := `
+image_root_directory = "/dev/images"
+
+[backup]
+retention_count = 99
+`
+	overlayFile := filepath.Join(configDir, fmt.Sprintf("config.%s.toml", runtimeEnv))
+	require.NoError(t, os.WriteFile(overlayFile, []byte(overlayContent), 0644))
+
+	conf, err := ReadConfig("")
+	require.NoError(t, err)
+
+	// Overridden by overlay
+	assert.Equal(t, "/dev/images", conf.ImageRootDirectory)
+	assert.Equal(t, 99, conf.Backup.RetentionCount)
+
+	// Preserved from base
+	assert.Equal(t, "/base/cfg", conf.ConfigDirectory)
+	assert.Equal(t, "/base/logs", conf.LogDirectory)
+	assert.Equal(t, "/base/backups", conf.Backup.BackupDirectory)
+	assert.Equal(t, 20, conf.Backup.IdleMinutes)
+}
+
+func TestReadConfig_OverlayOnlyNoBase(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+
+	configDir := filepath.Join(tempHome, ".config", "anime-image-viewer")
+	require.NoError(t, os.MkdirAll(configDir, 0755))
+
+	// No config.toml and no default.toml — only the overlay exists.
+	overlayContent := `
+image_root_directory = "/overlay-only/images"
+`
+	overlayFile := filepath.Join(configDir, fmt.Sprintf("config.%s.toml", runtimeEnv))
+	require.NoError(t, os.WriteFile(overlayFile, []byte(overlayContent), 0644))
+
+	conf, err := ReadConfig("")
+	require.NoError(t, err)
+
+	// Overlay value
+	assert.Equal(t, "/overlay-only/images", conf.ImageRootDirectory)
+
+	// Defaults still apply for everything else
+	assert.Equal(t, configDir, conf.ConfigDirectory)
+	assert.Equal(t, 7, conf.Backup.RetentionCount)
+	assert.Equal(t, 30, conf.Backup.IdleMinutes)
+}
+
+func TestReadConfig_NeitherBaseNorOverlay(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+
+	conf, err := ReadConfig("")
+	require.NoError(t, err)
+
+	// All defaults should be present
+	configDir := filepath.Join(tempHome, ".config", "anime-image-viewer")
+	assert.Equal(t, configDir, conf.ConfigDirectory)
+	assert.Equal(t, 7, conf.Backup.RetentionCount)
+	assert.Equal(t, 30, conf.Backup.IdleMinutes)
+	assert.NotEmpty(t, conf.ImageRootDirectory)
+	assert.NotEmpty(t, conf.Environment)
 }
 
 func TestReadConfig_UnreadableFile(t *testing.T) {

@@ -24,7 +24,8 @@ func (b TestTagBuilder) Build(id uint) Tag {
 func (b TestTagBuilder) BuildDBTag(id uint) db.Tag {
 	tag := *b.tags[id]
 	return db.Tag{
-		ID:   tag.ID,
-		Name: tag.Name,
+		ID:       tag.ID,
+		Name:     tag.Name,
+		Category: tag.Category,
 	}
 }

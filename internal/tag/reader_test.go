@@ -45,6 +45,17 @@ func TestReader_ReadAllTags(t *testing.T) {
 				{ID: 2, Name: "beta"},
 			},
 		},
+		{
+			name: "tags with category",
+			insertTags: []db.Tag{
+				{ID: 1, Name: "Sakura", Category: "character"},
+				{ID: 2, Name: "action", Category: ""},
+			},
+			wantTags: []Tag{
+				{ID: 1, Name: "Sakura", Category: "character"},
+				{ID: 2, Name: "action", Category: ""},
+			},
+		},
 	}
 
 	for _, tc := range testCases {

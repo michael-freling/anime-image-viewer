@@ -20,10 +20,13 @@ import {
 } from "react-router";
 import DirectoryExplorer from "./components/DirectoryExplorer";
 import Layout from "./Layout";
+import AnimeDetailPage from "./pages/anime/AnimeDetailPage";
+import AnimeListPage from "./pages/anime/AnimeListPage";
 import DirectoryEditPage from "./pages/directories/DirectoryEditPage";
 import DirectoryImageListPage from "./pages/directories/DirectoryImageListPage";
 import SearchPage from "./pages/search/SearchPage";
 import DirectoryTagsEditPage from "./pages/tags/DirectoryTagEditPage";
+import AnimeTagEditPage from "./pages/tags/AnimeTagEditPage";
 import ImageTagEditPage from "./pages/tags/ImageTagEditPage";
 import ImageTagSuggestionPage from "./pages/tags/ImageTagSuggestionPage";
 import TagsListPage from "./pages/tags/TagsListPage";
@@ -42,13 +45,10 @@ function Root() {
   return (
     <Routes>
       <Route>
-        {/* Home. Currently same as /directories */}
-        <Route
-          element={
-            <Layout.ThreeColumnLayout sideNavigation={<DirectoryExplorer />} />
-          }
-        >
-          <Route index element={<DirectoryImageListPage />} />
+        {/* Anime (home) */}
+        <Route element={<Layout.TwoColumnLayout />}>
+          <Route index element={<AnimeListPage />} />
+          <Route path=":animeId" element={<AnimeDetailPage />} />
         </Route>
 
         {/* Search */}
@@ -79,6 +79,7 @@ function Root() {
         {/* Image edit */}
         <Route path="images" element={<Layout.TwoColumnLayout />}>
           <Route path="edit/tags" element={<ImageTagEditPage />} />
+          <Route path="edit/anime-tags" element={<AnimeTagEditPage />} />
           <Route
             path="edit/tags/suggestion"
             element={<ImageTagSuggestionPage />}

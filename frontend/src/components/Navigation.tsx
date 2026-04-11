@@ -10,7 +10,7 @@ import * as Icons from "@mui/icons-material";
 import { NavLink, useLocation } from "react-router";
 
 export enum Menu {
-  Series = "Series",
+  Anime = "Anime",
   Search = "Search",
 
   Directories = "Directories",
@@ -27,8 +27,8 @@ const Navigation: React.FC = () => {
       text: "Menu",
       menuItems: [
         {
-          id: Menu.Series,
-          text: "Series",
+          id: Menu.Anime,
+          text: "Anime",
           icon: <Icons.Tv />,
           url: "/",
         },

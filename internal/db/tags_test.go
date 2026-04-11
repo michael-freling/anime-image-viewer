@@ -48,6 +48,82 @@ func TestTagClient_FindAllByTagIDs(t *testing.T) {
 	})
 }
 
+func TestTagClient_FindTagsByAnimeID(t *testing.T) {
+	testClient := NewTestClient(t)
+	testClient.Truncate(t, Tag{})
+
+	animeID1 := uint(100)
+	animeID2 := uint(200)
+	tags := []Tag{
+		{ID: 6001, Name: "char1", Category: "character", AnimeID: &animeID1},
+		{ID: 6002, Name: "char2", Category: "character", AnimeID: &animeID1},
+		{ID: 6003, Name: "char3", Category: "character", AnimeID: &animeID2},
+		{ID: 6004, Name: "unassigned"},
+	}
+	LoadTestData(t, testClient, tags)
+
+	tagClient := testClient.Tag()
+
+	t.Run("finds tags for anime 100", func(t *testing.T) {
+		got, err := tagClient.FindTagsByAnimeID(100)
+		assert.NoError(t, err)
+		assert.Len(t, got, 2)
+	})
+
+	t.Run("finds tags for anime 200", func(t *testing.T) {
+		got, err := tagClient.FindTagsByAnimeID(200)
+		assert.NoError(t, err)
+		assert.Len(t, got, 1)
+		assert.Equal(t, "char3", got[0].Name)
+	})
+
+	t.Run("returns empty for unknown anime", func(t *testing.T) {
+		got, err := tagClient.FindTagsByAnimeID(999)
+		assert.NoError(t, err)
+		assert.Empty(t, got)
+	})
+}
+
+func TestTagClient_ClearAnimeIDByAnimeID(t *testing.T) {
+	testClient := NewTestClient(t)
+	testClient.Truncate(t, Tag{})
+
+	animeID1 := uint(100)
+	animeID2 := uint(200)
+	tags := []Tag{
+		{ID: 6101, Name: "char1", Category: "character", AnimeID: &animeID1},
+		{ID: 6102, Name: "char2", Category: "character", AnimeID: &animeID1},
+		{ID: 6103, Name: "char3", Category: "character", AnimeID: &animeID2},
+	}
+	LoadTestData(t, testClient, tags)
+
+	tagClient := testClient.Tag()
+	ctx := context.Background()
+
+	t.Run("clears anime_id for anime 100", func(t *testing.T) {
+		err := tagClient.ClearAnimeIDByAnimeID(ctx, 100)
+		require.NoError(t, err)
+
+		// Tags for anime 100 should now be empty
+		got, err := tagClient.FindTagsByAnimeID(100)
+		assert.NoError(t, err)
+		assert.Empty(t, got)
+
+		// Tags for anime 200 should be unchanged
+		got, err = tagClient.FindTagsByAnimeID(200)
+		assert.NoError(t, err)
+		assert.Len(t, got, 1)
+
+		// The tags should still exist with nil anime_id
+		all, err := tagClient.FindAllByTagIDs([]uint{6101, 6102})
+		assert.NoError(t, err)
+		assert.Len(t, all, 2)
+		for _, tg := range all {
+			assert.Nil(t, tg.AnimeID)
+		}
+	})
+}
+
 func TestFileTagClient_FileTag(t *testing.T) {
 	testClient := NewTestClient(t)
 	ftClient := testClient.FileTag()
@@ -268,6 +344,53 @@ func TestFileTagClient_DeleteByTagIDs(t *testing.T) {
 		assert.Len(t, remaining, 2)
 		for _, ft := range remaining {
 			assert.Equal(t, uint(8502), ft.TagID)
+		}
+	})
+}
+
+func TestFileTagClient_DeleteByFileIDs(t *testing.T) {
+	testClient := NewTestClient(t)
+	testClient.Truncate(t, FileTag{}, File{}, Tag{})
+
+	tags := []Tag{
+		{ID: 8601, Name: "tag1"},
+		{ID: 8602, Name: "tag2"},
+	}
+	files := []File{
+		{ID: 8610, ParentID: 0, Name: "img1.jpg", Type: FileTypeImage},
+		{ID: 8620, ParentID: 0, Name: "img2.jpg", Type: FileTypeImage},
+	}
+	fileTags := []FileTag{
+		{TagID: 8601, FileID: 8610, AddedBy: FileTagAddedByUser},
+		{TagID: 8602, FileID: 8610, AddedBy: FileTagAddedByUser},
+		{TagID: 8601, FileID: 8620, AddedBy: FileTagAddedByUser},
+		{TagID: 8602, FileID: 8620, AddedBy: FileTagAddedByUser},
+	}
+	LoadTestData(t, testClient, tags)
+	LoadTestData(t, testClient, files)
+	LoadTestData(t, testClient, fileTags)
+
+	ftClient := testClient.FileTag()
+	ctx := context.Background()
+
+	t.Run("empty file IDs is a no-op", func(t *testing.T) {
+		err := ftClient.DeleteByFileIDs(ctx, nil)
+		assert.NoError(t, err)
+
+		remaining, err := ftClient.FindAllByFileID([]uint{8610, 8620})
+		assert.NoError(t, err)
+		assert.Len(t, remaining, 4)
+	})
+
+	t.Run("delete all file-tags for given file IDs", func(t *testing.T) {
+		err := ftClient.DeleteByFileIDs(ctx, []uint{8610})
+		assert.NoError(t, err)
+
+		remaining, err := ftClient.FindAllByFileID([]uint{8610, 8620})
+		assert.NoError(t, err)
+		assert.Len(t, remaining, 2)
+		for _, ft := range remaining {
+			assert.Equal(t, uint(8620), ft.FileID)
 		}
 	})
 }

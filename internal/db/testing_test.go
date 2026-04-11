@@ -239,6 +239,26 @@ func TestTagBuilder_FileTag(t *testing.T) {
 	})
 }
 
+func TestTestClient_DropTable(t *testing.T) {
+	testClient := NewTestClient(t)
+	testClient.Truncate(t, Tag{})
+
+	// Insert some data
+	tags := []Tag{
+		{ID: 9101, Name: "drop-tag1"},
+	}
+	LoadTestData(t, testClient, tags)
+	got := MustGetAll[Tag](t, testClient)
+	assert.Len(t, got, 1)
+
+	// Drop the table
+	testClient.DropTable(t, &Tag{})
+
+	// Verify queries fail because the table no longer exists
+	_, err := GetAll[Tag](testClient.Client)
+	assert.Error(t, err, "query should fail after table is dropped")
+}
+
 func TestClientTruncate_Deprecated(t *testing.T) {
 	// Test the deprecated Client.Truncate method
 	testClient := NewTestClient(t)
