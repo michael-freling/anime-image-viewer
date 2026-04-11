@@ -1,15 +1,11 @@
 import {
   Add,
   ArrowBack,
-  ChevronRight,
   Delete,
   Edit,
-  ExpandMore,
-  Folder,
   LocalOffer,
   MoreVert,
   Person,
-  Upload,
 } from "@mui/icons-material";
 import {
   Box,
@@ -32,126 +28,16 @@ import { FC, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import {
   AnimeDetailsResponse,
-  AnimeFolderTreeNode,
+  AnimeEntryInfo,
   AnimeService,
   BatchImportImageService,
-  DirectoryService,
   Image,
 } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import { TagFrontendService } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
 import ImageListMain from "../../components/Images/ImageList";
 import Layout from "../../Layout";
-
-interface FolderTreeProps {
-  node: AnimeFolderTreeNode;
-  depth: number;
-  selectedFolderId: number | null;
-  onSelectFolder: (folderId: number) => void;
-  onAddSubfolder: (parentId: number, parentName: string) => void;
-  onUploadImages: (folderId: number) => void;
-}
-
-const FolderTreeItem: FC<FolderTreeProps> = ({
-  node,
-  depth,
-  selectedFolderId,
-  onSelectFolder,
-  onAddSubfolder,
-  onUploadImages,
-}) => {
-  const [expanded, setExpanded] = useState(depth < 2);
-  const hasChildren = node.children && node.children.length > 0;
-  const isSelected = selectedFolderId === node.id;
-
-  return (
-    <Box sx={{ pl: depth > 0 ? 2 : 0 }}>
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          py: 0.5,
-          px: 0.5,
-          borderRadius: "sm",
-          cursor: "pointer",
-          bgcolor: isSelected ? "primary.softBg" : "transparent",
-          "&:hover": {
-            bgcolor: isSelected ? "primary.softBg" : "neutral.softHoverBg",
-          },
-          "&:hover .folder-actions": { opacity: 1 },
-        }}
-        onClick={() => onSelectFolder(node.id)}
-      >
-        <IconButton
-          size="sm"
-          variant="plain"
-          color="neutral"
-          onClick={(e) => {
-            e.stopPropagation();
-            setExpanded(!expanded);
-          }}
-          sx={{ visibility: hasChildren ? "visible" : "hidden", mr: 0.5 }}
-        >
-          {expanded ? (
-            <ExpandMore fontSize="small" />
-          ) : (
-            <ChevronRight fontSize="small" />
-          )}
-        </IconButton>
-        <Folder fontSize="small" sx={{ mr: 1, color: "primary.500" }} />
-        <Typography level="body-sm" sx={{ flex: 1 }}>
-          {node.name}
-        </Typography>
-        <Typography level="body-xs" sx={{ color: "text.secondary", mr: 1 }}>
-          {node.imageCount} image{node.imageCount === 1 ? "" : "s"}
-        </Typography>
-        <Stack
-          direction="row"
-          spacing={0.5}
-          className="folder-actions"
-          sx={{ opacity: 0, transition: "opacity 0.15s" }}
-        >
-          <IconButton
-            size="sm"
-            variant="plain"
-            color="primary"
-            title="Add subfolder"
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddSubfolder(node.id, node.name);
-            }}
-          >
-            <Add fontSize="small" />
-          </IconButton>
-          <IconButton
-            size="sm"
-            variant="plain"
-            color="primary"
-            title="Upload images"
-            onClick={(e) => {
-              e.stopPropagation();
-              onUploadImages(node.id);
-            }}
-          >
-            <Upload fontSize="small" />
-          </IconButton>
-        </Stack>
-      </Box>
-      {expanded &&
-        hasChildren &&
-        node.children.map((child) => (
-          <FolderTreeItem
-            key={child.id}
-            node={child}
-            depth={depth + 1}
-            selectedFolderId={selectedFolderId}
-            onSelectFolder={onSelectFolder}
-            onAddSubfolder={onAddSubfolder}
-            onUploadImages={onUploadImages}
-          />
-        ))}
-    </Box>
-  );
-};
+import EntryList from "./EntryList";
+import AddEntryModal from "./AddEntryModal";
 
 const AnimeDetailPage: FC = () => {
   const { animeId } = useParams<{ animeId: string }>();
@@ -162,11 +48,6 @@ const AnimeDetailPage: FC = () => {
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
-  const [subfolderOpen, setSubfolderOpen] = useState(false);
-  const [subfolderParentId, setSubfolderParentId] = useState<number>(0);
-  const [subfolderParentName, setSubfolderParentName] = useState<string>("");
-  const [subfolderName, setSubfolderName] = useState("");
-  const [subfolderError, setSubfolderError] = useState<string | null>(null);
 
   // Generic tag management state (shared by characters and uncategorized tags)
   const [addTagOpen, setAddTagOpen] = useState(false);
@@ -177,12 +58,40 @@ const AnimeDetailPage: FC = () => {
   const [renameTagId, setRenameTagId] = useState<number>(0);
   const [renameTagValue, setRenameTagValue] = useState("");
   const [renameTagError, setRenameTagError] = useState<string | null>(null);
-  const [renameTagCategory, setRenameTagCategory] = useState<"character" | "">("");
+  const [renameTagCategory, setRenameTagCategory] = useState<"character" | "">(
+    ""
+  );
   const [deleteTagOpen, setDeleteTagOpen] = useState(false);
   const [deleteTagId, setDeleteTagId] = useState<number>(0);
   const [deleteTagName, setDeleteTagName] = useState("");
   const [deleteTagImageCount, setDeleteTagImageCount] = useState<number>(0);
-  const [deleteTagCategory, setDeleteTagCategory] = useState<"character" | "">("");
+  const [deleteTagCategory, setDeleteTagCategory] = useState<"character" | "">(
+    ""
+  );
+
+  // Entry state
+  const [entries, setEntries] = useState<AnimeEntryInfo[]>([]);
+  const [totalImageCount, setTotalImageCount] = useState(0);
+  const [selectedEntryId, setSelectedEntryId] = useState<number | null>(null);
+  const [addEntryOpen, setAddEntryOpen] = useState(false);
+  const [nextSeasonNumber, setNextSeasonNumber] = useState(1);
+
+  // Sub-entry modal state
+  const [subEntryOpen, setSubEntryOpen] = useState(false);
+  const [subEntryParentId, setSubEntryParentId] = useState<number>(0);
+  const [subEntryName, setSubEntryName] = useState("");
+  const [subEntryError, setSubEntryError] = useState<string | null>(null);
+
+  // Rename entry modal state
+  const [renameEntryOpen, setRenameEntryOpen] = useState(false);
+  const [renameEntryId, setRenameEntryId] = useState(0);
+  const [renameEntryName, setRenameEntryName] = useState("");
+  const [renameEntryError, setRenameEntryError] = useState<string | null>(null);
+
+  // Delete entry modal state
+  const [deleteEntryOpen, setDeleteEntryOpen] = useState(false);
+  const [deleteEntryId, setDeleteEntryId] = useState(0);
+  const [deleteEntryName, setDeleteEntryName] = useState("");
 
   // Folder image panel state
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
@@ -213,8 +122,30 @@ const AnimeDetailPage: FC = () => {
     }
   };
 
+  const loadEntries = async () => {
+    if (!Number.isFinite(id) || id <= 0) return;
+    try {
+      const entryList = await AnimeService.GetAnimeEntries(id);
+      setEntries(entryList);
+      // Compute total image count from entries
+      const total = entryList.reduce((sum, e) => {
+        const childSum = e.children
+          ? e.children.reduce((cs, c) => cs + c.imageCount, 0)
+          : 0;
+        return sum + e.imageCount + childSum;
+      }, 0);
+      setTotalImageCount(total);
+
+      const nextNum = await AnimeService.GetNextEntryNumber(id, "season");
+      setNextSeasonNumber(nextNum);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
   useEffect(() => {
     load();
+    loadEntries();
   }, [animeId]);
 
   // Auto-load all anime images when details are available
@@ -241,7 +172,11 @@ const AnimeDetailPage: FC = () => {
   };
 
   const handleDelete = async () => {
-    if (!confirm("Delete this anime? The folder and all its contents will also be removed.")) {
+    if (
+      !confirm(
+        "Delete this anime? The folder and all its contents will also be removed."
+      )
+    ) {
       return;
     }
     try {
@@ -252,35 +187,15 @@ const AnimeDetailPage: FC = () => {
     }
   };
 
-  const handleAddSubfolder = (parentId: number, parentName: string) => {
-    setSubfolderParentId(parentId);
-    setSubfolderParentName(parentName);
-    setSubfolderName("");
-    setSubfolderError(null);
-    setSubfolderOpen(true);
-  };
-
-  const handleCreateSubfolder = async () => {
-    const name = subfolderName.trim();
-    if (name === "") {
-      setSubfolderError("Name is required");
-      return;
-    }
-    try {
-      await DirectoryService.CreateDirectory(name, subfolderParentId);
-      setSubfolderOpen(false);
-      await load();
-    } catch (err: unknown) {
-      setSubfolderError(err instanceof Error ? err.message : String(err));
-    }
-  };
-
   const handleUploadImages = async (folderId: number) => {
     try {
       await BatchImportImageService.ImportImages(folderId);
       await load();
+      await loadEntries();
       // Refresh folder images if the uploaded folder is currently selected
       if (selectedFolderId === folderId) {
+        loadFolderImages(folderId);
+      } else if (selectedEntryId === folderId) {
         loadFolderImages(folderId);
       }
     } catch (err: unknown) {
@@ -325,7 +240,11 @@ const AnimeDetailPage: FC = () => {
     }
   };
 
-  const handleDeleteTag = async (tagId: number, tagName: string, category: "character" | "") => {
+  const handleDeleteTag = async (
+    tagId: number,
+    tagName: string,
+    category: "character" | ""
+  ) => {
     try {
       const count = await TagFrontendService.GetTagFileCount(tagId);
       if (count > 0) {
@@ -382,16 +301,92 @@ const AnimeDetailPage: FC = () => {
     await loadFolderImages(rootFolderId);
   };
 
-  const handleSelectFolder = (folderId: number) => {
-    if (selectedFolderId === folderId) {
-      // Deselect folder — load all anime images
+  // Entry selection handler
+  const handleSelectEntry = (entryId: number | null) => {
+    if (entryId === null || entryId === selectedEntryId) {
+      // Deselect entry - load all anime images
+      setSelectedEntryId(null);
       setSelectedFolderId(null);
+      setSelectedTagIds(new Set());
       loadAllAnimeImages();
       return;
     }
-    setSelectedFolderId(folderId);
+    setSelectedEntryId(entryId);
+    // Entries are folders, so selecting an entry is like selecting a folder
+    setSelectedFolderId(entryId);
     setSelectedTagIds(new Set());
-    loadFolderImages(folderId);
+    loadFolderImages(entryId);
+  };
+
+  // Add entry handler
+  const handleAddEntry = async (
+    entryType: string,
+    entryNumber: number | null,
+    displayName: string
+  ) => {
+    await AnimeService.CreateAnimeEntry(id, entryType, entryNumber, displayName);
+    await load();
+    await loadEntries();
+  };
+
+  // Add sub-entry handler
+  const handleAddSubEntry = (parentId: number) => {
+    setSubEntryParentId(parentId);
+    setSubEntryName("");
+    setSubEntryError(null);
+    setSubEntryOpen(true);
+  };
+
+  const handleCreateSubEntry = async () => {
+    const name = subEntryName.trim();
+    if (name === "") {
+      setSubEntryError("Name is required");
+      return;
+    }
+    try {
+      await AnimeService.CreateSubEntry(subEntryParentId, name);
+      setSubEntryOpen(false);
+      await load();
+      await loadEntries();
+    } catch (err: unknown) {
+      setSubEntryError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  // Rename entry handler
+  const handleRenameEntry = async () => {
+    const name = renameEntryName.trim();
+    if (name === "") {
+      setRenameEntryError("Name is required");
+      return;
+    }
+    try {
+      await AnimeService.RenameEntry(renameEntryId, name);
+      setRenameEntryOpen(false);
+      setRenameEntryError(null);
+      await load();
+      await loadEntries();
+    } catch (err: unknown) {
+      setRenameEntryError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  // Delete entry handler
+  const handleDeleteEntry = async () => {
+    try {
+      await AnimeService.DeleteEntry(deleteEntryId);
+      setDeleteEntryOpen(false);
+      // If the deleted entry was selected, clear selection
+      if (selectedEntryId === deleteEntryId) {
+        setSelectedEntryId(null);
+        setSelectedFolderId(null);
+        loadAllAnimeImages();
+      }
+      await load();
+      await loadEntries();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   const handleToggleTag = (tagId: number) => {
@@ -453,7 +448,7 @@ const AnimeDetailPage: FC = () => {
 
   const modals = (
     <>
-      {/* Rename modal */}
+      {/* Rename anime modal */}
       <Modal open={renameOpen} onClose={() => setRenameOpen(false)}>
         <ModalDialog sx={{ minWidth: 360 }}>
           <ModalClose />
@@ -491,43 +486,121 @@ const AnimeDetailPage: FC = () => {
         </ModalDialog>
       </Modal>
 
-      {/* Add subfolder modal */}
-      <Modal open={subfolderOpen} onClose={() => setSubfolderOpen(false)}>
+      {/* Add sub-entry modal */}
+      <Modal open={subEntryOpen} onClose={() => setSubEntryOpen(false)}>
         <ModalDialog sx={{ minWidth: 360 }}>
           <ModalClose />
-          <Typography level="title-md">
-            Add subfolder under &quot;{subfolderParentName}&quot;
-          </Typography>
+          <Typography level="title-md">Add sub-entry</Typography>
           <Stack spacing={2} sx={{ mt: 2 }}>
             <Input
               autoFocus
-              placeholder="Folder name"
-              value={subfolderName}
+              placeholder="Name"
+              value={subEntryName}
               onChange={(e) => {
-                setSubfolderName(e.target.value);
-                setSubfolderError(null);
+                setSubEntryName(e.target.value);
+                setSubEntryError(null);
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  handleCreateSubfolder();
+                  handleCreateSubEntry();
                 }
               }}
             />
-            {subfolderError && (
+            {subEntryError && (
               <Typography level="body-sm" color="danger">
-                {subfolderError}
+                {subEntryError}
               </Typography>
             )}
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               <Button
                 variant="plain"
                 color="neutral"
-                onClick={() => setSubfolderOpen(false)}
+                onClick={() => setSubEntryOpen(false)}
               >
                 Cancel
               </Button>
-              <Button onClick={handleCreateSubfolder}>Create</Button>
+              <Button onClick={handleCreateSubEntry}>Create</Button>
             </Stack>
+          </Stack>
+        </ModalDialog>
+      </Modal>
+
+      {/* Add entry modal */}
+      <AddEntryModal
+        open={addEntryOpen}
+        onClose={() => setAddEntryOpen(false)}
+        onSubmit={handleAddEntry}
+        nextSeasonNumber={nextSeasonNumber}
+      />
+
+      {/* Rename entry modal */}
+      <Modal
+        open={renameEntryOpen}
+        onClose={() => setRenameEntryOpen(false)}
+      >
+        <ModalDialog sx={{ minWidth: 360 }}>
+          <ModalClose />
+          <Typography level="title-md">Rename entry</Typography>
+          <Stack spacing={2} sx={{ mt: 2 }}>
+            <Input
+              autoFocus
+              value={renameEntryName}
+              onChange={(e) => {
+                setRenameEntryName(e.target.value);
+                setRenameEntryError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleRenameEntry();
+                }
+              }}
+            />
+            {renameEntryError && (
+              <Typography level="body-sm" color="danger">
+                {renameEntryError}
+              </Typography>
+            )}
+            <Stack direction="row" spacing={1} justifyContent="flex-end">
+              <Button
+                variant="plain"
+                color="neutral"
+                onClick={() => setRenameEntryOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleRenameEntry}>Save</Button>
+            </Stack>
+          </Stack>
+        </ModalDialog>
+      </Modal>
+
+      {/* Delete entry confirmation modal */}
+      <Modal
+        open={deleteEntryOpen}
+        onClose={() => setDeleteEntryOpen(false)}
+      >
+        <ModalDialog sx={{ minWidth: 360 }}>
+          <ModalClose />
+          <Typography level="title-md">Delete entry</Typography>
+          <Typography level="body-md" sx={{ mt: 2 }}>
+            Delete &quot;{deleteEntryName}&quot; and all its images?
+          </Typography>
+          <Stack
+            direction="row"
+            spacing={1}
+            justifyContent="flex-end"
+            sx={{ mt: 2 }}
+          >
+            <Button
+              variant="plain"
+              color="neutral"
+              onClick={() => setDeleteEntryOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button color="danger" onClick={handleDeleteEntry}>
+              Delete
+            </Button>
           </Stack>
         </ModalDialog>
       </Modal>
@@ -652,6 +725,49 @@ const AnimeDetailPage: FC = () => {
   const sidebarContent = details != null && (
     <Box sx={{ p: 2, overflowY: "auto", height: "100%" }}>
       <Stack spacing={3}>
+        {/* Entries */}
+        <Box>
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={1}
+            sx={{ mb: 1 }}
+          >
+            <Typography level="title-md" sx={{ flex: 1 }}>
+              Entries
+            </Typography>
+            <IconButton
+              size="sm"
+              variant="outlined"
+              color="primary"
+              title="Add entry"
+              onClick={() => setAddEntryOpen(true)}
+            >
+              <Add fontSize="small" />
+            </IconButton>
+          </Stack>
+          <EntryList
+            entries={entries}
+            totalImageCount={totalImageCount}
+            selectedEntryId={selectedEntryId}
+            onSelectEntry={handleSelectEntry}
+            onAddEntry={() => setAddEntryOpen(true)}
+            onAddSubEntry={handleAddSubEntry}
+            onUploadImages={handleUploadImages}
+            onRenameEntry={(entryId, name) => {
+              setRenameEntryId(entryId);
+              setRenameEntryName(name);
+              setRenameEntryError(null);
+              setRenameEntryOpen(true);
+            }}
+            onDeleteEntry={(entryId, name) => {
+              setDeleteEntryId(entryId);
+              setDeleteEntryName(name);
+              setDeleteEntryOpen(true);
+            }}
+          />
+        </Box>
+
         {/* Characters (tags where category === "character") */}
         {(() => {
           const characterTags = details.tags.filter(
@@ -899,36 +1015,6 @@ const AnimeDetailPage: FC = () => {
           >
             Click tags to filter images. Multiple tags use AND logic.
           </Typography>
-        </Box>
-
-        {/* Folder tree */}
-        <Box>
-          <Typography level="title-md" sx={{ mb: 1 }}>
-            Seasons / Groups
-          </Typography>
-          {details.folderTree != null ? (
-            <Box
-              sx={{
-                border: "1px solid",
-                borderColor: "divider",
-                borderRadius: "sm",
-                p: 1,
-              }}
-            >
-              <FolderTreeItem
-                node={details.folderTree}
-                depth={0}
-                selectedFolderId={selectedFolderId}
-                onSelectFolder={handleSelectFolder}
-                onAddSubfolder={handleAddSubfolder}
-                onUploadImages={handleUploadImages}
-              />
-            </Box>
-          ) : (
-            <Typography level="body-sm" sx={{ color: "text.secondary" }}>
-              No folder tree. This anime has no root folder.
-            </Typography>
-          )}
         </Box>
       </Stack>
     </Box>
