@@ -140,22 +140,76 @@ func (s *Service) Rename(ctx context.Context, id uint, name string) (Anime, erro
 	return Anime{ID: updated.ID, Name: updated.Name}, err
 }
 
-// Delete removes an anime and clears anime_id on associated folders. Tags and
-// folders themselves are not deleted (no cascade).
+// Delete removes an anime, deletes its root folder from disk and from the DB
+// (including all descendants and their file_tag rows), and then deletes the
+// anime row itself.
 func (s *Service) Delete(ctx context.Context, id uint) error {
+	// verify exists for a clean error
+	anime, err := s.dbClient.Anime().FindByValue(ctx, &db.Anime{ID: id})
+	if errors.Is(err, db.ErrRecordNotFound) {
+		return fmt.Errorf("%w: id %d", ErrAnimeNotFound, id)
+	}
+	if err != nil {
+		return err
+	}
+
+	// Find the anime's root folder(s)
+	dirs, err := s.dbClient.File().FindDirectoriesByAnimeID(id)
+	if err != nil {
+		return fmt.Errorf("File.FindDirectoriesByAnimeID: %w", err)
+	}
+
+	// Collect all file IDs (the root folder + all descendants) so we can
+	// clean up file_tag rows and file rows in the DB.
+	var allFileIDs []uint
+	var diskPath string
+	if len(dirs) > 0 {
+		rootDir := dirs[0]
+		diskPath = filepath.Join(s.config.ImageRootDirectory, anime.Name)
+		allFileIDs = append(allFileIDs, rootDir.ID)
+
+		// BFS to find all descendant files
+		queue := []uint{rootDir.ID}
+		for len(queue) > 0 {
+			children, err := s.dbClient.File().FindFilesByParentIDs(queue)
+			if err != nil {
+				return fmt.Errorf("File.FindFilesByParentIDs: %w", err)
+			}
+			queue = queue[:0]
+			for _, child := range children {
+				allFileIDs = append(allFileIDs, child.ID)
+				if child.Type == db.FileTypeDirectory {
+					queue = append(queue, child.ID)
+				}
+			}
+		}
+	}
+
 	return db.NewTransaction(ctx, s.dbClient, func(ctx context.Context) error {
-		// verify exists for a clean error
-		_, err := s.dbClient.Anime().FindByValue(ctx, &db.Anime{ID: id})
-		if errors.Is(err, db.ErrRecordNotFound) {
-			return fmt.Errorf("%w: id %d", ErrAnimeNotFound, id)
+		// Delete file_tag rows for all files in the tree
+		if len(allFileIDs) > 0 {
+			if err := s.dbClient.FileTag().DeleteByFileIDs(ctx, allFileIDs); err != nil {
+				return fmt.Errorf("FileTag.DeleteByFileIDs: %w", err)
+			}
+			// Delete all file rows
+			if err := s.dbClient.File().DeleteByIDs(ctx, allFileIDs); err != nil {
+				return fmt.Errorf("File.DeleteByIDs: %w", err)
+			}
 		}
-		if err != nil {
+
+		// Delete the anime row
+		if err := s.dbClient.Anime().BatchDelete(ctx, []db.Anime{{ID: id}}); err != nil {
 			return err
 		}
-		if err := s.dbClient.File().ClearAnimeIDByAnimeID(ctx, id); err != nil {
-			return err
+
+		// Remove the folder from disk. Ignore errors if it's already gone.
+		if diskPath != "" {
+			if err := os.RemoveAll(diskPath); err != nil && !os.IsNotExist(err) {
+				return fmt.Errorf("os.RemoveAll: %w", err)
+			}
 		}
-		return s.dbClient.Anime().BatchDelete(ctx, []db.Anime{{ID: id}})
+
+		return nil
 	})
 }
 

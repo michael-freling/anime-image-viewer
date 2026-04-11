@@ -122,6 +122,30 @@ func (client *FileClient) ClearAnimeIDByAnimeID(ctx context.Context, animeID uin
 		Error
 }
 
+// FindFilesByParentIDs returns all files whose parent_id is in the given list.
+func (client *FileClient) FindFilesByParentIDs(parentIDs []uint) ([]File, error) {
+	if len(parentIDs) == 0 {
+		return nil, nil
+	}
+	var files []File
+	err := client.connection.
+		Where("parent_id IN ?", parentIDs).
+		Find(&files).
+		Error
+	return files, err
+}
+
+// DeleteByIDs deletes all file rows whose id is in the given list.
+func (client *FileClient) DeleteByIDs(ctx context.Context, ids []uint) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return client.getTransaction(ctx).
+		Where("id IN ?", ids).
+		Delete(&File{}).
+		Error
+}
+
 // SetAnimeID writes a new (possibly nil) anime_id value for a directory by id.
 func (client *FileClient) SetAnimeID(ctx context.Context, fileID uint, animeID *uint) error {
 	return client.getTransaction(ctx).

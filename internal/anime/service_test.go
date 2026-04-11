@@ -156,25 +156,73 @@ func TestService_Delete(t *testing.T) {
 	svc := te.service()
 	ctx := context.Background()
 
-	t.Run("deletes anime and clears folder anime_id", func(t *testing.T) {
+	t.Run("deletes anime, folder tree from DB, and folder from disk", func(t *testing.T) {
 		a, err := svc.Create(ctx, "DelMe")
 		require.NoError(t, err)
 
-		// folder
-		animeID := a.ID
-		dir := db.File{ID: 4101, Name: "dir", Type: db.FileTypeDirectory, AnimeID: &animeID}
-		require.NoError(t, db.Create(te.dbClient.Client, &dir))
+		// The root folder was auto-created by Create
+		rootFolder, err := svc.FindAnimeRootFolder(a.ID)
+		require.NoError(t, err)
+		require.NotNil(t, rootFolder)
+
+		// Create a subfolder and image under the root folder
+		subDir := db.File{ParentID: rootFolder.ID, Name: "sub", Type: db.FileTypeDirectory}
+		require.NoError(t, te.dbClient.File().Create(ctx, &subDir))
+		require.NoError(t, os.MkdirAll(filepath.Join(te.config.ImageRootDirectory, "DelMe", "sub"), 0755))
+
+		imgFile := db.File{ParentID: subDir.ID, Name: "img.jpg", Type: db.FileTypeImage}
+		require.NoError(t, te.dbClient.File().Create(ctx, &imgFile))
+
+		// Add a file_tag to the image
+		ft := db.FileTag{TagID: 1, FileID: imgFile.ID, AddedBy: db.FileTagAddedByUser}
+		require.NoError(t, db.Create(te.dbClient.Client, &ft))
+
+		// Verify disk folder exists before delete
+		diskPath := filepath.Join(te.config.ImageRootDirectory, "DelMe")
+		_, err = os.Stat(diskPath)
+		require.NoError(t, err)
 
 		// delete
 		require.NoError(t, svc.Delete(ctx, a.ID))
 
+		// anime is gone
 		_, err = svc.Read(ctx, a.ID)
 		assert.ErrorIs(t, err, ErrAnimeNotFound)
 
-		// folder anime_id cleared
-		dirAfter, err := db.FindByValue(te.dbClient.Client, db.File{ID: 4101})
+		// root folder is gone from DB
+		_, err = db.FindByValue(te.dbClient.Client, db.File{ID: rootFolder.ID})
+		assert.ErrorIs(t, err, db.ErrRecordNotFound)
+
+		// subfolder is gone from DB
+		_, err = db.FindByValue(te.dbClient.Client, db.File{ID: subDir.ID})
+		assert.ErrorIs(t, err, db.ErrRecordNotFound)
+
+		// image file is gone from DB
+		_, err = db.FindByValue(te.dbClient.Client, db.File{ID: imgFile.ID})
+		assert.ErrorIs(t, err, db.ErrRecordNotFound)
+
+		// file_tag is gone
+		fileTags, err := te.dbClient.FileTag().FindAllByFileID([]uint{imgFile.ID})
 		require.NoError(t, err)
-		assert.Nil(t, dirAfter.AnimeID)
+		assert.Empty(t, fileTags)
+
+		// disk folder is gone
+		_, err = os.Stat(diskPath)
+		assert.True(t, os.IsNotExist(err))
+	})
+
+	t.Run("succeeds even if disk folder is already gone", func(t *testing.T) {
+		a, err := svc.Create(ctx, "GhostFolder")
+		require.NoError(t, err)
+
+		// Remove the disk folder manually before calling Delete
+		diskPath := filepath.Join(te.config.ImageRootDirectory, "GhostFolder")
+		require.NoError(t, os.RemoveAll(diskPath))
+
+		require.NoError(t, svc.Delete(ctx, a.ID))
+
+		_, err = svc.Read(ctx, a.ID)
+		assert.ErrorIs(t, err, ErrAnimeNotFound)
 	})
 
 	t.Run("returns not found for missing id", func(t *testing.T) {

@@ -153,3 +153,13 @@ func (client *FileTagClient) DeleteByTagIDs(ctx context.Context, tagIDs []uint) 
 		Where("tag_id IN ?", tagIDs).
 		Delete(&FileTag{}).Error
 }
+
+// DeleteByFileIDs removes all file_tag rows whose file_id is in the given list.
+func (client *FileTagClient) DeleteByFileIDs(ctx context.Context, fileIDs []uint) error {
+	if len(fileIDs) == 0 {
+		return nil
+	}
+	return client.getTransaction(ctx).
+		Where("file_id IN ?", fileIDs).
+		Delete(&FileTag{}).Error
+}
