@@ -12,7 +12,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   IconButton,
   Input,
   Modal,
@@ -22,7 +21,7 @@ import {
   Typography,
 } from "@mui/joy";
 import { FC, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import {
   AnimeDetailsResponse,
   AnimeFolderTreeNode,
@@ -31,6 +30,7 @@ import {
   DirectoryService,
   Image,
 } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
+import ImageListMain from "../../components/Images/ImageList";
 import Layout from "../../Layout";
 
 interface FolderTreeProps {
@@ -162,7 +162,7 @@ const AnimeDetailPage: FC = () => {
   // Folder image panel state
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
   const [folderImages, setFolderImages] = useState<Image[]>([]);
-  const [folderImagesLoading, setFolderImagesLoading] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const id = animeId != null ? Number(animeId) : NaN;
 
@@ -205,7 +205,7 @@ const AnimeDetailPage: FC = () => {
   };
 
   const handleDelete = async () => {
-    if (!confirm("Delete this anime? Folders and tags will NOT be deleted.")) {
+    if (!confirm("Delete this anime? The folder and all its contents will also be removed.")) {
       return;
     }
     try {
@@ -253,15 +253,12 @@ const AnimeDetailPage: FC = () => {
   };
 
   const loadFolderImages = async (folderId: number) => {
-    setFolderImagesLoading(true);
     try {
       const resp = await AnimeService.GetFolderImages(folderId, false);
       setFolderImages(resp.images ?? []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
       setFolderImages([]);
-    } finally {
-      setFolderImagesLoading(false);
     }
   };
 
@@ -276,208 +273,42 @@ const AnimeDetailPage: FC = () => {
     loadFolderImages(folderId);
   };
 
-  return (
-    <Layout.Main
-      actionHeader={
+  const actionHeader = (
+    <>
+      <IconButton onClick={() => navigate("/anime")}>
+        <ArrowBack />
+      </IconButton>
+      <Typography level="title-lg" sx={{ flex: 1 }}>
+        {details?.anime.name ?? "Anime"}
+      </Typography>
+      {details != null && (
         <>
-          <IconButton onClick={() => navigate("/anime")}>
-            <ArrowBack />
-          </IconButton>
-          <Typography level="title-lg" sx={{ flex: 1 }}>
-            {details?.anime.name ?? "Anime"}
-          </Typography>
-          {details != null && (
-            <>
-              <Button
-                variant="outlined"
-                startDecorator={<Edit />}
-                onClick={() => {
-                  setRenameValue(details.anime.name);
-                  setRenameError(null);
-                  setRenameOpen(true);
-                }}
-              >
-                Rename
-              </Button>
-              <Button
-                variant="outlined"
-                color="danger"
-                startDecorator={<Delete />}
-                onClick={handleDelete}
-              >
-                Delete
-              </Button>
-            </>
-          )}
+          <Button
+            variant="outlined"
+            startDecorator={<Edit />}
+            onClick={() => {
+              setRenameValue(details.anime.name);
+              setRenameError(null);
+              setRenameOpen(true);
+            }}
+          >
+            Rename
+          </Button>
+          <Button
+            variant="outlined"
+            color="danger"
+            startDecorator={<Delete />}
+            onClick={handleDelete}
+          >
+            Delete
+          </Button>
         </>
-      }
-    >
-      <Box sx={{ p: 2 }}>
-        {loading && <Typography>Loading...</Typography>}
-        {error && (
-          <Typography color="danger" level="body-md">
-            {error}
-          </Typography>
-        )}
-        {details != null && (
-          <Stack spacing={3}>
-            <Box>
-              <Button
-                variant="soft"
-                onClick={() =>
-                  navigate(`/search?animeId=${encodeURIComponent(id)}`)
-                }
-              >
-                View all images for this anime
-              </Button>
-            </Box>
+      )}
+    </>
+  );
 
-            {/* Tags (derived, read-only) */}
-            <Box>
-              <Typography level="title-md" sx={{ mb: 1 }}>
-                Tags
-              </Typography>
-              {details.tags.length === 0 ? (
-                <Typography level="body-sm" sx={{ color: "text.secondary" }}>
-                  No tags found. Tags are derived from images in the folder
-                  tree.
-                </Typography>
-              ) : (
-                <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                  {details.tags.map((tag) => (
-                    <Chip
-                      key={tag.id}
-                      variant="soft"
-                      color="neutral"
-                      endDecorator={
-                        <Typography level="body-xs" sx={{ ml: 0.5 }}>
-                          {tag.imageCount}
-                        </Typography>
-                      }
-                    >
-                      {tag.name}
-                    </Chip>
-                  ))}
-                </Stack>
-              )}
-              <Typography
-                level="body-xs"
-                sx={{ color: "text.tertiary", mt: 1 }}
-              >
-                Tags are automatically derived from images in the folder tree.
-              </Typography>
-            </Box>
-
-            {/* Folder tree */}
-            <Box>
-              <Typography level="title-md" sx={{ mb: 1 }}>
-                Seasons / Groups
-              </Typography>
-              {details.folderTree != null ? (
-                <Box
-                  sx={{
-                    display: "flex",
-                    gap: 2,
-                    flexDirection: { xs: "column", md: "row" },
-                  }}
-                >
-                  {/* Tree panel */}
-                  <Box
-                    sx={{
-                      border: "1px solid",
-                      borderColor: "divider",
-                      borderRadius: "sm",
-                      p: 1,
-                      minWidth: 300,
-                      maxWidth: 480,
-                      flex: "0 0 auto",
-                    }}
-                  >
-                    <FolderTreeItem
-                      node={details.folderTree}
-                      depth={0}
-                      selectedFolderId={selectedFolderId}
-                      onSelectFolder={handleSelectFolder}
-                      onAddSubfolder={handleAddSubfolder}
-                      onUploadImages={handleUploadImages}
-                    />
-                  </Box>
-
-                  {/* Image panel */}
-                  {selectedFolderId != null && (
-                    <Box
-                      sx={{
-                        flex: 1,
-                        border: "1px solid",
-                        borderColor: "divider",
-                        borderRadius: "sm",
-                        p: 2,
-                        minHeight: 200,
-                      }}
-                    >
-                      {folderImagesLoading ? (
-                        <Box
-                          sx={{
-                            display: "flex",
-                            justifyContent: "center",
-                            py: 4,
-                          }}
-                        >
-                          <CircularProgress />
-                        </Box>
-                      ) : folderImages.length === 0 ? (
-                        <Typography
-                          level="body-sm"
-                          sx={{ color: "text.secondary" }}
-                        >
-                          No images in this folder.
-                        </Typography>
-                      ) : (
-                        <Box
-                          sx={{
-                            display: "grid",
-                            gridTemplateColumns:
-                              "repeat(auto-fill, minmax(120px, 1fr))",
-                            gap: 1,
-                          }}
-                        >
-                          {folderImages.map((img) => (
-                            <Box
-                              key={img.id}
-                              sx={{
-                                aspectRatio: "1",
-                                borderRadius: "sm",
-                                overflow: "hidden",
-                                border: "1px solid",
-                                borderColor: "divider",
-                              }}
-                            >
-                              <img
-                                src={`/images/${img.path}`}
-                                alt={img.name}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
-                                }}
-                              />
-                            </Box>
-                          ))}
-                        </Box>
-                      )}
-                    </Box>
-                  )}
-                </Box>
-              ) : (
-                <Typography level="body-sm" sx={{ color: "text.secondary" }}>
-                  No folder tree. This anime has no root folder.
-                </Typography>
-              )}
-            </Box>
-          </Stack>
-        )}
-      </Box>
-
+  const modals = (
+    <>
       {/* Rename modal */}
       <Modal open={renameOpen} onClose={() => setRenameOpen(false)}>
         <ModalDialog sx={{ minWidth: 360 }}>
@@ -556,6 +387,138 @@ const AnimeDetailPage: FC = () => {
           </Stack>
         </ModalDialog>
       </Modal>
+    </>
+  );
+
+  const sidebarContent = details != null && (
+    <Box sx={{ p: 2, overflowY: "auto", height: "100%" }}>
+      <Stack spacing={3}>
+        <Box>
+          <Button
+            variant="soft"
+            onClick={() =>
+              navigate(`/search?animeId=${encodeURIComponent(id)}`)
+            }
+          >
+            View all images for this anime
+          </Button>
+        </Box>
+
+        {/* Tags (derived, read-only) */}
+        <Box>
+          <Typography level="title-md" sx={{ mb: 1 }}>
+            Tags
+          </Typography>
+          {details.tags.length === 0 ? (
+            <Typography level="body-sm" sx={{ color: "text.secondary" }}>
+              No tags found. Tags are derived from images in the folder tree.
+            </Typography>
+          ) : (
+            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+              {details.tags.map((tag) => (
+                <Chip
+                  key={tag.id}
+                  variant="soft"
+                  color="neutral"
+                  endDecorator={
+                    <Typography level="body-xs" sx={{ ml: 0.5 }}>
+                      {tag.imageCount}
+                    </Typography>
+                  }
+                >
+                  {tag.name}
+                </Chip>
+              ))}
+            </Stack>
+          )}
+          <Typography
+            level="body-xs"
+            sx={{ color: "text.tertiary", mt: 1 }}
+          >
+            Tags are automatically derived from images in the folder tree.
+          </Typography>
+        </Box>
+
+        {/* Folder tree */}
+        <Box>
+          <Typography level="title-md" sx={{ mb: 1 }}>
+            Seasons / Groups
+          </Typography>
+          {details.folderTree != null ? (
+            <Box
+              sx={{
+                border: "1px solid",
+                borderColor: "divider",
+                borderRadius: "sm",
+                p: 1,
+              }}
+            >
+              <FolderTreeItem
+                node={details.folderTree}
+                depth={0}
+                selectedFolderId={selectedFolderId}
+                onSelectFolder={handleSelectFolder}
+                onAddSubfolder={handleAddSubfolder}
+                onUploadImages={handleUploadImages}
+              />
+            </Box>
+          ) : (
+            <Typography level="body-sm" sx={{ color: "text.secondary" }}>
+              No folder tree. This anime has no root folder.
+            </Typography>
+          )}
+        </Box>
+      </Stack>
+    </Box>
+  );
+
+  // When a folder is selected, show a two-panel layout with the sidebar and
+  // ImageListMain for the image grid. Otherwise show a single-panel detail view.
+  if (selectedFolderId != null) {
+    return (
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "1fr",
+            sm: "minmax(450px, 1fr)",
+            md: "minmax(240px, 320px) minmax(500px, 1fr)",
+          },
+          gridTemplateRows: "1fr",
+        }}
+      >
+        <Layout.SideNav
+          sx={{
+            borderRight: "1px solid",
+            borderColor: "divider",
+            height: "95vh",
+            overflowY: "auto",
+          }}
+        >
+          {sidebarContent}
+        </Layout.SideNav>
+        <ImageListMain
+          loadedImages={folderImages}
+          searchParams={searchParams}
+          setSearchParams={setSearchParams}
+        />
+        {modals}
+      </Box>
+    );
+  }
+
+  return (
+    <Layout.Main actionHeader={actionHeader}>
+      <Box sx={{ p: 2 }}>
+        {loading && <Typography>Loading...</Typography>}
+        {error && (
+          <Typography color="danger" level="body-md">
+            {error}
+          </Typography>
+        )}
+        {sidebarContent}
+      </Box>
+      {modals}
     </Layout.Main>
   );
 };
