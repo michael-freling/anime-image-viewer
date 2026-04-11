@@ -6,6 +6,7 @@ import {
   Edit,
   ExpandMore,
   Folder,
+  MoreVert,
   Person,
   Upload,
 } from "@mui/icons-material";
@@ -13,8 +14,13 @@ import {
   Box,
   Button,
   Chip,
+  Dropdown,
   IconButton,
   Input,
+  ListItemDecorator,
+  Menu,
+  MenuButton,
+  MenuItem,
   Modal,
   ModalClose,
   ModalDialog,
@@ -31,6 +37,7 @@ import {
   DirectoryService,
   Image,
 } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
+import { TagFrontendService } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
 import ImageListMain from "../../components/Images/ImageList";
 import Layout from "../../Layout";
 
@@ -160,6 +167,19 @@ const AnimeDetailPage: FC = () => {
   const [subfolderName, setSubfolderName] = useState("");
   const [subfolderError, setSubfolderError] = useState<string | null>(null);
 
+  // Character management state
+  const [addCharOpen, setAddCharOpen] = useState(false);
+  const [addCharName, setAddCharName] = useState("");
+  const [addCharError, setAddCharError] = useState<string | null>(null);
+  const [renameCharOpen, setRenameCharOpen] = useState(false);
+  const [renameCharId, setRenameCharId] = useState<number>(0);
+  const [renameCharValue, setRenameCharValue] = useState("");
+  const [renameCharError, setRenameCharError] = useState<string | null>(null);
+  const [deleteCharOpen, setDeleteCharOpen] = useState(false);
+  const [deleteCharId, setDeleteCharId] = useState<number>(0);
+  const [deleteCharName, setDeleteCharName] = useState("");
+  const [deleteCharImageCount, setDeleteCharImageCount] = useState<number>(0);
+
   // Folder image panel state
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
   const [folderImages, setFolderImages] = useState<Image[]>([]);
@@ -252,6 +272,67 @@ const AnimeDetailPage: FC = () => {
       if (selectedFolderId === folderId) {
         loadFolderImages(folderId);
       }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleAddCharacter = async () => {
+    const name = addCharName.trim();
+    if (name === "") {
+      setAddCharError("Name is required");
+      return;
+    }
+    try {
+      const tag = await TagFrontendService.CreateTopTag(name);
+      await TagFrontendService.UpdateCategory(tag.id, "character");
+      setAddCharOpen(false);
+      setAddCharName("");
+      setAddCharError(null);
+      await load();
+    } catch (err: unknown) {
+      setAddCharError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleRenameCharacter = async () => {
+    const name = renameCharValue.trim();
+    if (name === "") {
+      setRenameCharError("Name is required");
+      return;
+    }
+    try {
+      await TagFrontendService.UpdateName(renameCharId, name);
+      setRenameCharOpen(false);
+      setRenameCharError(null);
+      await load();
+    } catch (err: unknown) {
+      setRenameCharError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleDeleteCharacter = async (tagId: number, tagName: string) => {
+    try {
+      const count = await TagFrontendService.GetTagFileCount(tagId);
+      if (count > 0) {
+        setDeleteCharId(tagId);
+        setDeleteCharName(tagName);
+        setDeleteCharImageCount(count);
+        setDeleteCharOpen(true);
+      } else {
+        await TagFrontendService.DeleteTag(tagId);
+        await load();
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleConfirmDeleteCharacter = async () => {
+    try {
+      await TagFrontendService.DeleteTag(deleteCharId);
+      setDeleteCharOpen(false);
+      await load();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -454,6 +535,113 @@ const AnimeDetailPage: FC = () => {
           </Stack>
         </ModalDialog>
       </Modal>
+
+      {/* Add character modal */}
+      <Modal open={addCharOpen} onClose={() => setAddCharOpen(false)}>
+        <ModalDialog sx={{ minWidth: 360 }}>
+          <ModalClose />
+          <Typography level="title-md">Add character</Typography>
+          <Stack spacing={2} sx={{ mt: 2 }}>
+            <Input
+              autoFocus
+              placeholder="Character name"
+              value={addCharName}
+              onChange={(e) => {
+                setAddCharName(e.target.value);
+                setAddCharError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleAddCharacter();
+                }
+              }}
+            />
+            {addCharError && (
+              <Typography level="body-sm" color="danger">
+                {addCharError}
+              </Typography>
+            )}
+            <Stack direction="row" spacing={1} justifyContent="flex-end">
+              <Button
+                variant="plain"
+                color="neutral"
+                onClick={() => setAddCharOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleAddCharacter}>Create</Button>
+            </Stack>
+          </Stack>
+        </ModalDialog>
+      </Modal>
+
+      {/* Rename character modal */}
+      <Modal open={renameCharOpen} onClose={() => setRenameCharOpen(false)}>
+        <ModalDialog sx={{ minWidth: 360 }}>
+          <ModalClose />
+          <Typography level="title-md">Rename character</Typography>
+          <Stack spacing={2} sx={{ mt: 2 }}>
+            <Input
+              autoFocus
+              value={renameCharValue}
+              onChange={(e) => {
+                setRenameCharValue(e.target.value);
+                setRenameCharError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleRenameCharacter();
+                }
+              }}
+            />
+            {renameCharError && (
+              <Typography level="body-sm" color="danger">
+                {renameCharError}
+              </Typography>
+            )}
+            <Stack direction="row" spacing={1} justifyContent="flex-end">
+              <Button
+                variant="plain"
+                color="neutral"
+                onClick={() => setRenameCharOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleRenameCharacter}>Save</Button>
+            </Stack>
+          </Stack>
+        </ModalDialog>
+      </Modal>
+
+      {/* Delete character confirmation modal */}
+      <Modal open={deleteCharOpen} onClose={() => setDeleteCharOpen(false)}>
+        <ModalDialog sx={{ minWidth: 360 }}>
+          <ModalClose />
+          <Typography level="title-md">Delete character</Typography>
+          <Typography level="body-md" sx={{ mt: 2 }}>
+            &quot;{deleteCharName}&quot; is tagged on {deleteCharImageCount}{" "}
+            image{deleteCharImageCount === 1 ? "" : "s"}. Are you sure you want
+            to delete it?
+          </Typography>
+          <Stack
+            direction="row"
+            spacing={1}
+            justifyContent="flex-end"
+            sx={{ mt: 2 }}
+          >
+            <Button
+              variant="plain"
+              color="neutral"
+              onClick={() => setDeleteCharOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button color="danger" onClick={handleConfirmDeleteCharacter}>
+              Delete
+            </Button>
+          </Stack>
+        </ModalDialog>
+      </Modal>
     </>
   );
 
@@ -476,38 +664,110 @@ const AnimeDetailPage: FC = () => {
           const characterTags = details.tags.filter(
             (t) => t.category === "character"
           );
-          if (characterTags.length === 0) return null;
           return (
             <Box>
-              <Typography
-                level="title-md"
+              <Stack
+                direction="row"
+                alignItems="center"
+                spacing={1}
                 sx={{ mb: 1 }}
-                startDecorator={<Person fontSize="small" />}
               >
-                Characters
-              </Typography>
-              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                {characterTags.map((tag) => {
-                  const isTagSelected = selectedTagIds.has(tag.id);
-                  return (
-                    <Chip
-                      key={tag.id}
-                      variant={isTagSelected ? "solid" : "soft"}
-                      color={isTagSelected ? "warning" : "neutral"}
-                      onClick={() => handleToggleTag(tag.id)}
-                      sx={{ cursor: "pointer" }}
-                      startDecorator={<Person fontSize="small" />}
-                      endDecorator={
-                        <Typography level="body-xs" sx={{ ml: 0.5 }}>
-                          {tag.imageCount}
-                        </Typography>
-                      }
-                    >
-                      {tag.name}
-                    </Chip>
-                  );
-                })}
+                <Typography
+                  level="title-md"
+                  startDecorator={<Person fontSize="small" />}
+                  sx={{ flex: 1 }}
+                >
+                  Characters
+                </Typography>
+                <IconButton
+                  size="sm"
+                  variant="outlined"
+                  color="primary"
+                  title="Add character"
+                  onClick={() => {
+                    setAddCharName("");
+                    setAddCharError(null);
+                    setAddCharOpen(true);
+                  }}
+                >
+                  <Add fontSize="small" />
+                </IconButton>
               </Stack>
+              {characterTags.length === 0 ? (
+                <Typography level="body-sm" sx={{ color: "text.secondary" }}>
+                  No characters yet. Click + to add one.
+                </Typography>
+              ) : (
+                <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                  {characterTags.map((tag) => {
+                    const isTagSelected = selectedTagIds.has(tag.id);
+                    return (
+                      <Stack
+                        key={tag.id}
+                        direction="row"
+                        alignItems="center"
+                        spacing={0.25}
+                      >
+                        <Chip
+                          variant={isTagSelected ? "solid" : "soft"}
+                          color={isTagSelected ? "warning" : "neutral"}
+                          onClick={() => handleToggleTag(tag.id)}
+                          sx={{ cursor: "pointer" }}
+                          startDecorator={<Person fontSize="small" />}
+                          endDecorator={
+                            <Typography level="body-xs" sx={{ ml: 0.5 }}>
+                              {tag.imageCount}
+                            </Typography>
+                          }
+                        >
+                          {tag.name}
+                        </Chip>
+                        <Dropdown>
+                          <MenuButton
+                            slots={{ root: IconButton }}
+                            slotProps={{
+                              root: {
+                                size: "sm",
+                                variant: "plain",
+                                color: "neutral",
+                                sx: { minWidth: 24, minHeight: 24, p: 0.25 },
+                              },
+                            }}
+                          >
+                            <MoreVert sx={{ fontSize: 16 }} />
+                          </MenuButton>
+                          <Menu size="sm" placement="bottom-start">
+                            <MenuItem
+                              onClick={() => {
+                                setRenameCharId(tag.id);
+                                setRenameCharValue(tag.name);
+                                setRenameCharError(null);
+                                setRenameCharOpen(true);
+                              }}
+                            >
+                              <ListItemDecorator>
+                                <Edit fontSize="small" />
+                              </ListItemDecorator>
+                              Rename
+                            </MenuItem>
+                            <MenuItem
+                              color="danger"
+                              onClick={() =>
+                                handleDeleteCharacter(tag.id, tag.name)
+                              }
+                            >
+                              <ListItemDecorator>
+                                <Delete fontSize="small" />
+                              </ListItemDecorator>
+                              Delete
+                            </MenuItem>
+                          </Menu>
+                        </Dropdown>
+                      </Stack>
+                    );
+                  })}
+                </Stack>
+              )}
             </Box>
           );
         })()}
