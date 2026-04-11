@@ -13,7 +13,6 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import {
   createBrowserRouter,
-  Navigate,
   Route,
   RouterProvider,
   Routes,
@@ -45,18 +44,15 @@ function Root() {
   return (
     <Routes>
       <Route>
-        {/* Home. Redirect to /anime */}
-        <Route index element={<Navigate to="/anime" replace />} />
+        {/* Anime (home) */}
+        <Route element={<Layout.TwoColumnLayout />}>
+          <Route index element={<AnimeListPage />} />
+          <Route path=":animeId" element={<AnimeDetailPage />} />
+        </Route>
 
         {/* Search */}
         <Route element={<Layout.TwoColumnLayout />} path="search">
           <Route index element={<SearchPage />} />
-        </Route>
-
-        {/* Anime */}
-        <Route path="anime" element={<Layout.TwoColumnLayout />}>
-          <Route index element={<AnimeListPage />} />
-          <Route path=":animeId" element={<AnimeDetailPage />} />
         </Route>
 
         {/* Directory */}

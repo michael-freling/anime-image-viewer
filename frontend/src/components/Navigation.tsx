@@ -30,7 +30,7 @@ const Navigation: React.FC = () => {
           id: Menu.Anime,
           text: "Anime",
           icon: <Icons.Tv />,
-          url: "/anime",
+          url: "/",
         },
         {
           id: Menu.Search,

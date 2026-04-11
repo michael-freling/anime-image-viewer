@@ -63,7 +63,7 @@ const AnimeListPage: FC = () => {
       setCreateOpen(false);
       setNewName("");
       setCreateError(null);
-      navigate(`/anime/${created.id}`);
+      navigate(`/${created.id}`);
     } catch (err: unknown) {
       setCreateError(err instanceof Error ? err.message : String(err));
     }
@@ -172,7 +172,7 @@ const AnimeListPage: FC = () => {
                 {idx > 0 && <ListDivider inset="gutter" />}
                 <ListItem>
                   <ListItemButton
-                    onClick={() => navigate(`/anime/${item.id}`)}
+                    onClick={() => navigate(`/${item.id}`)}
                   >
                     <ListItemContent>
                       <Stack

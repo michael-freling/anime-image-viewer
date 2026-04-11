@@ -214,7 +214,7 @@ const AnimeDetailPage: FC = () => {
     }
     try {
       await AnimeService.DeleteAnime(id);
-      navigate("/anime");
+      navigate("/");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -316,7 +316,7 @@ const AnimeDetailPage: FC = () => {
 
   const actionHeader = (
     <>
-      <IconButton onClick={() => navigate("/anime")}>
+      <IconButton onClick={() => navigate("/")}>
         <ArrowBack />
       </IconButton>
       <Typography level="title-lg" sx={{ flex: 1 }}>
