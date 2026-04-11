@@ -86,6 +86,37 @@ func TestService_ReadDirectoryTree(t *testing.T) {
 	}
 }
 
+func TestService_ReadDirectoryTree_ReadDirectoryTreeError(t *testing.T) {
+	tester := newTester(t)
+	dbClient := tester.dbClient
+
+	// Drop the files table to cause ReadDirectoryTree to fail on DB query
+	dbClient.DropTable(t, &db.File{})
+
+	service := tester.getDirectoryService()
+	_, gotErr := service.ReadDirectoryTree(context.Background())
+	assert.Error(t, gotErr, "ReadDirectoryTree should fail when files table is dropped")
+}
+
+func TestService_ReadDirectoryTree_ReadDirectoryTagsError(t *testing.T) {
+	tester := newTester(t)
+	dbClient := tester.dbClient
+
+	// Create a directory so ReadDirectoryTree succeeds
+	tester.newFileCreator(t).
+		CreateDirectory(image.Directory{ID: 1, Name: "directory1"})
+	db.LoadTestData(t, dbClient, []db.File{
+		{ID: 1, Name: "directory1", Type: db.FileTypeDirectory},
+	})
+
+	// Drop the file_tags table so ReadDirectoryTags fails
+	dbClient.DropTable(t, &db.FileTag{})
+
+	service := tester.getDirectoryService()
+	_, gotErr := service.ReadDirectoryTree(context.Background())
+	assert.Error(t, gotErr, "ReadDirectoryTree should fail when file_tags table is dropped")
+}
+
 func TestService_CreateDirectory(t *testing.T) {
 	tester := newTester(t)
 	testDBClient := tester.dbClient

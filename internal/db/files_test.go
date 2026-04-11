@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -126,6 +127,70 @@ func TestFileClient_FindImageFilesByIDs(t *testing.T) {
 		got, err := fileClient.FindImageFilesByIDs([]uint{9999})
 		assert.NoError(t, err)
 		assert.Empty(t, got)
+	})
+}
+
+func TestFileClient_FindFilesByParentIDs(t *testing.T) {
+	testClient := NewTestClient(t)
+	testClient.Truncate(t, File{})
+
+	files := []File{
+		{ID: 3501, ParentID: 0, Name: "dir1", Type: FileTypeDirectory},
+		{ID: 3502, ParentID: 0, Name: "dir2", Type: FileTypeDirectory},
+		{ID: 3503, ParentID: 3501, Name: "child1.jpg", Type: FileTypeImage},
+		{ID: 3504, ParentID: 3501, Name: "subdir", Type: FileTypeDirectory},
+		{ID: 3505, ParentID: 3502, Name: "child2.jpg", Type: FileTypeImage},
+	}
+	LoadTestData(t, testClient, files)
+
+	fileClient := testClient.File()
+
+	t.Run("find files by parent IDs", func(t *testing.T) {
+		got, err := fileClient.FindFilesByParentIDs([]uint{3501, 3502})
+		assert.NoError(t, err)
+		assert.Len(t, got, 3)
+	})
+
+	t.Run("empty parent IDs returns nil", func(t *testing.T) {
+		got, err := fileClient.FindFilesByParentIDs([]uint{})
+		assert.NoError(t, err)
+		assert.Nil(t, got)
+	})
+
+	t.Run("no matching parent IDs", func(t *testing.T) {
+		got, err := fileClient.FindFilesByParentIDs([]uint{9999})
+		assert.NoError(t, err)
+		assert.Empty(t, got)
+	})
+}
+
+func TestFileClient_DeleteByIDs(t *testing.T) {
+	testClient := NewTestClient(t)
+	testClient.Truncate(t, File{})
+
+	files := []File{
+		{ID: 3601, ParentID: 0, Name: "dir1", Type: FileTypeDirectory},
+		{ID: 3602, ParentID: 0, Name: "dir2", Type: FileTypeDirectory},
+		{ID: 3603, ParentID: 3601, Name: "img1.jpg", Type: FileTypeImage},
+	}
+	LoadTestData(t, testClient, files)
+
+	fileClient := testClient.File()
+	ctx := context.Background()
+
+	t.Run("empty IDs is a no-op", func(t *testing.T) {
+		err := fileClient.DeleteByIDs(ctx, []uint{})
+		assert.NoError(t, err)
+		got := MustGetAll[File](t, testClient)
+		assert.Len(t, got, 3)
+	})
+
+	t.Run("delete specific IDs", func(t *testing.T) {
+		err := fileClient.DeleteByIDs(ctx, []uint{3601, 3603})
+		assert.NoError(t, err)
+		got := MustGetAll[File](t, testClient)
+		assert.Len(t, got, 1)
+		assert.Equal(t, uint(3602), got[0].ID)
 	})
 }
 

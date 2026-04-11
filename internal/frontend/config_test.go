@@ -117,6 +117,17 @@ func TestConfigFrontendService_GetDefaultConfig(t *testing.T) {
 	assert.True(t, got.IdleBackupIncludeImages)
 }
 
+func TestConfigFrontendService_GetDefaultConfig_Error(t *testing.T) {
+	// Set HOME to empty string so os.UserHomeDir() fails, triggering the error path
+	t.Setenv("HOME", "")
+
+	conf := config.Config{}
+	svc := NewConfigFrontendService(newConfigTestLogger(), conf)
+
+	_, err := svc.GetDefaultConfig(context.Background())
+	assert.Error(t, err, "GetDefaultConfig should fail when HOME is not set")
+}
+
 func TestConfigFrontendService_UpdateConfig_WriteError(t *testing.T) {
 	// Set HOME to an unwritable path so WriteConfig("", ...) fails
 	t.Setenv("HOME", "/nonexistent/path/that/does/not/exist")

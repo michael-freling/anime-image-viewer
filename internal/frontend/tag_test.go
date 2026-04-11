@@ -143,15 +143,13 @@ func TestTagService_ReadAllMap_Error(t *testing.T) {
 	tester := newTester(t)
 	dbClient := tester.dbClient
 
-	// Close the database to cause an error
-	dbClient.Truncate(t, &db.Tag{})
+	// Drop the tags table to cause a DB error
+	dbClient.DropTable(t, &db.Tag{})
 
-	// Test: ReadAllMap returns empty map for no tags (not an error)
 	service := tester.getTagService()
 
-	got, gotErr := service.ReadAllMap()
-	require.NoError(t, gotErr)
-	assert.Equal(t, map[uint]Tag{}, got)
+	_, gotErr := service.ReadAllMap()
+	assert.Error(t, gotErr, "ReadAllMap should fail when tags table is dropped")
 }
 
 func TestTagService_GetAll_EmptyResult(t *testing.T) {
@@ -164,6 +162,30 @@ func TestTagService_GetAll_EmptyResult(t *testing.T) {
 	got, gotErr := service.GetAll()
 	require.NoError(t, gotErr)
 	assert.Nil(t, got, "GetAll should return nil for empty result")
+}
+
+func TestTagService_GetAll_Error(t *testing.T) {
+	tester := newTester(t)
+	dbClient := tester.dbClient
+
+	// Drop the tags table to cause a DB error
+	dbClient.DropTable(t, &db.Tag{})
+
+	service := tester.getTagService()
+	_, gotErr := service.GetAll()
+	assert.Error(t, gotErr, "GetAll should fail when tags table is dropped")
+}
+
+func TestTagService_ReadTagsByFileIDs_DBError(t *testing.T) {
+	tester := newTester(t)
+	dbClient := tester.dbClient
+
+	// Drop the file_tags table to cause a DB error in CreateBatchTagCheckerByFileIDs
+	dbClient.DropTable(t, &db.FileTag{})
+
+	service := tester.getTagService()
+	_, gotErr := service.ReadTagsByFileIDs(context.Background(), []uint{1, 2})
+	assert.Error(t, gotErr, "ReadTagsByFileIDs should fail when file_tags table is dropped")
 }
 
 func TestTagService_ReadTagsByFileIDs_Error(t *testing.T) {

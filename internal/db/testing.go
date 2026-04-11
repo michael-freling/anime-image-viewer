@@ -90,6 +90,16 @@ func (client *TestClient) Truncate(t *testing.T, models ...interface{}) {
 	}
 }
 
+// DropTable drops the database table for the given model.
+// This is useful for testing error paths where queries should fail.
+func (client *TestClient) DropTable(t *testing.T, models ...interface{}) {
+	t.Helper()
+	for _, model := range models {
+		err := client.Client.connection.Migrator().DropTable(model)
+		require.NoError(t, err)
+	}
+}
+
 type FileBuilder struct {
 	mockNow time.Time
 	images  map[uint]File
