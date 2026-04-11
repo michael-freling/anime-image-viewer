@@ -2,10 +2,13 @@ package image
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"time"
 
+	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 )
@@ -130,7 +133,7 @@ func (s *BackgroundScanner) run(ctx context.Context) {
 				// Image is valid; compute and store the hash for future scans.
 				hash, hashErr := ComputeFileHash(absPath)
 				if hashErr == nil {
-					if dbErr := s.dbClient.File().UpdateContentHash(f.ID, hash); dbErr != nil {
+					if dbErr := s.updateContentHashWithRetry(ctx, f.ID, hash); dbErr != nil {
 						s.logger.WarnContext(ctx, "background scan: failed to store hash",
 							"imageID", f.ID, "error", dbErr,
 						)
@@ -154,7 +157,7 @@ func (s *BackgroundScanner) run(ctx context.Context) {
 				// Recompute and store the hash after a successful restore.
 				hash, hashErr := ComputeFileHash(absPath)
 				if hashErr == nil {
-					if dbErr := s.dbClient.File().UpdateContentHash(f.ID, hash); dbErr != nil {
+					if dbErr := s.updateContentHashWithRetry(ctx, f.ID, hash); dbErr != nil {
 						s.logger.WarnContext(ctx, "background scan: failed to store hash after restore",
 							"imageID", f.ID, "error", dbErr,
 						)
@@ -164,11 +167,62 @@ func (s *BackgroundScanner) run(ctx context.Context) {
 		}
 
 		scanned++
+
+		// Small sleep between images to reduce SQLite write contention with the
+		// rest of the application. The scanner runs in the background so
+		// throughput is not critical.
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(50 * time.Millisecond):
+		}
 	}
 
 	s.logger.InfoContext(ctx, fmt.Sprintf("background scan complete: %d images scanned, %d corrupted, %d restored, %d failed",
 		scanned, corrupted, restored, failed),
 	)
+}
+
+// isSQLiteBusyOrLocked reports whether the error is a SQLite BUSY or LOCKED error.
+func isSQLiteBusyOrLocked(err error) bool {
+	if err == nil {
+		return false
+	}
+	var sqliteErr sqlite3.Error
+	if errors.As(err, &sqliteErr) {
+		return sqliteErr.Code == sqlite3.ErrBusy || sqliteErr.Code == sqlite3.ErrLocked
+	}
+	return false
+}
+
+// retryBackoffs defines the sleep durations between retries for SQLite busy/locked errors.
+var retryBackoffs = []time.Duration{100 * time.Millisecond, 500 * time.Millisecond, 1 * time.Second}
+
+// updateContentHashWithRetry attempts to store a content hash, retrying on SQLite
+// busy/locked errors with increasing backoff delays. The scanner runs in the
+// background so it can afford to wait.
+func (s *BackgroundScanner) updateContentHashWithRetry(ctx context.Context, imageID uint, hash string) error {
+	var err error
+	for attempt := 0; attempt <= len(retryBackoffs); attempt++ {
+		err = s.dbClient.File().UpdateContentHash(imageID, hash)
+		if err == nil {
+			return nil
+		}
+		if !isSQLiteBusyOrLocked(err) {
+			return err
+		}
+		if attempt < len(retryBackoffs) {
+			s.logger.DebugContext(ctx, "background scan: SQLite busy, retrying",
+				"imageID", imageID, "attempt", attempt+1, "backoff", retryBackoffs[attempt],
+			)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(retryBackoffs[attempt]):
+			}
+		}
+	}
+	return err
 }
 
 // buildDirectoryMap flattens a Directory tree into a map keyed by directory ID.
