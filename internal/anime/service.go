@@ -26,7 +26,7 @@ func validateFolderName(name string) error {
 		return fmt.Errorf("name contains invalid characters")
 	}
 	if name == "." || name == ".." {
-		return fmt.Errorf("name cannot be . or ..")
+		return fmt.Errorf("name cannot be a dot or double dot")
 	}
 	return nil
 }
