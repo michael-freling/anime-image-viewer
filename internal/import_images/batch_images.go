@@ -189,6 +189,21 @@ func (batchImporter *BatchImageImporter) ImportImages(
 				progressNotifier.addFailure(sourceFilePath, fmt.Errorf("image.copy: %w", err))
 				return nil
 			}
+
+			// Compute and store the content hash for integrity tracking.
+			hash, hashErr := image.ComputeFileHash(destinationFilePath)
+			if hashErr != nil {
+				batchImporter.logger.Warn("failed to compute hash on import",
+					"path", destinationFilePath, "error", hashErr,
+				)
+			} else {
+				if dbErr := batchImporter.dbClient.File().UpdateContentHash(newImage.image.ID, hash); dbErr != nil {
+					batchImporter.logger.Warn("failed to store hash on import",
+						"path", destinationFilePath, "error", dbErr,
+					)
+				}
+			}
+
 			resultImage, err := batchImporter.imageFileConverter.ConvertImageFile(destinationParentDirectory, newImage.image)
 			if err != nil {
 				progressNotifier.addFailure(sourceFilePath, fmt.Errorf("convertImageFile: %w", err))

@@ -330,3 +330,81 @@ func TestFileClient_FindDirectoriesByIDs(t *testing.T) {
 		assert.Empty(t, got)
 	})
 }
+
+func TestFileClient_FindAllImageFiles(t *testing.T) {
+	testClient := NewTestClient(t)
+	testClient.Truncate(t, File{})
+
+	files := []File{
+		{ID: 5001, ParentID: 0, Name: "dir1", Type: FileTypeDirectory},
+		{ID: 5002, ParentID: 5001, Name: "img1.jpg", Type: FileTypeImage},
+		{ID: 5003, ParentID: 5001, Name: "img2.png", Type: FileTypeImage},
+		{ID: 5004, ParentID: 0, Name: "dir2", Type: FileTypeDirectory},
+	}
+	LoadTestData(t, testClient, files)
+
+	fileClient := testClient.File()
+
+	got, err := fileClient.FindAllImageFiles()
+	assert.NoError(t, err)
+	assert.Len(t, got, 2)
+
+	ids := []uint{got[0].ID, got[1].ID}
+	assert.Contains(t, ids, uint(5002))
+	assert.Contains(t, ids, uint(5003))
+}
+
+func TestFileClient_UpdateContentHash(t *testing.T) {
+	testClient := NewTestClient(t)
+	testClient.Truncate(t, File{})
+
+	files := []File{
+		{ID: 6001, ParentID: 0, Name: "dir1", Type: FileTypeDirectory},
+		{ID: 6002, ParentID: 6001, Name: "img1.jpg", Type: FileTypeImage},
+	}
+	LoadTestData(t, testClient, files)
+
+	fileClient := testClient.File()
+
+	t.Run("stores hash in database", func(t *testing.T) {
+		hash := "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+		err := fileClient.UpdateContentHash(6002, hash)
+		assert.NoError(t, err)
+
+		// Verify the hash was stored
+		images, err := fileClient.FindAllImageFiles()
+		assert.NoError(t, err)
+		require.Len(t, images, 1)
+		assert.Equal(t, hash, images[0].ContentHash)
+	})
+
+	t.Run("updates existing hash", func(t *testing.T) {
+		newHash := "1111111111111111111111111111111111111111111111111111111111111111"
+		err := fileClient.UpdateContentHash(6002, newHash)
+		assert.NoError(t, err)
+
+		images, err := fileClient.FindAllImageFiles()
+		assert.NoError(t, err)
+		require.Len(t, images, 1)
+		assert.Equal(t, newHash, images[0].ContentHash)
+	})
+}
+
+func TestFileClient_ContentHashField(t *testing.T) {
+	testClient := NewTestClient(t)
+	testClient.Truncate(t, File{})
+
+	// Insert a file with a content hash
+	hash := "deadbeef" + "deadbeef" + "deadbeef" + "deadbeef" + "deadbeef" + "deadbeef" + "deadbeef" + "deadbeef"
+	files := []File{
+		{ID: 7001, ParentID: 0, Name: "dir1", Type: FileTypeDirectory},
+		{ID: 7002, ParentID: 7001, Name: "img.jpg", Type: FileTypeImage, ContentHash: hash},
+	}
+	LoadTestData(t, testClient, files)
+
+	// Verify the hash was persisted
+	got, err := testClient.File().FindAllImageFiles()
+	assert.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.Equal(t, hash, got[0].ContentHash)
+}

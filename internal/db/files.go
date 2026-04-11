@@ -37,6 +37,10 @@ type File struct {
 	// EntryNumber is the season number or movie year. NULL when not applicable.
 	EntryNumber *uint `gorm:"column:entry_number"`
 
+	// ContentHash stores a hex-encoded SHA256 hash of the image file content.
+	// It is computed on import and used for fast corruption detection.
+	ContentHash string
+
 	// CreatedAt is a timestamp of the record creation
 	CreatedAt uint `gorm:"autoCreateTime,index:parent_id_created_at"`
 	UpdatedAt uint
@@ -190,5 +194,24 @@ func (client *FileClient) SetAnimeID(ctx context.Context, fileID uint, animeID *
 		Model(&File{}).
 		Where("id = ?", fileID).
 		Update("anime_id", animeID).
+		Error
+}
+
+// FindAllImageFiles returns all files of type image.
+func (client *FileClient) FindAllImageFiles() ([]File, error) {
+	var images []File
+	err := client.connection.
+		Where("type = ?", FileTypeImage).
+		Find(&images).
+		Error
+	return images, err
+}
+
+// UpdateContentHash sets the content_hash column for a single file record.
+func (client *FileClient) UpdateContentHash(id uint, hash string) error {
+	return client.connection.
+		Model(&File{}).
+		Where("id = ?", id).
+		Update("content_hash", hash).
 		Error
 }
