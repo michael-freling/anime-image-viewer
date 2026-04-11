@@ -19,6 +19,10 @@ type FileRestorer interface {
 	RestoreSingleFile(ctx context.Context, relativeFilePath string, imageRootDir string) error
 }
 
+// hashBatchSize is the number of content-hash updates to accumulate before
+// flushing them to the database in a single transaction.
+const hashBatchSize = 100
+
 // BackgroundScanner scans all DB-tracked images on startup, validates them,
 // and attempts to restore corrupted files from backups.
 type BackgroundScanner struct {
@@ -71,6 +75,9 @@ func (s *BackgroundScanner) run(ctx context.Context) {
 	}
 
 	var scanned, corrupted, restored, failed int
+
+	// Collect hash updates and flush them in batches to reduce DB round-trips.
+	pendingHashes := make(map[uint]string)
 
 	for _, f := range imageFiles {
 		select {
@@ -133,11 +140,7 @@ func (s *BackgroundScanner) run(ctx context.Context) {
 				// Image is valid; compute and store the hash for future scans.
 				hash, hashErr := ComputeFileHash(absPath)
 				if hashErr == nil {
-					if dbErr := s.updateContentHashWithRetry(ctx, f.ID, hash); dbErr != nil {
-						s.logger.WarnContext(ctx, "background scan: failed to store hash",
-							"imageID", f.ID, "error", dbErr,
-						)
-					}
+					pendingHashes[f.ID] = hash
 				}
 			}
 		}
@@ -157,16 +160,22 @@ func (s *BackgroundScanner) run(ctx context.Context) {
 				// Recompute and store the hash after a successful restore.
 				hash, hashErr := ComputeFileHash(absPath)
 				if hashErr == nil {
-					if dbErr := s.updateContentHashWithRetry(ctx, f.ID, hash); dbErr != nil {
-						s.logger.WarnContext(ctx, "background scan: failed to store hash after restore",
-							"imageID", f.ID, "error", dbErr,
-						)
-					}
+					pendingHashes[f.ID] = hash
 				}
 			}
 		}
 
 		scanned++
+
+		// Flush the batch when it reaches the threshold.
+		if len(pendingHashes) >= hashBatchSize {
+			if flushErr := s.flushHashBatchWithRetry(ctx, pendingHashes); flushErr != nil {
+				s.logger.WarnContext(ctx, "background scan: failed to flush hash batch",
+					"batchSize", len(pendingHashes), "error", flushErr,
+				)
+			}
+			pendingHashes = make(map[uint]string)
+		}
 
 		// Small sleep between images to reduce SQLite write contention with the
 		// rest of the application. The scanner runs in the background so
@@ -175,6 +184,15 @@ func (s *BackgroundScanner) run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(50 * time.Millisecond):
+		}
+	}
+
+	// Flush any remaining pending hashes.
+	if len(pendingHashes) > 0 {
+		if flushErr := s.flushHashBatchWithRetry(ctx, pendingHashes); flushErr != nil {
+			s.logger.WarnContext(ctx, "background scan: failed to flush final hash batch",
+				"batchSize", len(pendingHashes), "error", flushErr,
+			)
 		}
 	}
 
@@ -224,12 +242,11 @@ func retryOnSQLiteBusy(ctx context.Context, logger *slog.Logger, label string, b
 	return err
 }
 
-// updateContentHashWithRetry attempts to store a content hash, retrying on SQLite
-// busy/locked errors with increasing backoff delays. The scanner runs in the
-// background so it can afford to wait.
-func (s *BackgroundScanner) updateContentHashWithRetry(ctx context.Context, imageID uint, hash string) error {
-	return retryOnSQLiteBusy(ctx, s.logger, "background scan", retryBackoffs, func() error {
-		return s.dbClient.File().UpdateContentHash(imageID, hash)
+// flushHashBatchWithRetry writes a batch of content-hash updates in a single
+// transaction, retrying on SQLite busy/locked errors with increasing backoff.
+func (s *BackgroundScanner) flushHashBatchWithRetry(ctx context.Context, batch map[uint]string) error {
+	return retryOnSQLiteBusy(ctx, s.logger, "background scan batch", retryBackoffs, func() error {
+		return s.dbClient.File().BatchUpdateContentHashes(batch)
 	})
 }
 

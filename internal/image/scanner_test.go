@@ -537,26 +537,36 @@ func TestRetryOnSQLiteBusy_RespectsContextCancellation(t *testing.T) {
 	assert.Equal(t, 1, calls, "should stop retrying after context cancellation")
 }
 
-func TestUpdateContentHashWithRetry_SucceedsWithRealDB(t *testing.T) {
+func TestFlushHashBatchWithRetry_SucceedsWithRealDB(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	dbClient := db.NewTestClient(t)
 	dbClient.Truncate(t, db.File{})
 
 	db.LoadTestData(t, dbClient, []db.File{
 		{ID: 1, Name: "photos", ParentID: 0, Type: db.FileTypeDirectory},
-		{ID: 2, Name: "test.jpg", ParentID: 1, Type: db.FileTypeImage},
+		{ID: 2, Name: "test1.jpg", ParentID: 1, Type: db.FileTypeImage},
+		{ID: 3, Name: "test2.jpg", ParentID: 1, Type: db.FileTypeImage},
 	})
 
 	scanner := NewBackgroundScanner(logger, dbClient.Client, config.Config{}, &mockRestorer{})
 	ctx := context.Background()
 
-	err := scanner.updateContentHashWithRetry(ctx, 2, "abcdef1234567890")
+	batch := map[uint]string{
+		2: "abcdef1234567890",
+		3: "1234567890abcdef",
+	}
+	err := scanner.flushHashBatchWithRetry(ctx, batch)
 	require.NoError(t, err)
 
 	files, err := dbClient.File().FindAllImageFiles()
 	require.NoError(t, err)
-	require.Len(t, files, 1)
-	assert.Equal(t, "abcdef1234567890", files[0].ContentHash)
+	require.Len(t, files, 2)
+	hashByID := make(map[uint]string)
+	for _, f := range files {
+		hashByID[f.ID] = f.ContentHash
+	}
+	assert.Equal(t, "abcdef1234567890", hashByID[2])
+	assert.Equal(t, "1234567890abcdef", hashByID[3])
 }
 
 func TestRetryBackoffs_HasExpectedValues(t *testing.T) {

@@ -390,6 +390,59 @@ func TestFileClient_UpdateContentHash(t *testing.T) {
 	})
 }
 
+func TestFileClient_BatchUpdateContentHashes(t *testing.T) {
+	testClient := NewTestClient(t)
+	testClient.Truncate(t, File{})
+
+	files := []File{
+		{ID: 8001, ParentID: 0, Name: "dir1", Type: FileTypeDirectory},
+		{ID: 8002, ParentID: 8001, Name: "img1.jpg", Type: FileTypeImage},
+		{ID: 8003, ParentID: 8001, Name: "img2.jpg", Type: FileTypeImage},
+		{ID: 8004, ParentID: 8001, Name: "img3.jpg", Type: FileTypeImage},
+	}
+	LoadTestData(t, testClient, files)
+
+	fileClient := testClient.File()
+
+	t.Run("updates multiple hashes in one call", func(t *testing.T) {
+		updates := map[uint]string{
+			8002: "aaaa",
+			8003: "bbbb",
+			8004: "cccc",
+		}
+		err := fileClient.BatchUpdateContentHashes(updates)
+		assert.NoError(t, err)
+
+		images, err := fileClient.FindAllImageFiles()
+		assert.NoError(t, err)
+		require.Len(t, images, 3)
+		hashByID := make(map[uint]string)
+		for _, img := range images {
+			hashByID[img.ID] = img.ContentHash
+		}
+		assert.Equal(t, "aaaa", hashByID[8002])
+		assert.Equal(t, "bbbb", hashByID[8003])
+		assert.Equal(t, "cccc", hashByID[8004])
+	})
+
+	t.Run("empty map is a no-op", func(t *testing.T) {
+		err := fileClient.BatchUpdateContentHashes(map[uint]string{})
+		assert.NoError(t, err)
+	})
+
+	t.Run("single entry works", func(t *testing.T) {
+		err := fileClient.BatchUpdateContentHashes(map[uint]string{
+			8002: "dddd",
+		})
+		assert.NoError(t, err)
+
+		images, err := fileClient.FindImageFilesByIDs([]uint{8002})
+		assert.NoError(t, err)
+		require.Len(t, images, 1)
+		assert.Equal(t, "dddd", images[0].ContentHash)
+	})
+}
+
 func TestFileClient_ContentHashField(t *testing.T) {
 	testClient := NewTestClient(t)
 	testClient.Truncate(t, File{})

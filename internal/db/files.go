@@ -1,6 +1,10 @@
 package db
 
-import "context"
+import (
+	"context"
+
+	"gorm.io/gorm"
+)
 
 type FileType string
 
@@ -214,4 +218,23 @@ func (client *FileClient) UpdateContentHash(id uint, hash string) error {
 		Where("id = ?", id).
 		Update("content_hash", hash).
 		Error
+}
+
+// BatchUpdateContentHashes updates the content_hash column for multiple file
+// records in a single transaction. The updates map is keyed by file ID.
+func (client *FileClient) BatchUpdateContentHashes(updates map[uint]string) error {
+	if len(updates) == 0 {
+		return nil
+	}
+	return client.connection.Transaction(func(tx *gorm.DB) error {
+		for id, hash := range updates {
+			if err := tx.Model(&File{}).
+				Where("id = ?", id).
+				Update("content_hash", hash).
+				Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
