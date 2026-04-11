@@ -1,6 +1,7 @@
 package image
 
 import (
+	"encoding/binary"
 	"errors"
 	"os"
 	"path/filepath"
@@ -89,6 +90,48 @@ func TestValidateImageFile(t *testing.T) {
 		assert.Error(t, err)
 		assert.False(t, errors.Is(err, ErrImageNotFound), "should not be ErrImageNotFound")
 		assert.Contains(t, err.Error(), "stat image file")
+	})
+
+	t.Run("png with invalid CRC is not treated as corrupted", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		filePath := createTestPNGFile(t, tmpDir, "bad_crc.png", 100, 100)
+
+		// Read the valid PNG, then zero out CRC bytes on a chunk to
+		// simulate the kind of file produced by some screen capture tools.
+		data, err := os.ReadFile(filePath)
+		require.NoError(t, err)
+
+		// PNG structure: 8-byte signature, then chunks.
+		// Each chunk: 4-byte length (big-endian) | 4-byte type | <length> bytes data | 4-byte CRC.
+		// We skip the signature and walk chunks until we find IDAT, then
+		// zero out its CRC.
+		offset := 8 // skip PNG signature
+		crcZeroed := false
+		for offset+8 <= len(data) {
+			chunkLen := int(binary.BigEndian.Uint32(data[offset : offset+4]))
+			chunkType := string(data[offset+4 : offset+8])
+			crcStart := offset + 8 + chunkLen
+			if crcStart+4 > len(data) {
+				break
+			}
+			if chunkType == "IDAT" {
+				// Zero out the 4-byte CRC
+				data[crcStart] = 0
+				data[crcStart+1] = 0
+				data[crcStart+2] = 0
+				data[crcStart+3] = 0
+				crcZeroed = true
+				break
+			}
+			offset = crcStart + 4
+		}
+		require.True(t, crcZeroed, "failed to find and zero IDAT CRC in test PNG")
+		require.NoError(t, os.WriteFile(filePath, data, 0644))
+
+		// The image has a bad CRC but is otherwise structurally valid.
+		// ValidateImageFile should treat it as NOT corrupted.
+		err = ValidateImageFile(filePath)
+		assert.NoError(t, err)
 	})
 
 	t.Run("file with only jpeg header", func(t *testing.T) {

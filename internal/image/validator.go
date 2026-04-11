@@ -8,6 +8,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"os"
+	"strings"
 )
 
 var (
@@ -43,6 +44,14 @@ func ValidateImageFile(path string) error {
 
 	_, _, err = image.Decode(bufio.NewReader(file))
 	if err != nil {
+		// Go's image/png decoder strictly validates CRC checksums on every
+		// PNG chunk and rejects files with invalid CRCs. However, many image
+		// viewers (browsers, Windows Photo Viewer, etc.) display these files
+		// without issue. A common case is screen capture tools that write
+		// zeroed-out CRCs. Treat CRC-only failures as non-corrupted.
+		if strings.Contains(err.Error(), "invalid checksum") {
+			return nil
+		}
 		return fmt.Errorf("%w: %s: %v", ErrImageCorrupted, path, err)
 	}
 
