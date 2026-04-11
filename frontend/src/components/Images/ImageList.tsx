@@ -390,23 +390,6 @@ const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
           {mode == "edit" && (
             <>
               <Button
-                color="primary"
-                disabled={selectedImageCount === 0}
-                onClick={() => {
-                  const imageIds = images
-                    .filter((image) => image.selected)
-                    .map((image) => String(image.id));
-                  navigate({
-                    pathname: "/images/edit/tags/suggestion",
-                    search: createSearchParams({
-                      imageIds: imageIds,
-                    }).toString(),
-                  });
-                }}
-              >
-                Suggest tags
-              </Button>
-              <Button
                 variant="outlined"
                 color="primary"
                 disabled={selectedImageCount === 0}
@@ -432,7 +415,7 @@ const ImageListMain: FC<ImageListContainerProps & PropsWithChildren> = ({
                   }
                 }}
               >
-                Edit tags manually
+                Edit
               </Button>
             </>
           )}

@@ -100,6 +100,7 @@ const AnimeTagEditPage: FC = () => {
   const [animeCharacters, setAnimeCharacters] = useState<TagCheckItem[]>([]);
   const [animeTags, setAnimeTags] = useState<TagCheckItem[]>([]);
   const [otherTags, setOtherTags] = useState<TagCheckItem[]>([]);
+  const [otherCharacters, setOtherCharacters] = useState<TagCheckItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -148,19 +149,24 @@ const AnimeTagEditPage: FC = () => {
         }
       }
 
-      // Build "other tags" from allTags minus anime tags and minus characters
+      // Build "other tags" and "other characters" from allTags minus anime tags
       const others: TagCheckItem[] = [];
+      const otherChars: TagCheckItem[] = [];
       if (allTags) {
         for (const t of allTags) {
           if (animeTagIdSet.has(t.id)) continue;
-          if (t.category === "character") continue;
-          others.push(buildCheckItem(t, fileCount, tagStats, addedTagIds, deletedTagIds));
+          if (t.category === "character") {
+            otherChars.push(buildCheckItem(t, fileCount, tagStats, addedTagIds, deletedTagIds));
+          } else {
+            others.push(buildCheckItem(t, fileCount, tagStats, addedTagIds, deletedTagIds));
+          }
         }
       }
 
       setAnimeCharacters(characters);
       setAnimeTags(animeNonCharTags);
       setOtherTags(others);
+      setOtherCharacters(otherChars);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -218,6 +224,7 @@ const AnimeTagEditPage: FC = () => {
     setAnimeCharacters((prev) => rebuildCheckItems(prev, newAdded, newDeleted));
     setAnimeTags((prev) => rebuildCheckItems(prev, newAdded, newDeleted));
     setOtherTags((prev) => rebuildCheckItems(prev, newAdded, newDeleted));
+    setOtherCharacters((prev) => rebuildCheckItems(prev, newAdded, newDeleted));
   };
 
   const handleSave = async () => {
@@ -304,7 +311,7 @@ const AnimeTagEditPage: FC = () => {
             <ArrowBack />
           </IconButton>
           <Typography level="title-lg" sx={{ flex: 1 }}>
-            Edit tags for {imageIds.length} image{imageIds.length === 1 ? "" : "s"}
+            Edit {imageIds.length} image{imageIds.length === 1 ? "" : "s"}
             {animeName && ` - ${animeName}`}
           </Typography>
           <Stack direction="row" spacing={1}>
@@ -338,102 +345,132 @@ const AnimeTagEditPage: FC = () => {
       ) : (
         <Box sx={{ p: 2, overflowY: "auto" }}>
           <Stack spacing={3}>
-            {/* Section 1: Characters */}
+            {/* Top-level: Characters */}
             <Box>
               <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                 <Person fontSize="small" />
-                <Typography level="title-md" sx={{ flex: 1 }}>
-                  Characters
-                </Typography>
-                <IconButton
-                  size="sm"
-                  variant="outlined"
-                  color="primary"
-                  title="Add character"
-                  onClick={() => {
-                    setAddModalName("");
-                    setAddModalError(null);
-                    setAddModalCategory("character");
-                    setAddModalOpen(true);
-                  }}
-                >
-                  <Add fontSize="small" />
-                </IconButton>
+                <Typography level="title-md">Characters</Typography>
               </Stack>
-              {animeCharacters.length === 0 ? (
-                <Typography level="body-sm" sx={{ color: "text.secondary", pl: 1 }}>
-                  No characters for this anime. Click + to add one.
-                </Typography>
-              ) : (
-                <Stack spacing={0}>
-                  {animeCharacters.map(renderTagCheckbox)}
+
+              {/* Sub-group: This anime's characters */}
+              <Box sx={{ pl: 2 }}>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                  <Typography level="title-sm">{animeName}</Typography>
+                  <IconButton
+                    size="sm"
+                    variant="outlined"
+                    color="primary"
+                    title="Add character"
+                    onClick={() => {
+                      setAddModalName("");
+                      setAddModalError(null);
+                      setAddModalCategory("character");
+                      setAddModalOpen(true);
+                    }}
+                  >
+                    <Add fontSize="small" />
+                  </IconButton>
                 </Stack>
-              )}
+                {animeCharacters.length === 0 ? (
+                  <Typography level="body-sm" sx={{ color: "text.secondary", pl: 1 }}>
+                    No characters for this anime. Click + to add one.
+                  </Typography>
+                ) : (
+                  <Stack spacing={0}>
+                    {animeCharacters.map(renderTagCheckbox)}
+                  </Stack>
+                )}
+              </Box>
+
+              {/* Sub-group: Other characters (collapsible) */}
+              <Box sx={{ pl: 2 }}>
+                <Accordion defaultExpanded={false}>
+                  <AccordionSummary
+                    indicator={<ExpandMore />}
+                    sx={{ px: 0 }}
+                  >
+                    <Typography level="title-sm">
+                      Other ({otherCharacters.length})
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    {otherCharacters.length === 0 ? (
+                      <Typography level="body-sm" sx={{ color: "text.secondary" }}>
+                        No other characters available.
+                      </Typography>
+                    ) : (
+                      <Stack spacing={0}>
+                        {otherCharacters.map(renderTagCheckbox)}
+                      </Stack>
+                    )}
+                  </AccordionDetails>
+                </Accordion>
+              </Box>
             </Box>
 
             <Divider />
 
-            {/* Section 2: This anime's tags */}
+            {/* Top-level: Tags */}
             <Box>
               <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                 <LocalOffer fontSize="small" />
-                <Typography level="title-md" sx={{ flex: 1 }}>
-                  Tags ({animeName})
-                </Typography>
-                <IconButton
-                  size="sm"
-                  variant="outlined"
-                  color="primary"
-                  title="Add tag"
-                  onClick={() => {
-                    setAddModalName("");
-                    setAddModalError(null);
-                    setAddModalCategory("");
-                    setAddModalOpen(true);
-                  }}
-                >
-                  <Add fontSize="small" />
-                </IconButton>
+                <Typography level="title-md">Tags</Typography>
               </Stack>
-              {animeTags.length === 0 ? (
-                <Typography level="body-sm" sx={{ color: "text.secondary", pl: 1 }}>
-                  No tags for this anime. Click + to add one.
-                </Typography>
-              ) : (
-                <Stack spacing={0}>
-                  {animeTags.map(renderTagCheckbox)}
+
+              {/* Sub-group: This anime's tags */}
+              <Box sx={{ pl: 2 }}>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                  <Typography level="title-sm">{animeName}</Typography>
+                  <IconButton
+                    size="sm"
+                    variant="outlined"
+                    color="primary"
+                    title="Add tag"
+                    onClick={() => {
+                      setAddModalName("");
+                      setAddModalError(null);
+                      setAddModalCategory("");
+                      setAddModalOpen(true);
+                    }}
+                  >
+                    <Add fontSize="small" />
+                  </IconButton>
                 </Stack>
-              )}
-            </Box>
-
-            <Divider />
-
-            {/* Section 3: Other tags (collapsible) */}
-            <Box>
-              <Accordion defaultExpanded={false}>
-                <AccordionSummary
-                  indicator={<ExpandMore />}
-                  sx={{ px: 0 }}
-                >
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <LocalOffer fontSize="small" />
-                    <Typography level="title-md">
-                      Other tags ({otherTags.length})
-                    </Typography>
+                {animeTags.length === 0 ? (
+                  <Typography level="body-sm" sx={{ color: "text.secondary", pl: 1 }}>
+                    No tags for this anime. Click + to add one.
+                  </Typography>
+                ) : (
+                  <Stack spacing={0}>
+                    {animeTags.map(renderTagCheckbox)}
                   </Stack>
-                </AccordionSummary>
-                <AccordionDetails>
-                  {otherTags.length === 0 ? (
-                    <Typography level="body-sm" sx={{ color: "text.secondary" }}>
-                      No other tags available.
+                )}
+              </Box>
+
+              {/* Sub-group: Other tags (collapsible) */}
+              <Box sx={{ pl: 2 }}>
+                <Accordion defaultExpanded={false}>
+                  <AccordionSummary
+                    indicator={<ExpandMore />}
+                    sx={{ px: 0 }}
+                  >
+                    <Typography level="title-sm">
+                      Other ({otherTags.length})
                     </Typography>
-                  ) : (
-                    <Stack spacing={0}>
-                      {otherTags.map(renderTagCheckbox)}
-                    </Stack>
-                  )}
-                </AccordionDetails>
-              </Accordion>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    {otherTags.length === 0 ? (
+                      <Typography level="body-sm" sx={{ color: "text.secondary" }}>
+                        No other tags available.
+                      </Typography>
+                    ) : (
+                      <Stack spacing={0}>
+                        {otherTags.map(renderTagCheckbox)}
+                      </Stack>
+                    )}
+                  </AccordionDetails>
+                </Accordion>
+              </Box>
             </Box>
           </Stack>
         </Box>
