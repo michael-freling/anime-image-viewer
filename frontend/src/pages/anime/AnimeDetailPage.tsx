@@ -6,6 +6,7 @@ import {
   Edit,
   ExpandMore,
   Folder,
+  LocalOffer,
   MoreVert,
   Person,
   Upload,
@@ -167,18 +168,21 @@ const AnimeDetailPage: FC = () => {
   const [subfolderName, setSubfolderName] = useState("");
   const [subfolderError, setSubfolderError] = useState<string | null>(null);
 
-  // Character management state
-  const [addCharOpen, setAddCharOpen] = useState(false);
-  const [addCharName, setAddCharName] = useState("");
-  const [addCharError, setAddCharError] = useState<string | null>(null);
-  const [renameCharOpen, setRenameCharOpen] = useState(false);
-  const [renameCharId, setRenameCharId] = useState<number>(0);
-  const [renameCharValue, setRenameCharValue] = useState("");
-  const [renameCharError, setRenameCharError] = useState<string | null>(null);
-  const [deleteCharOpen, setDeleteCharOpen] = useState(false);
-  const [deleteCharId, setDeleteCharId] = useState<number>(0);
-  const [deleteCharName, setDeleteCharName] = useState("");
-  const [deleteCharImageCount, setDeleteCharImageCount] = useState<number>(0);
+  // Generic tag management state (shared by characters and uncategorized tags)
+  const [addTagOpen, setAddTagOpen] = useState(false);
+  const [addTagName, setAddTagName] = useState("");
+  const [addTagError, setAddTagError] = useState<string | null>(null);
+  const [addTagCategory, setAddTagCategory] = useState<"character" | "">("");
+  const [renameTagOpen, setRenameTagOpen] = useState(false);
+  const [renameTagId, setRenameTagId] = useState<number>(0);
+  const [renameTagValue, setRenameTagValue] = useState("");
+  const [renameTagError, setRenameTagError] = useState<string | null>(null);
+  const [renameTagCategory, setRenameTagCategory] = useState<"character" | "">("");
+  const [deleteTagOpen, setDeleteTagOpen] = useState(false);
+  const [deleteTagId, setDeleteTagId] = useState<number>(0);
+  const [deleteTagName, setDeleteTagName] = useState("");
+  const [deleteTagImageCount, setDeleteTagImageCount] = useState<number>(0);
+  const [deleteTagCategory, setDeleteTagCategory] = useState<"character" | "">("");
 
   // Folder image panel state
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
@@ -212,6 +216,13 @@ const AnimeDetailPage: FC = () => {
   useEffect(() => {
     load();
   }, [animeId]);
+
+  // Auto-load all anime images when details are available
+  useEffect(() => {
+    if (details?.folderTree != null) {
+      loadAllAnimeImages();
+    }
+  }, [details]);
 
   const handleRename = async () => {
     const trimmed = renameValue.trim();
@@ -277,48 +288,54 @@ const AnimeDetailPage: FC = () => {
     }
   };
 
-  const handleAddCharacter = async () => {
-    const name = addCharName.trim();
+  const categoryLabel = (category: "character" | "") =>
+    category === "character" ? "character" : "tag";
+
+  const handleAddTag = async () => {
+    const name = addTagName.trim();
     if (name === "") {
-      setAddCharError("Name is required");
+      setAddTagError("Name is required");
       return;
     }
     try {
       const tag = await TagFrontendService.CreateTopTag(name);
-      await TagFrontendService.UpdateCategory(tag.id, "character");
-      setAddCharOpen(false);
-      setAddCharName("");
-      setAddCharError(null);
+      if (addTagCategory === "character") {
+        await TagFrontendService.UpdateCategory(tag.id, "character");
+      }
+      setAddTagOpen(false);
+      setAddTagName("");
+      setAddTagError(null);
       await load();
     } catch (err: unknown) {
-      setAddCharError(err instanceof Error ? err.message : String(err));
+      setAddTagError(err instanceof Error ? err.message : String(err));
     }
   };
 
-  const handleRenameCharacter = async () => {
-    const name = renameCharValue.trim();
+  const handleRenameTag = async () => {
+    const name = renameTagValue.trim();
     if (name === "") {
-      setRenameCharError("Name is required");
+      setRenameTagError("Name is required");
       return;
     }
     try {
-      await TagFrontendService.UpdateName(renameCharId, name);
-      setRenameCharOpen(false);
-      setRenameCharError(null);
+      await TagFrontendService.UpdateName(renameTagId, name);
+      setRenameTagOpen(false);
+      setRenameTagError(null);
       await load();
     } catch (err: unknown) {
-      setRenameCharError(err instanceof Error ? err.message : String(err));
+      setRenameTagError(err instanceof Error ? err.message : String(err));
     }
   };
 
-  const handleDeleteCharacter = async (tagId: number, tagName: string) => {
+  const handleDeleteTag = async (tagId: number, tagName: string, category: "character" | "") => {
     try {
       const count = await TagFrontendService.GetTagFileCount(tagId);
       if (count > 0) {
-        setDeleteCharId(tagId);
-        setDeleteCharName(tagName);
-        setDeleteCharImageCount(count);
-        setDeleteCharOpen(true);
+        setDeleteTagId(tagId);
+        setDeleteTagName(tagName);
+        setDeleteTagImageCount(count);
+        setDeleteTagCategory(category);
+        setDeleteTagOpen(true);
       } else {
         await TagFrontendService.DeleteTag(tagId);
         await load();
@@ -328,10 +345,10 @@ const AnimeDetailPage: FC = () => {
     }
   };
 
-  const handleConfirmDeleteCharacter = async () => {
+  const handleConfirmDeleteTag = async () => {
     try {
-      await TagFrontendService.DeleteTag(deleteCharId);
-      setDeleteCharOpen(false);
+      await TagFrontendService.DeleteTag(deleteTagId);
+      setDeleteTagOpen(false);
       await load();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
@@ -369,15 +386,9 @@ const AnimeDetailPage: FC = () => {
 
   const handleSelectFolder = (folderId: number) => {
     if (selectedFolderId === folderId) {
-      // Deselect folder but keep tag selection
+      // Deselect folder — load all anime images
       setSelectedFolderId(null);
-      if (selectedTagIds.size > 0) {
-        // Tags are still active; load all anime images so the tag filter works
-        loadAllAnimeImages();
-      } else {
-        setFolderImages([]);
-        setImageTagMap({});
-      }
+      loadAllAnimeImages();
       return;
     }
     setSelectedFolderId(folderId);
@@ -393,19 +404,6 @@ const AnimeDetailPage: FC = () => {
       } else {
         next.add(tagId);
       }
-
-      // When no folder is selected, load all anime images so the tag filter
-      // can operate across the entire anime. When tags are cleared without a
-      // folder, reset.
-      if (selectedFolderId == null) {
-        if (next.size > 0) {
-          loadAllAnimeImages();
-        } else {
-          setFolderImages([]);
-          setImageTagMap({});
-        }
-      }
-
       return next;
     });
   };
@@ -536,91 +534,99 @@ const AnimeDetailPage: FC = () => {
         </ModalDialog>
       </Modal>
 
-      {/* Add character modal */}
-      <Modal open={addCharOpen} onClose={() => setAddCharOpen(false)}>
+      {/* Add tag/character modal */}
+      <Modal open={addTagOpen} onClose={() => setAddTagOpen(false)}>
         <ModalDialog sx={{ minWidth: 360 }}>
           <ModalClose />
-          <Typography level="title-md">Add character</Typography>
+          <Typography level="title-md">
+            Add {categoryLabel(addTagCategory)}
+          </Typography>
           <Stack spacing={2} sx={{ mt: 2 }}>
             <Input
               autoFocus
-              placeholder="Character name"
-              value={addCharName}
+              placeholder={
+                addTagCategory === "character" ? "Character name" : "Tag name"
+              }
+              value={addTagName}
               onChange={(e) => {
-                setAddCharName(e.target.value);
-                setAddCharError(null);
+                setAddTagName(e.target.value);
+                setAddTagError(null);
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  handleAddCharacter();
+                  handleAddTag();
                 }
               }}
             />
-            {addCharError && (
+            {addTagError && (
               <Typography level="body-sm" color="danger">
-                {addCharError}
+                {addTagError}
               </Typography>
             )}
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               <Button
                 variant="plain"
                 color="neutral"
-                onClick={() => setAddCharOpen(false)}
+                onClick={() => setAddTagOpen(false)}
               >
                 Cancel
               </Button>
-              <Button onClick={handleAddCharacter}>Create</Button>
+              <Button onClick={handleAddTag}>Create</Button>
             </Stack>
           </Stack>
         </ModalDialog>
       </Modal>
 
-      {/* Rename character modal */}
-      <Modal open={renameCharOpen} onClose={() => setRenameCharOpen(false)}>
+      {/* Rename tag/character modal */}
+      <Modal open={renameTagOpen} onClose={() => setRenameTagOpen(false)}>
         <ModalDialog sx={{ minWidth: 360 }}>
           <ModalClose />
-          <Typography level="title-md">Rename character</Typography>
+          <Typography level="title-md">
+            Rename {categoryLabel(renameTagCategory)}
+          </Typography>
           <Stack spacing={2} sx={{ mt: 2 }}>
             <Input
               autoFocus
-              value={renameCharValue}
+              value={renameTagValue}
               onChange={(e) => {
-                setRenameCharValue(e.target.value);
-                setRenameCharError(null);
+                setRenameTagValue(e.target.value);
+                setRenameTagError(null);
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  handleRenameCharacter();
+                  handleRenameTag();
                 }
               }}
             />
-            {renameCharError && (
+            {renameTagError && (
               <Typography level="body-sm" color="danger">
-                {renameCharError}
+                {renameTagError}
               </Typography>
             )}
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               <Button
                 variant="plain"
                 color="neutral"
-                onClick={() => setRenameCharOpen(false)}
+                onClick={() => setRenameTagOpen(false)}
               >
                 Cancel
               </Button>
-              <Button onClick={handleRenameCharacter}>Save</Button>
+              <Button onClick={handleRenameTag}>Save</Button>
             </Stack>
           </Stack>
         </ModalDialog>
       </Modal>
 
-      {/* Delete character confirmation modal */}
-      <Modal open={deleteCharOpen} onClose={() => setDeleteCharOpen(false)}>
+      {/* Delete tag/character confirmation modal */}
+      <Modal open={deleteTagOpen} onClose={() => setDeleteTagOpen(false)}>
         <ModalDialog sx={{ minWidth: 360 }}>
           <ModalClose />
-          <Typography level="title-md">Delete character</Typography>
+          <Typography level="title-md">
+            Delete {categoryLabel(deleteTagCategory)}
+          </Typography>
           <Typography level="body-md" sx={{ mt: 2 }}>
-            &quot;{deleteCharName}&quot; is tagged on {deleteCharImageCount}{" "}
-            image{deleteCharImageCount === 1 ? "" : "s"}. Are you sure you want
+            &quot;{deleteTagName}&quot; is tagged on {deleteTagImageCount}{" "}
+            image{deleteTagImageCount === 1 ? "" : "s"}. Are you sure you want
             to delete it?
           </Typography>
           <Stack
@@ -632,11 +638,11 @@ const AnimeDetailPage: FC = () => {
             <Button
               variant="plain"
               color="neutral"
-              onClick={() => setDeleteCharOpen(false)}
+              onClick={() => setDeleteTagOpen(false)}
             >
               Cancel
             </Button>
-            <Button color="danger" onClick={handleConfirmDeleteCharacter}>
+            <Button color="danger" onClick={handleConfirmDeleteTag}>
               Delete
             </Button>
           </Stack>
@@ -648,17 +654,6 @@ const AnimeDetailPage: FC = () => {
   const sidebarContent = details != null && (
     <Box sx={{ p: 2, overflowY: "auto", height: "100%" }}>
       <Stack spacing={3}>
-        <Box>
-          <Button
-            variant="soft"
-            onClick={() =>
-              navigate(`/search?animeId=${encodeURIComponent(id)}`)
-            }
-          >
-            View all images for this anime
-          </Button>
-        </Box>
-
         {/* Characters (tags where category === "character") */}
         {(() => {
           const characterTags = details.tags.filter(
@@ -685,9 +680,10 @@ const AnimeDetailPage: FC = () => {
                   color="primary"
                   title="Add character"
                   onClick={() => {
-                    setAddCharName("");
-                    setAddCharError(null);
-                    setAddCharOpen(true);
+                    setAddTagName("");
+                    setAddTagError(null);
+                    setAddTagCategory("character");
+                    setAddTagOpen(true);
                   }}
                 >
                   <Add fontSize="small" />
@@ -739,10 +735,11 @@ const AnimeDetailPage: FC = () => {
                           <Menu size="sm" placement="bottom-start">
                             <MenuItem
                               onClick={() => {
-                                setRenameCharId(tag.id);
-                                setRenameCharValue(tag.name);
-                                setRenameCharError(null);
-                                setRenameCharOpen(true);
+                                setRenameTagId(tag.id);
+                                setRenameTagValue(tag.name);
+                                setRenameTagError(null);
+                                setRenameTagCategory("character");
+                                setRenameTagOpen(true);
                               }}
                             >
                               <ListItemDecorator>
@@ -753,7 +750,7 @@ const AnimeDetailPage: FC = () => {
                             <MenuItem
                               color="danger"
                               onClick={() =>
-                                handleDeleteCharacter(tag.id, tag.name)
+                                handleDeleteTag(tag.id, tag.name, "character")
                               }
                             >
                               <ListItemDecorator>
@@ -768,15 +765,46 @@ const AnimeDetailPage: FC = () => {
                   })}
                 </Stack>
               )}
+              <Typography
+                level="body-xs"
+                sx={{ color: "text.tertiary", mt: 1 }}
+              >
+                Click tags to filter images. Multiple tags use AND logic.
+              </Typography>
             </Box>
           );
         })()}
 
-        {/* Tags (uncategorized, derived, read-only) */}
+        {/* Tags (uncategorized) */}
         <Box>
-          <Typography level="title-md" sx={{ mb: 1 }}>
-            Tags
-          </Typography>
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={1}
+            sx={{ mb: 1 }}
+          >
+            <Typography
+              level="title-md"
+              startDecorator={<LocalOffer fontSize="small" />}
+              sx={{ flex: 1 }}
+            >
+              Tags
+            </Typography>
+            <IconButton
+              size="sm"
+              variant="outlined"
+              color="primary"
+              title="Add tag"
+              onClick={() => {
+                setAddTagName("");
+                setAddTagError(null);
+                setAddTagCategory("");
+                setAddTagOpen(true);
+              }}
+            >
+              <Add fontSize="small" />
+            </IconButton>
+          </Stack>
           {(() => {
             const uncategorizedTags = details.tags.filter(
               (t) => t.category !== "character"
@@ -784,15 +812,14 @@ const AnimeDetailPage: FC = () => {
             if (details.tags.length === 0) {
               return (
                 <Typography level="body-sm" sx={{ color: "text.secondary" }}>
-                  No tags found. Tags are derived from images in the folder
-                  tree.
+                  No tags found. Click + to add one.
                 </Typography>
               );
             }
             if (uncategorizedTags.length === 0) {
               return (
                 <Typography level="body-sm" sx={{ color: "text.secondary" }}>
-                  All tags are categorized as characters.
+                  All tags are categorized as characters. Click + to add a tag.
                 </Typography>
               );
             }
@@ -801,20 +828,68 @@ const AnimeDetailPage: FC = () => {
                 {uncategorizedTags.map((tag) => {
                   const isTagSelected = selectedTagIds.has(tag.id);
                   return (
-                    <Chip
+                    <Stack
                       key={tag.id}
-                      variant={isTagSelected ? "solid" : "soft"}
-                      color={isTagSelected ? "primary" : "neutral"}
-                      onClick={() => handleToggleTag(tag.id)}
-                      sx={{ cursor: "pointer" }}
-                      endDecorator={
-                        <Typography level="body-xs" sx={{ ml: 0.5 }}>
-                          {tag.imageCount}
-                        </Typography>
-                      }
+                      direction="row"
+                      alignItems="center"
+                      spacing={0.25}
                     >
-                      {tag.name}
-                    </Chip>
+                      <Chip
+                        variant={isTagSelected ? "solid" : "soft"}
+                        color={isTagSelected ? "primary" : "neutral"}
+                        onClick={() => handleToggleTag(tag.id)}
+                        sx={{ cursor: "pointer" }}
+                        endDecorator={
+                          <Typography level="body-xs" sx={{ ml: 0.5 }}>
+                            {tag.imageCount}
+                          </Typography>
+                        }
+                      >
+                        {tag.name}
+                      </Chip>
+                      <Dropdown>
+                        <MenuButton
+                          slots={{ root: IconButton }}
+                          slotProps={{
+                            root: {
+                              size: "sm",
+                              variant: "plain",
+                              color: "neutral",
+                              sx: { minWidth: 24, minHeight: 24, p: 0.25 },
+                            },
+                          }}
+                        >
+                          <MoreVert sx={{ fontSize: 16 }} />
+                        </MenuButton>
+                        <Menu size="sm" placement="bottom-start">
+                          <MenuItem
+                            onClick={() => {
+                              setRenameTagId(tag.id);
+                              setRenameTagValue(tag.name);
+                              setRenameTagError(null);
+                              setRenameTagCategory("");
+                              setRenameTagOpen(true);
+                            }}
+                          >
+                            <ListItemDecorator>
+                              <Edit fontSize="small" />
+                            </ListItemDecorator>
+                            Rename
+                          </MenuItem>
+                          <MenuItem
+                            color="danger"
+                            onClick={() =>
+                              handleDeleteTag(tag.id, tag.name, "")
+                            }
+                          >
+                            <ListItemDecorator>
+                              <Delete fontSize="small" />
+                            </ListItemDecorator>
+                            Delete
+                          </MenuItem>
+                        </Menu>
+                      </Dropdown>
+                    </Stack>
                   );
                 })}
               </Stack>
@@ -861,11 +936,21 @@ const AnimeDetailPage: FC = () => {
     </Box>
   );
 
-  // When a folder is selected or tags are active, show a two-panel layout with
-  // the sidebar and ImageListMain for the image grid. Otherwise show a
-  // single-panel detail view.
-  if (selectedFolderId != null || selectedTagIds.size > 0) {
-    return (
+  // Always show two-panel layout: sidebar + image grid
+  return (
+    <Layout.Main actionHeader={actionHeader}>
+      {loading && (
+        <Box sx={{ p: 2 }}>
+          <Typography>Loading...</Typography>
+        </Box>
+      )}
+      {error && (
+        <Box sx={{ p: 2 }}>
+          <Typography color="danger" level="body-md">
+            {error}
+          </Typography>
+        </Box>
+      )}
       <Box
         sx={{
           display: "grid",
@@ -875,13 +960,14 @@ const AnimeDetailPage: FC = () => {
             md: "minmax(240px, 320px) minmax(500px, 1fr)",
           },
           gridTemplateRows: "1fr",
+          height: "100%",
         }}
       >
         <Layout.SideNav
           sx={{
             borderRight: "1px solid",
             borderColor: "divider",
-            height: "95vh",
+            height: "100%",
             overflowY: "auto",
           }}
         >
@@ -892,21 +978,6 @@ const AnimeDetailPage: FC = () => {
           searchParams={searchParams}
           setSearchParams={setSearchParams}
         />
-        {modals}
-      </Box>
-    );
-  }
-
-  return (
-    <Layout.Main actionHeader={actionHeader}>
-      <Box sx={{ p: 2 }}>
-        {loading && <Typography>Loading...</Typography>}
-        {error && (
-          <Typography color="danger" level="body-md">
-            {error}
-          </Typography>
-        )}
-        {sidebarContent}
       </Box>
       {modals}
     </Layout.Main>
