@@ -277,13 +277,25 @@ const AnimeDetailPage: FC = () => {
     }
   };
 
+  const loadAllAnimeImages = async () => {
+    if (details?.folderTree == null) {
+      return;
+    }
+    const rootFolderId = details.folderTree.id;
+    await loadFolderImages(rootFolderId);
+  };
+
   const handleSelectFolder = (folderId: number) => {
     if (selectedFolderId === folderId) {
-      // Deselect
+      // Deselect folder but keep tag selection
       setSelectedFolderId(null);
-      setFolderImages([]);
-      setSelectedTagIds(new Set());
-      setImageTagMap({});
+      if (selectedTagIds.size > 0) {
+        // Tags are still active; load all anime images so the tag filter works
+        loadAllAnimeImages();
+      } else {
+        setFolderImages([]);
+        setImageTagMap({});
+      }
       return;
     }
     setSelectedFolderId(folderId);
@@ -299,6 +311,19 @@ const AnimeDetailPage: FC = () => {
       } else {
         next.add(tagId);
       }
+
+      // When no folder is selected, load all anime images so the tag filter
+      // can operate across the entire anime. When tags are cleared without a
+      // folder, reset.
+      if (selectedFolderId == null) {
+        if (next.size > 0) {
+          loadAllAnimeImages();
+        } else {
+          setFolderImages([]);
+          setImageTagMap({});
+        }
+      }
+
       return next;
     });
   };
@@ -518,9 +543,10 @@ const AnimeDetailPage: FC = () => {
     </Box>
   );
 
-  // When a folder is selected, show a two-panel layout with the sidebar and
-  // ImageListMain for the image grid. Otherwise show a single-panel detail view.
-  if (selectedFolderId != null) {
+  // When a folder is selected or tags are active, show a two-panel layout with
+  // the sidebar and ImageListMain for the image grid. Otherwise show a
+  // single-panel detail view.
+  if (selectedFolderId != null || selectedTagIds.size > 0) {
     return (
       <Box
         sx={{
