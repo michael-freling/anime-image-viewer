@@ -144,7 +144,9 @@ export const SelectTagExplorer: FC<SelectTagExplorerProps> = ({
   }
 
   async function refresh() {
-    const tags = await TagService.GetAll();
+    const allTags = await TagService.GetAll();
+    // Exclude character tags — they are managed on the anime detail page
+    const tags = allTags.filter((t) => t.category !== "character");
     setChildren(tags);
     setTagMap(getTagMap(tags));
 
