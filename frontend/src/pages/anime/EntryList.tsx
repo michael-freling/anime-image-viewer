@@ -1,5 +1,6 @@
 import {
   Add,
+  CalendarMonth,
   Delete,
   Edit,
   Folder as FolderIcon,
@@ -35,6 +36,7 @@ interface EntryListProps {
   onRenameEntry: (entryId: number, currentName: string) => void;
   onDeleteEntry: (entryId: number, name: string) => void;
   onSetEntryType: (entryId: number, currentName: string) => void;
+  onEditAiringInfo: (entryId: number, currentSeason: string, currentYear: number | null) => void;
 }
 
 function totalEntryImageCount(entry: AnimeEntryInfo): number {
@@ -99,6 +101,26 @@ function entryIcon(type: string) {
   }
 }
 
+function isFutureEntry(entry: AnimeEntryInfo): boolean {
+  if (!entry.airingYear) return false;
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-12
+
+  if (entry.airingYear > currentYear) return true;
+  if (entry.airingYear < currentYear) return false;
+
+  // Same year — check season
+  const seasonStartMonth: Record<string, number> = {
+    WINTER: 1,
+    SPRING: 4,
+    SUMMER: 7,
+    FALL: 10,
+  };
+  const startMonth = seasonStartMonth[entry.airingSeason] ?? 1;
+  return startMonth > currentMonth;
+}
+
 const MAX_ADD_DEPTH = 2; // can add sub-entries at depth 0, 1; not at 2+
 
 const EntryNode: FC<{
@@ -111,6 +133,7 @@ const EntryNode: FC<{
   onRenameEntry: (entryId: number, currentName: string) => void;
   onDeleteEntry: (entryId: number, name: string) => void;
   onSetEntryType: (entryId: number, currentName: string) => void;
+  onEditAiringInfo: (entryId: number, currentSeason: string, currentYear: number | null) => void;
 }> = ({
   entry,
   depth,
@@ -121,8 +144,10 @@ const EntryNode: FC<{
   onRenameEntry,
   onDeleteEntry,
   onSetEntryType,
+  onEditAiringInfo,
 }) => {
   const isSelected = selectedEntryId === entry.id;
+  const isFuture = isFutureEntry(entry);
   const hasChildren = entry.children && entry.children.length > 0;
   const badge =
     depth === 0
@@ -165,6 +190,7 @@ const EntryNode: FC<{
                 bgcolor: color,
                 flexShrink: 0,
                 mr: 1,
+                ...(isFuture && { opacity: 0.35 }),
               }}
             />
 
@@ -220,6 +246,7 @@ const EntryNode: FC<{
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
+            ...(isFuture && { opacity: 0.45, fontStyle: "italic" }),
           }}
         >
           {entry.name}
@@ -227,7 +254,7 @@ const EntryNode: FC<{
         {(entry.airingSeason || entry.airingYear) && (
           <Typography
             level="body-xs"
-            sx={{ color: "text.tertiary", ml: 0.5, flexShrink: 0 }}
+            sx={{ color: "text.tertiary", ml: 0.5, flexShrink: 0, ...(isFuture && { opacity: 0.45, fontStyle: "italic" }) }}
           >
             {formatAiring(entry.airingSeason, entry.airingYear)}
           </Typography>
@@ -304,6 +331,14 @@ const EntryNode: FC<{
                 </MenuItem>
               )}
               <MenuItem
+                onClick={() => onEditAiringInfo(entry.id, entry.airingSeason, entry.airingYear)}
+              >
+                <ListItemDecorator>
+                  <CalendarMonth fontSize="small" />
+                </ListItemDecorator>
+                Edit Airing Info
+              </MenuItem>
+              <MenuItem
                 onClick={() => onRenameEntry(entry.id, entry.name)}
               >
                 <ListItemDecorator>
@@ -343,6 +378,7 @@ const EntryNode: FC<{
               onRenameEntry={onRenameEntry}
               onDeleteEntry={onDeleteEntry}
               onSetEntryType={onSetEntryType}
+              onEditAiringInfo={onEditAiringInfo}
             />
           ))}
         </Box>
@@ -361,6 +397,7 @@ const EntryList: FC<EntryListProps> = ({
   onRenameEntry,
   onDeleteEntry,
   onSetEntryType,
+  onEditAiringInfo,
 }) => {
   return (
     <Box
@@ -414,6 +451,7 @@ const EntryList: FC<EntryListProps> = ({
               onRenameEntry={onRenameEntry}
               onDeleteEntry={onDeleteEntry}
               onSetEntryType={onSetEntryType}
+              onEditAiringInfo={onEditAiringInfo}
             />
           ))}
         </Box>

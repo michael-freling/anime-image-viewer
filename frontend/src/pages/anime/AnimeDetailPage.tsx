@@ -31,6 +31,8 @@ import {
   Snackbar,
   Stack,
   Typography,
+  Option,
+  Select,
 } from "@mui/joy";
 import { FC, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
@@ -115,6 +117,14 @@ const AnimeDetailPage: FC = () => {
   );
   const [setTypeError, setSetTypeError] = useState<string | null>(null);
   const [setTypeSubmitting, setSetTypeSubmitting] = useState(false);
+
+  // Edit airing info modal state
+  const [editAiringOpen, setEditAiringOpen] = useState(false);
+  const [editAiringEntryId, setEditAiringEntryId] = useState(0);
+  const [editAiringSeason, setEditAiringSeason] = useState("");
+  const [editAiringYear, setEditAiringYear] = useState<number | null>(null);
+  const [editAiringError, setEditAiringError] = useState<string | null>(null);
+  const [editAiringSubmitting, setEditAiringSubmitting] = useState(false);
 
   // Folder image panel state
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
@@ -446,6 +456,26 @@ const AnimeDetailPage: FC = () => {
     }
   };
 
+  // Edit airing info handler
+  const handleEditAiringInfo = async () => {
+    setEditAiringSubmitting(true);
+    setEditAiringError(null);
+    try {
+      await AnimeService.UpdateEntryAiringInfo(
+        editAiringEntryId,
+        editAiringSeason,
+        editAiringYear ?? 0
+      );
+      setEditAiringOpen(false);
+      await load();
+      await loadEntries();
+    } catch (err: unknown) {
+      setEditAiringError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setEditAiringSubmitting(false);
+    }
+  };
+
   // Convert tag category handler
   const handleConvertTagCategory = async (
     tagId: number,
@@ -509,7 +539,14 @@ const AnimeDetailPage: FC = () => {
         {details?.anime.name ?? "Anime"}
       </Typography>
       {details?.anime.aniListId != null && details.anime.aniListId > 0 && (
-        <Chip variant="soft" color="primary" size="sm" startDecorator={<LinkIcon sx={{ fontSize: 14 }} />}>
+        <Chip
+          variant="soft"
+          color="primary"
+          size="sm"
+          startDecorator={<LinkIcon sx={{ fontSize: 14 }} />}
+          onClick={() => window.open(`https://anilist.co/anime/${details.anime.aniListId}`, '_blank')}
+          sx={{ cursor: 'pointer' }}
+        >
           AniList
         </Chip>
       )}
@@ -801,6 +838,67 @@ const AnimeDetailPage: FC = () => {
         </ModalDialog>
       </Modal>
 
+      {/* Edit airing info modal */}
+      <Modal open={editAiringOpen} onClose={() => setEditAiringOpen(false)}>
+        <ModalDialog sx={{ minWidth: 360 }}>
+          <ModalClose />
+          <Typography level="title-md">Edit Airing Info</Typography>
+          <Stack spacing={2} sx={{ mt: 2 }}>
+            <FormControl>
+              <FormLabel>Season</FormLabel>
+              <Select
+                value={editAiringSeason}
+                onChange={(_e, value) => {
+                  setEditAiringSeason(value ?? "");
+                  setEditAiringError(null);
+                }}
+              >
+                <Option value="">(None)</Option>
+                <Option value="WINTER">Winter</Option>
+                <Option value="SPRING">Spring</Option>
+                <Option value="SUMMER">Summer</Option>
+                <Option value="FALL">Fall</Option>
+              </Select>
+            </FormControl>
+            <FormControl>
+              <FormLabel>Year</FormLabel>
+              <Input
+                type="number"
+                value={editAiringYear ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setEditAiringYear(v === "" ? null : Number(v));
+                  setEditAiringError(null);
+                }}
+                slotProps={{ input: { min: 1900, max: 2100 } }}
+                placeholder="e.g. 2024"
+              />
+            </FormControl>
+            {editAiringError && (
+              <Typography level="body-sm" color="danger">
+                {editAiringError}
+              </Typography>
+            )}
+            <Stack direction="row" spacing={1} justifyContent="flex-end">
+              <Button
+                variant="plain"
+                color="neutral"
+                onClick={() => setEditAiringOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={editAiringSubmitting}
+                loading={editAiringSubmitting}
+                onClick={handleEditAiringInfo}
+              >
+                Save
+              </Button>
+            </Stack>
+          </Stack>
+        </ModalDialog>
+      </Modal>
+
       {/* Add tag/character modal */}
       <Modal open={addTagOpen} onClose={() => setAddTagOpen(false)}>
         <ModalDialog sx={{ minWidth: 360 }}>
@@ -971,14 +1069,22 @@ const AnimeDetailPage: FC = () => {
               setSetTypeSubmitting(false);
               setSetTypeOpen(true);
             }}
+            onEditAiringInfo={(entryId, currentSeason, currentYear) => {
+              setEditAiringEntryId(entryId);
+              setEditAiringSeason(currentSeason);
+              setEditAiringYear(currentYear);
+              setEditAiringError(null);
+              setEditAiringSubmitting(false);
+              setEditAiringOpen(true);
+            }}
           />
         </Box>
 
         {/* Characters (tags where category === "character") */}
         {(() => {
-          const characterTags = details.tags.filter(
-            (t) => t.category === "character"
-          );
+          const characterTags = details.tags
+            .filter((t) => t.category === "character")
+            .sort((a, b) => b.imageCount - a.imageCount);
           return (
             <Box>
               <Stack

@@ -4,6 +4,7 @@ import {
   Button,
   Checkbox,
   Chip,
+  CircularProgress,
   Input,
   List,
   ListDivider,
@@ -16,7 +17,7 @@ import {
   Stack,
   Typography,
 } from "@mui/joy";
-import { FC, useEffect, useState } from "react";
+import { FC, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   AniListSearchResult,
@@ -25,7 +26,11 @@ import {
   UnassignedFolder,
 } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import Layout from "../../Layout";
-import AniListSearchModal from "./AniListSearchModal";
+
+function formatSeason(season: string): string {
+  if (!season) return "";
+  return season.charAt(0).toUpperCase() + season.slice(1).toLowerCase();
+}
 
 const AnimeListPage: FC = () => {
   const [items, setItems] = useState<AnimeListItem[] | null>(null);
@@ -39,8 +44,11 @@ const AnimeListPage: FC = () => {
   const [importError, setImportError] = useState<string | null>(null);
   const [selectedFolderIds, setSelectedFolderIds] = useState<Set<number>>(new Set());
   const [importingBatch, setImportingBatch] = useState(false);
-  const [aniListSearchOpen, setAniListSearchOpen] = useState(false);
   const [selectedAniList, setSelectedAniList] = useState<AniListSearchResult | null>(null);
+  const [aniListResults, setAniListResults] = useState<AniListSearchResult[]>([]);
+  const [aniListLoading, setAniListLoading] = useState(false);
+  const [aniListSearched, setAniListSearched] = useState(false);
+  const aniListTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigate = useNavigate();
 
   const refresh = async () => {
@@ -56,6 +64,60 @@ const AnimeListPage: FC = () => {
   useEffect(() => {
     refresh();
   }, []);
+
+  // Cleanup AniList debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (aniListTimerRef.current != null) {
+        clearTimeout(aniListTimerRef.current);
+      }
+    };
+  }, []);
+
+  const doAniListSearch = useCallback(async (q: string) => {
+    const trimmed = q.trim();
+    if (trimmed === "") {
+      setAniListResults([]);
+      setAniListSearched(false);
+      setAniListLoading(false);
+      return;
+    }
+    setAniListLoading(true);
+    try {
+      const res = await AnimeService.SearchAniList(trimmed);
+      setAniListResults(res ?? []);
+      setAniListSearched(true);
+    } catch {
+      setAniListResults([]);
+      setAniListSearched(true);
+    } finally {
+      setAniListLoading(false);
+    }
+  }, []);
+
+  const handleNameChange = (value: string) => {
+    setNewName(value);
+    setCreateError(null);
+    setSelectedAniList(null);
+    setAniListResults([]);
+    setAniListSearched(false);
+    if (aniListTimerRef.current != null) {
+      clearTimeout(aniListTimerRef.current);
+    }
+    aniListTimerRef.current = setTimeout(() => {
+      doAniListSearch(value);
+    }, 300);
+  };
+
+  const handleAniListSelect = (result: AniListSearchResult) => {
+    setSelectedAniList(result);
+    const title = result.titleEnglish || result.titleRomaji;
+    if (title) {
+      setNewName(title);
+    }
+    setAniListResults([]);
+    setAniListSearched(false);
+  };
 
   const handleCreate = async () => {
     const name = newName.trim();
@@ -144,6 +206,9 @@ const AnimeListPage: FC = () => {
                 setCreateError(null);
                 setNewName("");
                 setSelectedAniList(null);
+                setAniListResults([]);
+                setAniListSearched(false);
+                setAniListLoading(false);
                 setCreateOpen(true);
               }}
             >
@@ -214,18 +279,16 @@ const AnimeListPage: FC = () => {
             <Input
               autoFocus
               placeholder="Anime name"
+              startDecorator={<Search />}
               value={newName}
-              onChange={(e) => {
-                setNewName(e.target.value);
-                setCreateError(null);
-              }}
+              onChange={(e) => handleNameChange(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") {
+                if (e.key === "Enter" && !aniListLoading) {
                   handleCreate();
                 }
               }}
             />
-            {selectedAniList ? (
+            {selectedAniList && (
               <Chip
                 variant="soft"
                 color="primary"
@@ -238,17 +301,74 @@ const AnimeListPage: FC = () => {
               >
                 AniList linked: {selectedAniList.titleEnglish || selectedAniList.titleRomaji}
               </Chip>
-            ) : (
-              <Button
-                variant="plain"
-                color="neutral"
-                size="sm"
-                startDecorator={<Search />}
-                onClick={() => setAniListSearchOpen(true)}
-                sx={{ alignSelf: "flex-start" }}
+            )}
+            {aniListLoading && (
+              <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
+                <CircularProgress size="sm" />
+              </Box>
+            )}
+            {!selectedAniList && !aniListLoading && aniListSearched && aniListResults.length === 0 && (
+              <Typography
+                level="body-sm"
+                sx={{ color: "text.secondary", textAlign: "center", py: 1 }}
               >
-                Search AniList
-              </Button>
+                No AniList results found
+              </Typography>
+            )}
+            {!selectedAniList && !aniListLoading && aniListResults.length > 0 && (
+              <List
+                variant="outlined"
+                sx={{ borderRadius: "sm", maxHeight: 300, overflow: "auto" }}
+              >
+                {aniListResults.map((result, idx) => {
+                  const displayTitle =
+                    result.titleEnglish || result.titleRomaji || "Unknown";
+                  const seasonStr = formatSeason(result.season);
+                  const subtitleParts: string[] = [];
+                  if (result.format) subtitleParts.push(result.format);
+                  if (seasonStr && result.seasonYear) {
+                    subtitleParts.push(`${seasonStr} ${result.seasonYear}`);
+                  } else if (result.seasonYear) {
+                    subtitleParts.push(`${result.seasonYear}`);
+                  }
+                  if (result.episodes > 0) {
+                    subtitleParts.push(
+                      `${result.episodes} episode${result.episodes === 1 ? "" : "s"}`
+                    );
+                  }
+
+                  return (
+                    <Box key={result.id}>
+                      {idx > 0 && <ListDivider inset="gutter" />}
+                      <ListItem>
+                        <ListItemButton onClick={() => handleAniListSelect(result)}>
+                          <ListItemContent>
+                            <Typography level="title-sm">
+                              {displayTitle}
+                            </Typography>
+                            {subtitleParts.length > 0 && (
+                              <Typography
+                                level="body-xs"
+                                sx={{ color: "text.secondary" }}
+                              >
+                                {subtitleParts.join(" \u00B7 ")}
+                              </Typography>
+                            )}
+                            {result.titleNative && (
+                              <Typography
+                                level="body-xs"
+                                sx={{ color: "text.tertiary" }}
+                              >
+                                {result.titleNative}
+                              </Typography>
+                            )}
+                          </ListItemContent>
+                        </ListItemButton>
+                      </ListItem>
+                    </Box>
+                  );
+                })}
+              </List>
             )}
             {createError && (
               <Typography level="body-sm" color="danger">
@@ -268,19 +388,6 @@ const AnimeListPage: FC = () => {
           </Stack>
         </ModalDialog>
       </Modal>
-
-      {/* AniList search modal */}
-      <AniListSearchModal
-        open={aniListSearchOpen}
-        onClose={() => setAniListSearchOpen(false)}
-        onSelect={(result) => {
-          setSelectedAniList(result);
-          const title = result.titleEnglish || result.titleRomaji;
-          if (title && newName.trim() === "") {
-            setNewName(title);
-          }
-        }}
-      />
 
       {/* Import folders modal */}
       <Modal open={importOpen} onClose={() => setImportOpen(false)}>

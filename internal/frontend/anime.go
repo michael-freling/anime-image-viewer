@@ -529,6 +529,11 @@ func (s *AnimeService) UpdateEntryType(ctx context.Context, entryID uint, entryT
 	return s.core.UpdateEntryType(ctx, entryID, entryType, entryNumber)
 }
 
+// UpdateEntryAiringInfo updates the airing season and year on an entry.
+func (s *AnimeService) UpdateEntryAiringInfo(entryID uint, airingSeason string, airingYear uint) error {
+	return s.core.UpdateEntryAiringInfo(context.Background(), entryID, airingSeason, airingYear)
+}
+
 // GetNextEntryNumber returns the next entry number for the given type.
 func (s *AnimeService) GetNextEntryNumber(animeID uint, entryType string) (uint, error) {
 	return s.core.NextEntryNumber(animeID, entryType)
