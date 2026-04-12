@@ -38,6 +38,7 @@ const AnimeListPage: FC = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [unassignedFolders, setUnassignedFolders] = useState<UnassignedFolder[]>([]);
   const [importLoading, setImportLoading] = useState(false);
@@ -125,6 +126,8 @@ const AnimeListPage: FC = () => {
       setCreateError("Name is required");
       return;
     }
+    setCreating(true);
+    setCreateError(null);
     try {
       const created = await AnimeService.CreateAnime(name);
       if (selectedAniList) {
@@ -137,6 +140,8 @@ const AnimeListPage: FC = () => {
       navigate(`/${created.id}`);
     } catch (err: unknown) {
       setCreateError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -271,19 +276,20 @@ const AnimeListPage: FC = () => {
       </Box>
 
       {/* Create anime modal */}
-      <Modal open={createOpen} onClose={() => setCreateOpen(false)}>
+      <Modal open={createOpen} onClose={() => { if (!creating) setCreateOpen(false); }}>
         <ModalDialog sx={{ minWidth: 360 }}>
-          <ModalClose />
+          {!creating && <ModalClose />}
           <Typography level="title-md">Create anime</Typography>
           <Stack spacing={2} sx={{ mt: 2 }}>
             <Input
               autoFocus
+              disabled={creating}
               placeholder="Anime name"
               startDecorator={<Search />}
               value={newName}
               onChange={(e) => handleNameChange(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !aniListLoading) {
+                if (e.key === "Enter" && !aniListLoading && !creating) {
                   handleCreate();
                 }
               }}
@@ -379,11 +385,18 @@ const AnimeListPage: FC = () => {
               <Button
                 variant="plain"
                 color="neutral"
+                disabled={creating}
                 onClick={() => setCreateOpen(false)}
               >
                 Cancel
               </Button>
-              <Button onClick={handleCreate}>Create</Button>
+              <Button
+                disabled={creating}
+                loading={creating}
+                onClick={handleCreate}
+              >
+                Create
+              </Button>
             </Stack>
           </Stack>
         </ModalDialog>
