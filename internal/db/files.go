@@ -17,6 +17,11 @@ const (
 	EntryTypeSeason = "season"
 	EntryTypeMovie  = "movie"
 	EntryTypeOther  = "other"
+
+	AiringSeasonWinter = "WINTER"
+	AiringSeasonSpring = "SPRING"
+	AiringSeasonSummer = "SUMMER"
+	AiringSeasonFall   = "FALL"
 )
 
 type File struct {
@@ -40,6 +45,13 @@ type File struct {
 
 	// EntryNumber is the season number or movie year. NULL when not applicable.
 	EntryNumber *uint `gorm:"column:entry_number"`
+
+	// AiringSeason is the airing season: "WINTER", "SPRING", "SUMMER", "FALL".
+	// NULL when not applicable.
+	AiringSeason string `gorm:"column:airing_season"`
+
+	// AiringYear is the year the entry aired. NULL when not applicable.
+	AiringYear *uint `gorm:"column:airing_year"`
 
 	// ContentHash stores a hex-encoded SHA256 hash of the image file content.
 	// It is computed on import and used for fast corruption detection.
@@ -181,9 +193,23 @@ func (client *FileClient) FindDirectChildDirectories(parentID uint) ([]File, err
 // UpdateEntryFields updates entry_type and entry_number on the given file ID.
 // Uses GORM's Updates with a map so that nil/zero values are properly saved.
 func (client *FileClient) UpdateEntryFields(ctx context.Context, fileID uint, entryType string, entryNumber *uint) error {
-	updates := map[string]interface{}{
+	updates := map[string]any{
 		"entry_type":   entryType,
 		"entry_number": entryNumber,
+	}
+	return client.getTransaction(ctx).
+		Model(&File{}).
+		Where("id = ?", fileID).
+		Updates(updates).
+		Error
+}
+
+// UpdateAiringFields updates airing_season and airing_year on the given file ID.
+// Uses GORM's Updates with a map so that nil/zero values are properly saved.
+func (client *FileClient) UpdateAiringFields(ctx context.Context, fileID uint, airingSeason string, airingYear *uint) error {
+	updates := map[string]any{
+		"airing_season": airingSeason,
+		"airing_year":   airingYear,
 	}
 	return client.getTransaction(ctx).
 		Model(&File{}).

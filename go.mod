@@ -5,6 +5,7 @@ go 1.23.2
 require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/google/go-cmp v0.6.0
+	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/michael-freling/anime-image-viewer/plugins/plugins-protos/gen/go v0.0.0-00010101000000-000000000000
 	github.com/orandin/slog-gorm v1.4.0
 	github.com/spf13/cobra v1.8.1
@@ -47,7 +48,6 @@ require (
 	github.com/lmittmann/tint v1.0.4 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
