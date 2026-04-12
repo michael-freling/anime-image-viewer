@@ -13,11 +13,13 @@ import (
 	"time"
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
+	"github.com/michael-freling/anime-image-viewer/internal/image"
 )
 
 type BackupService struct {
-	logger *slog.Logger
-	config config.Config
+	logger         *slog.Logger
+	config         config.Config
+	restoreService *RestoreService
 }
 
 func NewBackupService(logger *slog.Logger, conf config.Config) *BackupService {
@@ -25,6 +27,13 @@ func NewBackupService(logger *slog.Logger, conf config.Config) *BackupService {
 		logger: logger,
 		config: conf,
 	}
+}
+
+// SetRestoreService sets the restore service used for pre-backup validation.
+// When set, the backup process will validate image files and attempt to restore
+// corrupted ones from existing backups before copying them into the new backup.
+func (s *BackupService) SetRestoreService(rs *RestoreService) {
+	s.restoreService = rs
 }
 
 // Backup creates a backup of the database and optionally images.
@@ -57,6 +66,11 @@ func (s *BackupService) Backup(ctx context.Context, destDir string, includeImage
 
 	// Optionally copy images
 	if includeImages {
+		// Validate and restore corrupted images before copying them into the backup
+		if s.restoreService != nil {
+			s.validateAndRestoreImages(ctx)
+		}
+
 		imagesDir := filepath.Join(backupDir, imagesDirName)
 		if err := copyDirectory(ctx, s.config.ImageRootDirectory, imagesDir); err != nil {
 			return "", fmt.Errorf("copy images: %w", err)
@@ -83,6 +97,67 @@ func (s *BackupService) Backup(ctx context.Context, destDir string, includeImage
 
 	s.logger.Info("backup completed", "directory", backupDir)
 	return backupDir, nil
+}
+
+// validateAndRestoreImages walks the image root directory, validates each image
+// file, and attempts to restore corrupted ones from existing backups.
+func (s *BackupService) validateAndRestoreImages(ctx context.Context) {
+	imageRootDir := s.config.ImageRootDirectory
+	s.logger.Info("backup: validating images before backup", "imageRootDir", imageRootDir)
+
+	var validated, corrupted, restored, failedRestore int
+
+	err := filepath.Walk(imageRootDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			s.logger.Warn("backup: cannot access path during validation", "path", path, "error", err)
+			return nil // skip inaccessible entries
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		if valErr := image.ValidateImageFile(path); valErr != nil {
+			corrupted++
+			relPath, relErr := filepath.Rel(imageRootDir, path)
+			if relErr != nil {
+				s.logger.Warn("backup: failed to compute relative path for corrupted image",
+					"path", path, "error", relErr,
+				)
+				failedRestore++
+				validated++
+				return nil
+			}
+
+			s.logger.Warn("backup: corrupted image detected, attempting restore",
+				"path", path, "error", valErr,
+			)
+			if restoreErr := s.restoreService.RestoreSingleFile(ctx, relPath, imageRootDir); restoreErr != nil {
+				s.logger.Warn("backup: failed to restore corrupted image before backup",
+					"path", path, "error", restoreErr,
+				)
+				failedRestore++
+			} else {
+				s.logger.Info("backup: restored corrupted image before backup", "path", path)
+				restored++
+			}
+		}
+
+		validated++
+		return nil
+	})
+
+	if err != nil {
+		s.logger.Warn("backup: error walking image directory for validation", "error", err)
+	}
+
+	s.logger.Info("backup: image validation complete",
+		"validated", validated, "corrupted", corrupted, "restored", restored, "failedRestore", failedRestore,
+	)
 }
 
 // HasRecentBackup checks if a backup exists within the given duration.

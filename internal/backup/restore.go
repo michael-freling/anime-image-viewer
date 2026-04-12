@@ -2,12 +2,18 @@ package backup
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 
 	"github.com/michael-freling/anime-image-viewer/internal/config"
+	"github.com/michael-freling/anime-image-viewer/internal/image"
+)
+
+var (
+	ErrNoValidBackup = errors.New("no valid backup found for file")
 )
 
 type RestoreService struct {
@@ -111,5 +117,71 @@ func (s *RestoreService) Restore(ctx context.Context, backupDir string, opts Res
 
 	s.logger.Info("restore completed", "backupDir", backupDir, "configDir", configDir, "imageDir", imageDir)
 	return nil
+}
+
+// RestoreSingleFile attempts to restore a single corrupted image file from the
+// newest available backup. relativeFilePath is the path of the image relative to
+// imageRootDir (e.g. "photos/vacation/beach.jpg"). The method iterates through
+// backups from newest to oldest, looking for a valid copy of the file.
+func (s *RestoreService) RestoreSingleFile(ctx context.Context, relativeFilePath string, imageRootDir string) error {
+	backupService := NewBackupService(s.logger, s.config)
+	backups, err := backupService.ListBackups()
+	if err != nil {
+		return fmt.Errorf("list backups: %w", err)
+	}
+
+	if len(backups) == 0 {
+		return fmt.Errorf("%w: %s (no backups exist)", ErrNoValidBackup, relativeFilePath)
+	}
+
+	for _, backup := range backups {
+		if !backup.IncludesImages {
+			s.logger.DebugContext(ctx, "skipping backup without images",
+				"backupPath", backup.Path,
+				"relativeFilePath", relativeFilePath,
+			)
+			continue
+		}
+
+		backupImagePath := filepath.Join(backup.Path, imagesDirName, relativeFilePath)
+
+		// Check if the file exists in this backup
+		if _, err := os.Stat(backupImagePath); err != nil {
+			s.logger.DebugContext(ctx, "file not found in backup",
+				"backupPath", backup.Path,
+				"backupImagePath", backupImagePath,
+				"relativeFilePath", relativeFilePath,
+			)
+			continue
+		}
+
+		// Validate the backup copy is not also corrupted
+		if err := image.ValidateImageFile(backupImagePath); err != nil {
+			s.logger.WarnContext(ctx, "backup copy is also corrupted",
+				"backupPath", backup.Path,
+				"backupImagePath", backupImagePath,
+				"error", err,
+			)
+			continue
+		}
+
+		// Copy the valid backup to the original location
+		destPath := filepath.Join(imageRootDir, relativeFilePath)
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			return fmt.Errorf("create parent directory for %s: %w", destPath, err)
+		}
+		if err := copyFile(backupImagePath, destPath); err != nil {
+			return fmt.Errorf("copy restored file: %w", err)
+		}
+
+		s.logger.InfoContext(ctx, "restored file from backup",
+			"relativeFilePath", relativeFilePath,
+			"backupPath", backup.Path,
+			"destPath", destPath,
+		)
+		return nil
+	}
+
+	return fmt.Errorf("%w: %s", ErrNoValidBackup, relativeFilePath)
 }
 

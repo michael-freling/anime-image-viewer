@@ -46,6 +46,7 @@ func NewBatchImageImporter(
 	}
 }
 
+
 func (batchImporter *BatchImageImporter) readImageFilePaths(
 	ctx context.Context,
 	paths []string,
@@ -151,6 +152,19 @@ func (batchImporter *BatchImageImporter) ImportImages(
 		return nil, errors.Join(progressNotifier.FailedErrors...)
 	}
 
+	// Compute content hashes from source files before inserting into DB.
+	// This avoids a separate UPDATE after the concurrent file copy.
+	for i, img := range newImportedImages {
+		hash, err := image.ComputeFileHash(img.sourceFilePath)
+		if err != nil {
+			batchImporter.logger.Warn("failed to compute hash on import",
+				"path", img.sourceFilePath, "error", err,
+			)
+			continue
+		}
+		newImportedImages[i].image.ContentHash = hash
+	}
+
 	if err := db.NewTransaction(ctx, batchImporter.dbClient, func(ctx context.Context) error {
 		files := make([]db.File, len(newImportedImages))
 		for index, newImage := range newImportedImages {
@@ -189,6 +203,7 @@ func (batchImporter *BatchImageImporter) ImportImages(
 				progressNotifier.addFailure(sourceFilePath, fmt.Errorf("image.copy: %w", err))
 				return nil
 			}
+
 			resultImage, err := batchImporter.imageFileConverter.ConvertImageFile(destinationParentDirectory, newImage.image)
 			if err != nil {
 				progressNotifier.addFailure(sourceFilePath, fmt.Errorf("convertImageFile: %w", err))

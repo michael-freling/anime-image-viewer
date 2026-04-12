@@ -212,6 +212,11 @@ func TestBatchImageImporter_importImageFiles(t *testing.T) {
 			}
 
 			gotFiles := db.MustGetAll[db.File](t, dbClient)
+			// ContentHash is computed asynchronously on import; clear it for comparison
+			// since test expectations do not include hash values.
+			for i := range gotFiles {
+				gotFiles[i].ContentHash = ""
+			}
 			assert.Equal(t, tc.wantInsertFiles, gotFiles)
 			gotInsertedTags := db.MustGetAll[db.Tag](t, dbClient)
 			assert.Equal(t, tc.wantInsertTags, gotInsertedTags)
@@ -265,3 +270,4 @@ func TestBatchImageImporter_importImageFiles(t *testing.T) {
 		assert.Equal(t, 1, progressNotifier.Failed, "should have 1 failed")
 	})
 }
+

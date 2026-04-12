@@ -597,6 +597,29 @@ func TestBackup_RetentionDoesNotDeleteNonBackupDirs(t *testing.T) {
 	assert.Equal(t, 1, backupDirCount, "should have exactly retention count backup dirs")
 }
 
+func TestBackup_BackupFolderCreationError(t *testing.T) {
+	conf := newTestConfig(t)
+	createFakeDB(t, conf)
+	logger := newTestLogger()
+	svc := NewBackupService(logger, conf)
+
+	// Create a file at exactly the timestamp-based backup dir path to block MkdirAll.
+	// Since timestamps vary, we override destDir to a controlled location.
+	destDir := t.TempDir()
+
+	// We cannot predict the exact timestamp, but we can create a file that blocks
+	// the timestamped subdirectory. Instead, make destDir itself read-only so the
+	// MkdirAll for the timestamped subfolder fails.
+	require.NoError(t, os.Chmod(destDir, 0555))
+	t.Cleanup(func() {
+		os.Chmod(destDir, 0755)
+	})
+
+	_, err := svc.Backup(context.Background(), destDir, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "create backup folder")
+}
+
 func TestCopyFile_SourceNotFound(t *testing.T) {
 	dst := filepath.Join(t.TempDir(), "dest.txt")
 	err := copyFile("/nonexistent/path/to/file", dst)
@@ -888,6 +911,296 @@ func TestDeleteBackup_NonexistentPath(t *testing.T) {
 	nonexistentPath := filepath.Join(conf.Backup.BackupDirectory, "backup_nonexistent")
 	err := svc.DeleteBackup(nonexistentPath)
 	require.NoError(t, err)
+}
+
+func TestBackup_ValidatesImagesBeforeCopying(t *testing.T) {
+	t.Run("restores corrupted image before backup", func(t *testing.T) {
+		conf := newTestConfig(t)
+		createFakeDB(t, conf)
+		logger := newTestLogger()
+
+		// Put a corrupted image in the image root directory
+		photosDir := filepath.Join(conf.ImageRootDirectory, "photos")
+		require.NoError(t, os.MkdirAll(photosDir, 0755))
+		corruptedPath := filepath.Join(photosDir, "bad.jpg")
+		require.NoError(t, os.WriteFile(corruptedPath, []byte("corrupted data"), 0644))
+
+		// Create a pre-existing backup with a valid copy of the same file
+		existingBackupDir := filepath.Join(conf.Backup.BackupDirectory, "backup_2024-01-01T10-00-00")
+		require.NoError(t, os.MkdirAll(existingBackupDir, 0755))
+		backupImagePath := filepath.Join(existingBackupDir, imagesDirName, "photos", "bad.jpg")
+		createValidJPEG(t, backupImagePath)
+		metadata := BackupMetadata{
+			Version:          currentVersion,
+			CreatedAt:        time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
+			IncludesImages:   true,
+			DatabaseFileName: databaseFileName,
+		}
+		require.NoError(t, writeMetadata(filepath.Join(existingBackupDir, metadataFileName), metadata))
+
+		restoreSvc := NewRestoreService(logger, conf)
+		backupSvc := NewBackupService(logger, conf)
+		backupSvc.SetRestoreService(restoreSvc)
+
+		backupDir, err := backupSvc.Backup(context.Background(), "", true)
+		require.NoError(t, err)
+
+		// The corrupted image should have been restored in the image root
+		// and the backup should contain the valid copy.
+		backedUpPath := filepath.Join(backupDir, imagesDirName, "photos", "bad.jpg")
+		_, err = os.Stat(backedUpPath)
+		assert.NoError(t, err, "backed-up image should exist")
+
+		// Also verify the original was restored
+		content, err := os.ReadFile(corruptedPath)
+		require.NoError(t, err)
+		assert.NotEqual(t, "corrupted data", string(content), "original image should have been restored")
+	})
+
+	t.Run("logs warning when restore fails", func(t *testing.T) {
+		conf := newTestConfig(t)
+		createFakeDB(t, conf)
+		logger := newTestLogger()
+
+		// Put a corrupted image in the image root directory
+		photosDir := filepath.Join(conf.ImageRootDirectory, "photos")
+		require.NoError(t, os.MkdirAll(photosDir, 0755))
+		corruptedPath := filepath.Join(photosDir, "bad.jpg")
+		require.NoError(t, os.WriteFile(corruptedPath, []byte("corrupted data"), 0644))
+
+		// No backup exists, so restore will fail. The backup should still complete.
+		restoreSvc := NewRestoreService(logger, conf)
+		backupSvc := NewBackupService(logger, conf)
+		backupSvc.SetRestoreService(restoreSvc)
+
+		backupDir, err := backupSvc.Backup(context.Background(), "", true)
+		require.NoError(t, err)
+
+		// The backup directory should still exist
+		assert.DirExists(t, backupDir)
+	})
+
+	t.Run("skips valid images without errors", func(t *testing.T) {
+		conf := newTestConfig(t)
+		createFakeDB(t, conf)
+		logger := newTestLogger()
+
+		// Put only valid images in the image root directory
+		photosDir := filepath.Join(conf.ImageRootDirectory, "photos")
+		require.NoError(t, os.MkdirAll(photosDir, 0755))
+		createValidJPEG(t, filepath.Join(photosDir, "good1.jpg"))
+		createValidJPEG(t, filepath.Join(photosDir, "good2.jpg"))
+
+		restoreSvc := NewRestoreService(logger, conf)
+		backupSvc := NewBackupService(logger, conf)
+		backupSvc.SetRestoreService(restoreSvc)
+
+		backupDir, err := backupSvc.Backup(context.Background(), "", true)
+		require.NoError(t, err)
+
+		// Both images should be in the backup
+		assert.FileExists(t, filepath.Join(backupDir, imagesDirName, "photos", "good1.jpg"))
+		assert.FileExists(t, filepath.Join(backupDir, imagesDirName, "photos", "good2.jpg"))
+	})
+
+	t.Run("validates images in subdirectories", func(t *testing.T) {
+		conf := newTestConfig(t)
+		createFakeDB(t, conf)
+		logger := newTestLogger()
+
+		// Create nested directory structure with a mix of valid and corrupted
+		photosDir := filepath.Join(conf.ImageRootDirectory, "photos", "vacation")
+		require.NoError(t, os.MkdirAll(photosDir, 0755))
+		createValidJPEG(t, filepath.Join(photosDir, "good.jpg"))
+		require.NoError(t, os.WriteFile(filepath.Join(photosDir, "bad.jpg"), []byte("corrupt"), 0644))
+
+		// Create a pre-existing backup with valid copy
+		existingBackupDir := filepath.Join(conf.Backup.BackupDirectory, "backup_2024-01-01T10-00-00")
+		require.NoError(t, os.MkdirAll(existingBackupDir, 0755))
+		createValidJPEG(t, filepath.Join(existingBackupDir, imagesDirName, "photos", "vacation", "bad.jpg"))
+		metadata := BackupMetadata{
+			Version:          currentVersion,
+			CreatedAt:        time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
+			IncludesImages:   true,
+			DatabaseFileName: databaseFileName,
+		}
+		require.NoError(t, writeMetadata(filepath.Join(existingBackupDir, metadataFileName), metadata))
+
+		restoreSvc := NewRestoreService(logger, conf)
+		backupSvc := NewBackupService(logger, conf)
+		backupSvc.SetRestoreService(restoreSvc)
+
+		backupDir, err := backupSvc.Backup(context.Background(), "", true)
+		require.NoError(t, err)
+		assert.DirExists(t, backupDir)
+	})
+
+	t.Run("context cancellation during validation", func(t *testing.T) {
+		conf := newTestConfig(t)
+		createFakeDB(t, conf)
+		logger := newTestLogger()
+
+		// Create many files so that the walk can detect cancellation
+		imageDir := conf.ImageRootDirectory
+		for i := range 50 {
+			subDir := filepath.Join(imageDir, fmt.Sprintf("dir_%d", i))
+			require.NoError(t, os.MkdirAll(subDir, 0755))
+			createValidJPEG(t, filepath.Join(subDir, "img.jpg"))
+		}
+
+		restoreSvc := NewRestoreService(logger, conf)
+		backupSvc := NewBackupService(logger, conf)
+		backupSvc.SetRestoreService(restoreSvc)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		// Backup with cancelled context should fail during image copy (after validation aborts)
+		_, err := backupSvc.Backup(ctx, "", true)
+		require.Error(t, err)
+	})
+
+	t.Run("walk error during validation skips inaccessible entries", func(t *testing.T) {
+		conf := newTestConfig(t)
+		createFakeDB(t, conf)
+		logger := newTestLogger()
+
+		// Create a subdirectory that cannot be read plus a readable one
+		badDir := filepath.Join(conf.ImageRootDirectory, "no_access")
+		require.NoError(t, os.MkdirAll(badDir, 0755))
+		createValidJPEG(t, filepath.Join(badDir, "img.jpg"))
+		require.NoError(t, os.Chmod(badDir, 0000))
+		t.Cleanup(func() {
+			os.Chmod(badDir, 0755)
+		})
+
+		goodDir := filepath.Join(conf.ImageRootDirectory, "good")
+		require.NoError(t, os.MkdirAll(goodDir, 0755))
+		createValidJPEG(t, filepath.Join(goodDir, "img.jpg"))
+
+		restoreSvc := NewRestoreService(logger, conf)
+		backupSvc := NewBackupService(logger, conf)
+		backupSvc.SetRestoreService(restoreSvc)
+
+		// Validation should skip the inaccessible directory, and the backup should
+		// still work for accessible files. copyDirectory will also skip the bad dir.
+		// We accept an error or success depending on OS behavior for copyDirectory.
+		_, _ = backupSvc.Backup(context.Background(), "", true)
+		// The main assertion is that it does not panic.
+	})
+
+	t.Run("empty image directory with restore service", func(t *testing.T) {
+		conf := newTestConfig(t)
+		createFakeDB(t, conf)
+		logger := newTestLogger()
+
+		// No images at all - validation should complete quickly
+		restoreSvc := NewRestoreService(logger, conf)
+		backupSvc := NewBackupService(logger, conf)
+		backupSvc.SetRestoreService(restoreSvc)
+
+		backupDir, err := backupSvc.Backup(context.Background(), "", true)
+		require.NoError(t, err)
+		assert.DirExists(t, backupDir)
+	})
+
+	t.Run("mixed valid and corrupted images across directories", func(t *testing.T) {
+		conf := newTestConfig(t)
+		createFakeDB(t, conf)
+		logger := newTestLogger()
+
+		// Create multiple directories with a mix of valid and corrupted images
+		for _, dir := range []string{"dir_a", "dir_b", "dir_c"} {
+			dirPath := filepath.Join(conf.ImageRootDirectory, dir)
+			require.NoError(t, os.MkdirAll(dirPath, 0755))
+			createValidJPEG(t, filepath.Join(dirPath, "ok.jpg"))
+		}
+		// Corrupt one image in dir_b
+		require.NoError(t, os.WriteFile(
+			filepath.Join(conf.ImageRootDirectory, "dir_b", "corrupt.jpg"),
+			[]byte("bad data"), 0644,
+		))
+
+		// Create backup with valid copy of the corrupt image
+		existingBackupDir := filepath.Join(conf.Backup.BackupDirectory, "backup_2024-06-01T10-00-00")
+		require.NoError(t, os.MkdirAll(existingBackupDir, 0755))
+		createValidJPEG(t, filepath.Join(existingBackupDir, imagesDirName, "dir_b", "corrupt.jpg"))
+		metadata := BackupMetadata{
+			Version:          currentVersion,
+			CreatedAt:        time.Date(2024, 6, 1, 10, 0, 0, 0, time.UTC),
+			IncludesImages:   true,
+			DatabaseFileName: databaseFileName,
+		}
+		require.NoError(t, writeMetadata(filepath.Join(existingBackupDir, metadataFileName), metadata))
+
+		restoreSvc := NewRestoreService(logger, conf)
+		backupSvc := NewBackupService(logger, conf)
+		backupSvc.SetRestoreService(restoreSvc)
+
+		backupDir, err := backupSvc.Backup(context.Background(), "", true)
+		require.NoError(t, err)
+
+		// All images should be in the backup
+		assert.FileExists(t, filepath.Join(backupDir, imagesDirName, "dir_a", "ok.jpg"))
+		assert.FileExists(t, filepath.Join(backupDir, imagesDirName, "dir_b", "ok.jpg"))
+		assert.FileExists(t, filepath.Join(backupDir, imagesDirName, "dir_b", "corrupt.jpg"))
+		assert.FileExists(t, filepath.Join(backupDir, imagesDirName, "dir_c", "ok.jpg"))
+	})
+
+	t.Run("backup without restore service skips validation", func(t *testing.T) {
+		conf := newTestConfig(t)
+		createFakeDB(t, conf)
+		logger := newTestLogger()
+
+		// Put a corrupted image
+		photosDir := filepath.Join(conf.ImageRootDirectory, "photos")
+		require.NoError(t, os.MkdirAll(photosDir, 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(photosDir, "bad.jpg"), []byte("corrupted data"), 0644))
+
+		backupSvc := NewBackupService(logger, conf)
+		// No SetRestoreService call — validation should be skipped
+
+		backupDir, err := backupSvc.Backup(context.Background(), "", true)
+		require.NoError(t, err)
+		assert.DirExists(t, backupDir)
+	})
+}
+
+func TestRestore_WithTargetDirectory(t *testing.T) {
+	conf := newTestConfig(t)
+	createFakeDB(t, conf)
+	logger := newTestLogger()
+	backupSvc := NewBackupService(logger, conf)
+	restoreSvc := NewRestoreService(logger, conf)
+
+	// Create images and back them up
+	createFakeImages(t, conf.ImageRootDirectory)
+	backupDir, err := backupSvc.Backup(context.Background(), "", true)
+	require.NoError(t, err)
+
+	// Restore to a target directory instead of the default locations
+	targetDir := filepath.Join(t.TempDir(), "restore-target")
+	err = restoreSvc.Restore(context.Background(), backupDir, RestoreOptions{
+		RestoreImages:   true,
+		TargetDirectory: targetDir,
+	})
+	require.NoError(t, err)
+
+	// Verify the DB was restored into the target directory
+	dbPath := filepath.Join(targetDir, string(conf.Environment)+"_v1.sqlite")
+	content, err := os.ReadFile(dbPath)
+	require.NoError(t, err)
+	assert.Equal(t, "fake-sqlite-database-content", string(content))
+
+	// Verify images were restored into targetDir/images/
+	imgPath := filepath.Join(targetDir, "images", "photos", "img1.jpg")
+	content, err = os.ReadFile(imgPath)
+	require.NoError(t, err)
+	assert.Equal(t, "fake-image-data-img1.jpg", string(content))
+
+	// Verify original image directory was NOT removed (since we used TargetDirectory)
+	_, err = os.Stat(conf.ImageRootDirectory)
+	assert.NoError(t, err, "original image directory should still exist when restoring to target directory")
 }
 
 func TestRestore_ConfigDirectoryCreation(t *testing.T) {
