@@ -10,6 +10,7 @@ import (
 type Anime struct {
 	ID        uint   `gorm:"primarykey"`
 	Name      string `gorm:"uniqueIndex"`
+	AniListID *int   `gorm:"index"`
 	CreatedAt uint   `gorm:"autoCreateTime"`
 	UpdatedAt uint   `gorm:"autoUpdateTime"`
 }

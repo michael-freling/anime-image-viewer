@@ -3,6 +3,7 @@ package anime
 import (
 	"testing"
 
+	"github.com/michael-freling/anime-image-viewer/internal/anilist"
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
@@ -31,5 +32,9 @@ func (te tester) directoryReader() *image.DirectoryReader {
 }
 
 func (te tester) service() *Service {
-	return NewService(te.dbClient.Client, te.directoryReader(), te.config)
+	return NewService(te.dbClient.Client, te.directoryReader(), te.config, nil)
+}
+
+func (te tester) serviceWithAniList(client anilist.Client) *Service {
+	return NewService(te.dbClient.Client, te.directoryReader(), te.config, client)
 }

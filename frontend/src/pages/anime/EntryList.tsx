@@ -3,7 +3,6 @@ import {
   Delete,
   Edit,
   Folder as FolderIcon,
-  Label,
   Movie as MovieIcon,
   MoreVert,
   Tv,
@@ -32,9 +31,8 @@ interface EntryListProps {
   onAddEntry: () => void;
   onAddSubEntry: (parentId: number) => void;
   onUploadImages: (entryId: number) => void;
-  onRenameEntry: (entryId: number, currentName: string) => void;
+  onEditEntry: (entryId: number, currentName: string, currentSeason: string, currentYear: number | null, entryType: string, depth: number) => void;
   onDeleteEntry: (entryId: number, name: string) => void;
-  onSetEntryType: (entryId: number, currentName: string) => void;
 }
 
 function totalEntryImageCount(entry: AnimeEntryInfo): number {
@@ -43,6 +41,14 @@ function totalEntryImageCount(entry: AnimeEntryInfo): number {
     count += totalEntryImageCount(child);
   }
   return count;
+}
+
+function formatAiring(season: string, year: number | null | undefined): string {
+  const s = season ? season.charAt(0) + season.slice(1).toLowerCase() : "";
+  if (s && year) return `${s} ${year}`;
+  if (s) return s;
+  if (year) return `${year}`;
+  return "";
 }
 
 function entryBadge(type: string, number?: number): string {
@@ -91,6 +97,26 @@ function entryIcon(type: string) {
   }
 }
 
+function isFutureEntry(entry: AnimeEntryInfo): boolean {
+  if (!entry.airingYear) return false;
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-12
+
+  if (entry.airingYear > currentYear) return true;
+  if (entry.airingYear < currentYear) return false;
+
+  // Same year — check season
+  const seasonStartMonth: Record<string, number> = {
+    WINTER: 1,
+    SPRING: 4,
+    SUMMER: 7,
+    FALL: 10,
+  };
+  const startMonth = seasonStartMonth[entry.airingSeason] ?? 1;
+  return startMonth > currentMonth;
+}
+
 const MAX_ADD_DEPTH = 2; // can add sub-entries at depth 0, 1; not at 2+
 
 const EntryNode: FC<{
@@ -100,9 +126,8 @@ const EntryNode: FC<{
   onSelectEntry: (entryId: number | null) => void;
   onAddSubEntry: (parentId: number) => void;
   onUploadImages: (entryId: number) => void;
-  onRenameEntry: (entryId: number, currentName: string) => void;
+  onEditEntry: (entryId: number, currentName: string, currentSeason: string, currentYear: number | null, entryType: string, depth: number) => void;
   onDeleteEntry: (entryId: number, name: string) => void;
-  onSetEntryType: (entryId: number, currentName: string) => void;
 }> = ({
   entry,
   depth,
@@ -110,11 +135,11 @@ const EntryNode: FC<{
   onSelectEntry,
   onAddSubEntry,
   onUploadImages,
-  onRenameEntry,
+  onEditEntry,
   onDeleteEntry,
-  onSetEntryType,
 }) => {
   const isSelected = selectedEntryId === entry.id;
+  const isFuture = isFutureEntry(entry);
   const hasChildren = entry.children && entry.children.length > 0;
   const badge =
     depth === 0
@@ -157,6 +182,7 @@ const EntryNode: FC<{
                 bgcolor: color,
                 flexShrink: 0,
                 mr: 1,
+                ...(isFuture && { opacity: 0.35 }),
               }}
             />
 
@@ -209,14 +235,23 @@ const EntryNode: FC<{
         <Typography
           level={depth === 0 ? "body-sm" : "body-xs"}
           sx={{
-            flex: 1,
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
+            ...(isFuture && { opacity: 0.45, fontStyle: "italic" }),
           }}
         >
           {entry.name}
         </Typography>
+        {(entry.airingSeason || entry.airingYear) && (
+          <Typography
+            level="body-xs"
+            sx={{ color: "text.tertiary", ml: 0.5, flexShrink: 0, ...(isFuture && { opacity: 0.45, fontStyle: "italic" }) }}
+          >
+            {formatAiring(entry.airingSeason, entry.airingYear)}
+          </Typography>
+        )}
+        <Box sx={{ flex: 1 }} />
 
         {/* Image count (includes all descendant images) */}
         <Typography
@@ -277,23 +312,13 @@ const EntryNode: FC<{
               <MoreVert sx={{ fontSize: iconSize }} />
             </MenuButton>
             <Menu size="sm" placement="bottom-start">
-              {entry.entryType === "" && (
-                <MenuItem
-                  onClick={() => onSetEntryType(entry.id, entry.name)}
-                >
-                  <ListItemDecorator>
-                    <Label fontSize="small" />
-                  </ListItemDecorator>
-                  Set Type
-                </MenuItem>
-              )}
               <MenuItem
-                onClick={() => onRenameEntry(entry.id, entry.name)}
+                onClick={() => onEditEntry(entry.id, entry.name, entry.airingSeason, entry.airingYear, entry.entryType, depth)}
               >
                 <ListItemDecorator>
                   <Edit fontSize="small" />
                 </ListItemDecorator>
-                Rename
+                Edit
               </MenuItem>
               <ListDivider />
               <MenuItem
@@ -324,9 +349,8 @@ const EntryNode: FC<{
               onSelectEntry={onSelectEntry}
               onAddSubEntry={onAddSubEntry}
               onUploadImages={onUploadImages}
-              onRenameEntry={onRenameEntry}
+              onEditEntry={onEditEntry}
               onDeleteEntry={onDeleteEntry}
-              onSetEntryType={onSetEntryType}
             />
           ))}
         </Box>
@@ -342,9 +366,8 @@ const EntryList: FC<EntryListProps> = ({
   onSelectEntry,
   onAddSubEntry,
   onUploadImages,
-  onRenameEntry,
+  onEditEntry,
   onDeleteEntry,
-  onSetEntryType,
 }) => {
   return (
     <Box
@@ -395,9 +418,8 @@ const EntryList: FC<EntryListProps> = ({
               onSelectEntry={onSelectEntry}
               onAddSubEntry={onAddSubEntry}
               onUploadImages={onUploadImages}
-              onRenameEntry={onRenameEntry}
+              onEditEntry={onEditEntry}
               onDeleteEntry={onDeleteEntry}
-              onSetEntryType={onSetEntryType}
             />
           ))}
         </Box>

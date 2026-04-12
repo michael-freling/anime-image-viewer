@@ -79,6 +79,24 @@ func TestService_Create(t *testing.T) {
 		assert.ErrorIs(t, err, ErrAnimeAlreadyExists)
 	})
 
+	t.Run("sanitizes folder name for names with special chars", func(t *testing.T) {
+		got, err := svc.Create(ctx, "Frieren: Beyond Journey's End")
+		require.NoError(t, err)
+		assert.Equal(t, "Frieren: Beyond Journey's End", got.Name) // display name keeps original
+
+		// Verify folder on disk uses sanitized name
+		dirPath := filepath.Join(te.config.ImageRootDirectory, "Frieren- Beyond Journey's End")
+		info, err := os.Stat(dirPath)
+		require.NoError(t, err)
+		assert.True(t, info.IsDir())
+
+		// Verify db.File record has sanitized name
+		rootFolder, err := svc.FindAnimeRootFolder(got.ID)
+		require.NoError(t, err)
+		require.NotNil(t, rootFolder)
+		assert.Equal(t, "Frieren- Beyond Journey's End", rootFolder.Name)
+	})
+
 	t.Run("rejects when folder already exists on disk only", func(t *testing.T) {
 		// Create a directory on disk but not in DB. The anime and file rows
 		// will be created successfully, but os.Mkdir will fail.
@@ -120,6 +138,27 @@ func TestService_Rename(t *testing.T) {
 		assert.Equal(t, "Renamed", rootFolder.Name)
 	})
 
+	t.Run("sanitizes folder name on rename with special chars", func(t *testing.T) {
+		got, err := svc.Rename(ctx, a.ID, "Re:Zero")
+		require.NoError(t, err)
+		assert.Equal(t, "Re:Zero", got.Name) // display name keeps original
+
+		// Verify folder on disk uses sanitized name
+		info, err := os.Stat(filepath.Join(te.config.ImageRootDirectory, "Re-Zero"))
+		require.NoError(t, err)
+		assert.True(t, info.IsDir())
+
+		// Verify old folder is gone
+		_, err = os.Stat(filepath.Join(te.config.ImageRootDirectory, "Renamed"))
+		assert.True(t, os.IsNotExist(err))
+
+		// Verify db.File record has sanitized name
+		rootFolder, err := svc.FindAnimeRootFolder(a.ID)
+		require.NoError(t, err)
+		require.NotNil(t, rootFolder)
+		assert.Equal(t, "Re-Zero", rootFolder.Name)
+	})
+
 	t.Run("rejects empty name", func(t *testing.T) {
 		_, err := svc.Rename(ctx, a.ID, "  ")
 		require.Error(t, err)
@@ -145,7 +184,7 @@ func TestService_Rename(t *testing.T) {
 	t.Run("rejects duplicate name", func(t *testing.T) {
 		other, err := svc.Create(ctx, "Other")
 		require.NoError(t, err)
-		_, err = svc.Rename(ctx, other.ID, "Renamed")
+		_, err = svc.Rename(ctx, other.ID, "Re:Zero") // a was renamed to "Re:Zero" above
 		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrAnimeAlreadyExists)
 	})
@@ -1570,30 +1609,33 @@ func TestSortEntries(t *testing.T) {
 	assert.Equal(t, expected, got)
 }
 
-func TestValidateFolderName(t *testing.T) {
-	t.Run("rejects empty name", func(t *testing.T) {
-		err := validateFolderName("")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "cannot be empty")
-	})
-
-	t.Run("rejects name with invalid characters", func(t *testing.T) {
-		for _, name := range []string{"foo<bar", "foo>bar", `foo"bar`, "foo|bar", "foo?bar", "foo*bar", "foo:bar", "foo\\bar", "foo/bar"} {
-			err := validateFolderName(name)
-			require.Error(t, err, "expected error for name: %s", name)
-			assert.Contains(t, err.Error(), "invalid characters")
+func TestSanitizeFolderName(t *testing.T) {
+	t.Run("replaces invalid characters with dash", func(t *testing.T) {
+		tests := map[string]string{
+			"foo<bar":  "foo-bar",
+			"foo>bar":  "foo-bar",
+			`foo"bar`:  "foo-bar",
+			"foo|bar":  "foo-bar",
+			"foo?bar":  "foo-bar",
+			"foo*bar":  "foo-bar",
+			"foo:bar":  "foo-bar",
+			"foo\\bar": "foo-bar",
+			"foo/bar":  "foo-bar",
+		}
+		for input, expected := range tests {
+			assert.Equal(t, expected, sanitizeFolderName(input), "input: %s", input)
 		}
 	})
 
-	t.Run("rejects dot names", func(t *testing.T) {
-		require.Error(t, validateFolderName("."))
-		require.Error(t, validateFolderName(".."))
-	})
-
-	t.Run("accepts valid names", func(t *testing.T) {
+	t.Run("leaves valid names unchanged", func(t *testing.T) {
 		for _, name := range []string{"Season 1", "Part A", "Specials", "Bocchi the Rock!"} {
-			require.NoError(t, validateFolderName(name), "expected no error for name: %s", name)
+			assert.Equal(t, name, sanitizeFolderName(name), "name: %s", name)
 		}
+	})
+
+	t.Run("handles multiple invalid characters", func(t *testing.T) {
+		assert.Equal(t, "Frieren- Beyond Journey's End", sanitizeFolderName("Frieren: Beyond Journey's End"))
+		assert.Equal(t, "Series- The Movie", sanitizeFolderName("Series: The Movie"))
 	})
 }
 
@@ -1629,17 +1671,16 @@ func TestService_CreateEntry_Validation(t *testing.T) {
 		assert.Contains(t, err.Error(), "movie year must be between 1900 and 2100")
 	})
 
-	t.Run("rejects name with invalid characters", func(t *testing.T) {
-		_, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeOther, nil, "Bad<Name")
-		require.Error(t, err)
-		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
-		assert.Contains(t, err.Error(), "invalid characters")
+	t.Run("sanitizes name with invalid characters", func(t *testing.T) {
+		entry, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeOther, nil, "Angle<Bracket")
+		require.NoError(t, err)
+		assert.Equal(t, "Angle-Bracket", entry.Name)
 	})
 
-	t.Run("rejects name with colon", func(t *testing.T) {
-		_, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeOther, nil, "Bad:Name")
-		require.Error(t, err)
-		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	t.Run("sanitizes name with colon", func(t *testing.T) {
+		entry, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeOther, nil, "Frieren: Beyond")
+		require.NoError(t, err)
+		assert.Equal(t, "Frieren- Beyond", entry.Name)
 	})
 
 	t.Run("accepts valid season with explicit number", func(t *testing.T) {
@@ -1724,7 +1765,7 @@ func TestService_NextEntryNumber_RejectsNonSeason(t *testing.T) {
 	})
 }
 
-func TestService_RenameEntry_InvalidChars(t *testing.T) {
+func TestService_RenameEntry_SanitizesChars(t *testing.T) {
 	te := newTester(t)
 	svc := te.service()
 	ctx := context.Background()
@@ -1735,15 +1776,19 @@ func TestService_RenameEntry_InvalidChars(t *testing.T) {
 	entry, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeOther, nil, "ValidName")
 	require.NoError(t, err)
 
-	t.Run("rejects rename with invalid characters", func(t *testing.T) {
-		err := svc.RenameEntry(ctx, entry.ID, "Bad|Name")
-		require.Error(t, err)
-		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
-		assert.Contains(t, err.Error(), "invalid characters")
+	t.Run("sanitizes rename with invalid characters", func(t *testing.T) {
+		err := svc.RenameEntry(ctx, entry.ID, "Pipe|Name")
+		require.NoError(t, err)
+
+		// Verify the file was renamed with sanitized name on disk
+		dirPath := filepath.Join(te.config.ImageRootDirectory, "RenameCharAnime", "Pipe-Name")
+		info, statErr := os.Stat(dirPath)
+		require.NoError(t, statErr)
+		assert.True(t, info.IsDir())
 	})
 }
 
-func TestService_CreateSubEntry_InvalidChars(t *testing.T) {
+func TestService_CreateSubEntry_SanitizesChars(t *testing.T) {
 	te := newTester(t)
 	svc := te.service()
 	ctx := context.Background()
@@ -1754,11 +1799,16 @@ func TestService_CreateSubEntry_InvalidChars(t *testing.T) {
 	season, err := svc.CreateEntry(ctx, a.ID, db.EntryTypeSeason, nil, "")
 	require.NoError(t, err)
 
-	t.Run("rejects sub-entry with invalid characters", func(t *testing.T) {
-		_, err := svc.CreateSubEntry(ctx, season.ID, "Bad*Name")
-		require.Error(t, err)
-		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
-		assert.Contains(t, err.Error(), "invalid characters")
+	t.Run("sanitizes sub-entry with invalid characters", func(t *testing.T) {
+		sub, err := svc.CreateSubEntry(ctx, season.ID, "Star*Name")
+		require.NoError(t, err)
+		assert.Equal(t, "Star-Name", sub.Name)
+
+		// Verify the folder was created with sanitized name on disk
+		dirPath := filepath.Join(te.config.ImageRootDirectory, "SubCharAnime", "Season 1", "Star-Name")
+		info, statErr := os.Stat(dirPath)
+		require.NoError(t, statErr)
+		assert.True(t, info.IsDir())
 	})
 }
 
@@ -1855,5 +1905,79 @@ func TestService_UpdateEntryType(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, db.EntryTypeMovie, got.EntryType)
 		assert.Nil(t, got.EntryNumber)
+	})
+}
+
+func TestService_UpdateEntryAiringInfo(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	created, err := svc.Create(ctx, "AiringInfoTest")
+	require.NoError(t, err)
+
+	entry, err := svc.CreateEntry(ctx, created.ID, db.EntryTypeSeason, nil, "")
+	require.NoError(t, err)
+
+	t.Run("sets airing season and year", func(t *testing.T) {
+		err := svc.UpdateEntryAiringInfo(ctx, entry.ID, db.AiringSeasonSpring, 2024)
+		require.NoError(t, err)
+
+		got, err := te.dbClient.File().FindByValue(ctx, &db.File{ID: entry.ID})
+		require.NoError(t, err)
+		assert.Equal(t, db.AiringSeasonSpring, got.AiringSeason)
+		require.NotNil(t, got.AiringYear)
+		assert.Equal(t, uint(2024), *got.AiringYear)
+	})
+
+	t.Run("clears airing info with empty values", func(t *testing.T) {
+		err := svc.UpdateEntryAiringInfo(ctx, entry.ID, "", 0)
+		require.NoError(t, err)
+
+		got, err := te.dbClient.File().FindByValue(ctx, &db.File{ID: entry.ID})
+		require.NoError(t, err)
+		assert.Empty(t, got.AiringSeason)
+		assert.Nil(t, got.AiringYear)
+	})
+
+	t.Run("all valid seasons", func(t *testing.T) {
+		for _, season := range []string{
+			db.AiringSeasonWinter,
+			db.AiringSeasonSpring,
+			db.AiringSeasonSummer,
+			db.AiringSeasonFall,
+		} {
+			err := svc.UpdateEntryAiringInfo(ctx, entry.ID, season, 2025)
+			require.NoError(t, err, "season %s should be valid", season)
+		}
+	})
+
+	t.Run("rejects invalid season", func(t *testing.T) {
+		err := svc.UpdateEntryAiringInfo(ctx, entry.ID, "INVALID", 2024)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	})
+
+	t.Run("rejects nonexistent entry", func(t *testing.T) {
+		err := svc.UpdateEntryAiringInfo(ctx, 99999, db.AiringSeasonFall, 2024)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, image.ErrDirectoryNotFound)
+	})
+
+	t.Run("rejects non-directory file", func(t *testing.T) {
+		// Create an image file under the root folder
+		rootFolder, err := svc.FindAnimeRootFolder(created.ID)
+		require.NoError(t, err)
+
+		imgFile := db.File{
+			Name:     "test.jpg",
+			ParentID: rootFolder.ID,
+			Type:     db.FileTypeImage,
+		}
+		require.NoError(t, te.dbClient.File().Create(ctx, &imgFile))
+
+		err = svc.UpdateEntryAiringInfo(ctx, imgFile.ID, db.AiringSeasonFall, 2024)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
 	})
 }

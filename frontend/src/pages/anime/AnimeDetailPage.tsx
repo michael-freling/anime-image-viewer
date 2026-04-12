@@ -3,6 +3,7 @@ import {
   ArrowBack,
   Delete,
   Edit,
+  Link as LinkIcon,
   LocalOffer,
   MoreVert,
   Person,
@@ -27,8 +28,11 @@ import {
   ModalDialog,
   Radio,
   RadioGroup,
+  Snackbar,
   Stack,
   Typography,
+  Option,
+  Select,
 } from "@mui/joy";
 import { FC, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
@@ -44,6 +48,7 @@ import ImageListMain from "../../components/Images/ImageList";
 import Layout from "../../Layout";
 import EntryList from "./EntryList";
 import AddEntryModal from "./AddEntryModal";
+import AniListSearchModal from "./AniListSearchModal";
 
 const AnimeDetailPage: FC = () => {
   const { animeId } = useParams<{ animeId: string }>();
@@ -88,30 +93,24 @@ const AnimeDetailPage: FC = () => {
   const [subEntryName, setSubEntryName] = useState("");
   const [subEntryError, setSubEntryError] = useState<string | null>(null);
 
-  // Rename entry modal state
-  const [renameEntryOpen, setRenameEntryOpen] = useState(false);
-  const [renameEntryId, setRenameEntryId] = useState(0);
-  const [renameEntryName, setRenameEntryName] = useState("");
-  const [renameEntryError, setRenameEntryError] = useState<string | null>(null);
+  // Edit entry modal state (consolidated: rename + airing info + set type)
+  const [editEntryOpen, setEditEntryOpen] = useState(false);
+  const [editEntryId, setEditEntryId] = useState(0);
+  const [editEntryName, setEditEntryName] = useState("");
+  const [editEntrySeason, setEditEntrySeason] = useState("");
+  const [editEntryYear, setEditEntryYear] = useState<number | null>(null);
+  const [editEntryType, setEditEntryType] = useState("");
+  const [editEntryDepth, setEditEntryDepth] = useState(0);
+  const [editEntryNewType, setEditEntryNewType] = useState<"season" | "movie" | "other">("season");
+  const [editEntrySeasonNumber, setEditEntrySeasonNumber] = useState(1);
+  const [editEntryMovieYear, setEditEntryMovieYear] = useState(new Date().getFullYear());
+  const [editEntryError, setEditEntryError] = useState<string | null>(null);
+  const [editEntrySubmitting, setEditEntrySubmitting] = useState(false);
 
   // Delete entry modal state
   const [deleteEntryOpen, setDeleteEntryOpen] = useState(false);
   const [deleteEntryId, setDeleteEntryId] = useState(0);
   const [deleteEntryName, setDeleteEntryName] = useState("");
-
-  // Set entry type modal state
-  const [setTypeOpen, setSetTypeOpen] = useState(false);
-  const [setTypeEntryId, setSetTypeEntryId] = useState(0);
-  const [setTypeEntryName, setSetTypeEntryName] = useState("");
-  const [setTypeType, setSetTypeType] = useState<"season" | "movie" | "other">(
-    "season"
-  );
-  const [setTypeSeasonNumber, setSetTypeSeasonNumber] = useState(1);
-  const [setTypeMovieYear, setSetTypeMovieYear] = useState(
-    new Date().getFullYear()
-  );
-  const [setTypeError, setSetTypeError] = useState<string | null>(null);
-  const [setTypeSubmitting, setSetTypeSubmitting] = useState(false);
 
   // Folder image panel state
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
@@ -121,6 +120,12 @@ const AnimeDetailPage: FC = () => {
   // Tag filtering state
   const [selectedTagIds, setSelectedTagIds] = useState<Set<number>>(new Set());
   const [imageTagMap, setImageTagMap] = useState<Record<number, number[]>>({});
+
+  // AniList linking state
+  const [aniListSearchOpen, setAniListSearchOpen] = useState(false);
+  const [aniListImporting, setAniListImporting] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
 
   const id = animeId != null ? Number(animeId) : NaN;
 
@@ -373,21 +378,47 @@ const AnimeDetailPage: FC = () => {
     }
   };
 
-  // Rename entry handler
-  const handleRenameEntry = async () => {
-    const name = renameEntryName.trim();
+  // Edit entry handler (consolidated: rename + airing info + set type)
+  const handleEditEntry = async () => {
+    const name = editEntryName.trim();
     if (name === "") {
-      setRenameEntryError("Name is required");
+      setEditEntryError("Name is required");
       return;
     }
+    setEditEntrySubmitting(true);
+    setEditEntryError(null);
     try {
-      await AnimeService.RenameEntry(renameEntryId, name);
-      setRenameEntryOpen(false);
-      setRenameEntryError(null);
+      // Rename
+      await AnimeService.RenameEntry(editEntryId, name);
+      // Update airing info
+      await AnimeService.UpdateEntryAiringInfo(
+        editEntryId,
+        editEntrySeason,
+        editEntryYear ?? 0
+      );
+      // Set type if top-level and previously unset
+      if (editEntryDepth === 0 && editEntryType === "") {
+        let numberValue: number | null = null;
+        switch (editEntryNewType) {
+          case "season":
+            numberValue = editEntrySeasonNumber;
+            break;
+          case "movie":
+            numberValue = editEntryMovieYear;
+            break;
+          case "other":
+            numberValue = null;
+            break;
+        }
+        await AnimeService.UpdateEntryType(editEntryId, editEntryNewType, numberValue);
+      }
+      setEditEntryOpen(false);
       await load();
       await loadEntries();
     } catch (err: unknown) {
-      setRenameEntryError(err instanceof Error ? err.message : String(err));
+      setEditEntryError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setEditEntrySubmitting(false);
     }
   };
 
@@ -409,34 +440,6 @@ const AnimeDetailPage: FC = () => {
     }
   };
 
-  // Set entry type handler
-  const handleSetEntryType = async () => {
-    setSetTypeSubmitting(true);
-    setSetTypeError(null);
-    try {
-      let numberValue: number | null = null;
-      switch (setTypeType) {
-        case "season":
-          numberValue = setTypeSeasonNumber;
-          break;
-        case "movie":
-          numberValue = setTypeMovieYear;
-          break;
-        case "other":
-          numberValue = null;
-          break;
-      }
-      await AnimeService.UpdateEntryType(setTypeEntryId, setTypeType, numberValue);
-      setSetTypeOpen(false);
-      await load();
-      await loadEntries();
-    } catch (err: unknown) {
-      setSetTypeError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSetTypeSubmitting(false);
-    }
-  };
-
   // Convert tag category handler
   const handleConvertTagCategory = async (
     tagId: number,
@@ -447,6 +450,24 @@ const AnimeDetailPage: FC = () => {
       await load();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  // AniList import handler
+  const handleAniListImport = async (aniListId: number) => {
+    setAniListImporting(true);
+    try {
+      const result = await AnimeService.ImportFromAniList(id, aniListId);
+      setSnackbarMessage(
+        `Imported ${result.entriesCreated} entries and ${result.charactersCreated} characters`
+      );
+      setSnackbarOpen(true);
+      await load();
+      await loadEntries();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAniListImporting(false);
     }
   };
 
@@ -481,6 +502,18 @@ const AnimeDetailPage: FC = () => {
       <Typography level="title-lg" sx={{ flex: 1 }}>
         {details?.anime.name ?? "Anime"}
       </Typography>
+      {details?.anime.aniListId != null && details.anime.aniListId > 0 && (
+        <Chip
+          variant="soft"
+          color="primary"
+          size="sm"
+          startDecorator={<LinkIcon sx={{ fontSize: 14 }} />}
+          onClick={() => window.open(`https://anilist.co/anime/${details.anime.aniListId}`, '_blank')}
+          sx={{ cursor: 'pointer' }}
+        >
+          AniList
+        </Chip>
+      )}
       {details != null && (
         <>
           <Button
@@ -494,14 +527,37 @@ const AnimeDetailPage: FC = () => {
           >
             Rename
           </Button>
-          <Button
-            variant="outlined"
-            color="danger"
-            startDecorator={<Delete />}
-            onClick={handleDelete}
-          >
-            Delete
-          </Button>
+          <Dropdown>
+            <MenuButton
+              slots={{ root: IconButton }}
+              slotProps={{
+                root: {
+                  variant: "outlined",
+                  color: "neutral",
+                },
+              }}
+            >
+              <MoreVert />
+            </MenuButton>
+            <Menu size="sm" placement="bottom-end">
+              <MenuItem
+                disabled={aniListImporting}
+                onClick={() => setAniListSearchOpen(true)}
+              >
+                <ListItemDecorator>
+                  <LinkIcon fontSize="small" />
+                </ListItemDecorator>
+                Link AniList
+              </MenuItem>
+              <ListDivider />
+              <MenuItem color="danger" onClick={handleDelete}>
+                <ListItemDecorator>
+                  <Delete fontSize="small" />
+                </ListItemDecorator>
+                Delete
+              </MenuItem>
+            </Menu>
+          </Dropdown>
         </>
       )}
     </>
@@ -594,42 +650,130 @@ const AnimeDetailPage: FC = () => {
         nextSeasonNumber={nextSeasonNumber}
       />
 
-      {/* Rename entry modal */}
-      <Modal
-        open={renameEntryOpen}
-        onClose={() => setRenameEntryOpen(false)}
-      >
-        <ModalDialog sx={{ minWidth: 360 }}>
+      {/* Edit entry modal (rename + airing info + optional type) */}
+      <Modal open={editEntryOpen} onClose={() => setEditEntryOpen(false)}>
+        <ModalDialog sx={{ minWidth: 400 }}>
           <ModalClose />
-          <Typography level="title-md">Rename entry</Typography>
+          <Typography level="title-md">Edit Entry</Typography>
           <Stack spacing={2} sx={{ mt: 2 }}>
-            <Input
-              autoFocus
-              value={renameEntryName}
-              onChange={(e) => {
-                setRenameEntryName(e.target.value);
-                setRenameEntryError(null);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  handleRenameEntry();
-                }
-              }}
-            />
-            {renameEntryError && (
+            <FormControl>
+              <FormLabel>Name</FormLabel>
+              <Input
+                autoFocus
+                value={editEntryName}
+                onChange={(e) => {
+                  setEditEntryName(e.target.value);
+                  setEditEntryError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleEditEntry();
+                  }
+                }}
+              />
+            </FormControl>
+            <FormControl>
+              <FormLabel>Airing Season</FormLabel>
+              <Select
+                value={editEntrySeason}
+                onChange={(_e, value) => {
+                  setEditEntrySeason(value ?? "");
+                  setEditEntryError(null);
+                }}
+              >
+                <Option value="">(None)</Option>
+                <Option value="WINTER">Winter</Option>
+                <Option value="SPRING">Spring</Option>
+                <Option value="SUMMER">Summer</Option>
+                <Option value="FALL">Fall</Option>
+              </Select>
+            </FormControl>
+            <FormControl>
+              <FormLabel>Airing Year</FormLabel>
+              <Input
+                type="number"
+                value={editEntryYear ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setEditEntryYear(v === "" ? null : Number(v));
+                  setEditEntryError(null);
+                }}
+                slotProps={{ input: { min: 1900, max: 2100 } }}
+                placeholder="e.g. 2024"
+              />
+            </FormControl>
+
+            {/* Type selection: only for top-level entries with no type set */}
+            {editEntryDepth === 0 && editEntryType === "" && (
+              <>
+                <FormControl>
+                  <FormLabel>Type</FormLabel>
+                  <RadioGroup
+                    orientation="horizontal"
+                    value={editEntryNewType}
+                    onChange={(e) => {
+                      setEditEntryNewType(
+                        e.target.value as "season" | "movie" | "other"
+                      );
+                      setEditEntryError(null);
+                    }}
+                  >
+                    <Radio value="season" label="Season" />
+                    <Radio value="movie" label="Movie" />
+                    <Radio value="other" label="Other" />
+                  </RadioGroup>
+                </FormControl>
+
+                {editEntryNewType === "season" && (
+                  <FormControl>
+                    <FormLabel>Number</FormLabel>
+                    <Input
+                      type="number"
+                      value={editEntrySeasonNumber}
+                      onChange={(e) =>
+                        setEditEntrySeasonNumber(Number(e.target.value))
+                      }
+                      slotProps={{ input: { min: 1 } }}
+                    />
+                  </FormControl>
+                )}
+
+                {editEntryNewType === "movie" && (
+                  <FormControl>
+                    <FormLabel>Year</FormLabel>
+                    <Input
+                      type="number"
+                      value={editEntryMovieYear}
+                      onChange={(e) =>
+                        setEditEntryMovieYear(Number(e.target.value))
+                      }
+                      slotProps={{ input: { min: 1900, max: 2100 } }}
+                    />
+                  </FormControl>
+                )}
+              </>
+            )}
+
+            {editEntryError && (
               <Typography level="body-sm" color="danger">
-                {renameEntryError}
+                {editEntryError}
               </Typography>
             )}
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               <Button
                 variant="plain"
                 color="neutral"
-                onClick={() => setRenameEntryOpen(false)}
+                onClick={() => setEditEntryOpen(false)}
               >
                 Cancel
               </Button>
-              <Button onClick={handleRenameEntry}>Save</Button>
+              <Button
+                disabled={editEntrySubmitting}
+                loading={editEntrySubmitting}
+                onClick={handleEditEntry}
+              >
+                Save
+              </Button>
             </Stack>
           </Stack>
         </ModalDialog>
@@ -662,86 +806,6 @@ const AnimeDetailPage: FC = () => {
             <Button color="danger" onClick={handleDeleteEntry}>
               Delete
             </Button>
-          </Stack>
-        </ModalDialog>
-      </Modal>
-
-      {/* Set entry type modal */}
-      <Modal open={setTypeOpen} onClose={() => setSetTypeOpen(false)}>
-        <ModalDialog sx={{ minWidth: 400 }}>
-          <ModalClose />
-          <Typography level="title-md">
-            Set Type for &quot;{setTypeEntryName}&quot;
-          </Typography>
-          <Stack spacing={2} sx={{ mt: 2 }}>
-            <FormControl>
-              <FormLabel>Type</FormLabel>
-              <RadioGroup
-                orientation="horizontal"
-                value={setTypeType}
-                onChange={(e) => {
-                  setSetTypeType(
-                    e.target.value as "season" | "movie" | "other"
-                  );
-                  setSetTypeError(null);
-                }}
-              >
-                <Radio value="season" label="Season" />
-                <Radio value="movie" label="Movie" />
-                <Radio value="other" label="Other" />
-              </RadioGroup>
-            </FormControl>
-
-            {setTypeType === "season" && (
-              <FormControl>
-                <FormLabel>Number</FormLabel>
-                <Input
-                  type="number"
-                  value={setTypeSeasonNumber}
-                  onChange={(e) =>
-                    setSetTypeSeasonNumber(Number(e.target.value))
-                  }
-                  slotProps={{ input: { min: 1 } }}
-                />
-              </FormControl>
-            )}
-
-            {setTypeType === "movie" && (
-              <FormControl>
-                <FormLabel>Year</FormLabel>
-                <Input
-                  type="number"
-                  value={setTypeMovieYear}
-                  onChange={(e) =>
-                    setSetTypeMovieYear(Number(e.target.value))
-                  }
-                  slotProps={{ input: { min: 1900, max: 2100 } }}
-                />
-              </FormControl>
-            )}
-
-            {setTypeError && (
-              <Typography level="body-sm" color="danger">
-                {setTypeError}
-              </Typography>
-            )}
-
-            <Stack direction="row" spacing={1} justifyContent="flex-end">
-              <Button
-                variant="plain"
-                color="neutral"
-                onClick={() => setSetTypeOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                disabled={setTypeSubmitting}
-                loading={setTypeSubmitting}
-                onClick={handleSetEntryType}
-              >
-                Save
-              </Button>
-            </Stack>
           </Stack>
         </ModalDialog>
       </Modal>
@@ -895,35 +959,33 @@ const AnimeDetailPage: FC = () => {
             onAddEntry={() => setAddEntryOpen(true)}
             onAddSubEntry={handleAddSubEntry}
             onUploadImages={handleUploadImages}
-            onRenameEntry={(entryId, name) => {
-              setRenameEntryId(entryId);
-              setRenameEntryName(name);
-              setRenameEntryError(null);
-              setRenameEntryOpen(true);
+            onEditEntry={(entryId, currentName, currentSeason, currentYear, entryType, depth) => {
+              setEditEntryId(entryId);
+              setEditEntryName(currentName);
+              setEditEntrySeason(currentSeason);
+              setEditEntryYear(currentYear);
+              setEditEntryType(entryType);
+              setEditEntryDepth(depth);
+              setEditEntryNewType("season");
+              setEditEntrySeasonNumber(nextSeasonNumber);
+              setEditEntryMovieYear(new Date().getFullYear());
+              setEditEntryError(null);
+              setEditEntrySubmitting(false);
+              setEditEntryOpen(true);
             }}
             onDeleteEntry={(entryId, name) => {
               setDeleteEntryId(entryId);
               setDeleteEntryName(name);
               setDeleteEntryOpen(true);
             }}
-            onSetEntryType={(entryId, name) => {
-              setSetTypeEntryId(entryId);
-              setSetTypeEntryName(name);
-              setSetTypeType("season");
-              setSetTypeSeasonNumber(nextSeasonNumber);
-              setSetTypeMovieYear(new Date().getFullYear());
-              setSetTypeError(null);
-              setSetTypeSubmitting(false);
-              setSetTypeOpen(true);
-            }}
           />
         </Box>
 
         {/* Characters (tags where category === "character") */}
         {(() => {
-          const characterTags = details.tags.filter(
-            (t) => t.category === "character"
-          );
+          const characterTags = details.tags
+            .filter((t) => t.category === "character")
+            .sort((a, b) => b.imageCount - a.imageCount);
           return (
             <Box>
               <Stack
@@ -1238,6 +1300,27 @@ const AnimeDetailPage: FC = () => {
         />
       </Box>
       {modals}
+
+      {/* AniList search modal */}
+      <AniListSearchModal
+        open={aniListSearchOpen}
+        onClose={() => setAniListSearchOpen(false)}
+        onSelect={(result) => {
+          handleAniListImport(result.id);
+        }}
+        title="Link AniList"
+      />
+
+      {/* Import success snackbar */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={4000}
+        onClose={() => setSnackbarOpen(false)}
+        color="success"
+        variant="soft"
+      >
+        {snackbarMessage}
+      </Snackbar>
     </Layout.Main>
   );
 };
