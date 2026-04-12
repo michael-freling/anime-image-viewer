@@ -1664,3 +1664,178 @@ func TestImportFromAniList_RomajiOnlyTitles(t *testing.T) {
 		}
 	}
 }
+
+func TestImportFromAniList_ReimportUpdatesExistingSubEntryAiringInfo(t *testing.T) {
+	te := newTester(t)
+	ctx := context.Background()
+
+	// Multi-part group: "The Final Season" with Part 1, Part 2, Part 3.
+	// First import creates everything. Second import (re-import) should update
+	// airing info on existing sub-entries even though the parent season and
+	// sub-entries already exist.
+	mock := &mockAniListClient{
+		detailResults: map[int]*anilist.MediaDetail{
+			100: {
+				ID: 100,
+				Title: anilist.MediaTitle{
+					Romaji:  "Shingeki no Kyojin: The Final Season",
+					English: "The Final Season",
+				},
+				Format:     "TV",
+				Season:     "WINTER",
+				SeasonYear: 2021,
+				Relations: []anilist.MediaRelation{
+					{
+						RelationType: "SEQUEL",
+						ID:           200,
+						Type:         "ANIME",
+						Format:       "TV",
+					},
+					{
+						RelationType: "SEQUEL",
+						ID:           300,
+						Type:         "ANIME",
+						Format:       "TV",
+					},
+				},
+			},
+			200: {
+				ID: 200,
+				Title: anilist.MediaTitle{
+					Romaji:  "Shingeki no Kyojin: The Final Season Part 2",
+					English: "The Final Season Part 2",
+				},
+				Format:     "TV",
+				Season:     "WINTER",
+				SeasonYear: 2022,
+				Relations: []anilist.MediaRelation{
+					{
+						RelationType: "PREQUEL",
+						ID:           100,
+						Type:         "ANIME",
+						Format:       "TV",
+					},
+				},
+			},
+			300: {
+				ID: 300,
+				Title: anilist.MediaTitle{
+					Romaji:  "Shingeki no Kyojin: The Final Season Part 3",
+					English: "The Final Season Part 3",
+				},
+				Format:     "TV",
+				Season:     "SPRING",
+				SeasonYear: 2023,
+				Relations: []anilist.MediaRelation{
+					{
+						RelationType: "PREQUEL",
+						ID:           200,
+						Type:         "ANIME",
+						Format:       "TV",
+					},
+				},
+			},
+		},
+	}
+
+	svc := te.serviceWithAniList(mock)
+	created, err := svc.Create(ctx, "AoT Reimport")
+	require.NoError(t, err)
+
+	// First import: creates season + 3 parts = 4 entries.
+	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
+	require.NoError(t, err)
+	assert.Equal(t, 4, result.EntriesCreated, "first import should create 4 entries")
+
+	// Verify sub-entries have airing info after first import.
+	rootFolder, err := svc.FindAnimeRootFolder(created.ID)
+	require.NoError(t, err)
+	seasonChildren, err := te.dbClient.File().FindDirectChildDirectories(rootFolder.ID)
+	require.NoError(t, err)
+
+	var seasonFileID uint
+	for _, child := range seasonChildren {
+		if child.EntryType == db.EntryTypeSeason {
+			seasonFileID = child.ID
+			break
+		}
+	}
+	require.NotZero(t, seasonFileID)
+
+	subEntries, err := te.dbClient.File().FindDirectChildDirectories(seasonFileID)
+	require.NoError(t, err)
+	require.Len(t, subEntries, 3, "expected 3 sub-entries after first import")
+
+	// Verify initial airing info is set.
+	for _, sub := range subEntries {
+		switch sub.Name {
+		case "Part 1":
+			assert.Equal(t, db.AiringSeasonWinter, sub.AiringSeason)
+			require.NotNil(t, sub.AiringYear)
+			assert.Equal(t, uint(2021), *sub.AiringYear)
+		case "Part 2":
+			assert.Equal(t, db.AiringSeasonWinter, sub.AiringSeason)
+			require.NotNil(t, sub.AiringYear)
+			assert.Equal(t, uint(2022), *sub.AiringYear)
+		case "Part 3":
+			assert.Equal(t, db.AiringSeasonSpring, sub.AiringSeason)
+			require.NotNil(t, sub.AiringYear)
+			assert.Equal(t, uint(2023), *sub.AiringYear)
+		}
+	}
+
+	// Now update the mock to have different airing info (simulating AniList
+	// data correction or new info becoming available).
+	mock.detailResults[100].Season = "FALL"
+	mock.detailResults[100].SeasonYear = 2020
+	mock.detailResults[200].Season = "SUMMER"
+	mock.detailResults[200].SeasonYear = 2021
+	mock.detailResults[300].Season = "FALL"
+	mock.detailResults[300].SeasonYear = 2023
+
+	// Second import (re-import): nothing new created, but airing info updated.
+	result2, err := svc.ImportFromAniList(ctx, created.ID, 100)
+	require.NoError(t, err)
+	assert.Equal(t, 0, result2.EntriesCreated, "re-import should not create new entries")
+
+	// Verify sub-entries now have the updated airing info.
+	subEntries2, err := te.dbClient.File().FindDirectChildDirectories(seasonFileID)
+	require.NoError(t, err)
+	require.Len(t, subEntries2, 3, "should still have 3 sub-entries")
+
+	subAiring := make(map[string]db.File)
+	for _, sub := range subEntries2 {
+		subAiring[sub.Name] = sub
+	}
+
+	// Part 1: FALL 2020 (was WINTER 2021)
+	p1 := subAiring["Part 1"]
+	assert.Equal(t, db.AiringSeasonFall, p1.AiringSeason, "Part 1 should have updated FALL season")
+	require.NotNil(t, p1.AiringYear, "Part 1 should have airing year set")
+	assert.Equal(t, uint(2020), *p1.AiringYear, "Part 1 should have updated year 2020")
+
+	// Part 2: SUMMER 2021 (was WINTER 2022)
+	p2 := subAiring["Part 2"]
+	assert.Equal(t, db.AiringSeasonSummer, p2.AiringSeason, "Part 2 should have updated SUMMER season")
+	require.NotNil(t, p2.AiringYear, "Part 2 should have airing year set")
+	assert.Equal(t, uint(2021), *p2.AiringYear, "Part 2 should have updated year 2021")
+
+	// Part 3: FALL 2023 (was SPRING 2023)
+	p3 := subAiring["Part 3"]
+	assert.Equal(t, db.AiringSeasonFall, p3.AiringSeason, "Part 3 should have updated FALL season")
+	require.NotNil(t, p3.AiringYear, "Part 3 should have airing year set")
+	assert.Equal(t, uint(2023), *p3.AiringYear, "Part 3 should have year 2023")
+
+	// Also verify the parent season entry got updated airing info.
+	// The parent uses the first part's info (Part 1 = FALL 2020).
+	seasonChildren2, err := te.dbClient.File().FindDirectChildDirectories(rootFolder.ID)
+	require.NoError(t, err)
+	for _, child := range seasonChildren2 {
+		if child.EntryType == db.EntryTypeSeason && child.ID == seasonFileID {
+			assert.Equal(t, db.AiringSeasonFall, child.AiringSeason, "parent season should have updated FALL season")
+			require.NotNil(t, child.AiringYear, "parent season should have airing year set")
+			assert.Equal(t, uint(2020), *child.AiringYear, "parent season should have updated year 2020")
+			break
+		}
+	}
+}

@@ -246,32 +246,47 @@ func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID
 		displayName := sanitizeFolderName(group.baseTitle)
 		first := group.parts[0].detail
 
+		// parentID is the file ID of the season entry used as parent for sub-entries.
+		var parentID uint
+
 		if existing, ok := existingSeasonsByNum[seasonNum]; ok {
 			if err := s.updateEntryAiringInfo(ctx, existing.ID, first.Season, first.SeasonYear); err != nil {
 				return nil, fmt.Errorf("updateEntryAiringInfo for existing season %d: %w", seasonNum, err)
 			}
-			continue
-		}
-
-		created, err := s.CreateEntry(ctx, animeID, db.EntryTypeSeason, &seasonNum, displayName)
-		if err != nil {
-			if isUniqueViolation(err) || strings.Contains(err.Error(), "already exists") {
-				continue
+			parentID = existing.ID
+		} else {
+			created, err := s.CreateEntry(ctx, animeID, db.EntryTypeSeason, &seasonNum, displayName)
+			if err != nil {
+				if isUniqueViolation(err) || strings.Contains(err.Error(), "already exists") {
+					continue
+				}
+				return nil, fmt.Errorf("CreateEntry season %d: %w", seasonNum, err)
 			}
-			return nil, fmt.Errorf("CreateEntry season %d: %w", seasonNum, err)
-		}
-		result.EntriesCreated++
-		if err := s.updateEntryAiringInfo(ctx, created.ID, first.Season, first.SeasonYear); err != nil {
-			return nil, fmt.Errorf("updateEntryAiringInfo for season %d: %w", seasonNum, err)
+			result.EntriesCreated++
+			if err := s.updateEntryAiringInfo(ctx, created.ID, first.Season, first.SeasonYear); err != nil {
+				return nil, fmt.Errorf("updateEntryAiringInfo for season %d: %w", seasonNum, err)
+			}
+			parentID = created.ID
 		}
 
-		// Create sub-entries for multi-part groups.
+		// Create or update sub-entries for multi-part groups.
 		if len(group.parts) > 1 {
 			for _, part := range group.parts {
 				partName := fmt.Sprintf("Part %d", part.partNumber)
-				subEntry, err := s.CreateSubEntry(ctx, created.ID, partName)
+				subEntry, err := s.CreateSubEntry(ctx, parentID, partName)
 				if err != nil {
 					if isUniqueViolation(err) || strings.Contains(err.Error(), "already exists") {
+						// Sub-entry already exists; look it up and update its airing info.
+						existingSub, findErr := s.dbClient.File().FindByValue(ctx, &db.File{
+							ParentID: parentID,
+							Name:     sanitizeFolderName(partName),
+						})
+						if findErr != nil {
+							return nil, fmt.Errorf("find existing sub-entry %s: %w", partName, findErr)
+						}
+						if err := s.updateEntryAiringInfo(ctx, existingSub.ID, part.detail.Season, part.detail.SeasonYear); err != nil {
+							return nil, fmt.Errorf("updateEntryAiringInfo for existing %s: %w", partName, err)
+						}
 						continue
 					}
 					return nil, fmt.Errorf("CreateSubEntry %s: %w", partName, err)
