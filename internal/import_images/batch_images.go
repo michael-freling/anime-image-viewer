@@ -46,31 +46,6 @@ func NewBatchImageImporter(
 	}
 }
 
-// storeContentHash computes and stores the SHA256 hash for a file. Errors are
-// logged but do not fail the import. Retries on SQLite busy/locked errors.
-func (batchImporter *BatchImageImporter) storeContentHash(fileID uint, filePath string) {
-	hash, err := image.ComputeFileHash(filePath)
-	if err != nil {
-		batchImporter.logger.Warn("failed to compute hash on import",
-			"path", filePath, "error", err,
-		)
-		return
-	}
-	backoffs := []time.Duration{100 * time.Millisecond, 500 * time.Millisecond, 1 * time.Second}
-	var storeErr error
-	for attempt := 0; attempt <= len(backoffs); attempt++ {
-		storeErr = batchImporter.dbClient.File().UpdateContentHash(fileID, hash)
-		if storeErr == nil {
-			return
-		}
-		if attempt < len(backoffs) {
-			time.Sleep(backoffs[attempt])
-		}
-	}
-	batchImporter.logger.Warn("failed to store hash on import",
-		"path", filePath, "error", storeErr,
-	)
-}
 
 func (batchImporter *BatchImageImporter) readImageFilePaths(
 	ctx context.Context,
@@ -177,6 +152,19 @@ func (batchImporter *BatchImageImporter) ImportImages(
 		return nil, errors.Join(progressNotifier.FailedErrors...)
 	}
 
+	// Compute content hashes from source files before inserting into DB.
+	// This avoids a separate UPDATE after the concurrent file copy.
+	for i, img := range newImportedImages {
+		hash, err := image.ComputeFileHash(img.sourceFilePath)
+		if err != nil {
+			batchImporter.logger.Warn("failed to compute hash on import",
+				"path", img.sourceFilePath, "error", err,
+			)
+			continue
+		}
+		newImportedImages[i].image.ContentHash = hash
+	}
+
 	if err := db.NewTransaction(ctx, batchImporter.dbClient, func(ctx context.Context) error {
 		files := make([]db.File, len(newImportedImages))
 		for index, newImage := range newImportedImages {
@@ -215,10 +203,6 @@ func (batchImporter *BatchImageImporter) ImportImages(
 				progressNotifier.addFailure(sourceFilePath, fmt.Errorf("image.copy: %w", err))
 				return nil
 			}
-
-			// Compute and store the content hash for integrity tracking.
-			// Errors are logged but do not fail the import.
-			batchImporter.storeContentHash(newImage.image.ID, destinationFilePath)
 
 			resultImage, err := batchImporter.imageFileConverter.ConvertImageFile(destinationParentDirectory, newImage.image)
 			if err != nil {
