@@ -1,10 +1,8 @@
 import {
   Add,
-  CalendarMonth,
   Delete,
   Edit,
   Folder as FolderIcon,
-  Label,
   Movie as MovieIcon,
   MoreVert,
   Tv,
@@ -33,10 +31,8 @@ interface EntryListProps {
   onAddEntry: () => void;
   onAddSubEntry: (parentId: number) => void;
   onUploadImages: (entryId: number) => void;
-  onRenameEntry: (entryId: number, currentName: string) => void;
+  onEditEntry: (entryId: number, currentName: string, currentSeason: string, currentYear: number | null, entryType: string, depth: number) => void;
   onDeleteEntry: (entryId: number, name: string) => void;
-  onSetEntryType: (entryId: number, currentName: string) => void;
-  onEditAiringInfo: (entryId: number, currentSeason: string, currentYear: number | null) => void;
 }
 
 function totalEntryImageCount(entry: AnimeEntryInfo): number {
@@ -130,10 +126,8 @@ const EntryNode: FC<{
   onSelectEntry: (entryId: number | null) => void;
   onAddSubEntry: (parentId: number) => void;
   onUploadImages: (entryId: number) => void;
-  onRenameEntry: (entryId: number, currentName: string) => void;
+  onEditEntry: (entryId: number, currentName: string, currentSeason: string, currentYear: number | null, entryType: string, depth: number) => void;
   onDeleteEntry: (entryId: number, name: string) => void;
-  onSetEntryType: (entryId: number, currentName: string) => void;
-  onEditAiringInfo: (entryId: number, currentSeason: string, currentYear: number | null) => void;
 }> = ({
   entry,
   depth,
@@ -141,10 +135,8 @@ const EntryNode: FC<{
   onSelectEntry,
   onAddSubEntry,
   onUploadImages,
-  onRenameEntry,
+  onEditEntry,
   onDeleteEntry,
-  onSetEntryType,
-  onEditAiringInfo,
 }) => {
   const isSelected = selectedEntryId === entry.id;
   const isFuture = isFutureEntry(entry);
@@ -320,31 +312,13 @@ const EntryNode: FC<{
               <MoreVert sx={{ fontSize: iconSize }} />
             </MenuButton>
             <Menu size="sm" placement="bottom-start">
-              {entry.entryType === "" && (
-                <MenuItem
-                  onClick={() => onSetEntryType(entry.id, entry.name)}
-                >
-                  <ListItemDecorator>
-                    <Label fontSize="small" />
-                  </ListItemDecorator>
-                  Set Type
-                </MenuItem>
-              )}
               <MenuItem
-                onClick={() => onEditAiringInfo(entry.id, entry.airingSeason, entry.airingYear)}
-              >
-                <ListItemDecorator>
-                  <CalendarMonth fontSize="small" />
-                </ListItemDecorator>
-                Edit Airing Info
-              </MenuItem>
-              <MenuItem
-                onClick={() => onRenameEntry(entry.id, entry.name)}
+                onClick={() => onEditEntry(entry.id, entry.name, entry.airingSeason, entry.airingYear, entry.entryType, depth)}
               >
                 <ListItemDecorator>
                   <Edit fontSize="small" />
                 </ListItemDecorator>
-                Rename
+                Edit
               </MenuItem>
               <ListDivider />
               <MenuItem
@@ -375,10 +349,8 @@ const EntryNode: FC<{
               onSelectEntry={onSelectEntry}
               onAddSubEntry={onAddSubEntry}
               onUploadImages={onUploadImages}
-              onRenameEntry={onRenameEntry}
+              onEditEntry={onEditEntry}
               onDeleteEntry={onDeleteEntry}
-              onSetEntryType={onSetEntryType}
-              onEditAiringInfo={onEditAiringInfo}
             />
           ))}
         </Box>
@@ -394,10 +366,8 @@ const EntryList: FC<EntryListProps> = ({
   onSelectEntry,
   onAddSubEntry,
   onUploadImages,
-  onRenameEntry,
+  onEditEntry,
   onDeleteEntry,
-  onSetEntryType,
-  onEditAiringInfo,
 }) => {
   return (
     <Box
@@ -448,10 +418,8 @@ const EntryList: FC<EntryListProps> = ({
               onSelectEntry={onSelectEntry}
               onAddSubEntry={onAddSubEntry}
               onUploadImages={onUploadImages}
-              onRenameEntry={onRenameEntry}
+              onEditEntry={onEditEntry}
               onDeleteEntry={onDeleteEntry}
-              onSetEntryType={onSetEntryType}
-              onEditAiringInfo={onEditAiringInfo}
             />
           ))}
         </Box>
