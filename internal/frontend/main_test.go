@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/michael-freling/anime-image-viewer/internal/anilist"
 	"github.com/michael-freling/anime-image-viewer/internal/anime"
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
@@ -109,9 +110,23 @@ func (tester tester) getAnimeCoreService() *anime.Service {
 	return anime.NewService(tester.dbClient.Client, tester.getDirectoryReader(), tester.config, nil)
 }
 
+func (tester tester) getAnimeCoreServiceWithAniList(client anilist.Client) *anime.Service {
+	return anime.NewService(tester.dbClient.Client, tester.getDirectoryReader(), tester.config, client)
+}
+
 func (tester tester) getAnimeService() *AnimeService {
 	return NewAnimeService(
 		tester.getAnimeCoreService(),
+		tester.dbClient.Client,
+		tester.getDirectoryReader(),
+		tester.getTagReader(),
+		tester.getFileReader(),
+	)
+}
+
+func (tester tester) getAnimeServiceWithAniList(client anilist.Client) *AnimeService {
+	return NewAnimeService(
+		tester.getAnimeCoreServiceWithAniList(client),
 		tester.dbClient.Client,
 		tester.getDirectoryReader(),
 		tester.getTagReader(),

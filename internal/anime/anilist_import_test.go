@@ -2,6 +2,7 @@ package anime
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/michael-freling/anime-image-viewer/internal/anilist"
@@ -953,6 +954,713 @@ func TestImportFromAniList_MixedSingleAndMultiPart(t *testing.T) {
 			subs, err := te.dbClient.File().FindDirectChildDirectories(child.ID)
 			require.NoError(t, err)
 			assert.Len(t, subs, 0, "Season %d should have no sub-entries", *child.EntryNumber)
+		}
+	}
+}
+
+func TestLinkAniList(t *testing.T) {
+	te := newTester(t)
+	ctx := context.Background()
+
+	mock := &mockAniListClient{}
+
+	t.Run("sets AniListID on existing anime", func(t *testing.T) {
+		svc := te.serviceWithAniList(mock)
+		created, err := svc.Create(ctx, "LinkTest")
+		require.NoError(t, err)
+
+		err = svc.LinkAniList(ctx, created.ID, 42)
+		require.NoError(t, err)
+
+		row, err := te.dbClient.Anime().FindByValue(ctx, &db.Anime{ID: created.ID})
+		require.NoError(t, err)
+		require.NotNil(t, row.AniListID)
+		assert.Equal(t, 42, *row.AniListID)
+	})
+
+	t.Run("nil client returns error", func(t *testing.T) {
+		svc := te.service() // no anilist client
+		err := svc.LinkAniList(ctx, 1, 42)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "anilist client is not configured")
+	})
+
+	t.Run("nonexistent anime returns error", func(t *testing.T) {
+		svc := te.serviceWithAniList(mock)
+		err := svc.LinkAniList(ctx, 99999, 42)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrAnimeNotFound)
+	})
+}
+
+func TestDetailDisplayName(t *testing.T) {
+	t.Run("prefers English title", func(t *testing.T) {
+		d := &anilist.MediaDetail{
+			Title: anilist.MediaTitle{
+				English: "Attack on Titan",
+				Romaji:  "Shingeki no Kyojin",
+			},
+		}
+		assert.Equal(t, "Attack on Titan", detailDisplayName(d))
+	})
+
+	t.Run("falls back to Romaji when English is empty", func(t *testing.T) {
+		d := &anilist.MediaDetail{
+			Title: anilist.MediaTitle{
+				English: "",
+				Romaji:  "Shingeki no Kyojin",
+			},
+		}
+		assert.Equal(t, "Shingeki no Kyojin", detailDisplayName(d))
+	})
+}
+
+func TestRelationDisplayName(t *testing.T) {
+	t.Run("prefers English title", func(t *testing.T) {
+		r := anilist.MediaRelation{
+			Title: anilist.MediaTitle{
+				English: "The Movie",
+				Romaji:  "Gekijouban",
+			},
+		}
+		assert.Equal(t, "The Movie", relationDisplayName(r))
+	})
+
+	t.Run("falls back to Romaji when English is empty", func(t *testing.T) {
+		r := anilist.MediaRelation{
+			Title: anilist.MediaTitle{
+				English: "",
+				Romaji:  "Gekijouban",
+			},
+		}
+		assert.Equal(t, "Gekijouban", relationDisplayName(r))
+	})
+}
+
+func TestImportFromAniList_GetAnimeDetailError(t *testing.T) {
+	te := newTester(t)
+	ctx := context.Background()
+
+	mock := &mockAniListClient{
+		detailErr: fmt.Errorf("api timeout"),
+	}
+	svc := te.serviceWithAniList(mock)
+
+	created, err := svc.Create(ctx, "DetailError")
+	require.NoError(t, err)
+
+	_, err = svc.ImportFromAniList(ctx, created.ID, 100)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "anilist.GetAnimeDetail(100)")
+	assert.Contains(t, err.Error(), "api timeout")
+}
+
+func TestImportFromAniList_DetailReturnsNil(t *testing.T) {
+	te := newTester(t)
+	ctx := context.Background()
+
+	// Return nil for the detail -- BFS skips it.
+	mock := &mockAniListClient{
+		detailResults: map[int]*anilist.MediaDetail{},
+	}
+	svc := te.serviceWithAniList(mock)
+
+	created, err := svc.Create(ctx, "NilDetail")
+	require.NoError(t, err)
+
+	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
+	require.NoError(t, err)
+	assert.Equal(t, 0, result.EntriesCreated)
+	assert.Equal(t, 0, result.CharactersCreated)
+}
+
+func TestImportFromAniList_SkipsNonAnimeRelations(t *testing.T) {
+	te := newTester(t)
+	ctx := context.Background()
+
+	// A season with a MANGA relation, MUSIC relation, and a SEQUEL OVA that is
+	// not TV/ONA format. None of these should be followed by BFS.
+	mock := &mockAniListClient{
+		detailResults: map[int]*anilist.MediaDetail{
+			100: {
+				ID: 100,
+				Title: anilist.MediaTitle{
+					English: "Test Show",
+				},
+				Format:     "TV",
+				Season:     "WINTER",
+				SeasonYear: 2020,
+				Relations: []anilist.MediaRelation{
+					{
+						RelationType: "SEQUEL",
+						ID:           200,
+						Type:         "MANGA",
+						Format:       "MANGA",
+					},
+					{
+						RelationType: "SEQUEL",
+						ID:           300,
+						Type:         "ANIME",
+						Format:       "MUSIC",
+					},
+					{
+						RelationType: "CHARACTER",
+						ID:           400,
+						Type:         "ANIME",
+						Format:       "TV",
+					},
+				},
+			},
+		},
+	}
+
+	svc := te.serviceWithAniList(mock)
+	created, err := svc.Create(ctx, "SkipRelations")
+	require.NoError(t, err)
+
+	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
+	require.NoError(t, err)
+
+	// Only 1 season (the root), no sequel followed.
+	assert.Equal(t, 1, result.EntriesCreated)
+	assert.Equal(t, 1, mock.callCount, "BFS should only fetch the root entry")
+}
+
+func TestImportFromAniList_MovieWithParentRelation(t *testing.T) {
+	te := newTester(t)
+	ctx := context.Background()
+
+	// A season with a PARENT relation that is a movie.
+	mock := &mockAniListClient{
+		detailResults: map[int]*anilist.MediaDetail{
+			100: {
+				ID: 100,
+				Title: anilist.MediaTitle{
+					English: "ParentMovieShow",
+				},
+				Format:     "TV",
+				Season:     "FALL",
+				SeasonYear: 2021,
+				Relations: []anilist.MediaRelation{
+					{
+						RelationType: "PARENT",
+						ID:           999,
+						Title: anilist.MediaTitle{
+							English: "The Parent Movie",
+						},
+						Type:       "ANIME",
+						Format:     "MOVIE",
+						SeasonYear: 2022,
+					},
+				},
+			},
+		},
+	}
+
+	svc := te.serviceWithAniList(mock)
+	created, err := svc.Create(ctx, "ParentMovieTest")
+	require.NoError(t, err)
+
+	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
+	require.NoError(t, err)
+
+	// 1 season + 1 movie = 2
+	assert.Equal(t, 2, result.EntriesCreated)
+}
+
+func TestImportFromAniList_SkipsBackgroundCharacters(t *testing.T) {
+	te := newTester(t)
+	ctx := context.Background()
+
+	mock := &mockAniListClient{
+		detailResults: map[int]*anilist.MediaDetail{
+			100: {
+				ID: 100,
+				Title: anilist.MediaTitle{
+					English: "CharFilter",
+				},
+				Format:     "TV",
+				Season:     "SPRING",
+				SeasonYear: 2020,
+				Characters: []anilist.Character{
+					{ID: 1, Role: "MAIN", Name: struct {
+						Full   string `json:"full"`
+						Native string `json:"native"`
+					}{Full: "Hero"}},
+					{ID: 2, Role: "BACKGROUND", Name: struct {
+						Full   string `json:"full"`
+						Native string `json:"native"`
+					}{Full: "Extra"}},
+					{ID: 3, Role: "SUPPORTING", Name: struct {
+						Full   string `json:"full"`
+						Native string `json:"native"`
+					}{Full: ""}}, // empty name, should be skipped
+				},
+			},
+		},
+	}
+
+	svc := te.serviceWithAniList(mock)
+	created, err := svc.Create(ctx, "CharFilterTest")
+	require.NoError(t, err)
+
+	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
+	require.NoError(t, err)
+
+	// Only "Hero" should be created. "Extra" is BACKGROUND (skipped), empty name is skipped.
+	assert.Equal(t, 1, result.CharactersCreated)
+}
+
+func TestImportFromAniList_FollowsONAFormat(t *testing.T) {
+	te := newTester(t)
+	ctx := context.Background()
+
+	// BFS should follow ONA format relations (isSeasonFormat includes ONA).
+	mock := &mockAniListClient{
+		detailResults: map[int]*anilist.MediaDetail{
+			100: {
+				ID: 100,
+				Title: anilist.MediaTitle{
+					English: "ONA Show S1",
+				},
+				Format:     "ONA",
+				Season:     "WINTER",
+				SeasonYear: 2023,
+				Relations: []anilist.MediaRelation{
+					{
+						RelationType: "SEQUEL",
+						ID:           200,
+						Type:         "ANIME",
+						Format:       "ONA",
+					},
+				},
+			},
+			200: {
+				ID: 200,
+				Title: anilist.MediaTitle{
+					English: "ONA Show S2",
+				},
+				Format:     "ONA",
+				Season:     "SUMMER",
+				SeasonYear: 2024,
+				Relations: []anilist.MediaRelation{
+					{
+						RelationType: "PREQUEL",
+						ID:           100,
+						Type:         "ANIME",
+						Format:       "ONA",
+					},
+				},
+			},
+		},
+	}
+
+	svc := te.serviceWithAniList(mock)
+	created, err := svc.Create(ctx, "ONATest")
+	require.NoError(t, err)
+
+	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
+	require.NoError(t, err)
+
+	// 2 seasons created from ONA entries.
+	assert.Equal(t, 2, result.EntriesCreated)
+	assert.Equal(t, 2, mock.callCount)
+}
+
+func TestImportFromAniList_MovieWithZeroYear(t *testing.T) {
+	te := newTester(t)
+	ctx := context.Background()
+
+	// Movie relation with SeasonYear 0 -- year should be nil.
+	mock := &mockAniListClient{
+		detailResults: map[int]*anilist.MediaDetail{
+			100: {
+				ID: 100,
+				Title: anilist.MediaTitle{
+					English: "YearlessShow",
+				},
+				Format:     "TV",
+				Season:     "FALL",
+				SeasonYear: 2020,
+				Relations: []anilist.MediaRelation{
+					{
+						RelationType: "SIDE_STORY",
+						ID:           999,
+						Title: anilist.MediaTitle{
+							English: "Yearless Movie",
+						},
+						Type:       "ANIME",
+						Format:     "MOVIE",
+						SeasonYear: 0,
+					},
+				},
+			},
+		},
+	}
+
+	svc := te.serviceWithAniList(mock)
+	created, err := svc.Create(ctx, "YearlessTest")
+	require.NoError(t, err)
+
+	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
+	require.NoError(t, err)
+
+	// 1 season + 1 movie = 2
+	assert.Equal(t, 2, result.EntriesCreated)
+
+	// Verify the movie has nil year.
+	entries, err := svc.GetAnimeEntries(created.ID)
+	require.NoError(t, err)
+	for _, e := range entries {
+		if e.EntryType == db.EntryTypeMovie {
+			assert.Nil(t, e.EntryNumber, "movie with zero year should have nil entry_number")
+		}
+	}
+}
+
+func TestImportFromAniList_BFSDeduplication(t *testing.T) {
+	te := newTester(t)
+	ctx := context.Background()
+
+	// BFS dedup scenario: IDs 100 and 200 both have SEQUEL pointing to 300.
+	// 100 is processed first, adding 200 and 300 to queue. Then 200 is processed,
+	// adding 300 again (since 300 is not yet fetched). Queue becomes [300, 300].
+	// The second 300 should be deduplicated by the fetched check.
+	mock := &mockAniListClient{
+		detailResults: map[int]*anilist.MediaDetail{
+			100: {
+				ID: 100,
+				Title: anilist.MediaTitle{
+					English: "Show S1",
+				},
+				Format:     "TV",
+				Season:     "WINTER",
+				SeasonYear: 2020,
+				Relations: []anilist.MediaRelation{
+					{
+						RelationType: "SEQUEL",
+						ID:           200,
+						Type:         "ANIME",
+						Format:       "TV",
+					},
+					{
+						RelationType: "SEQUEL",
+						ID:           300,
+						Type:         "ANIME",
+						Format:       "TV",
+					},
+				},
+			},
+			200: {
+				ID: 200,
+				Title: anilist.MediaTitle{
+					English: "Show S2",
+				},
+				Format:     "TV",
+				Season:     "SPRING",
+				SeasonYear: 2021,
+				Relations: []anilist.MediaRelation{
+					{
+						RelationType: "PREQUEL",
+						ID:           100,
+						Type:         "ANIME",
+						Format:       "TV",
+					},
+					{
+						RelationType: "SEQUEL",
+						ID:           300,
+						Type:         "ANIME",
+						Format:       "TV",
+					},
+				},
+			},
+			300: {
+				ID: 300,
+				Title: anilist.MediaTitle{
+					English: "Show S3",
+				},
+				Format:     "TV",
+				Season:     "FALL",
+				SeasonYear: 2022,
+				Relations: []anilist.MediaRelation{
+					{
+						RelationType: "PREQUEL",
+						ID:           200,
+						Type:         "ANIME",
+						Format:       "TV",
+					},
+				},
+			},
+		},
+	}
+
+	svc := te.serviceWithAniList(mock)
+	created, err := svc.Create(ctx, "BFSDedupTest")
+	require.NoError(t, err)
+
+	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
+	require.NoError(t, err)
+
+	assert.Equal(t, 3, result.EntriesCreated)
+	// BFS should make exactly 3 calls, even though 300 was discovered twice.
+	assert.Equal(t, 3, mock.callCount)
+}
+
+func TestImportFromAniList_SameYearSortsById(t *testing.T) {
+	te := newTester(t)
+	ctx := context.Background()
+
+	// Two seasons in the same year -- should be sorted by AniList ID as tiebreaker.
+	mock := &mockAniListClient{
+		detailResults: map[int]*anilist.MediaDetail{
+			300: {
+				ID: 300,
+				Title: anilist.MediaTitle{
+					English: "Same Year S2",
+				},
+				Format:     "TV",
+				Season:     "FALL",
+				SeasonYear: 2023,
+				Relations: []anilist.MediaRelation{
+					{
+						RelationType: "PREQUEL",
+						ID:           100,
+						Type:         "ANIME",
+						Format:       "TV",
+					},
+				},
+			},
+			100: {
+				ID: 100,
+				Title: anilist.MediaTitle{
+					English: "Same Year S1",
+				},
+				Format:     "TV",
+				Season:     "WINTER",
+				SeasonYear: 2023,
+				Relations: []anilist.MediaRelation{
+					{
+						RelationType: "SEQUEL",
+						ID:           300,
+						Type:         "ANIME",
+						Format:       "TV",
+					},
+				},
+			},
+		},
+	}
+
+	svc := te.serviceWithAniList(mock)
+	created, err := svc.Create(ctx, "SameYearSort")
+	require.NoError(t, err)
+
+	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
+	require.NoError(t, err)
+
+	assert.Equal(t, 2, result.EntriesCreated)
+
+	// Verify season order: S1 (ID 100) should be Season 1, S2 (ID 300) should be Season 2
+	entries, err := svc.GetAnimeEntries(created.ID)
+	require.NoError(t, err)
+	seasonNames := make(map[uint]string)
+	for _, e := range entries {
+		if e.EntryType == db.EntryTypeSeason && e.EntryNumber != nil {
+			seasonNames[*e.EntryNumber] = e.Name
+		}
+	}
+	assert.Equal(t, "Same Year S1", seasonNames[1])
+	assert.Equal(t, "Same Year S2", seasonNames[2])
+}
+
+func TestImportFromAniList_DuplicateMovieDedup(t *testing.T) {
+	te := newTester(t)
+	ctx := context.Background()
+
+	// Two seasons both reference the same movie. Movie should only be created once.
+	mock := &mockAniListClient{
+		detailResults: map[int]*anilist.MediaDetail{
+			100: {
+				ID: 100,
+				Title: anilist.MediaTitle{
+					English: "MovieDedup S1",
+				},
+				Format:     "TV",
+				Season:     "SPRING",
+				SeasonYear: 2020,
+				Relations: []anilist.MediaRelation{
+					{
+						RelationType: "SEQUEL",
+						ID:           200,
+						Type:         "ANIME",
+						Format:       "TV",
+					},
+					{
+						RelationType: "SIDE_STORY",
+						ID:           999,
+						Title: anilist.MediaTitle{
+							English: "The Movie",
+						},
+						Type:       "ANIME",
+						Format:     "MOVIE",
+						SeasonYear: 2021,
+					},
+				},
+			},
+			200: {
+				ID: 200,
+				Title: anilist.MediaTitle{
+					English: "MovieDedup S2",
+				},
+				Format:     "TV",
+				Season:     "FALL",
+				SeasonYear: 2021,
+				Relations: []anilist.MediaRelation{
+					{
+						RelationType: "PREQUEL",
+						ID:           100,
+						Type:         "ANIME",
+						Format:       "TV",
+					},
+					{
+						RelationType: "SIDE_STORY",
+						ID:           999,
+						Title: anilist.MediaTitle{
+							English: "The Movie",
+						},
+						Type:       "ANIME",
+						Format:     "MOVIE",
+						SeasonYear: 2021,
+					},
+				},
+			},
+		},
+	}
+
+	svc := te.serviceWithAniList(mock)
+	created, err := svc.Create(ctx, "MovieDedupTest")
+	require.NoError(t, err)
+
+	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
+	require.NoError(t, err)
+
+	// 2 seasons + 1 movie (deduped) = 3
+	assert.Equal(t, 3, result.EntriesCreated)
+
+	entries, err := svc.GetAnimeEntries(created.ID)
+	require.NoError(t, err)
+	movieCount := 0
+	for _, e := range entries {
+		if e.EntryType == db.EntryTypeMovie {
+			movieCount++
+		}
+	}
+	assert.Equal(t, 1, movieCount, "duplicate movie should be deduped")
+}
+
+func TestImportFromAniList_NilClient(t *testing.T) {
+	te := newTester(t)
+	ctx := context.Background()
+
+	svc := te.service() // nil anilist client
+
+	created, err := svc.Create(ctx, "NilClientImport")
+	require.NoError(t, err)
+
+	_, err = svc.ImportFromAniList(ctx, created.ID, 100)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "anilist client is not configured")
+}
+
+func TestImportFromAniList_NonexistentAnime(t *testing.T) {
+	te := newTester(t)
+	ctx := context.Background()
+
+	mock := &mockAniListClient{
+		detailResults: map[int]*anilist.MediaDetail{
+			100: {
+				ID:     100,
+				Title:  anilist.MediaTitle{Romaji: "Test"},
+				Format: "TV",
+			},
+		},
+	}
+	svc := te.serviceWithAniList(mock)
+
+	_, err := svc.ImportFromAniList(ctx, 99999, 100)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrAnimeNotFound)
+}
+
+func TestAnilistSeasonToDBSeason(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"WINTER", db.AiringSeasonWinter},
+		{"SPRING", db.AiringSeasonSpring},
+		{"SUMMER", db.AiringSeasonSummer},
+		{"FALL", db.AiringSeasonFall},
+		{"", ""},
+		{"UNKNOWN", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			assert.Equal(t, tt.want, anilistSeasonToDBSeason(tt.input))
+		})
+	}
+}
+
+func TestImportFromAniList_RomajiOnlyTitles(t *testing.T) {
+	te := newTester(t)
+	ctx := context.Background()
+
+	// Entries with only Romaji titles (no English) to cover the Romaji fallback
+	// paths in detailDisplayName and relationDisplayName.
+	mock := &mockAniListClient{
+		detailResults: map[int]*anilist.MediaDetail{
+			100: {
+				ID: 100,
+				Title: anilist.MediaTitle{
+					Romaji: "Shingeki no Kyojin",
+				},
+				Format:     "TV",
+				Season:     "SPRING",
+				SeasonYear: 2013,
+				Relations: []anilist.MediaRelation{
+					{
+						RelationType: "SIDE_STORY",
+						ID:           999,
+						Title: anilist.MediaTitle{
+							Romaji: "Shingeki no Kyojin Movie",
+						},
+						Type:       "ANIME",
+						Format:     "MOVIE",
+						SeasonYear: 2015,
+					},
+				},
+			},
+		},
+	}
+
+	svc := te.serviceWithAniList(mock)
+	created, err := svc.Create(ctx, "RomajiOnly")
+	require.NoError(t, err)
+
+	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
+	require.NoError(t, err)
+
+	// 1 season + 1 movie = 2
+	assert.Equal(t, 2, result.EntriesCreated)
+
+	// Verify the season name uses Romaji.
+	entries, err := svc.GetAnimeEntries(created.ID)
+	require.NoError(t, err)
+	for _, e := range entries {
+		if e.EntryType == db.EntryTypeSeason {
+			assert.Equal(t, "Shingeki no Kyojin", e.Name)
+		}
+		if e.EntryType == db.EntryTypeMovie {
+			assert.Equal(t, "Shingeki no Kyojin Movie", e.Name)
 		}
 	}
 }

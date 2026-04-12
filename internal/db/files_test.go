@@ -461,3 +461,36 @@ func TestFileClient_ContentHashField(t *testing.T) {
 	require.Len(t, got, 1)
 	assert.Equal(t, hash, got[0].ContentHash)
 }
+
+func TestFileClient_UpdateAiringFields(t *testing.T) {
+	testClient := NewTestClient(t)
+	testClient.Truncate(t, File{})
+	ctx := context.Background()
+
+	files := []File{
+		{ID: 8001, ParentID: 0, Name: "dir1", Type: FileTypeDirectory},
+	}
+	LoadTestData(t, testClient, files)
+
+	t.Run("sets airing season and year", func(t *testing.T) {
+		year := uint(2024)
+		err := testClient.File().UpdateAiringFields(ctx, 8001, AiringSeasonSpring, &year)
+		require.NoError(t, err)
+
+		got, err := testClient.File().FindByValue(ctx, &File{ID: 8001})
+		require.NoError(t, err)
+		assert.Equal(t, AiringSeasonSpring, got.AiringSeason)
+		require.NotNil(t, got.AiringYear)
+		assert.Equal(t, uint(2024), *got.AiringYear)
+	})
+
+	t.Run("clears airing fields", func(t *testing.T) {
+		err := testClient.File().UpdateAiringFields(ctx, 8001, "", nil)
+		require.NoError(t, err)
+
+		got, err := testClient.File().FindByValue(ctx, &File{ID: 8001})
+		require.NoError(t, err)
+		assert.Empty(t, got.AiringSeason)
+		assert.Nil(t, got.AiringYear)
+	})
+}

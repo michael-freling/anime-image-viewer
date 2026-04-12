@@ -319,3 +319,38 @@ func TestThrottle(t *testing.T) {
 	assert.Equal(t, int64(2), atomic.LoadInt64(&counter), "both requests should reach the server")
 	assert.GreaterOrEqual(t, elapsed, 2*time.Second, "throttle should enforce at least 2s gap between requests")
 }
+
+func TestNewHTTPClient(t *testing.T) {
+	client := NewHTTPClient()
+	assert.NotNil(t, client)
+	assert.Equal(t, defaultEndpoint, client.endpoint)
+	assert.NotNil(t, client.httpClient)
+}
+
+func TestGetAnimeDetail_InvalidJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`not valid json`))
+	}))
+	defer server.Close()
+
+	client := NewHTTPClientWithEndpoint(server.URL)
+	detail, err := client.GetAnimeDetail(context.Background(), 1)
+	require.Error(t, err)
+	assert.Nil(t, detail)
+	assert.Contains(t, err.Error(), "failed to parse detail response")
+}
+
+func TestSearchAnime_InvalidJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`not valid json`))
+	}))
+	defer server.Close()
+
+	client := NewHTTPClientWithEndpoint(server.URL)
+	results, err := client.SearchAnime(context.Background(), "test", 1, 10)
+	require.Error(t, err)
+	assert.Nil(t, results)
+	assert.Contains(t, err.Error(), "failed to parse search response")
+}

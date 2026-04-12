@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/michael-freling/anime-image-viewer/internal/anilist"
 	animecore "github.com/michael-freling/anime-image-viewer/internal/anime"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
@@ -1062,5 +1063,226 @@ func TestAnimeService_UpdateEntryType(t *testing.T) {
 	t.Run("rejects season with nil number", func(t *testing.T) {
 		err := svc.UpdateEntryType(ctx, legacyDir.ID, db.EntryTypeSeason, nil)
 		require.Error(t, err)
+	})
+}
+
+// mockAniListClient implements anilist.Client for frontend tests.
+type mockAniListClient struct {
+	searchResult  []anilist.MediaSearchResult
+	searchErr     error
+	detailResults map[int]*anilist.MediaDetail
+	detailErr     error
+}
+
+func (m *mockAniListClient) SearchAnime(_ context.Context, _ string, _ int, _ int) ([]anilist.MediaSearchResult, error) {
+	return m.searchResult, m.searchErr
+}
+
+func (m *mockAniListClient) GetAnimeDetail(_ context.Context, id int) (*anilist.MediaDetail, error) {
+	if m.detailErr != nil {
+		return nil, m.detailErr
+	}
+	return m.detailResults[id], nil
+}
+
+func TestAnimeService_UpdateEntryAiringInfo(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
+	svc := tester.getAnimeService()
+	ctx := context.Background()
+
+	a, err := svc.CreateAnime(ctx, "AiringShow")
+	require.NoError(t, err)
+
+	entry, err := svc.CreateAnimeEntry(ctx, a.ID, db.EntryTypeSeason, nil, "")
+	require.NoError(t, err)
+
+	t.Run("sets airing season and year", func(t *testing.T) {
+		err := svc.UpdateEntryAiringInfo(entry.ID, db.AiringSeasonSpring, 2024)
+		require.NoError(t, err)
+
+		entries, err := svc.GetAnimeEntries(a.ID)
+		require.NoError(t, err)
+		require.Len(t, entries, 1)
+		assert.Equal(t, "SPRING", entries[0].AiringSeason)
+		require.NotNil(t, entries[0].AiringYear)
+		assert.Equal(t, uint(2024), *entries[0].AiringYear)
+	})
+
+	t.Run("clears airing info with empty season and zero year", func(t *testing.T) {
+		err := svc.UpdateEntryAiringInfo(entry.ID, "", 0)
+		require.NoError(t, err)
+
+		entries, err := svc.GetAnimeEntries(a.ID)
+		require.NoError(t, err)
+		require.Len(t, entries, 1)
+		assert.Empty(t, entries[0].AiringSeason)
+		assert.Nil(t, entries[0].AiringYear)
+	})
+
+	t.Run("rejects invalid season", func(t *testing.T) {
+		err := svc.UpdateEntryAiringInfo(entry.ID, "INVALID", 2024)
+		require.Error(t, err)
+	})
+
+	t.Run("rejects nonexistent entry", func(t *testing.T) {
+		err := svc.UpdateEntryAiringInfo(99999, db.AiringSeasonFall, 2024)
+		require.Error(t, err)
+	})
+}
+
+func TestAnimeService_SearchAniList(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
+	ctx := context.Background()
+
+	t.Run("returns search results with cover image", func(t *testing.T) {
+		mock := &mockAniListClient{
+			searchResult: []anilist.MediaSearchResult{
+				{
+					ID: 1,
+					Title: anilist.MediaTitle{
+						Romaji:  "Shingeki no Kyojin",
+						English: "Attack on Titan",
+						Native:  "進撃の巨人",
+					},
+					Format:     "TV",
+					Status:     "FINISHED",
+					Season:     "SPRING",
+					SeasonYear: 2013,
+					Episodes:   25,
+					CoverImage: anilist.CoverImage{
+						Large:  "https://example.com/large.jpg",
+						Medium: "https://example.com/medium.jpg",
+					},
+				},
+				{
+					ID: 2,
+					Title: anilist.MediaTitle{
+						Romaji: "Bocchi the Rock!",
+					},
+					Format:     "TV",
+					Status:     "FINISHED",
+					Season:     "FALL",
+					SeasonYear: 2022,
+					Episodes:   12,
+					CoverImage: anilist.CoverImage{
+						Medium: "https://example.com/bocchi_medium.jpg",
+					},
+				},
+			},
+		}
+		svc := tester.getAnimeServiceWithAniList(mock)
+
+		results, err := svc.SearchAniList(ctx, "attack")
+		require.NoError(t, err)
+		require.Len(t, results, 2)
+
+		// First result: has Large cover image
+		assert.Equal(t, 1, results[0].ID)
+		assert.Equal(t, "Shingeki no Kyojin", results[0].TitleRomaji)
+		assert.Equal(t, "Attack on Titan", results[0].TitleEnglish)
+		assert.Equal(t, "進撃の巨人", results[0].TitleNative)
+		assert.Equal(t, "TV", results[0].Format)
+		assert.Equal(t, "FINISHED", results[0].Status)
+		assert.Equal(t, "SPRING", results[0].Season)
+		assert.Equal(t, 2013, results[0].SeasonYear)
+		assert.Equal(t, 25, results[0].Episodes)
+		assert.Equal(t, "https://example.com/large.jpg", results[0].CoverImageURL)
+
+		// Second result: no Large, falls back to Medium
+		assert.Equal(t, 2, results[1].ID)
+		assert.Equal(t, "https://example.com/bocchi_medium.jpg", results[1].CoverImageURL)
+	})
+
+	t.Run("returns nil on error", func(t *testing.T) {
+		mock := &mockAniListClient{
+			searchErr: errors.New("network error"),
+		}
+		svc := tester.getAnimeServiceWithAniList(mock)
+
+		results, err := svc.SearchAniList(ctx, "test")
+		require.Error(t, err)
+		assert.Nil(t, results)
+	})
+
+	t.Run("nil anilist client returns error", func(t *testing.T) {
+		svc := tester.getAnimeService() // no anilist client
+
+		results, err := svc.SearchAniList(ctx, "test")
+		require.Error(t, err)
+		assert.Nil(t, results)
+		assert.Contains(t, err.Error(), "anilist client is not configured")
+	})
+}
+
+func TestAnimeService_ImportFromAniList(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
+	ctx := context.Background()
+
+	t.Run("imports entries and characters", func(t *testing.T) {
+		mock := &mockAniListClient{
+			detailResults: map[int]*anilist.MediaDetail{
+				100: {
+					ID: 100,
+					Title: anilist.MediaTitle{
+						Romaji:  "Bocchi the Rock!",
+						English: "Bocchi the Rock!",
+					},
+					Format:     "TV",
+					Season:     "FALL",
+					SeasonYear: 2022,
+					Characters: []anilist.Character{
+						{ID: 1, Role: "MAIN", Name: struct {
+							Full   string `json:"full"`
+							Native string `json:"native"`
+						}{Full: "Hitori Gotoh"}},
+						{ID: 2, Role: "SUPPORTING", Name: struct {
+							Full   string `json:"full"`
+							Native string `json:"native"`
+						}{Full: "Nijika Ijichi"}},
+					},
+				},
+			},
+		}
+		svc := tester.getAnimeServiceWithAniList(mock)
+
+		a, err := svc.CreateAnime(ctx, "Bocchi")
+		require.NoError(t, err)
+
+		result, err := svc.ImportFromAniList(ctx, a.ID, 100)
+		require.NoError(t, err)
+
+		assert.Equal(t, 1, result.EntriesCreated)
+		assert.Equal(t, 2, result.CharactersCreated)
+	})
+
+	t.Run("error on nonexistent anime", func(t *testing.T) {
+		mock := &mockAniListClient{
+			detailResults: map[int]*anilist.MediaDetail{
+				100: {
+					ID:     100,
+					Title:  anilist.MediaTitle{Romaji: "Test"},
+					Format: "TV",
+				},
+			},
+		}
+		svc := tester.getAnimeServiceWithAniList(mock)
+
+		_, err := svc.ImportFromAniList(ctx, 99999, 100)
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, animecore.ErrAnimeNotFound))
+	})
+
+	t.Run("nil anilist client returns error", func(t *testing.T) {
+		svc := tester.getAnimeService() // no anilist client
+
+		a, err := svc.CreateAnime(ctx, "NilClientTest")
+		require.NoError(t, err)
+
+		_, err = svc.ImportFromAniList(ctx, a.ID, 100)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "anilist client is not configured")
 	})
 }

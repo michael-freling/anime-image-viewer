@@ -1907,3 +1907,77 @@ func TestService_UpdateEntryType(t *testing.T) {
 		assert.Nil(t, got.EntryNumber)
 	})
 }
+
+func TestService_UpdateEntryAiringInfo(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	created, err := svc.Create(ctx, "AiringInfoTest")
+	require.NoError(t, err)
+
+	entry, err := svc.CreateEntry(ctx, created.ID, db.EntryTypeSeason, nil, "")
+	require.NoError(t, err)
+
+	t.Run("sets airing season and year", func(t *testing.T) {
+		err := svc.UpdateEntryAiringInfo(ctx, entry.ID, db.AiringSeasonSpring, 2024)
+		require.NoError(t, err)
+
+		got, err := te.dbClient.File().FindByValue(ctx, &db.File{ID: entry.ID})
+		require.NoError(t, err)
+		assert.Equal(t, db.AiringSeasonSpring, got.AiringSeason)
+		require.NotNil(t, got.AiringYear)
+		assert.Equal(t, uint(2024), *got.AiringYear)
+	})
+
+	t.Run("clears airing info with empty values", func(t *testing.T) {
+		err := svc.UpdateEntryAiringInfo(ctx, entry.ID, "", 0)
+		require.NoError(t, err)
+
+		got, err := te.dbClient.File().FindByValue(ctx, &db.File{ID: entry.ID})
+		require.NoError(t, err)
+		assert.Empty(t, got.AiringSeason)
+		assert.Nil(t, got.AiringYear)
+	})
+
+	t.Run("all valid seasons", func(t *testing.T) {
+		for _, season := range []string{
+			db.AiringSeasonWinter,
+			db.AiringSeasonSpring,
+			db.AiringSeasonSummer,
+			db.AiringSeasonFall,
+		} {
+			err := svc.UpdateEntryAiringInfo(ctx, entry.ID, season, 2025)
+			require.NoError(t, err, "season %s should be valid", season)
+		}
+	})
+
+	t.Run("rejects invalid season", func(t *testing.T) {
+		err := svc.UpdateEntryAiringInfo(ctx, entry.ID, "INVALID", 2024)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	})
+
+	t.Run("rejects nonexistent entry", func(t *testing.T) {
+		err := svc.UpdateEntryAiringInfo(ctx, 99999, db.AiringSeasonFall, 2024)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, image.ErrDirectoryNotFound)
+	})
+
+	t.Run("rejects non-directory file", func(t *testing.T) {
+		// Create an image file under the root folder
+		rootFolder, err := svc.FindAnimeRootFolder(created.ID)
+		require.NoError(t, err)
+
+		imgFile := db.File{
+			Name:     "test.jpg",
+			ParentID: rootFolder.ID,
+			Type:     db.FileTypeImage,
+		}
+		require.NoError(t, te.dbClient.File().Create(ctx, &imgFile))
+
+		err = svc.UpdateEntryAiringInfo(ctx, imgFile.ID, db.AiringSeasonFall, 2024)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	})
+}
