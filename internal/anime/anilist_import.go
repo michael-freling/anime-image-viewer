@@ -301,21 +301,61 @@ func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID
 	}
 
 	// Create movie entries with sanitized names.
+	// Fetch full details for each movie individually, since relation edges
+	// often have incomplete data (e.g. SeasonYear: 0).
 	for _, rel := range allMovieRelations {
-		displayName := sanitizeFolderName(relationDisplayName(rel))
+		movieDetail, err := s.anilistClient.GetAnimeDetail(ctx, rel.ID)
+		if err != nil {
+			// Log/skip gracefully rather than failing the entire import.
+			movieDetail = nil
+		}
+
+		// Determine display name, season, and year from the fetched detail,
+		// falling back to the relation edge data when the detail is unavailable.
+		var displayName string
+		var movieSeason string
+		var movieSeasonYear int
+		if movieDetail != nil {
+			displayName = sanitizeFolderName(detailDisplayName(movieDetail))
+			movieSeason = movieDetail.Season
+			movieSeasonYear = movieDetail.SeasonYear
+		} else {
+			displayName = sanitizeFolderName(relationDisplayName(rel))
+			movieSeason = rel.Season
+			movieSeasonYear = rel.SeasonYear
+		}
+
 		var year *uint
-		if rel.SeasonYear > 0 {
-			y := uint(rel.SeasonYear)
+		if movieSeasonYear > 0 {
+			y := uint(movieSeasonYear)
 			year = &y
 		}
-		_, err := s.CreateEntry(ctx, animeID, db.EntryTypeMovie, year, displayName)
+		created, err := s.CreateEntry(ctx, animeID, db.EntryTypeMovie, year, displayName)
 		if err != nil {
 			if isUniqueViolation(err) || strings.Contains(err.Error(), "already exists") {
+				// Movie already exists; look it up and update its airing info.
+				rootFolder, findErr := s.FindAnimeRootFolder(animeID)
+				if findErr != nil {
+					return nil, fmt.Errorf("FindAnimeRootFolder for existing movie: %w", findErr)
+				}
+				existingMovie, findErr := s.dbClient.File().FindByValue(ctx, &db.File{
+					ParentID: rootFolder.ID,
+					Name:     displayName,
+				})
+				if findErr != nil {
+					return nil, fmt.Errorf("find existing movie %s: %w", displayName, findErr)
+				}
+				if err := s.updateEntryAiringInfo(ctx, existingMovie.ID, movieSeason, movieSeasonYear); err != nil {
+					return nil, fmt.Errorf("updateEntryAiringInfo for existing movie %s: %w", displayName, err)
+				}
 				continue
 			}
 			return nil, fmt.Errorf("CreateEntry movie: %w", err)
 		}
 		result.EntriesCreated++
+		if err := s.updateEntryAiringInfo(ctx, created.ID, movieSeason, movieSeasonYear); err != nil {
+			return nil, fmt.Errorf("updateEntryAiringInfo for movie %s: %w", displayName, err)
+		}
 	}
 
 	// Collect characters from ALL fetched entries, dedup by name.

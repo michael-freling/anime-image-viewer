@@ -156,6 +156,17 @@ func TestImportFromAniList_FollowsChainAndDeduplicatesCharacters(t *testing.T) {
 					}{Full: "Eren Yeager", Native: "エレン・イェーガー"}},
 				},
 			},
+			// Full detail for the movie (fetched individually for accurate data).
+			99999: {
+				ID: 99999,
+				Title: anilist.MediaTitle{
+					Romaji:  "Shingeki no Kyojin Movie",
+					English: "Attack on Titan Movie",
+				},
+				Format:     "MOVIE",
+				Season:     "SUMMER",
+				SeasonYear: 2015,
+			},
 		},
 	}
 
@@ -236,8 +247,18 @@ func TestImportFromAniList_FollowsChainAndDeduplicatesCharacters(t *testing.T) {
 		}
 	}
 
-	// BFS makes 3 API calls (one per season).
-	assert.Equal(t, 3, mock.callCount, "BFS should make 3 API calls (one per season)")
+	// Verify movie has airing info from the individually-fetched detail.
+	for _, child := range children {
+		if child.EntryType == db.EntryTypeMovie {
+			assert.Equal(t, db.AiringSeasonSummer, child.AiringSeason, "movie should have SUMMER season from fetched detail")
+			require.NotNil(t, child.AiringYear, "movie should have airing year from fetched detail")
+			assert.Equal(t, uint(2015), *child.AiringYear, "movie should have year 2015 from fetched detail")
+			break
+		}
+	}
+
+	// BFS makes 3 API calls (one per season) + 1 movie detail fetch = 4.
+	assert.Equal(t, 4, mock.callCount, "BFS should make 3 API calls (one per season) + 1 movie detail fetch")
 }
 
 func TestImportFromAniList_SelectMiddleSeason(t *testing.T) {
@@ -587,6 +608,17 @@ func TestImportFromAniList_SanitizesMovieNames(t *testing.T) {
 						SeasonYear: 2022,
 					},
 				},
+			},
+			// Full detail for the movie (fetched individually).
+			999: {
+				ID: 999,
+				Title: anilist.MediaTitle{
+					Romaji:  "Series: The Movie",
+					English: "Series: The Movie",
+				},
+				Format:     "MOVIE",
+				Season:     "SPRING",
+				SeasonYear: 2022,
 			},
 		},
 	}
@@ -1154,6 +1186,16 @@ func TestImportFromAniList_MovieWithParentRelation(t *testing.T) {
 					},
 				},
 			},
+			// Full detail for the movie.
+			999: {
+				ID: 999,
+				Title: anilist.MediaTitle{
+					English: "The Parent Movie",
+				},
+				Format:     "MOVIE",
+				Season:     "SPRING",
+				SeasonYear: 2022,
+			},
 		},
 	}
 
@@ -1271,7 +1313,9 @@ func TestImportFromAniList_MovieWithZeroYear(t *testing.T) {
 	te := newTester(t)
 	ctx := context.Background()
 
-	// Movie relation with SeasonYear 0 -- year should be nil.
+	// Movie relation edge has SeasonYear 0, but fetched detail has the real year.
+	// This verifies the fix: individual detail fetch overrides the incomplete
+	// relation edge data.
 	mock := &mockAniListClient{
 		detailResults: map[int]*anilist.MediaDetail{
 			100: {
@@ -1291,9 +1335,19 @@ func TestImportFromAniList_MovieWithZeroYear(t *testing.T) {
 						},
 						Type:       "ANIME",
 						Format:     "MOVIE",
-						SeasonYear: 0,
+						SeasonYear: 0, // Incomplete on the relation edge
 					},
 				},
+			},
+			// Full detail has the actual year and season.
+			999: {
+				ID: 999,
+				Title: anilist.MediaTitle{
+					English: "Yearless Movie",
+				},
+				Format:     "MOVIE",
+				Season:     "SUMMER",
+				SeasonYear: 2021,
 			},
 		},
 	}
@@ -1308,12 +1362,27 @@ func TestImportFromAniList_MovieWithZeroYear(t *testing.T) {
 	// 1 season + 1 movie = 2
 	assert.Equal(t, 2, result.EntriesCreated)
 
-	// Verify the movie has nil year.
+	// Verify the movie now has the year from the fetched detail (was 0 on edge).
 	entries, err := svc.GetAnimeEntries(created.ID)
 	require.NoError(t, err)
 	for _, e := range entries {
 		if e.EntryType == db.EntryTypeMovie {
-			assert.Nil(t, e.EntryNumber, "movie with zero year should have nil entry_number")
+			require.NotNil(t, e.EntryNumber, "movie should have year from fetched detail")
+			assert.Equal(t, uint(2021), *e.EntryNumber, "movie year should be 2021 from fetched detail")
+		}
+	}
+
+	// Verify movie airing info.
+	rootFolder, err := svc.FindAnimeRootFolder(created.ID)
+	require.NoError(t, err)
+	children, err := te.dbClient.File().FindDirectChildDirectories(rootFolder.ID)
+	require.NoError(t, err)
+	for _, child := range children {
+		if child.EntryType == db.EntryTypeMovie {
+			assert.Equal(t, db.AiringSeasonSummer, child.AiringSeason, "movie should have SUMMER season")
+			require.NotNil(t, child.AiringYear, "movie should have airing year")
+			assert.Equal(t, uint(2021), *child.AiringYear, "movie should have year 2021")
+			break
 		}
 	}
 }
@@ -1533,6 +1602,16 @@ func TestImportFromAniList_DuplicateMovieDedup(t *testing.T) {
 					},
 				},
 			},
+			// Full detail for the movie.
+			999: {
+				ID: 999,
+				Title: anilist.MediaTitle{
+					English: "The Movie",
+				},
+				Format:     "MOVIE",
+				Season:     "FALL",
+				SeasonYear: 2021,
+			},
 		},
 	}
 
@@ -1638,6 +1717,16 @@ func TestImportFromAniList_RomajiOnlyTitles(t *testing.T) {
 						SeasonYear: 2015,
 					},
 				},
+			},
+			// Full detail for the movie (Romaji only).
+			999: {
+				ID: 999,
+				Title: anilist.MediaTitle{
+					Romaji: "Shingeki no Kyojin Movie",
+				},
+				Format:     "MOVIE",
+				Season:     "SPRING",
+				SeasonYear: 2015,
 			},
 		},
 	}
@@ -1835,6 +1924,240 @@ func TestImportFromAniList_ReimportUpdatesExistingSubEntryAiringInfo(t *testing.
 			assert.Equal(t, db.AiringSeasonFall, child.AiringSeason, "parent season should have updated FALL season")
 			require.NotNil(t, child.AiringYear, "parent season should have airing year set")
 			assert.Equal(t, uint(2020), *child.AiringYear, "parent season should have updated year 2020")
+			break
+		}
+	}
+}
+
+func TestImportFromAniList_MovieDetailFetchFailsFallsBack(t *testing.T) {
+	te := newTester(t)
+	ctx := context.Background()
+
+	// The movie detail fetch returns nil (not in detailResults).
+	// The code falls back to the relation edge data.
+	mock := &mockAniListClient{
+		detailResults: map[int]*anilist.MediaDetail{
+			100: {
+				ID: 100,
+				Title: anilist.MediaTitle{
+					English: "FallbackShow",
+				},
+				Format:     "TV",
+				Season:     "WINTER",
+				SeasonYear: 2020,
+				Relations: []anilist.MediaRelation{
+					{
+						RelationType: "SIDE_STORY",
+						ID:           999,
+						Title: anilist.MediaTitle{
+							English: "Fallback Movie",
+						},
+						Type:       "ANIME",
+						Format:     "MOVIE",
+						Season:     "FALL",
+						SeasonYear: 2021,
+					},
+				},
+			},
+			// ID 999 intentionally omitted -- GetAnimeDetail returns nil.
+		},
+	}
+
+	svc := te.serviceWithAniList(mock)
+	created, err := svc.Create(ctx, "FallbackTest")
+	require.NoError(t, err)
+
+	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
+	require.NoError(t, err)
+
+	// 1 season + 1 movie = 2
+	assert.Equal(t, 2, result.EntriesCreated)
+
+	// Verify movie uses fallback data from the relation edge.
+	entries, err := svc.GetAnimeEntries(created.ID)
+	require.NoError(t, err)
+	for _, e := range entries {
+		if e.EntryType == db.EntryTypeMovie {
+			assert.Equal(t, "Fallback Movie", e.Name, "movie name should come from relation edge")
+			require.NotNil(t, e.EntryNumber, "movie should have year from relation edge")
+			assert.Equal(t, uint(2021), *e.EntryNumber)
+		}
+	}
+
+	// Verify airing info from the relation edge fallback.
+	rootFolder, err := svc.FindAnimeRootFolder(created.ID)
+	require.NoError(t, err)
+	children, err := te.dbClient.File().FindDirectChildDirectories(rootFolder.ID)
+	require.NoError(t, err)
+	for _, child := range children {
+		if child.EntryType == db.EntryTypeMovie {
+			assert.Equal(t, db.AiringSeasonFall, child.AiringSeason, "movie should have FALL season from edge fallback")
+			require.NotNil(t, child.AiringYear, "movie should have airing year from edge fallback")
+			assert.Equal(t, uint(2021), *child.AiringYear, "movie should have year 2021 from edge fallback")
+			break
+		}
+	}
+}
+
+func TestImportFromAniList_MovieDetailOverridesEdgeData(t *testing.T) {
+	te := newTester(t)
+	ctx := context.Background()
+
+	// Relation edge has incomplete data (SeasonYear: 0, no English title).
+	// Full detail has accurate data. This verifies the core bug fix.
+	mock := &mockAniListClient{
+		detailResults: map[int]*anilist.MediaDetail{
+			100: {
+				ID: 100,
+				Title: anilist.MediaTitle{
+					English: "DetailOverrideShow",
+				},
+				Format:     "TV",
+				Season:     "SPRING",
+				SeasonYear: 2019,
+				Relations: []anilist.MediaRelation{
+					{
+						RelationType: "SIDE_STORY",
+						ID:           888,
+						Title: anilist.MediaTitle{
+							Romaji: "Incomplete Edge Title",
+							// No English title on the edge
+						},
+						Type:       "ANIME",
+						Format:     "MOVIE",
+						SeasonYear: 0, // Missing on edge
+						Season:     "", // Missing on edge
+					},
+				},
+			},
+			// Full detail has complete data including English title.
+			888: {
+				ID: 888,
+				Title: anilist.MediaTitle{
+					English: "The Complete Movie Title",
+					Romaji:  "Incomplete Edge Title",
+				},
+				Format:     "MOVIE",
+				Season:     "WINTER",
+				SeasonYear: 2020,
+			},
+		},
+	}
+
+	svc := te.serviceWithAniList(mock)
+	created, err := svc.Create(ctx, "DetailOverride")
+	require.NoError(t, err)
+
+	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
+	require.NoError(t, err)
+
+	assert.Equal(t, 2, result.EntriesCreated)
+
+	// Verify movie uses the fetched detail's English title (not edge Romaji).
+	entries, err := svc.GetAnimeEntries(created.ID)
+	require.NoError(t, err)
+	for _, e := range entries {
+		if e.EntryType == db.EntryTypeMovie {
+			assert.Equal(t, "The Complete Movie Title", e.Name, "movie name should prefer fetched detail's English title")
+			require.NotNil(t, e.EntryNumber, "movie should have year from fetched detail")
+			assert.Equal(t, uint(2020), *e.EntryNumber)
+		}
+	}
+
+	// Verify airing info from the fetched detail.
+	rootFolder, err := svc.FindAnimeRootFolder(created.ID)
+	require.NoError(t, err)
+	children, err := te.dbClient.File().FindDirectChildDirectories(rootFolder.ID)
+	require.NoError(t, err)
+	for _, child := range children {
+		if child.EntryType == db.EntryTypeMovie {
+			assert.Equal(t, db.AiringSeasonWinter, child.AiringSeason, "movie should have WINTER season from detail")
+			require.NotNil(t, child.AiringYear, "movie should have airing year from detail")
+			assert.Equal(t, uint(2020), *child.AiringYear, "movie should have year 2020 from detail")
+			break
+		}
+	}
+}
+
+func TestImportFromAniList_ReimportUpdatesExistingMovieAiringInfo(t *testing.T) {
+	te := newTester(t)
+	ctx := context.Background()
+
+	mock := &mockAniListClient{
+		detailResults: map[int]*anilist.MediaDetail{
+			100: {
+				ID: 100,
+				Title: anilist.MediaTitle{
+					English: "MovieReimport",
+				},
+				Format:     "TV",
+				Season:     "FALL",
+				SeasonYear: 2020,
+				Relations: []anilist.MediaRelation{
+					{
+						RelationType: "SIDE_STORY",
+						ID:           999,
+						Title: anilist.MediaTitle{
+							English: "The Movie",
+						},
+						Type:       "ANIME",
+						Format:     "MOVIE",
+						SeasonYear: 0,
+					},
+				},
+			},
+			999: {
+				ID: 999,
+				Title: anilist.MediaTitle{
+					English: "The Movie",
+				},
+				Format:     "MOVIE",
+				Season:     "SPRING",
+				SeasonYear: 2021,
+			},
+		},
+	}
+
+	svc := te.serviceWithAniList(mock)
+	created, err := svc.Create(ctx, "MovieReimportTest")
+	require.NoError(t, err)
+
+	// First import: creates season + movie.
+	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
+	require.NoError(t, err)
+	assert.Equal(t, 2, result.EntriesCreated)
+
+	// Verify initial movie airing info.
+	rootFolder, err := svc.FindAnimeRootFolder(created.ID)
+	require.NoError(t, err)
+	children, err := te.dbClient.File().FindDirectChildDirectories(rootFolder.ID)
+	require.NoError(t, err)
+	for _, child := range children {
+		if child.EntryType == db.EntryTypeMovie {
+			assert.Equal(t, db.AiringSeasonSpring, child.AiringSeason)
+			require.NotNil(t, child.AiringYear)
+			assert.Equal(t, uint(2021), *child.AiringYear)
+			break
+		}
+	}
+
+	// Update mock to simulate corrected AniList data.
+	mock.detailResults[999].Season = "SUMMER"
+	mock.detailResults[999].SeasonYear = 2022
+
+	// Second import: movie already exists, but airing info should be updated.
+	result2, err := svc.ImportFromAniList(ctx, created.ID, 100)
+	require.NoError(t, err)
+	assert.Equal(t, 0, result2.EntriesCreated, "re-import should not create new entries")
+
+	// Verify movie airing info was updated.
+	children2, err := te.dbClient.File().FindDirectChildDirectories(rootFolder.ID)
+	require.NoError(t, err)
+	for _, child := range children2 {
+		if child.EntryType == db.EntryTypeMovie {
+			assert.Equal(t, db.AiringSeasonSummer, child.AiringSeason, "movie should have updated SUMMER season")
+			require.NotNil(t, child.AiringYear, "movie should have airing year")
+			assert.Equal(t, uint(2022), *child.AiringYear, "movie should have updated year 2022")
 			break
 		}
 	}
