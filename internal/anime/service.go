@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/michael-freling/anime-image-viewer/internal/anilist"
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
@@ -38,13 +39,15 @@ type Service struct {
 	dbClient        *db.Client
 	directoryReader *image.DirectoryReader
 	config          config.Config
+	anilistClient   anilist.Client
 }
 
-func NewService(dbClient *db.Client, directoryReader *image.DirectoryReader, cfg config.Config) *Service {
+func NewService(dbClient *db.Client, directoryReader *image.DirectoryReader, cfg config.Config, anilistClient anilist.Client) *Service {
 	return &Service{
 		dbClient:        dbClient,
 		directoryReader: directoryReader,
 		config:          cfg,
+		anilistClient:   anilistClient,
 	}
 }
 
@@ -793,12 +796,14 @@ func collectDescendantImageIDs(dir *image.Directory, out *[]uint) {
 // AnimeEntry represents a structured entry (season, movie, other) within an
 // anime's folder tree. Each entry is backed by a physical directory on disk.
 type AnimeEntry struct {
-	ID          uint         `json:"id"`
-	Name        string       `json:"name"`
-	EntryType   string       `json:"entryType"`
-	EntryNumber *uint        `json:"entryNumber"` // season number or movie year
-	ImageCount  uint         `json:"imageCount"`
-	Children    []AnimeEntry `json:"children"` // sub-entries (parts)
+	ID           uint         `json:"id"`
+	Name         string       `json:"name"`
+	EntryType    string       `json:"entryType"`
+	EntryNumber  *uint        `json:"entryNumber"` // season number or movie year
+	AiringSeason string       `json:"airingSeason"`
+	AiringYear   *uint        `json:"airingYear"`
+	ImageCount   uint         `json:"imageCount"`
+	Children     []AnimeEntry `json:"children"` // sub-entries (parts)
 }
 
 // GetAnimeEntries returns the structured entries for an anime, sorted by
@@ -856,29 +861,35 @@ func (s *Service) GetAnimeEntries(animeID uint) ([]AnimeEntry, error) {
 			subSubEntries := make([]AnimeEntry, 0)
 			for _, ggc := range gcGreatGrandchildren[gc.ID] {
 				subSubEntries = append(subSubEntries, AnimeEntry{
-					ID:          ggc.ID,
-					Name:        ggc.Name,
-					EntryType:   ggc.EntryType,
-					EntryNumber: ggc.EntryNumber,
-					ImageCount:  imageCounts[ggc.ID],
+					ID:           ggc.ID,
+					Name:         ggc.Name,
+					EntryType:    ggc.EntryType,
+					EntryNumber:  ggc.EntryNumber,
+					AiringSeason: ggc.AiringSeason,
+					AiringYear:   ggc.AiringYear,
+					ImageCount:   imageCounts[ggc.ID],
 				})
 			}
 			subEntries = append(subEntries, AnimeEntry{
-				ID:          gc.ID,
-				Name:        gc.Name,
-				EntryType:   gc.EntryType,
-				EntryNumber: gc.EntryNumber,
-				ImageCount:  imageCounts[gc.ID],
-				Children:    subSubEntries,
+				ID:           gc.ID,
+				Name:         gc.Name,
+				EntryType:    gc.EntryType,
+				EntryNumber:  gc.EntryNumber,
+				AiringSeason: gc.AiringSeason,
+				AiringYear:   gc.AiringYear,
+				ImageCount:   imageCounts[gc.ID],
+				Children:     subSubEntries,
 			})
 		}
 		entries = append(entries, AnimeEntry{
-			ID:          child.ID,
-			Name:        child.Name,
-			EntryType:   child.EntryType,
-			EntryNumber: child.EntryNumber,
-			ImageCount:  imageCounts[child.ID],
-			Children:    subEntries,
+			ID:           child.ID,
+			Name:         child.Name,
+			EntryType:    child.EntryType,
+			EntryNumber:  child.EntryNumber,
+			AiringSeason: child.AiringSeason,
+			AiringYear:   child.AiringYear,
+			ImageCount:   imageCounts[child.ID],
+			Children:     subEntries,
 		})
 	}
 
@@ -1050,11 +1061,13 @@ func (s *Service) CreateEntry(ctx context.Context, animeID uint, entryType strin
 	}
 
 	return AnimeEntry{
-		ID:          newFile.ID,
-		Name:        newFile.Name,
-		EntryType:   newFile.EntryType,
-		EntryNumber: newFile.EntryNumber,
-		ImageCount:  0,
+		ID:           newFile.ID,
+		Name:         newFile.Name,
+		EntryType:    newFile.EntryType,
+		EntryNumber:  newFile.EntryNumber,
+		AiringSeason: newFile.AiringSeason,
+		AiringYear:   newFile.AiringYear,
+		ImageCount:   0,
 	}, nil
 }
 
@@ -1138,9 +1151,11 @@ func (s *Service) CreateSubEntry(ctx context.Context, parentEntryID uint, name s
 	}
 
 	return AnimeEntry{
-		ID:         newFile.ID,
-		Name:       newFile.Name,
-		ImageCount: 0,
+		ID:           newFile.ID,
+		Name:         newFile.Name,
+		AiringSeason: newFile.AiringSeason,
+		AiringYear:   newFile.AiringYear,
+		ImageCount:   0,
 	}, nil
 }
 
