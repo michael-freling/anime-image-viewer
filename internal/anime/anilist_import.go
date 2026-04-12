@@ -3,7 +3,9 @@ package anime
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/michael-freling/anime-image-viewer/internal/anilist"
@@ -43,39 +45,190 @@ func (s *Service) LinkAniList(ctx context.Context, animeID uint, aniListID int) 
 	return s.dbClient.Anime().Update(ctx, &row)
 }
 
-// ImportFromAniList fetches detail from AniList, follows the SEQUEL/PREQUEL
-// chain to discover all seasons, and creates entries (seasons, movies) and
-// character tags for the given anime. Characters are deduplicated across all
-// entries in the chain.
+// sanitizeFolderName replaces characters that are invalid in folder names
+// with a dash. invalidFolderChars is defined in service.go.
+func sanitizeFolderName(name string) string {
+	return invalidFolderChars.ReplaceAllString(name, "-")
+}
+
+// partSuffixRe matches a trailing "Part N" suffix (case-insensitive) preceded
+// by at least one whitespace character.
+var partSuffixRe = regexp.MustCompile(`(?i)\s+Part\s+(\d+)\s*$`)
+
+// detailDisplayName picks the best display name from a MediaDetail's title.
+func detailDisplayName(detail *anilist.MediaDetail) string {
+	if detail.Title.English != "" {
+		return detail.Title.English
+	}
+	return detail.Title.Romaji
+}
+
+// parsePartSuffix extracts a "Part N" suffix from a title.
+// Returns the base title and the part number. If no suffix is found, partNumber is 0.
+func parsePartSuffix(title string) (baseTitle string, partNumber int) {
+	m := partSuffixRe.FindStringSubmatchIndex(title)
+	if m == nil {
+		return title, 0
+	}
+	base := strings.TrimSpace(title[:m[0]])
+	numStr := title[m[2]:m[3]]
+	n, _ := strconv.Atoi(numStr)
+	return base, n
+}
+
+type partEntry struct {
+	detail     *anilist.MediaDetail
+	fullTitle  string
+	partNumber int // 0 means no "Part N" suffix
+}
+
+type seasonGroup struct {
+	baseTitle string
+	parts     []partEntry
+}
+
+// groupSeasonsByPart groups a sorted slice of MediaDetail entries by base
+// title, detecting "Part N" suffixes to create multi-part groups.
+func groupSeasonsByPart(sortedDetails []*anilist.MediaDetail) []seasonGroup {
+	groupMap := make(map[string]*seasonGroup)
+	var groupOrder []string
+
+	for _, detail := range sortedDetails {
+		title := detailDisplayName(detail)
+		base, partNum := parsePartSuffix(title)
+
+		g, exists := groupMap[base]
+		if !exists {
+			g = &seasonGroup{baseTitle: base}
+			groupMap[base] = g
+			groupOrder = append(groupOrder, base)
+		}
+		g.parts = append(g.parts, partEntry{
+			detail:     detail,
+			fullTitle:  title,
+			partNumber: partNum,
+		})
+	}
+
+	result := make([]seasonGroup, 0, len(groupOrder))
+	for _, key := range groupOrder {
+		g := groupMap[key]
+		// If a group has >1 entry, any entry with partNumber==0 is implicitly Part 1.
+		if len(g.parts) > 1 {
+			for i := range g.parts {
+				if g.parts[i].partNumber == 0 {
+					g.parts[i].partNumber = 1
+				}
+			}
+		}
+		result = append(result, *g)
+	}
+	return result
+}
+
+// ImportFromAniList uses BFS to follow the SEQUEL/PREQUEL chain from the
+// selected AniList entry, fetching each season individually. This avoids
+// the query-complexity limit that nested GraphQL queries hit on AniList.
 func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID int) (*AniListImportResult, error) {
 	if s.anilistClient == nil {
 		return nil, fmt.Errorf("anilist client is not configured")
 	}
 
-	// Verify the anime exists.
 	_, err := s.Read(ctx, animeID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 1. Fetch the full series chain by following SEQUEL/PREQUEL relations.
-	seriesEntries, movieRelations, err := s.fetchSeriesChain(ctx, aniListID)
-	if err != nil {
-		return nil, fmt.Errorf("fetchSeriesChain: %w", err)
-	}
-	if len(seriesEntries) == 0 {
-		return nil, fmt.Errorf("anilist: no detail found for id %d", aniListID)
+	// BFS: fetch root and follow SEQUEL/PREQUEL chain.
+	fetched := make(map[int]*anilist.MediaDetail)
+	queue := []int{aniListID}
+
+	for len(queue) > 0 {
+		currentID := queue[0]
+		queue = queue[1:]
+
+		if fetched[currentID] != nil {
+			continue
+		}
+
+		detail, err := s.anilistClient.GetAnimeDetail(ctx, currentID)
+		if err != nil {
+			return nil, fmt.Errorf("anilist.GetAnimeDetail(%d): %w", currentID, err)
+		}
+		if detail == nil {
+			continue
+		}
+		fetched[currentID] = detail
+
+		// Discover SEQUEL/PREQUEL TV/ONA relations to follow.
+		for _, rel := range detail.Relations {
+			if rel.Type != "ANIME" {
+				continue
+			}
+			if !isSeasonFormat(rel.Format) {
+				continue
+			}
+			if rel.RelationType != "SEQUEL" && rel.RelationType != "PREQUEL" {
+				continue
+			}
+			if fetched[rel.ID] == nil {
+				queue = append(queue, rel.ID)
+			}
+		}
 	}
 
 	result := &AniListImportResult{}
 
-	// 2. Link the anime to AniList by setting AniListID on the db.Anime record.
+	// Link anime to AniList.
 	if err := s.LinkAniList(ctx, animeID, aniListID); err != nil {
 		return nil, fmt.Errorf("LinkAniList: %w", err)
 	}
 
-	// 3. Build a map of existing season entries so we can skip duplicates and
-	//    update airing info on pre-existing seasons.
+	// Build season list from all fetched details.
+	type seasonInfo struct {
+		season     string
+		seasonYear int
+		id         int
+	}
+	var seasons []seasonInfo
+	var allMovieRelations []anilist.MediaRelation
+	seenMovies := make(map[int]bool)
+
+	for _, detail := range fetched {
+		// Each fetched entry is a season.
+		seasons = append(seasons, seasonInfo{
+			season:     detail.Season,
+			seasonYear: detail.SeasonYear,
+			id:         detail.ID,
+		})
+		// Collect movie relations from all entries.
+		for _, rel := range detail.Relations {
+			if rel.Type != "ANIME" || rel.Format != "MOVIE" || !isMovieRelationType(rel.RelationType) {
+				continue
+			}
+			if !seenMovies[rel.ID] {
+				seenMovies[rel.ID] = true
+				allMovieRelations = append(allMovieRelations, rel)
+			}
+		}
+	}
+
+	// Sort seasons by year, then AniList ID as tiebreaker.
+	sort.Slice(seasons, func(i, j int) bool {
+		if seasons[i].seasonYear != seasons[j].seasonYear {
+			return seasons[i].seasonYear < seasons[j].seasonYear
+		}
+		return seasons[i].id < seasons[j].id
+	})
+
+	// Build sorted detail list and group by base title.
+	sortedDetails := make([]*anilist.MediaDetail, len(seasons))
+	for i, si := range seasons {
+		sortedDetails[i] = fetched[si.id]
+	}
+	groups := groupSeasonsByPart(sortedDetails)
+
+	// Build map of existing season entries to skip duplicates.
 	existingEntries, err := s.GetAnimeEntries(animeID)
 	if err != nil {
 		return nil, fmt.Errorf("GetAnimeEntries: %w", err)
@@ -87,19 +240,20 @@ func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID
 		}
 	}
 
-	// 4. Create season entries from the chain (sorted by seasonYear).
-	for i, entry := range seriesEntries {
+	// Create season entries from groups.
+	for i, group := range groups {
 		seasonNum := uint(i + 1)
+		displayName := sanitizeFolderName(group.baseTitle)
+		first := group.parts[0].detail
 
 		if existing, ok := existingSeasonsByNum[seasonNum]; ok {
-			// Season already exists — just update its airing info.
-			if err := s.updateEntryAiringInfo(ctx, existing.ID, entry.Season, entry.SeasonYear); err != nil {
+			if err := s.updateEntryAiringInfo(ctx, existing.ID, first.Season, first.SeasonYear); err != nil {
 				return nil, fmt.Errorf("updateEntryAiringInfo for existing season %d: %w", seasonNum, err)
 			}
 			continue
 		}
 
-		created, err := s.CreateEntry(ctx, animeID, db.EntryTypeSeason, &seasonNum, fmt.Sprintf("Season %d", seasonNum))
+		created, err := s.CreateEntry(ctx, animeID, db.EntryTypeSeason, &seasonNum, displayName)
 		if err != nil {
 			if isUniqueViolation(err) || strings.Contains(err.Error(), "already exists") {
 				continue
@@ -107,14 +261,33 @@ func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID
 			return nil, fmt.Errorf("CreateEntry season %d: %w", seasonNum, err)
 		}
 		result.EntriesCreated++
-		if err := s.updateEntryAiringInfo(ctx, created.ID, entry.Season, entry.SeasonYear); err != nil {
+		if err := s.updateEntryAiringInfo(ctx, created.ID, first.Season, first.SeasonYear); err != nil {
 			return nil, fmt.Errorf("updateEntryAiringInfo for season %d: %w", seasonNum, err)
+		}
+
+		// Create sub-entries for multi-part groups.
+		if len(group.parts) > 1 {
+			for _, part := range group.parts {
+				partName := fmt.Sprintf("Part %d", part.partNumber)
+				subEntry, err := s.CreateSubEntry(ctx, created.ID, partName)
+				if err != nil {
+					if isUniqueViolation(err) || strings.Contains(err.Error(), "already exists") {
+						continue
+					}
+					return nil, fmt.Errorf("CreateSubEntry %s: %w", partName, err)
+				}
+				result.EntriesCreated++
+				// Set airing info on the part from its AniList detail.
+				if err := s.updateEntryAiringInfo(ctx, subEntry.ID, part.detail.Season, part.detail.SeasonYear); err != nil {
+					return nil, fmt.Errorf("updateEntryAiringInfo for %s: %w", partName, err)
+				}
+			}
 		}
 	}
 
-	// 5. Create movie entries from movie relations found across the chain.
-	for _, rel := range movieRelations {
-		displayName := relationDisplayName(rel)
+	// Create movie entries with sanitized names.
+	for _, rel := range allMovieRelations {
+		displayName := sanitizeFolderName(relationDisplayName(rel))
 		var year *uint
 		if rel.SeasonYear > 0 {
 			y := uint(rel.SeasonYear)
@@ -125,14 +298,12 @@ func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID
 			if isUniqueViolation(err) || strings.Contains(err.Error(), "already exists") {
 				continue
 			}
-			return nil, fmt.Errorf("CreateEntry movie for %d: %w", rel.ID, err)
+			return nil, fmt.Errorf("CreateEntry movie: %w", err)
 		}
 		result.EntriesCreated++
 	}
 
-	// 6. Collect ALL characters from ALL fetched entries, deduplicate by name.
-	allCharacters := collectUniqueCharacters(seriesEntries)
-
+	// Collect characters from ALL fetched entries, dedup by name.
 	existingTags, err := s.dbClient.Tag().FindTagsByAnimeID(animeID)
 	if err != nil {
 		return nil, fmt.Errorf("Tag.FindTagsByAnimeID: %w", err)
@@ -142,111 +313,32 @@ func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID
 		existingNames[t.Name] = true
 	}
 
-	for _, ch := range allCharacters {
-		if existingNames[ch.Name.Full] {
-			continue
-		}
-
-		aid := animeID
-		tag := db.Tag{
-			Name:     ch.Name.Full,
-			Category: "character",
-			AnimeID:  &aid,
-		}
-		if err := s.dbClient.Tag().Create(ctx, &tag); err != nil {
-			if isUniqueViolation(err) {
-				continue
-			}
-			return nil, fmt.Errorf("Tag.Create for character %q: %w", ch.Name.Full, err)
-		}
-		existingNames[ch.Name.Full] = true
-		result.CharactersCreated++
-	}
-
-	return result, nil
-}
-
-// fetchSeriesChain follows SEQUEL and PREQUEL relations from the starting
-// entry to discover all seasons in the series via BFS. It returns:
-//   - a list of MediaDetail entries sorted by seasonYear (then by ID) representing seasons
-//   - a list of MOVIE relations found across all entries in the chain
-func (s *Service) fetchSeriesChain(ctx context.Context, startID int) ([]*anilist.MediaDetail, []anilist.MediaRelation, error) {
-	visited := map[int]bool{}
-	var seasonEntries []*anilist.MediaDetail
-	var movieRelations []anilist.MediaRelation
-	seenMovies := map[int]bool{}
-	queue := []int{startID}
-
-	for len(queue) > 0 {
-		id := queue[0]
-		queue = queue[1:]
-		if visited[id] {
-			continue
-		}
-		visited[id] = true
-
-		detail, err := s.anilistClient.GetAnimeDetail(ctx, id)
-		if err != nil {
-			return nil, nil, fmt.Errorf("anilist.GetAnimeDetail(%d): %w", id, err)
-		}
-		if detail == nil {
-			continue
-		}
-
-		seasonEntries = append(seasonEntries, detail)
-
-		for _, rel := range detail.Relations {
-			if rel.Type != "ANIME" {
-				continue
-			}
-
-			// Follow TV-format SEQUEL/PREQUEL to find more seasons.
-			if isSeasonFormat(rel.Format) && (rel.RelationType == "SEQUEL" || rel.RelationType == "PREQUEL") {
-				if !visited[rel.ID] {
-					queue = append(queue, rel.ID)
-				}
-			}
-
-			// Collect MOVIE relations (don't follow them in the chain).
-			if rel.Format == "MOVIE" && isMovieRelationType(rel.RelationType) && !seenMovies[rel.ID] {
-				seenMovies[rel.ID] = true
-				movieRelations = append(movieRelations, rel)
-			}
-		}
-	}
-
-	// Sort seasons by seasonYear, then by AniList ID as tiebreaker.
-	sort.Slice(seasonEntries, func(i, j int) bool {
-		if seasonEntries[i].SeasonYear != seasonEntries[j].SeasonYear {
-			return seasonEntries[i].SeasonYear < seasonEntries[j].SeasonYear
-		}
-		return seasonEntries[i].ID < seasonEntries[j].ID
-	})
-
-	return seasonEntries, movieRelations, nil
-}
-
-// collectUniqueCharacters gathers characters from all entries and deduplicates
-// by Name.Full. Only MAIN and SUPPORTING roles are included.
-func collectUniqueCharacters(entries []*anilist.MediaDetail) []anilist.Character {
-	seen := map[string]bool{}
-	var result []anilist.Character
-	for _, entry := range entries {
-		for _, ch := range entry.Characters {
+	for _, detail := range fetched {
+		for _, ch := range detail.Characters {
 			if ch.Role != "MAIN" && ch.Role != "SUPPORTING" {
 				continue
 			}
-			if ch.Name.Full == "" {
+			if ch.Name.Full == "" || existingNames[ch.Name.Full] {
 				continue
 			}
-			if seen[ch.Name.Full] {
-				continue
+			aid := animeID
+			tag := db.Tag{
+				Name:     ch.Name.Full,
+				Category: "character",
+				AnimeID:  &aid,
 			}
-			seen[ch.Name.Full] = true
-			result = append(result, ch)
+			if err := s.dbClient.Tag().Create(ctx, &tag); err != nil {
+				if isUniqueViolation(err) {
+					continue
+				}
+				return nil, fmt.Errorf("Tag.Create for character %q: %w", ch.Name.Full, err)
+			}
+			existingNames[ch.Name.Full] = true
+			result.CharactersCreated++
 		}
 	}
-	return result
+
+	return result, nil
 }
 
 // updateEntryAiringInfo sets AiringSeason and AiringYear on a file entry.
@@ -297,3 +389,4 @@ func relationDisplayName(rel anilist.MediaRelation) string {
 	}
 	return rel.Title.Romaji
 }
+
