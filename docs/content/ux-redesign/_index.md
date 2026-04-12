@@ -306,7 +306,9 @@ flowchart TD
 
 **Desktop (3840x2160):**
 
-<img src="/wireframes/01-home-desktop.svg" alt="Home Desktop Wireframe" style="width:100%" />
+<div style="overflow-x:auto">
+<img src="/wireframes/01-home-desktop.svg" alt="Home Desktop Wireframe" style="min-width:1920px" />
+</div>
 
 **Mobile (375x812):**
 
@@ -330,7 +332,9 @@ flowchart TD
 
 **Desktop (3840x2160):**
 
-<img src="/wireframes/02-anime-detail-desktop.svg" alt="Anime Detail Desktop Wireframe" style="width:100%" />
+<div style="overflow-x:auto">
+<img src="/wireframes/02-anime-detail-desktop.svg" alt="Anime Detail Desktop Wireframe" style="min-width:1920px" />
+</div>
 
 **Mobile (375x812):**
 
@@ -353,7 +357,9 @@ flowchart TD
 
 **Desktop (3840x2160):**
 
-<img src="/wireframes/03-image-viewer-desktop.svg" alt="Image Viewer Desktop Wireframe" style="width:100%" />
+<div style="overflow-x:auto">
+<img src="/wireframes/03-image-viewer-desktop.svg" alt="Image Viewer Desktop Wireframe" style="min-width:1920px" />
+</div>
 
 **Mobile (375x812):**
 
@@ -371,7 +377,9 @@ flowchart TD
 
 **Desktop (3840x2160):**
 
-<img src="/wireframes/04-search-desktop.svg" alt="Search Desktop Wireframe" style="width:100%" />
+<div style="overflow-x:auto">
+<img src="/wireframes/04-search-desktop.svg" alt="Search Desktop Wireframe" style="min-width:1920px" />
+</div>
 
 **Mobile (375x812):**
 
@@ -387,7 +395,9 @@ flowchart TD
 
 **Desktop (3840x2160):**
 
-<img src="/wireframes/05-tag-management-desktop.svg" alt="Tag Management Desktop Wireframe" style="width:100%" />
+<div style="overflow-x:auto">
+<img src="/wireframes/05-tag-management-desktop.svg" alt="Tag Management Desktop Wireframe" style="min-width:1920px" />
+</div>
 
 **Mobile (375x812):**
 
@@ -402,7 +412,9 @@ flowchart TD
 
 **Desktop (3840x2160):**
 
-<img src="/wireframes/06-image-tag-editor-desktop.svg" alt="Image Tag Editor Desktop Wireframe" style="width:100%" />
+<div style="overflow-x:auto">
+<img src="/wireframes/06-image-tag-editor-desktop.svg" alt="Image Tag Editor Desktop Wireframe" style="min-width:1920px" />
+</div>
 
 **Mobile (375x812):**
 
@@ -418,7 +430,9 @@ flowchart TD
 
 **Desktop (3840x2160):**
 
-<img src="/wireframes/07-backup-restore-desktop.svg" alt="Backup Restore Desktop Wireframe" style="width:100%" />
+<div style="overflow-x:auto">
+<img src="/wireframes/07-backup-restore-desktop.svg" alt="Backup Restore Desktop Wireframe" style="min-width:1920px" />
+</div>
 
 **Mobile (375x812):**
 
@@ -432,7 +446,9 @@ flowchart TD
 
 **Desktop (3840x2160):**
 
-<img src="/wireframes/08-settings-desktop.svg" alt="Settings Desktop Wireframe" style="width:100%" />
+<div style="overflow-x:auto">
+<img src="/wireframes/08-settings-desktop.svg" alt="Settings Desktop Wireframe" style="min-width:1920px" />
+</div>
 
 **Mobile (375x812):**
 
@@ -447,7 +463,9 @@ flowchart TD
 
 **Desktop (3840x2160):**
 
-<img src="/wireframes/09-select-mode-desktop.svg" alt="Select Mode Desktop Wireframe" style="width:100%" />
+<div style="overflow-x:auto">
+<img src="/wireframes/09-select-mode-desktop.svg" alt="Select Mode Desktop Wireframe" style="min-width:1920px" />
+</div>
 
 **Components:**
 - Indigo selection action bar with count and actions
@@ -459,7 +477,9 @@ flowchart TD
 
 **Reference:**
 
-<img src="/wireframes/10-navigation-pattern.svg" alt="Navigation Pattern Wireframe" style="width:100%" />
+<div style="overflow-x:auto">
+<img src="/wireframes/10-navigation-pattern.svg" alt="Navigation Pattern Wireframe" style="min-width:1920px" />
+</div>
 
 **Desktop:** 80px icon rail (Home, Search, Tags | Backup, Settings), expands to 200px on hover
 **Mobile:** 4-tab bottom bar (Home, Search, Tags, More), "More" opens bottom sheet
