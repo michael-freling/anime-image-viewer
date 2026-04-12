@@ -45,6 +45,14 @@ function totalEntryImageCount(entry: AnimeEntryInfo): number {
   return count;
 }
 
+function formatAiring(season: string, year: number | null | undefined): string {
+  const s = season ? season.charAt(0) + season.slice(1).toLowerCase() : "";
+  if (s && year) return `${s} ${year}`;
+  if (s) return s;
+  if (year) return `${year}`;
+  return "";
+}
+
 function entryBadge(type: string, number?: number): string {
   switch (type) {
     case "season":
@@ -209,7 +217,6 @@ const EntryNode: FC<{
         <Typography
           level={depth === 0 ? "body-sm" : "body-xs"}
           sx={{
-            flex: 1,
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -217,6 +224,15 @@ const EntryNode: FC<{
         >
           {entry.name}
         </Typography>
+        {(entry.airingSeason || entry.airingYear) && (
+          <Typography
+            level="body-xs"
+            sx={{ color: "text.tertiary", ml: 0.5, flexShrink: 0 }}
+          >
+            {formatAiring(entry.airingSeason, entry.airingYear)}
+          </Typography>
+        )}
+        <Box sx={{ flex: 1 }} />
 
         {/* Image count (includes all descendant images) */}
         <Typography

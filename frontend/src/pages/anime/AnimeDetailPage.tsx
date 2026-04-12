@@ -3,6 +3,7 @@ import {
   ArrowBack,
   Delete,
   Edit,
+  Link as LinkIcon,
   LocalOffer,
   MoreVert,
   Person,
@@ -27,6 +28,7 @@ import {
   ModalDialog,
   Radio,
   RadioGroup,
+  Snackbar,
   Stack,
   Typography,
 } from "@mui/joy";
@@ -44,6 +46,7 @@ import ImageListMain from "../../components/Images/ImageList";
 import Layout from "../../Layout";
 import EntryList from "./EntryList";
 import AddEntryModal from "./AddEntryModal";
+import AniListSearchModal from "./AniListSearchModal";
 
 const AnimeDetailPage: FC = () => {
   const { animeId } = useParams<{ animeId: string }>();
@@ -121,6 +124,12 @@ const AnimeDetailPage: FC = () => {
   // Tag filtering state
   const [selectedTagIds, setSelectedTagIds] = useState<Set<number>>(new Set());
   const [imageTagMap, setImageTagMap] = useState<Record<number, number[]>>({});
+
+  // AniList linking state
+  const [aniListSearchOpen, setAniListSearchOpen] = useState(false);
+  const [aniListImporting, setAniListImporting] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
 
   const id = animeId != null ? Number(animeId) : NaN;
 
@@ -450,6 +459,24 @@ const AnimeDetailPage: FC = () => {
     }
   };
 
+  // AniList import handler
+  const handleAniListImport = async (aniListId: number) => {
+    setAniListImporting(true);
+    try {
+      const result = await AnimeService.ImportFromAniList(id, aniListId);
+      setSnackbarMessage(
+        `Imported ${result.entriesCreated} entries and ${result.charactersCreated} characters`
+      );
+      setSnackbarOpen(true);
+      await load();
+      await loadEntries();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAniListImporting(false);
+    }
+  };
+
   const handleToggleTag = (tagId: number) => {
     setSelectedTagIds((prev) => {
       const next = new Set(prev);
@@ -481,6 +508,11 @@ const AnimeDetailPage: FC = () => {
       <Typography level="title-lg" sx={{ flex: 1 }}>
         {details?.anime.name ?? "Anime"}
       </Typography>
+      {details?.anime.aniListId != null && details.anime.aniListId > 0 && (
+        <Chip variant="soft" color="primary" size="sm" startDecorator={<LinkIcon sx={{ fontSize: 14 }} />}>
+          AniList
+        </Chip>
+      )}
       {details != null && (
         <>
           <Button
@@ -494,14 +526,37 @@ const AnimeDetailPage: FC = () => {
           >
             Rename
           </Button>
-          <Button
-            variant="outlined"
-            color="danger"
-            startDecorator={<Delete />}
-            onClick={handleDelete}
-          >
-            Delete
-          </Button>
+          <Dropdown>
+            <MenuButton
+              slots={{ root: IconButton }}
+              slotProps={{
+                root: {
+                  variant: "outlined",
+                  color: "neutral",
+                },
+              }}
+            >
+              <MoreVert />
+            </MenuButton>
+            <Menu size="sm" placement="bottom-end">
+              <MenuItem
+                disabled={aniListImporting}
+                onClick={() => setAniListSearchOpen(true)}
+              >
+                <ListItemDecorator>
+                  <LinkIcon fontSize="small" />
+                </ListItemDecorator>
+                Link AniList
+              </MenuItem>
+              <ListDivider />
+              <MenuItem color="danger" onClick={handleDelete}>
+                <ListItemDecorator>
+                  <Delete fontSize="small" />
+                </ListItemDecorator>
+                Delete
+              </MenuItem>
+            </Menu>
+          </Dropdown>
         </>
       )}
     </>
@@ -1238,6 +1293,27 @@ const AnimeDetailPage: FC = () => {
         />
       </Box>
       {modals}
+
+      {/* AniList search modal */}
+      <AniListSearchModal
+        open={aniListSearchOpen}
+        onClose={() => setAniListSearchOpen(false)}
+        onSelect={(result) => {
+          handleAniListImport(result.id);
+        }}
+        title="Link AniList"
+      />
+
+      {/* Import success snackbar */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={4000}
+        onClose={() => setSnackbarOpen(false)}
+        color="success"
+        variant="soft"
+      >
+        {snackbarMessage}
+      </Snackbar>
     </Layout.Main>
   );
 };

@@ -1,8 +1,9 @@
-import { Add, FileOpen } from "@mui/icons-material";
+import { Add, Close, FileOpen, Search } from "@mui/icons-material";
 import {
   Box,
   Button,
   Checkbox,
+  Chip,
   Input,
   List,
   ListDivider,
@@ -18,11 +19,13 @@ import {
 import { FC, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import {
+  AniListSearchResult,
   AnimeListItem,
   AnimeService,
   UnassignedFolder,
 } from "../../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 import Layout from "../../Layout";
+import AniListSearchModal from "./AniListSearchModal";
 
 const AnimeListPage: FC = () => {
   const [items, setItems] = useState<AnimeListItem[] | null>(null);
@@ -36,6 +39,8 @@ const AnimeListPage: FC = () => {
   const [importError, setImportError] = useState<string | null>(null);
   const [selectedFolderIds, setSelectedFolderIds] = useState<Set<number>>(new Set());
   const [importingBatch, setImportingBatch] = useState(false);
+  const [aniListSearchOpen, setAniListSearchOpen] = useState(false);
+  const [selectedAniList, setSelectedAniList] = useState<AniListSearchResult | null>(null);
   const navigate = useNavigate();
 
   const refresh = async () => {
@@ -60,9 +65,13 @@ const AnimeListPage: FC = () => {
     }
     try {
       const created = await AnimeService.CreateAnime(name);
+      if (selectedAniList) {
+        await AnimeService.ImportFromAniList(created.id, selectedAniList.id);
+      }
       setCreateOpen(false);
       setNewName("");
       setCreateError(null);
+      setSelectedAniList(null);
       navigate(`/${created.id}`);
     } catch (err: unknown) {
       setCreateError(err instanceof Error ? err.message : String(err));
@@ -134,6 +143,7 @@ const AnimeListPage: FC = () => {
               onClick={() => {
                 setCreateError(null);
                 setNewName("");
+                setSelectedAniList(null);
                 setCreateOpen(true);
               }}
             >
@@ -215,6 +225,31 @@ const AnimeListPage: FC = () => {
                 }
               }}
             />
+            {selectedAniList ? (
+              <Chip
+                variant="soft"
+                color="primary"
+                endDecorator={
+                  <Close
+                    sx={{ fontSize: 16, cursor: "pointer" }}
+                    onClick={() => setSelectedAniList(null)}
+                  />
+                }
+              >
+                AniList linked: {selectedAniList.titleEnglish || selectedAniList.titleRomaji}
+              </Chip>
+            ) : (
+              <Button
+                variant="plain"
+                color="neutral"
+                size="sm"
+                startDecorator={<Search />}
+                onClick={() => setAniListSearchOpen(true)}
+                sx={{ alignSelf: "flex-start" }}
+              >
+                Search AniList
+              </Button>
+            )}
             {createError && (
               <Typography level="body-sm" color="danger">
                 {createError}
@@ -233,6 +268,19 @@ const AnimeListPage: FC = () => {
           </Stack>
         </ModalDialog>
       </Modal>
+
+      {/* AniList search modal */}
+      <AniListSearchModal
+        open={aniListSearchOpen}
+        onClose={() => setAniListSearchOpen(false)}
+        onSelect={(result) => {
+          setSelectedAniList(result);
+          const title = result.titleEnglish || result.titleRomaji;
+          if (title && newName.trim() === "") {
+            setNewName(title);
+          }
+        }}
+      />
 
       {/* Import folders modal */}
       <Modal open={importOpen} onClose={() => setImportOpen(false)}>
