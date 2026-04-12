@@ -19,19 +19,6 @@ import (
 
 var invalidFolderChars = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1f]`)
 
-func validateFolderName(name string) error {
-	if name == "" {
-		return fmt.Errorf("name cannot be empty")
-	}
-	if invalidFolderChars.MatchString(name) {
-		return fmt.Errorf("name contains invalid characters")
-	}
-	if name == "." || name == ".." {
-		return fmt.Errorf("name cannot be a dot or double dot")
-	}
-	return nil
-}
-
 // Service exposes anime CRUD plus tag and folder assignment logic. It is the
 // core anime business layer; the frontend.AnimeService is a thin Wails
 // adapter on top of it.
@@ -61,11 +48,12 @@ func (s *Service) Create(ctx context.Context, name string) (Anime, error) {
 		return Anime{}, fmt.Errorf("%w: name is required", xerrors.ErrInvalidArgument)
 	}
 
-	dirPath := filepath.Join(s.config.ImageRootDirectory, name)
+	folderName := sanitizeFolderName(name)
+	dirPath := filepath.Join(s.config.ImageRootDirectory, folderName)
 
 	var row db.Anime
 	err := db.NewTransaction(ctx, s.dbClient, func(ctx context.Context) error {
-		// 1. Create the anime DB row
+		// 1. Create the anime DB row (display name keeps original)
 		row = db.Anime{Name: name}
 		if err := s.dbClient.Anime().Create(ctx, &row); err != nil {
 			if isUniqueViolation(err) {
@@ -74,10 +62,10 @@ func (s *Service) Create(ctx context.Context, name string) (Anime, error) {
 			return err
 		}
 
-		// 2. Create the db.File record for the folder
+		// 2. Create the db.File record for the folder (sanitized for disk)
 		animeID := row.ID
 		dirFile := db.File{
-			Name:     name,
+			Name:     folderName,
 			ParentID: db.RootDirectoryID,
 			Type:     db.FileTypeDirectory,
 			AnimeID:  &animeID,
@@ -114,6 +102,8 @@ func (s *Service) Rename(ctx context.Context, id uint, name string) (Anime, erro
 		return Anime{}, fmt.Errorf("%w: name is required", xerrors.ErrInvalidArgument)
 	}
 
+	folderName := sanitizeFolderName(name)
+
 	var updated db.Anime
 	err := db.NewTransaction(ctx, s.dbClient, func(ctx context.Context) error {
 		client := s.dbClient.Anime()
@@ -124,8 +114,7 @@ func (s *Service) Rename(ctx context.Context, id uint, name string) (Anime, erro
 		if err != nil {
 			return err
 		}
-		oldName := row.Name
-		row.Name = name
+		row.Name = name // display name keeps original
 		if err := client.Update(ctx, &row); err != nil {
 			if isUniqueViolation(err) {
 				return fmt.Errorf("%w: %s", ErrAnimeAlreadyExists, name)
@@ -141,11 +130,11 @@ func (s *Service) Rename(ctx context.Context, id uint, name string) (Anime, erro
 		}
 		if len(dirs) > 0 {
 			rootDir := dirs[0]
-			oldPath := filepath.Join(s.config.ImageRootDirectory, oldName)
-			newPath := filepath.Join(s.config.ImageRootDirectory, name)
+			oldPath := filepath.Join(s.config.ImageRootDirectory, rootDir.Name) // use existing File.Name for old path
+			newPath := filepath.Join(s.config.ImageRootDirectory, folderName)
 
-			// Rename in DB
-			rootDir.Name = name
+			// Rename in DB (sanitized for disk)
+			rootDir.Name = folderName
 			if err := s.dbClient.File().Update(ctx, &rootDir); err != nil {
 				return fmt.Errorf("File.Update: %w", err)
 			}
@@ -165,7 +154,7 @@ func (s *Service) Rename(ctx context.Context, id uint, name string) (Anime, erro
 // anime row itself.
 func (s *Service) Delete(ctx context.Context, id uint) error {
 	// verify exists for a clean error
-	anime, err := s.dbClient.Anime().FindByValue(ctx, &db.Anime{ID: id})
+	_, err := s.dbClient.Anime().FindByValue(ctx, &db.Anime{ID: id})
 	if errors.Is(err, db.ErrRecordNotFound) {
 		return fmt.Errorf("%w: id %d", ErrAnimeNotFound, id)
 	}
@@ -185,7 +174,7 @@ func (s *Service) Delete(ctx context.Context, id uint) error {
 	var diskPath string
 	if len(dirs) > 0 {
 		rootDir := dirs[0]
-		diskPath = filepath.Join(s.config.ImageRootDirectory, anime.Name)
+		diskPath = filepath.Join(s.config.ImageRootDirectory, rootDir.Name) // use File.Name (actual folder name on disk)
 		allFileIDs = append(allFileIDs, rootDir.ID)
 
 		// BFS to find all descendant files
@@ -1022,21 +1011,19 @@ func (s *Service) CreateEntry(ctx context.Context, animeID uint, entryType strin
 		entryNumber = nil // other entries don't have a number
 	}
 
-	if err := validateFolderName(displayName); err != nil {
-		return AnimeEntry{}, fmt.Errorf("%w: %s", xerrors.ErrInvalidArgument, err)
-	}
+	folderName := sanitizeFolderName(displayName)
 
-	// Build disk path: <ImageRootDirectory>/<anime-name>/<displayName>
+	// Build disk path: <ImageRootDirectory>/<anime-name>/<folderName>
 	rootDirPath, err := s.resolveFileDiskPath(rootFolder.ID)
 	if err != nil {
 		return AnimeEntry{}, fmt.Errorf("resolveFileDiskPath: %w", err)
 	}
-	dirPath := filepath.Join(rootDirPath, displayName)
+	dirPath := filepath.Join(rootDirPath, folderName)
 
 	var newFile db.File
 	err = db.NewTransaction(ctx, s.dbClient, func(ctx context.Context) error {
 		newFile = db.File{
-			Name:        displayName,
+			Name:        folderName,
 			ParentID:    rootFolder.ID,
 			Type:        db.FileTypeDirectory,
 			EntryType:   entryType,
@@ -1079,9 +1066,7 @@ func (s *Service) CreateSubEntry(ctx context.Context, parentEntryID uint, name s
 		return AnimeEntry{}, fmt.Errorf("%w: name is required", xerrors.ErrInvalidArgument)
 	}
 
-	if err := validateFolderName(name); err != nil {
-		return AnimeEntry{}, fmt.Errorf("%w: %s", xerrors.ErrInvalidArgument, err)
-	}
+	folderName := sanitizeFolderName(name)
 
 	parent, err := s.dbClient.File().FindByValue(ctx, &db.File{ID: parentEntryID})
 	if errors.Is(err, db.ErrRecordNotFound) {
@@ -1123,24 +1108,24 @@ func (s *Service) CreateSubEntry(ctx context.Context, parentEntryID uint, name s
 	if err != nil {
 		return AnimeEntry{}, fmt.Errorf("resolveFileDiskPath: %w", err)
 	}
-	dirPath := filepath.Join(parentDiskPath, name)
+	dirPath := filepath.Join(parentDiskPath, folderName)
 
 	var newFile db.File
 	err = db.NewTransaction(ctx, s.dbClient, func(ctx context.Context) error {
 		newFile = db.File{
-			Name:     name,
+			Name:     folderName,
 			ParentID: parentEntryID,
 			Type:     db.FileTypeDirectory,
 		}
 		if err := s.dbClient.File().Create(ctx, &newFile); err != nil {
 			if isUniqueViolation(err) {
-				return fmt.Errorf("%w: sub-entry %s already exists", xerrors.ErrInvalidArgument, name)
+				return fmt.Errorf("%w: sub-entry %s already exists", xerrors.ErrInvalidArgument, folderName)
 			}
 			return fmt.Errorf("File.Create: %w", err)
 		}
 		if err := os.Mkdir(dirPath, 0755); err != nil {
 			if os.IsExist(err) {
-				return fmt.Errorf("%w: folder %s already exists on disk", xerrors.ErrInvalidArgument, name)
+				return fmt.Errorf("%w: folder %s already exists on disk", xerrors.ErrInvalidArgument, folderName)
 			}
 			return fmt.Errorf("os.Mkdir: %w", err)
 		}
@@ -1165,9 +1150,7 @@ func (s *Service) RenameEntry(ctx context.Context, entryID uint, newName string)
 	if newName == "" {
 		return fmt.Errorf("%w: name is required", xerrors.ErrInvalidArgument)
 	}
-	if err := validateFolderName(newName); err != nil {
-		return fmt.Errorf("%w: %s", xerrors.ErrInvalidArgument, err)
-	}
+	folderName := sanitizeFolderName(newName)
 
 	file, err := s.dbClient.File().FindByValue(ctx, &db.File{ID: entryID})
 	if errors.Is(err, db.ErrRecordNotFound) {
@@ -1180,8 +1163,7 @@ func (s *Service) RenameEntry(ctx context.Context, entryID uint, newName string)
 		return fmt.Errorf("%w: entry id %d is not a directory", xerrors.ErrInvalidArgument, entryID)
 	}
 
-	oldName := file.Name
-	if oldName == newName {
+	if file.Name == folderName {
 		return nil // no-op
 	}
 
@@ -1189,10 +1171,10 @@ func (s *Service) RenameEntry(ctx context.Context, entryID uint, newName string)
 	if err != nil {
 		return fmt.Errorf("resolveFileDiskPath: %w", err)
 	}
-	newPath := filepath.Join(filepath.Dir(oldPath), newName)
+	newPath := filepath.Join(filepath.Dir(oldPath), folderName)
 
 	return db.NewTransaction(ctx, s.dbClient, func(ctx context.Context) error {
-		file.Name = newName
+		file.Name = folderName
 		if err := s.dbClient.File().Update(ctx, &file); err != nil {
 			if isUniqueViolation(err) {
 				return fmt.Errorf("%w: entry %s already exists", xerrors.ErrInvalidArgument, newName)
@@ -1287,6 +1269,37 @@ func (s *Service) NextEntryNumber(animeID uint, entryType string) (uint, error) 
 		}
 	}
 	return maxNum + 1, nil
+}
+
+// UpdateEntryAiringInfo updates the airing season and year on an entry.
+// airingSeason should be one of "WINTER", "SPRING", "SUMMER", "FALL", or "" to clear.
+// airingYear of 0 clears the year.
+func (s *Service) UpdateEntryAiringInfo(ctx context.Context, entryID uint, airingSeason string, airingYear uint) error {
+	// Validate the entry exists and is a directory.
+	file, err := s.dbClient.File().FindByValue(ctx, &db.File{ID: entryID})
+	if err != nil {
+		if errors.Is(err, db.ErrRecordNotFound) {
+			return fmt.Errorf("%w: entry id %d", image.ErrDirectoryNotFound, entryID)
+		}
+		return err
+	}
+	if file.Type != db.FileTypeDirectory {
+		return fmt.Errorf("%w: entry id %d is not a directory", xerrors.ErrInvalidArgument, entryID)
+	}
+
+	// Validate airingSeason.
+	switch airingSeason {
+	case "", db.AiringSeasonWinter, db.AiringSeasonSpring, db.AiringSeasonSummer, db.AiringSeasonFall:
+		// valid
+	default:
+		return fmt.Errorf("%w: invalid airing season %q", xerrors.ErrInvalidArgument, airingSeason)
+	}
+
+	var yearPtr *uint
+	if airingYear > 0 {
+		yearPtr = &airingYear
+	}
+	return s.dbClient.File().UpdateAiringFields(ctx, entryID, airingSeason, yearPtr)
 }
 
 // resolveFileDiskPath walks up the parent chain to build the full disk path

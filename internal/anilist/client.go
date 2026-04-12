@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
+	"time"
 )
 
 const defaultEndpoint = "https://graphql.anilist.co"
@@ -18,10 +20,16 @@ type Client interface {
 	GetAnimeDetail(ctx context.Context, id int) (*MediaDetail, error)
 }
 
+// minRequestGap is the minimum duration between consecutive HTTP requests to
+// AniList. 2 seconds keeps us well under the 30 req/min rate limit.
+const minRequestGap = 2 * time.Second
+
 // HTTPClient is the production implementation that talks to AniList's GraphQL API.
 type HTTPClient struct {
-	endpoint   string
-	httpClient *http.Client
+	endpoint    string
+	httpClient  *http.Client
+	mu          sync.Mutex
+	lastRequest time.Time
 }
 
 // NewHTTPClient creates a new AniList HTTP client.
@@ -205,7 +213,27 @@ func (c *HTTPClient) GetAnimeDetail(ctx context.Context, id int) (*MediaDetail, 
 }
 
 // doRequest sends the GraphQL request and returns the raw response body.
+// It enforces a minimum gap between consecutive requests to stay within
+// AniList's rate limit.
 func (c *HTTPClient) doRequest(ctx context.Context, reqBody graphqlRequest) ([]byte, error) {
+	// Throttle: ensure at least minRequestGap between requests.
+	c.mu.Lock()
+	if !c.lastRequest.IsZero() {
+		elapsed := time.Since(c.lastRequest)
+		if elapsed < minRequestGap {
+			wait := minRequestGap - elapsed
+			c.mu.Unlock()
+			select {
+			case <-time.After(wait):
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+			c.mu.Lock()
+		}
+	}
+	c.lastRequest = time.Now()
+	c.mu.Unlock()
+
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("anilist: failed to marshal request: %w", err)
@@ -235,7 +263,7 @@ func (c *HTTPClient) doRequest(ctx context.Context, reqBody graphqlRequest) ([]b
 	return body, nil
 }
 
-// convertRawDetail converts the raw GraphQL response into the flat MediaDetail type.
+// convertRawDetail converts the raw GraphQL response into the MediaDetail type.
 func convertRawDetail(raw *rawMediaDetail) *MediaDetail {
 	detail := &MediaDetail{
 		ID:         raw.ID,

@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -106,6 +108,7 @@ func TestGetAnimeDetail(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, float64(130003), req.Variables["id"])
 
+		// Flat relations -- no nesting inside nodes.
 		resp := map[string]any{
 			"data": map[string]any{
 				"Media": map[string]any{
@@ -210,7 +213,7 @@ func TestGetAnimeDetail(t *testing.T) {
 	assert.Equal(t, 12, detail.Episodes)
 	assert.Equal(t, "https://example.com/large.jpg", detail.CoverImage.Large)
 
-	// Verify relations
+	// Verify flat relations (2 edges from root, no nesting).
 	require.Len(t, detail.Relations, 2)
 
 	assert.Equal(t, "SEQUEL", detail.Relations[0].RelationType)
@@ -272,4 +275,47 @@ func TestGetAnimeDetail_NotFound(t *testing.T) {
 	detail, err := client.GetAnimeDetail(context.Background(), 9999999)
 	require.NoError(t, err)
 	assert.Nil(t, detail)
+}
+
+func TestThrottle(t *testing.T) {
+	var counter int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt64(&counter, 1)
+		resp := map[string]any{
+			"data": map[string]any{
+				"Media": map[string]any{
+					"id": 1,
+					"title": map[string]any{
+						"romaji": "Test",
+					},
+					"format":     "TV",
+					"status":     "FINISHED",
+					"season":     "FALL",
+					"seasonYear": 2020,
+					"episodes":   12,
+					"coverImage": map[string]any{
+						"large":  "",
+						"medium": "",
+					},
+					"relations":  map[string]any{"edges": []any{}},
+					"characters": map[string]any{"edges": []any{}},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client := NewHTTPClientWithEndpoint(server.URL)
+
+	start := time.Now()
+	_, err := client.GetAnimeDetail(context.Background(), 1)
+	require.NoError(t, err)
+	_, err = client.GetAnimeDetail(context.Background(), 1)
+	require.NoError(t, err)
+	elapsed := time.Since(start)
+
+	assert.Equal(t, int64(2), atomic.LoadInt64(&counter), "both requests should reach the server")
+	assert.GreaterOrEqual(t, elapsed, 2*time.Second, "throttle should enforce at least 2s gap between requests")
 }
