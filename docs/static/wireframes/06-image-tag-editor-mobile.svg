@@ -2,102 +2,111 @@
   <defs>
     <style>
       text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
-      .label { font-size: 10px; fill: #888; }
-      .heading { font-size: 17px; fill: #111; font-weight: 600; }
-      .body { font-size: 12px; fill: #555; }
-      .small { font-size: 10px; fill: #999; }
+      .body { font-size: 12px; fill: #94a3b8; }
+      .small { font-size: 10px; fill: #64748b; }
     </style>
   </defs>
 
   <!-- Background -->
-  <rect width="375" height="812" fill="#fafafa"/>
-  <rect x="0" y="0" width="375" height="44" fill="#fff"/>
+  <rect width="375" height="812" fill="#0f0f14"/>
 
-  <!-- ==================== TOP BAR ==================== -->
-  <rect x="0" y="44" width="375" height="48" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
-  <text x="16" y="72" font-size="16" fill="#6366f1">&#8592;</text>
-  <text x="44" y="72" font-size="14" fill="#111" font-weight="500">Edit Tags (8 images)</text>
-  <rect x="304" y="56" width="56" height="28" rx="6" fill="#6366f1"/>
-  <text x="332" y="74" font-size="10" fill="#fff" text-anchor="middle">Apply</text>
+  <!-- Status bar -->
+  <text x="20" y="30" font-size="12" fill="#f1f5f9" font-weight="600">9:41</text>
 
-  <!-- ==================== IMAGE STRIP ==================== -->
-  <rect x="0" y="92" width="375" height="64" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
-  <rect x="12" y="100" width="44" height="44" rx="4" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.5"/>
-  <rect x="62" y="100" width="44" height="44" rx="4" fill="#fce7f3"/>
-  <rect x="112" y="100" width="44" height="44" rx="4" fill="#d1fae5"/>
-  <rect x="162" y="100" width="44" height="44" rx="4" fill="#fef3c7"/>
-  <rect x="212" y="100" width="44" height="44" rx="4" fill="#ddd6fe"/>
-  <rect x="262" y="100" width="44" height="44" rx="4" fill="#fbcfe8"/>
-  <rect x="312" y="100" width="44" height="44" rx="4" fill="#ccfbf1"/>
+  <!-- Header -->
+  <text x="20" y="66" font-size="14" fill="#818cf8">Cancel</text>
+  <text x="188" y="66" font-size="18" fill="#f1f5f9" font-weight="700" text-anchor="middle">Edit Tags</text>
+  <text x="340" y="66" font-size="14" fill="#818cf8" text-anchor="end">Apply</text>
 
-  <!-- ==================== TAB: Tags / ML Suggestions ==================== -->
-  <rect x="0" y="156" width="375" height="36" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
-  <rect x="16" y="162" width="100" height="24" rx="12" fill="#6366f1"/>
-  <text x="66" y="178" font-size="10" fill="#fff" text-anchor="middle">Manual Tags</text>
-  <rect x="124" y="162" width="110" height="24" rx="12" fill="#f3f4f6"/>
-  <text x="179" y="178" font-size="10" fill="#555" text-anchor="middle">ML Suggestions</text>
+  <!-- Selected images strip -->
+  <rect x="0" y="80" width="375" height="56" fill="#16161e"/>
+  <g transform="translate(20, 88)">
+    <rect width="40" height="40" rx="4" fill="#312e81" stroke="#818cf8" stroke-width="1.5"/>
+    <rect x="46" width="40" height="40" rx="4" fill="#831843" stroke="#818cf8" stroke-width="1.5"/>
+    <rect x="92" width="40" height="40" rx="4" fill="#14532d" stroke="#818cf8" stroke-width="1.5"/>
+    <rect x="138" width="40" height="40" rx="4" fill="#713f12" stroke="#818cf8" stroke-width="1.5"/>
+    <rect x="184" width="40" height="40" rx="4" fill="#3b0764" stroke="#818cf8" stroke-width="1.5"/>
+    <rect x="230" width="40" height="40" rx="4" fill="#1c1917" stroke="#818cf8" stroke-width="1.5"/>
+    <rect x="276" width="40" height="40" rx="4" fill="#881337" stroke="#818cf8" stroke-width="1.5"/>
+    <rect x="322" width="40" height="40" rx="4" fill="#134e4a" stroke="#818cf8" stroke-width="1.5"/>
+  </g>
+  <text x="188" y="148" font-size="12" fill="#64748b" text-anchor="middle">8 images selected</text>
 
-  <!-- ==================== TAG SEARCH ==================== -->
-  <rect x="16" y="204" width="343" height="32" rx="6" fill="#f3f4f6"/>
-  <text x="36" y="224" class="body" fill="#aaa">Search tags...</text>
+  <!-- Search -->
+  <rect x="20" y="160" width="335" height="36" rx="18" fill="#1e1e2e" stroke="#2d2d3f"/>
+  <text x="48" y="183" font-size="12" fill="#475569">Search tags...</text>
 
-  <!-- ==================== TAG LIST WITH CHECKBOXES ==================== -->
-  <!-- Pending changes banner -->
-  <rect x="16" y="244" width="343" height="28" rx="6" fill="#eef2ff"/>
-  <text x="30" y="262" font-size="10" fill="#6366f1">+2 added, -1 removed</text>
+  <!-- Pending changes -->
+  <rect x="20" y="206" width="335" height="40" rx="10" fill="#1a1a40" stroke="#818cf8" stroke-width="1"/>
+  <rect x="32" y="214" width="64" height="24" rx="12" fill="#1a3a2e" stroke="#6ee7b7" stroke-width="1"/>
+  <text x="64" y="231" font-size="10" fill="#6ee7b7" text-anchor="middle">+ Outdoor</text>
+  <rect x="104" y="214" width="64" height="24" rx="12" fill="#3b1a1a" stroke="#fca5a5" stroke-width="1"/>
+  <text x="136" y="231" font-size="10" fill="#fca5a5" text-anchor="middle">- Indoor</text>
 
+  <!-- Tag list -->
   <!-- Characters -->
-  <text x="16" y="292" font-size="12" fill="#111" font-weight="500">&#9662; Characters</text>
+  <text x="20" y="278" font-size="14" fill="#f1f5f9" font-weight="600">Characters</text>
 
   <!-- Checked -->
-  <rect x="0" y="300" width="375" height="40" fill="#fff"/>
-  <rect x="32" y="310" width="16" height="16" rx="3" fill="#6366f1"/>
-  <text x="40" y="322" font-size="10" fill="#fff" text-anchor="middle">v</text>
-  <text x="56" y="324" class="body">Eren Yeager</text>
-  <text x="350" y="324" class="small" text-anchor="end">8/8</text>
+  <g transform="translate(20, 292)">
+    <rect width="335" height="48" rx="8" fill="#1e1e2e"/>
+    <rect x="12" y="12" width="24" height="24" rx="4" fill="#818cf8"/>
+    <text x="24" y="30" font-size="14" fill="#fff" text-anchor="middle">V</text>
+    <text x="48" y="32" font-size="14" fill="#f1f5f9">Eren</text>
+    <text x="310" y="32" font-size="11" fill="#64748b" text-anchor="end">86</text>
+  </g>
 
   <!-- Indeterminate -->
-  <rect x="0" y="340" width="375" height="40" fill="#fff"/>
-  <rect x="32" y="350" width="16" height="16" rx="3" fill="#fff" stroke="#6366f1" stroke-width="1.5"/>
-  <line x1="36" y1="358" x2="44" y2="358" stroke="#6366f1" stroke-width="2"/>
-  <text x="56" y="364" class="body">Mikasa Ackerman</text>
-  <text x="350" y="364" class="small" text-anchor="end">3/8</text>
+  <g transform="translate(20, 346)">
+    <rect width="335" height="48" rx="8" fill="#1e1e2e"/>
+    <rect x="12" y="12" width="24" height="24" rx="4" fill="transparent" stroke="#818cf8" stroke-width="2"/>
+    <line x1="18" y1="24" x2="30" y2="24" stroke="#818cf8" stroke-width="2.5"/>
+    <text x="48" y="32" font-size="14" fill="#f1f5f9">Mikasa</text>
+    <text x="120" y="32" font-size="10" fill="#475569">(5/8)</text>
+    <text x="310" y="32" font-size="11" fill="#64748b" text-anchor="end">72</text>
+  </g>
 
   <!-- Unchecked -->
-  <rect x="0" y="380" width="375" height="40" fill="#fff"/>
-  <rect x="32" y="390" width="16" height="16" rx="3" fill="#fff" stroke="#d1d5db" stroke-width="1.5"/>
-  <text x="56" y="404" class="body">Armin Arlert</text>
-  <text x="350" y="404" class="small" text-anchor="end">0/8</text>
-
-  <rect x="0" y="420" width="375" height="40" fill="#fff"/>
-  <rect x="32" y="430" width="16" height="16" rx="3" fill="#fff" stroke="#d1d5db" stroke-width="1.5"/>
-  <text x="56" y="444" class="body">Levi Ackerman</text>
-  <text x="350" y="444" class="small" text-anchor="end">0/8</text>
+  <g transform="translate(20, 400)">
+    <rect width="335" height="48" rx="8" fill="#1e1e2e"/>
+    <rect x="12" y="12" width="24" height="24" rx="4" fill="transparent" stroke="#2d2d3f" stroke-width="2"/>
+    <text x="48" y="32" font-size="14" fill="#f1f5f9">Armin</text>
+    <text x="310" y="32" font-size="11" fill="#64748b" text-anchor="end">54</text>
+  </g>
 
   <!-- Scenes -->
-  <text x="16" y="480" font-size="12" fill="#111" font-weight="500">&#9662; Scenes</text>
+  <text x="20" y="480" font-size="14" fill="#f1f5f9" font-weight="600">Scenes</text>
 
-  <rect x="0" y="488" width="375" height="40" fill="#fff"/>
-  <rect x="32" y="498" width="16" height="16" rx="3" fill="#6366f1"/>
-  <text x="40" y="510" font-size="10" fill="#fff" text-anchor="middle">v</text>
-  <text x="56" y="512" class="body">Action</text>
-  <text x="350" y="512" class="small" text-anchor="end">8/8</text>
+  <!-- Adding (green) -->
+  <g transform="translate(20, 494)">
+    <rect width="335" height="48" rx="8" fill="#0a2e1a" stroke="#6ee7b7" stroke-width="1"/>
+    <rect x="12" y="12" width="24" height="24" rx="4" fill="#6ee7b7"/>
+    <text x="24" y="30" font-size="14" fill="#0a0a0f" text-anchor="middle">V</text>
+    <text x="48" y="32" font-size="14" fill="#6ee7b7">Outdoor</text>
+    <text x="180" y="32" font-size="10" fill="#6ee7b7">adding</text>
+  </g>
 
-  <rect x="0" y="528" width="375" height="40" fill="#fff"/>
-  <rect x="32" y="538" width="16" height="16" rx="3" fill="#fff" stroke="#d1d5db" stroke-width="1.5"/>
-  <text x="56" y="552" class="body">Romance</text>
-  <text x="350" y="552" class="small" text-anchor="end">0/8</text>
+  <!-- Removing (red) -->
+  <g transform="translate(20, 548)">
+    <rect width="335" height="48" rx="8" fill="#2e0a0a" stroke="#fca5a5" stroke-width="1"/>
+    <rect x="12" y="12" width="24" height="24" rx="4" fill="transparent" stroke="#fca5a5" stroke-width="2"/>
+    <text x="48" y="32" font-size="14" fill="#fca5a5">Indoor</text>
+    <text x="168" y="32" font-size="10" fill="#fca5a5">removing</text>
+  </g>
 
-  <rect x="0" y="568" width="375" height="40" fill="#fff"/>
-  <rect x="32" y="578" width="16" height="16" rx="3" fill="#fff" stroke="#6366f1" stroke-width="1.5"/>
-  <line x1="36" y1="586" x2="44" y2="586" stroke="#6366f1" stroke-width="2"/>
-  <text x="56" y="592" class="body">Comedy</text>
-  <text x="350" y="592" class="small" text-anchor="end">2/8</text>
+  <g transform="translate(20, 602)">
+    <rect width="335" height="48" rx="8" fill="#1e1e2e"/>
+    <rect x="12" y="12" width="24" height="24" rx="4" fill="transparent" stroke="#2d2d3f" stroke-width="2"/>
+    <text x="48" y="32" font-size="14" fill="#f1f5f9">Action</text>
+  </g>
 
-  <!-- Locations collapsed -->
-  <text x="16" y="628" font-size="12" fill="#111" font-weight="500">&#9656; Locations</text>
-  <text x="16" y="654" font-size="12" fill="#111" font-weight="500">&#9656; Objects</text>
+  <!-- Locations -->
+  <text x="20" y="682" font-size="14" fill="#f1f5f9" font-weight="600">Locations</text>
 
-  <!-- Annotation -->
-  <text x="188" y="808" class="label" text-anchor="middle">Tabs switch between manual tag tree and ML suggestions</text>
+  <g transform="translate(20, 696)">
+    <rect width="335" height="48" rx="8" fill="#1e1e2e"/>
+    <rect x="12" y="12" width="24" height="24" rx="4" fill="#818cf8"/>
+    <text x="24" y="30" font-size="14" fill="#fff" text-anchor="middle">V</text>
+    <text x="48" y="32" font-size="14" fill="#f1f5f9">School</text>
+  </g>
 </svg>

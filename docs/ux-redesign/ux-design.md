@@ -1,36 +1,73 @@
-# UX Redesign: AnimeVault (Anime Image Viewer/Organizer)
+# UX Redesign v2: AnimeVault (Anime Image Viewer/Organizer)
 
 ## 1. Design Overview
 
 ### Design Philosophy
 
-This redesign transforms the app from a Material UI admin-panel feel into a modern, image-centric collection manager. The key inspirations are:
+This redesign v2 takes a fundamentally different approach from v1. Rather than reskinning the existing admin-panel layout, we rethink every screen from scratch, drawing inspiration from the best modern consumer apps:
 
-- **Google Photos / Apple Photos** -- Masonry grids, smooth image browsing, full-screen viewer with gesture navigation
-- **AniList** -- Collection card layouts, anime-specific metadata patterns
-- **Linear / Notion** -- Clean minimal chrome, command palette (Ctrl+K), keyboard-first design
-- **Finder / Files** -- Folder tree browsing patterns
+- **Google Photos** -- Inline filter chips above a full-width results grid. No sidebars on search.
+- **Pinterest** -- Masonry grids that fill the viewport. Cards with preview images for discovery.
+- **Netflix / Crunchyroll** -- Hero sections with featured content. Horizontal scrollable strips for categories.
+- **Spotify** -- Minimal chrome, dark-first design, search as a first-class experience.
+- **Linear** -- Command palette (Ctrl+K), keyboard-first, icon rail navigation.
+- **AniList** -- Anime profile pages with hero headers and metadata chips.
+
+### What Changed from v1
+
+1. **"Library" renamed to "Home"** everywhere.
+2. **Folders page removed entirely.** Users never see or interact with folders. The app manages filesystem organization internally.
+3. **ML tag suggestions removed entirely.** No confidence sliders, no suggestion panels, no "ML" references anywhere.
+4. **Desktop targets 4K (3840x2160)** instead of 1440px. More columns, more content visible.
+5. **Search has NO sidebars.** Inline filter chips directly above full-width results (Google Photos style).
+6. **Anime Detail has NO left panel.** Hero header with metadata, horizontal entry chips, full-width masonry grid (AniList/Pinterest style).
+7. **Tag Management uses visual cards** with preview images, not a tree+detail panel split.
+8. **Navigation reduced to 4 items:** Home, Search, Tags, and a divider before Backup and Settings.
+9. **Dark theme as default.** Modern, image-focused aesthetic.
+10. **Advanced select mode** with rubber band/lasso selection, shift+click range, ctrl+click toggle.
 
 ### Key Design Decisions
 
-1. **Drop MUI entirely** -- Replace with a headless component system (Radix UI / shadcn/ui style) with Tailwind CSS. This gives full design control, smaller bundle, and modern aesthetics without fighting an opinionated component library.
+1. **No sidebars on content pages** -- Every content page (Search, Anime Detail, Tag Management) uses full-width layouts. Filters and metadata appear as inline chips, hero headers, or horizontal tabs. This maximizes image display area, especially on 4K screens.
 
-2. **Icon Rail sidebar (desktop) + Bottom Tab Bar (mobile)** -- The current 6-item sidebar takes too much horizontal space. An icon rail at 64px (expanding to 200px on hover) saves space while keeping navigation always accessible. Mobile gets a standard 5-tab bottom bar.
+2. **Icon Rail sidebar (desktop) + 4-Tab Bottom Bar (mobile)** -- The 80px icon rail on desktop keeps navigation accessible without stealing content space. Mobile uses exactly 4 tabs: Home, Search, Tags, More.
 
-3. **Command Palette** -- A Ctrl+K searchable command palette provides fast access to any anime, tag, folder, or action without leaving the current page. This is the single most impactful UX improvement for power users.
+3. **Command Palette (Ctrl+K)** -- Power-user access to any anime, tag, or action without leaving the current page.
 
-4. **Image-first layouts** -- Images are the hero. Cards use cover images, grids fill the viewport, the full-screen viewer has inline tag editing so users never leave the image context.
+4. **Hero headers on detail pages** -- Anime Detail uses a full-width hero banner with cover image background, metadata overlay, and action buttons. This replaces the old left-panel tree approach.
 
-5. **Unified Tag Editor** -- Instead of separate pages for manual tagging and ML suggestions, combine them in a single split view. Manual tags on the left, ML suggestions on the right.
+5. **Entry chips, not entry trees** -- Entries appear as horizontal pill tabs, not an expandable sidebar tree. Click a chip to filter the image grid. Much simpler.
 
-6. **Consolidated navigation** -- 4 primary tabs (Library, Search, Folders, Tags) with secondary pages (Backup, Settings) under "More" on mobile and at the bottom of the sidebar on desktop.
+6. **Manual tagging only** -- The Image Tag Editor is a clean, full-width tri-state checkbox layout organized by category. No ML panel, no confidence sliders.
+
+7. **Rubber band selection** -- Users can click and drag on empty space to draw a selection rectangle. This is the most intuitive way to select multiple images with a mouse.
 
 ### Design Tokens
 
 ```
+Colors (Dark -- default):
+  --background:     #0f0f14
+  --surface:        #1e1e2e
+  --surface-alt:    #16161e
+  --primary:        #818cf8 (Indigo 400)
+  --primary-hover:  #6366f1 (Indigo 500)
+  --primary-subtle: #312e81 (Indigo 900)
+  --text:           #f1f5f9
+  --text-secondary: #94a3b8
+  --text-muted:     #64748b
+  --text-dim:       #475569
+  --border:         #2d2d3f
+  --danger:         #fca5a5
+  --danger-bg:      #3b1a1a
+  --success:        #6ee7b7
+  --success-bg:     #1a3a2e
+  --warning:        #fcd34d
+  --warning-bg:     #3b2600
+
 Colors (Light):
   --background:     #fafafa
   --surface:        #ffffff
+  --surface-alt:    #f8fafc
   --primary:        #6366f1 (Indigo 500)
   --primary-hover:  #4f46e5 (Indigo 600)
   --primary-subtle: #eef2ff (Indigo 50)
@@ -38,20 +75,10 @@ Colors (Light):
   --text-secondary: #6b7280
   --text-muted:     #9ca3af
   --border:         #e5e7eb
-  --danger:         #dc2626
-  --success:        #16a34a
-  --warning:        #f59e0b
 
-Colors (Dark):
-  --background:     #0f0f14
-  --surface:        #1e1e2e
-  --primary:        #818cf8 (Indigo 400)
-  --text:           #f1f5f9
-  --border:         #2d2d3f
-
-Spacing: 4px base unit (4, 8, 12, 16, 24, 32, 48, 64)
-Border Radius: 6px (small), 10px (medium), 16px (large)
-Font: Inter (already in the project)
+Spacing: 4px base unit (4, 8, 12, 16, 24, 32, 48, 64, 80)
+Border Radius: 6px (small), 10px (medium), 16px (large), 24px (pill)
+Font: Inter
 ```
 
 ---
@@ -65,99 +92,95 @@ flowchart TD
     A[App Launch] --> B{Root directory configured?}
     B -->|No| C[Welcome Screen]
     C --> D[Select image root directory]
-    D --> E{Directory has folders?}
-    E -->|Yes| F[Offer to import folders as anime]
-    E -->|No| G[Show empty Library with create instructions]
-    F --> H[User selects folders to import]
+    D --> E{Directory has subfolders?}
+    E -->|Yes| F[Offer to import as anime]
+    E -->|No| G[Show empty Home with create instructions]
+    F --> H[User selects which to import]
     H --> I[Import begins in background]
-    I --> J[Library populates with anime cards]
+    I --> J[Home populates with anime cards]
     B -->|Yes| J
     G --> J
 ```
 
-### 2.2 Importing New Anime / Folders
+### 2.2 Adding New Anime
 
 ```mermaid
 flowchart TD
-    A[Library Page] --> B{Action chosen}
+    A[Home Page] --> B{Action chosen}
     B -->|Create New| C[Create Anime Dialog]
     C --> D[Enter name]
-    D --> E[Anime created with empty folder]
+    D --> E[Anime created]
     E --> F[Navigate to Anime Detail]
 
-    B -->|Import Folders| G[Import Dialog]
-    G --> H[Show unassigned top-level folders]
-    H --> I[User selects folders with checkboxes]
-    I --> J[Select All / individual toggles]
-    J --> K[Click Import]
-    K --> L[Background import with toast progress]
-    L --> M[Library refreshes with new cards]
+    B -->|Import| G[Import Dialog]
+    G --> H[Show unassigned directories]
+    H --> I[User selects with checkboxes]
+    I --> J[Click Import]
+    J --> K[Background import with toast progress]
+    K --> L[Home refreshes with new cards]
 
-    B -->|AniList Search| N[AniList Search Modal]
-    N --> O[Search by anime name]
-    O --> P[Select from results]
-    P --> Q[Create anime with AniList metadata]
-    Q --> F
+    B -->|AniList Search| M[AniList Search Modal]
+    M --> N[Search by anime name]
+    N --> O[Select from results]
+    O --> P[Create anime with AniList metadata]
+    P --> F
 ```
 
 ### 2.3 Browsing and Viewing Images
 
 ```mermaid
 flowchart TD
-    A[Library] --> B[Click anime card]
+    A[Home] --> B[Click anime card]
     B --> C[Anime Detail Page]
     C --> D{Navigation}
 
-    D -->|Entry Tab| E[Filter images by entry/season]
-    D -->|Character Chip| F[Filter images by character]
-    D -->|Tag Filter| G[Filter by tag dropdown]
+    D -->|Entry chip| E[Filter images by entry]
+    D -->|Tag filter| F[Filter by tag]
 
-    E --> H[Image Grid updates]
-    F --> H
-    G --> H
+    E --> G[Image Grid updates]
+    F --> G
 
-    H --> I[Click image]
-    I --> J[Full-screen Image Viewer]
+    G --> H[Click image]
+    H --> I[Full-screen Image Viewer]
 
-    J --> K{Viewer Actions}
-    K -->|Arrow keys / swipe| L[Navigate to next/prev image]
-    K -->|Pinch / scroll| M[Zoom in/out]
-    K -->|Press T or Tags button| N[Open tag side panel]
-    N --> O[View current tags]
-    N --> P[See ML suggestions]
-    N --> Q[Quick-apply suggested tags]
-    K -->|Press Esc or X| R[Return to grid]
-    K -->|Thumbnail strip| S[Jump to specific image]
+    I --> J{Viewer Actions}
+    J -->|Arrow keys / swipe| K[Navigate to next/prev image]
+    J -->|Scroll / pinch| L[Zoom in/out]
+    J -->|Press T or Tags button| M[Open tag side panel]
+    M --> N[View and edit tags]
+    J -->|Press Esc or X| O[Return to grid]
+    J -->|Thumbnail strip| P[Jump to specific image]
 ```
 
-### 2.4 Tagging Images (Manual + ML Suggestions)
+### 2.4 Tagging Images (Manual Only)
 
 ```mermaid
 flowchart TD
     A[Image Grid] --> B[Switch to Select mode]
-    B --> C[Click/tap images to select]
-    C --> D[Shift+click for range select]
-    D --> E{Selection Action}
+    B --> C{Selection Method}
+    C -->|Click| D[Toggle individual image]
+    C -->|Shift+Click| E[Select range from last]
+    C -->|Ctrl+Click| F[Add/remove from selection]
+    C -->|Drag on empty space| G[Rubber band select]
 
-    E -->|Edit Tags| F[Tag Editor Page]
-    F --> G[Left: Tag tree with tri-state checkboxes]
-    G --> H[Check = add to ALL selected images]
-    G --> I[Uncheck = remove from ALL]
-    G --> J[Indeterminate = some images have tag]
-    F --> K[Right: ML Suggestions panel]
-    K --> L[Adjust confidence slider]
-    K --> M[Per-image accept/skip suggestions]
-    K --> N[Apply All button for batch]
+    D --> H{Selection Action}
+    E --> H
+    F --> H
+    G --> H
 
-    E -->|ML Suggestions| O[Same page, ML tab focused]
+    H -->|Edit Tags| I[Tag Editor Page]
+    I --> J[Full-width tag tree with tri-state checkboxes]
+    J --> K[Check = add to ALL selected]
+    J --> L[Uncheck = remove from ALL]
+    J --> M[Indeterminate = some have tag]
 
-    F --> P[Click Apply]
-    P --> Q[Tags saved]
-    Q --> R[Return to previous view]
+    I --> N[Click Apply]
+    N --> O[Tags saved]
+    O --> P[Return to previous view]
 
-    E -->|From Image Viewer| S[Tags side panel]
-    S --> T[Inline tag editing for single image]
-    T --> U[Changes saved immediately]
+    H -->|From Image Viewer| Q[Tags side panel]
+    Q --> R[Inline tag editing for single image]
+    R --> S[Changes saved immediately]
 ```
 
 ### 2.5 Searching and Filtering
@@ -165,33 +188,26 @@ flowchart TD
 ```mermaid
 flowchart TD
     A[Click Search tab] --> B[Search Page]
-    B --> C{Search Method}
+    B --> C[Top search bar with inline filters]
 
-    C -->|Command Palette Ctrl+K| D[Type query]
-    D --> E[Results: anime, tags, folders, images]
-    E --> F[Click result to navigate]
+    C --> D[Anime dropdown filter]
+    C --> E[Tag include pills]
+    C --> F[Tag exclude pills]
+    C --> G[Sort dropdown]
 
-    C -->|Filter Panel| G[Left sidebar filters]
-    G --> H[Anime dropdown: All / Unassigned / specific]
-    G --> I[Folder tree: click to select]
-    G --> J[Tag tree: Include / Exclude toggle]
-    G --> K[Sort: Date added / Name / Random]
-    G --> L[Filename contains filter]
+    D --> H[Results grid updates live]
+    E --> H
+    F --> H
+    G --> H
 
-    H --> M[Results grid updates live]
-    I --> M
-    J --> M
-    K --> M
-    L --> M
+    H --> I{Action on results}
+    I -->|Click image| J[Full-screen viewer]
+    I -->|Switch to Select| K[Select mode]
+    K --> L[Bulk tag edit]
 
-    M --> N{Action on results}
-    N -->|Click image| O[Full-screen viewer]
-    N -->|Switch to Select| P[Select mode]
-    P --> Q[Bulk tag edit]
-
-    G --> R[Active filters shown as chips]
-    R --> S[Click X on chip to remove filter]
-    R --> T[Clear All to reset]
+    C --> M[Active filter chips visible]
+    M --> N[Click X on chip to remove]
+    M --> O[Clear All to reset]
 ```
 
 ### 2.6 Managing Anime Entries
@@ -205,50 +221,21 @@ flowchart TD
     D -->|Season| E[Set season number]
     D -->|Movie| F[Set year]
     D -->|Other| G[Set name]
-    E --> H[Entry created with folder]
+    E --> H[Entry created]
     F --> H
     G --> H
 
-    B -->|Expand Entry| I[Show sub-entries]
-    I --> J[Add sub-entry]
+    B -->|Entry chip context menu| I{Entry Menu}
+    I -->|Rename| J[Inline edit or modal]
+    I -->|Set Type| K[Change type dialog]
+    I -->|Delete| L[Confirm delete dialog]
+    I -->|Upload Images| M[Native file picker]
+    M --> N[Background import to entry]
 
-    B -->|Right-click / ... menu| K{Entry Menu}
-    K -->|Rename| L[Inline edit or modal]
-    K -->|Set Type| M[Change type dialog]
-    K -->|Delete| N[Confirm delete dialog]
-    K -->|Upload Images| O[Native file picker]
-    O --> P[Background import to entry folder]
-
-    B -->|Click entry| Q[Filter images to that entry]
+    B -->|Click entry chip| O[Filter images to that entry]
 ```
 
-### 2.7 Folder Organization
-
-```mermaid
-flowchart TD
-    A[Folders Tab] --> B[Folder Tree Panel]
-    B --> C{Mode}
-
-    C -->|Browse| D[Click folder to see images]
-    D --> E[Images grid on right]
-    D --> F[Folder info panel below tree]
-    F --> G[Shows: anime association, tags, stats]
-
-    C -->|Edit Tags| H[Multi-select folders with checkboxes]
-    H --> I[Click Edit Tags button]
-    I --> J[Tag assignment page for folders]
-
-    B --> K{Folder Actions}
-    K -->|New Folder| L[Create in selected parent]
-    K -->|Rename| M[Double-click or right-click rename]
-    K -->|Import Images| N[Native file picker]
-    N --> O[Images imported to folder]
-
-    D --> P[Breadcrumb navigation]
-    P --> Q[Click any breadcrumb level to jump]
-```
-
-### 2.8 Backup and Restore
+### 2.7 Backup and Restore
 
 ```mermaid
 flowchart TD
@@ -256,285 +243,260 @@ flowchart TD
 
     B -->|Create Backup| C[Configure options]
     C --> D[Toggle: Include images]
-    C --> E[Optional: Select target directory]
+    C --> E[Optional: Target directory]
     D --> F[Click Create Backup]
     F --> G[Progress indicator]
     G --> H[Success toast with path]
 
     B -->|Restore| I[Click Restore on backup row]
-    I --> J[Confirm dialog with options]
-    J --> K[Toggle: Restore images]
-    J --> L[Optional: Target directory]
-    K --> M[Click Restore]
-    M --> N[Progress indicator]
-    N --> O[Success: restart required notice]
+    I --> J[Confirm dialog]
+    J --> K[Click Restore]
+    K --> L[Progress indicator]
+    L --> M[Restart required notice]
 
-    B -->|Delete| P[Click Delete on row]
-    P --> Q[Confirm dialog]
-    Q --> R[Backup removed]
+    B -->|Delete| N[Click Delete on row]
+    N --> O[Confirm dialog]
+    O --> P[Backup removed]
 
-    B -->|Auto-Backup| S[Configure idle backup settings]
-    S --> T[Enable/disable toggle]
-    S --> U[Idle minutes threshold]
-    S --> V[Retention count]
-    S --> W[Include images toggle]
-    T --> X[Save settings]
+    B -->|Auto-Backup| Q[Configure settings]
+    Q --> R[Enable/disable toggle]
+    Q --> S[Idle minutes threshold]
+    Q --> T[Retention count]
+    Q --> U[Include images toggle]
+    R --> V[Save settings]
 ```
 
-### 2.9 Settings
+### 2.8 Settings
 
 ```mermaid
 flowchart TD
-    A[Settings Page] --> B{Section}
+    A[Settings Page] --> B{Section tab}
 
     B -->|General| C[Directory configuration]
-    C --> D[Image Root Directory + Browse]
-    C --> E[Config Directory + Browse]
-    C --> F[Log Directory + Browse]
-    C --> G[Backup Directory + Browse]
+    C --> D[Image Root + Browse]
+    C --> E[Config + Browse]
+    C --> F[Log + Browse]
+    C --> G[Backup + Browse]
 
     B -->|Appearance| H[Theme settings]
     H --> I[Light / Dark / System toggle]
     H --> J[Grid column preference]
 
-    B -->|Backup| K[Backup settings - same as Backup page settings]
+    B -->|Backup| K[Same as Backup page settings]
 
     B -->|About| L[Version, links, license]
 
-    C --> M[Save button]
+    C --> M[Save]
     M --> N{Changed directories?}
     N -->|Yes| O[Warning: restart required]
     N -->|No| P[Success toast]
-
-    C --> Q[Reset to Defaults]
-    Q --> R[Confirmation]
-    R --> S[All dirs reset]
 ```
 
 ---
 
 ## 3. Screen Layouts
 
-### 3.1 Home / Anime Library
+### 3.1 Home
 
-**Desktop (1440px):** `wireframes/01-home-library-desktop.svg`
-**Mobile (375px):** `wireframes/01-home-library-mobile.svg`
+**Desktop (3840x2160):** `wireframes/01-home-desktop.svg`
+**Mobile (375x812):** `wireframes/01-home-mobile.svg`
 
 **Components:**
-- Global top bar with search, theme toggle, settings
-- Icon rail sidebar (desktop) / Bottom tab bar (mobile)
-- Page header with title, stats, action buttons (Add Anime, Import)
-- Filter/sort bar with text filter, grid/list toggle, sort dropdown
-- Anime card grid (4 columns desktop, 2 columns mobile)
-- Each card: cover image, anime name, image count, latest entry badge
-- Import progress toast (bottom-right corner)
+- 80px icon rail sidebar (desktop) / 4-tab bottom bar (mobile)
+- Hero area with page title, stats, search bar, and quick action buttons
+- "Recently Updated" horizontal strip with compact anime cards showing recent activity
+- Collection grid: 6 columns on 4K desktop, 2 columns on mobile
+- Each card: cover image, anime name, entry count, image count, latest entry badge
+- Import progress toast (floating, bottom-right)
 
 **Layout Notes:**
-- Cards use aspect ratio for covers, preventing layout shift during load
-- Grid uses CSS Grid with `auto-fill` and `minmax(280px, 1fr)` for fluid columns
-- Empty state shows clear CTA to create or import
-- Mobile cards are compact with smaller cover images
+- Netflix/Crunchyroll-inspired layout: hero section at top, then scrollable grid
+- No top bar -- the icon rail handles navigation, search is prominent in the hero
+- Grid uses CSS Grid with `auto-fill, minmax(520px, 1fr)` for fluid 4K columns
+- Cards have generous padding and large cover images
+- Dark theme default: `#0f0f14` background, `#1e1e2e` card surfaces
 
 ### 3.2 Anime Detail
 
-**Desktop (1440px):** `wireframes/02-anime-detail-desktop.svg`
-**Mobile (375px):** `wireframes/02-anime-detail-mobile.svg`
+**Desktop (3840x2160):** `wireframes/02-anime-detail-desktop.svg`
+**Mobile (375x812):** `wireframes/02-anime-detail-mobile.svg`
 
 **Components:**
-- Breadcrumb navigation (Library > Anime Name)
-- Left panel (desktop): Entry tree, character chips, tag chips, folder tree
-- Entry tabs (mobile): horizontal scrollable pill tabs
-- Action buttons: Edit, + Entry, ... (more menu)
-- Image grid with view/select toggle and tag filter
-- Upload button for adding images
+- Full-width hero header with blurred cover image, anime title, metadata, action buttons
+- Horizontal entry chip tabs (scrollable): "All Images", "Season 1", "Season 2", etc.
+- Inline toolbar: image count, tag filter chip, sort dropdown, view/select toggle
+- Full-width masonry image grid (7 columns at 4K, 2 on mobile)
+- NO left panel, NO entry tree, NO folder section
 
 **Layout Notes:**
-- Desktop: 320px left panel + fluid right panel
-- Mobile: stacked layout -- metadata collapsed into chips above image grid
-- Entry tree supports expand/collapse with sub-entries
-- Character and tag chips are scrollable on mobile
-- Clicking an entry filters the image grid
+- AniList profile + Pinterest board inspired layout
+- Hero header fades to background via gradient overlay
+- Entry chips replace the old sidebar tree -- much simpler, horizontal scrollable
+- Masonry grid fills entire width minus icon rail (3760px usable at 4K)
+- Click entry chip to filter; "All Images" is default selected
+- Mobile: compact hero, horizontally scrollable entry chips, 2-column grid
 
 ### 3.3 Image Viewer
 
-**Desktop (1440px):** `wireframes/03-image-viewer-desktop.svg`
-**Mobile (375px):** `wireframes/03-image-viewer-mobile.svg`
+**Desktop (3840x2160):** `wireframes/03-image-viewer-desktop.svg`
+**Mobile (375x812):** `wireframes/03-image-viewer-mobile.svg`
 
 **Components:**
-- Full-screen dark overlay
-- Main image with zoom/pan (react-zoom-pan-pinch)
-- Top bar: close, image counter, filename, zoom controls, info toggle, tag button
-- Left/right navigation arrows
-- Bottom thumbnail strip for quick jumping
-- Optional right side panel for tag editing (desktop)
-- Bottom sheet for tag editing (mobile)
-- ML suggestion tags with confidence percentages
+- Full-screen dark overlay (`#0a0a0f`)
+- Main image with zoom/pan
+- Semi-transparent top bar: close button, image counter, filename, zoom controls, tag panel toggle
+- Left/right navigation arrows (large circular buttons)
+- Tag side panel (480px, desktop only -- slides in from right)
+- Bottom sheet for tags (mobile)
+- Bottom thumbnail strip for quick image jumping
+- Keyboard shortcut hint bar (bottom-left)
+- NO ML suggestions, NO confidence percentages
 
 **Layout Notes:**
-- UI elements auto-hide after 3 seconds of no interaction, reappear on mouse move
-- Desktop: tag panel slides in from right (320px), image area adjusts
-- Mobile: tag info in bottom sheet, swipe-down to dismiss
-- Keyboard shortcuts prominently displayed
-- Thumbnail strip scrolls horizontally, current image highlighted
+- UI elements auto-hide after 3 seconds, reappear on mouse move
+- Tag panel shows: assigned tags as colored chips, "Add tag" search field, image details (anime, entry, dimensions, size, date)
+- Thumbnail strip at bottom with current image highlighted with indigo border
+- Mobile: bottom sheet with drag handle for tag info
 
-### 3.4 Search / Filter
+### 3.4 Search
 
-**Desktop (1440px):** `wireframes/04-search-desktop.svg`
-**Mobile (375px):** `wireframes/04-search-mobile.svg`
+**Desktop (3840x2160):** `wireframes/04-search-desktop.svg`
+**Mobile (375x812):** `wireframes/04-search-mobile.svg`
 
 **Components:**
-- Search bar (focused state with highlighted border)
-- Filter panel: Anime dropdown, Folder tree, Tag tree with Include/Exclude toggle
-- Active filter chips (removable)
-- Sort dropdown (Date added, Name, Random)
-- Filename text filter
-- Results grid with anime label overlays
+- Large search bar at top (centered, prominent, 2880px wide on desktop)
+- Inline filter bar directly below search: Anime dropdown, Tag include/exclude pills, Sort dropdown
+- "+ Filter" button to add more filters
+- "Clear all filters" link
+- Results count with filter summary
 - View/Select mode toggle
-- Grid density slider (desktop)
+- Full-width masonry results grid (7 columns at 4K)
+- Anime name overlay label on each result image
+- NO sidebar filter panel, NO folder filter, NO filename filter
 
 **Layout Notes:**
-- Desktop: 300px filter panel + fluid results grid
-- Mobile: search bar + filter chips visible; full filter panel opens as bottom sheet via filter button
-- Results show anime name overlay on each image
+- Google Photos search inspired: search bar hero, inline filters, results fill the screen
+- Only three filter types: Anime (dropdown), Tag Include/Exclude (pills), Sort
+- Tag include pills have indigo background, tag exclude pills have red background
+- Results show anime name as a dark overlay badge on each image
+- Mobile: search bar + horizontally scrollable filter chips + 2-column results
 - Live-updating results as filters change
-- Grid density adjustable on desktop for preference
 
 ### 3.5 Tag Management
 
-**Desktop (1440px):** `wireframes/05-tag-management-desktop.svg`
-**Mobile (375px):** `wireframes/05-tag-management-mobile.svg`
+**Desktop (3840x2160):** `wireframes/05-tag-management-desktop.svg`
+**Mobile (375x812):** `wireframes/05-tag-management-mobile.svg`
 
 **Components:**
-- Tag tree panel with search, grouped by category
-- Image count per tag
-- Tag detail panel: category dropdown, folders with tag, image previews
-- Tag actions: Rename, Merge, Delete
-- New tag button
-- Category headers (Characters, Scenes, Locations, Objects, Uncategorized)
+- Header with tag count, search bar, "+ New Tag" button
+- Tag cards organized by category (Characters, Scenes, Locations, Objects, Uncategorized)
+- Each card: preview image strip (top), tag name, image count, anime count, edit button
+- Category headers with tag count
+- NO tree + detail panel split
 
 **Layout Notes:**
-- Desktop: 380px tag list panel + fluid detail panel
-- Mobile: full-width list view; tap row to navigate to detail; long-press for actions
-- Tag tree is collapsible by category
-- Preview images are horizontally scrollable
-- Merge opens a modal with searchable tag target list
+- Pinterest board / Google Photos album inspired: visual cards with preview images
+- Cards are 560px wide at 4K, 6+ per row per category
+- Preview images show a horizontal strip of 4 sample images at the top of each card
+- Mobile: full-width list items with thumbnail + info + chevron, tap to navigate to detail
+- Long-press on mobile for action sheet (Rename, Merge, Delete)
 
 ### 3.6 Image Tag Editor
 
-**Desktop (1440px):** `wireframes/06-image-tag-editor-desktop.svg`
-**Mobile (375px):** `wireframes/06-image-tag-editor-mobile.svg`
+**Desktop (3840x2160):** `wireframes/06-image-tag-editor-desktop.svg`
+**Mobile (375x812):** `wireframes/06-image-tag-editor-mobile.svg`
 
 **Components:**
-- Selected images thumbnail strip (top)
-- Left panel: Tag tree with tri-state checkboxes (checked, unchecked, indeterminate)
-- Right panel: ML suggestion cards (image + current tags + suggested tags)
-- Confidence slider
-- Per-image accept/skip for suggestions
-- Apply All batch button
-- Pending changes summary bar
-- Cancel / Apply buttons
+- Top: breadcrumb, title "Edit Tags", selected count, Apply/Cancel buttons
+- Selected images thumbnail strip (horizontal)
+- Tag search field
+- Pending changes summary bar (blue background, shows added/removed tags as chips)
+- Full-width tag tree with tri-state checkboxes organized in 3 columns by category
+- Visual states: green highlight for adding, red highlight for removing, indeterminate dash
+- NO ML panel, NO confidence slider, NO suggestion cards
 
 **Layout Notes:**
-- Desktop: side-by-side split between manual tags and ML suggestions
-- Mobile: tabs to switch between manual and ML views
-- Tri-state checkboxes show shared tag state across multi-selection
-- Indeterminate state means "some selected images have this tag"
-- Pending changes shown as a summary bar before applying
+- Full-width layout, tags spread across 3 columns at 4K (Characters, Scenes, Locations)
+- Each row: checkbox + tag name + context info + image count
+- Added tags get green background + border, removed tags get red + strikethrough
+- Pending changes bar shows at-a-glance what will be applied
+- Mobile: single-column scrollable list with same visual states
 
-### 3.7 Folder Management
+### 3.7 Backup / Restore
 
-**Desktop (1440px):** `wireframes/07-folder-management-desktop.svg`
-**Mobile (375px):** `wireframes/07-folder-management-mobile.svg`
-
-**Components:**
-- Folder tree panel with image counts
-- Browse / Edit Tags mode toggle
-- New Folder button
-- Folder info section (selected folder: anime association, tags, stats)
-- Folder actions: Rename, Edit Tags, Import
-- Breadcrumb navigation
-- Image grid for selected folder
-- View/Select mode for images
-
-**Layout Notes:**
-- Desktop: tree panel (380px) + images grid
-- Mobile: drill-down navigation like a file browser (tap folder to enter, breadcrumbs to go back)
-- Desktop tree is always visible; mobile replaces content
-- Double-click folder name to rename inline (desktop)
-- Tags shown as colored chips on folder info
-
-### 3.8 Backup / Restore
-
-**Desktop (1440px):** `wireframes/08-backup-restore-desktop.svg`
-**Mobile (375px):** `wireframes/08-backup-restore-mobile.svg`
+**Desktop (3840x2160):** `wireframes/07-backup-restore-desktop.svg`
+**Mobile (375x812):** `wireframes/07-backup-restore-mobile.svg`
 
 **Components:**
+- Centered card layout (max-width 1200px on desktop)
 - Create Backup card: include images toggle, target directory selector, create button
-- Backup History table/list with date, includes-images flag, size, restore/delete actions
-- Auto-Backup settings: enable toggle, idle minutes, retention count, include images
-- Auto-backup indicator ("auto" badge on auto-created backups)
+- Backup History table with date, images flag, size, type badge (auto/manual), actions
+- Auto-Backup settings card: enable toggle, idle minutes, retention count, include images toggle
 - Confirmation dialogs for restore and delete
 
 **Layout Notes:**
-- Desktop: centered card layout (max-width 760px)
-- Mobile: full-width stacked cards
-- Backup history items have inline action buttons
-- Restore requires explicit confirmation due to destructive nature
-- Settings save independently from backup creation
+- Centered, focused layout -- not full-width (backup is not a browsing experience)
+- "auto" badge in green, "manual" badge in indigo
+- Mobile: stacked full-width cards
 
-### 3.9 Settings
+### 3.8 Settings
 
-**Desktop (1440px):** `wireframes/09-settings-desktop.svg`
-**Mobile (375px):** `wireframes/09-settings-mobile.svg`
+**Desktop (3840x2160):** `wireframes/08-settings-desktop.svg`
+**Mobile (375x812):** `wireframes/08-settings-mobile.svg`
 
 **Components:**
-- Settings nav (desktop left panel): General, Appearance, Backup, About
+- Centered layout (max-width 1400px)
+- Horizontal section tabs (General, Appearance, Backup, About) -- NOT a left nav panel
+- Warning banner for restart-required changes
 - Directory fields with Browse buttons
 - Save / Reset to Defaults buttons
-- Warning banner for restart-required changes
-- Appearance: theme toggle (Light/Dark/System), grid preferences
-- Mobile: iOS-style settings list with chevrons
+- Mobile: iOS-style grouped list with section headers
 
 **Layout Notes:**
-- Desktop: left nav (260px) + settings form
-- Mobile: single list, tapping a section pushes to detail
-- Directory paths are read-only text inputs with Browse buttons (native file dialog)
-- Info notices use amber/yellow warning styling
+- Horizontal pill tabs at top instead of sidebar section nav (breaks the "sidebar for everything" pattern)
+- Warning banner is amber/yellow with border
+- Mobile uses native-feeling grouped list pattern with chevrons
+
+### 3.9 Select Mode
+
+**Desktop (3840x2160):** `wireframes/09-select-mode-desktop.svg`
+
+**Components:**
+- Selection action bar (replaces normal toolbar, indigo background)
+- Selected count, Select All, Clear buttons
+- Actions: Edit Tags button
+- Done button to exit
+- Checkbox overlays on all images (filled for selected, empty for unselected)
+- Selected images: indigo border (4px) + tint overlay (15% opacity)
+- **Rubber band rectangle**: dashed indigo border, semi-transparent fill
+- Images inside rubber band: dashed border + slight tint (being selected)
+- Mouse cursor shown at drag endpoint
+- Keyboard/mouse hint bar at bottom
+
+**Behaviors:**
+- **Click**: Toggle individual image selection
+- **Shift+Click**: Select all images between last selected and clicked image
+- **Ctrl+Click (Cmd on Mac)**: Add or remove single image without affecting others
+- **Drag on empty space**: Draw rubber band rectangle; all images intersecting it get selected
+- **Esc**: Exit select mode
+- **Ctrl+A**: Select all images
 
 ### 3.10 Navigation Pattern
 
 **Reference:** `wireframes/10-navigation-pattern.svg`
 
-**Desktop:**
-- 64px icon rail, always visible
-- Expands to 200px on hover with labels
-- Primary: Library, Search, Folders, Tags (above divider)
+**Desktop Icon Rail (80px):**
+- App logo at top
+- Primary: Home, Search, Tags (above divider)
 - Secondary: Backup, Settings (below divider)
-- Ctrl+K command palette for power users
+- Expands to 200px on hover with text labels
+- Ctrl+K command palette hint at bottom of expanded state
 
-**Mobile:**
-- 5-tab bottom bar: Library, Search, Folders, Tags, More
-- "More" opens a bottom sheet with: Backup, Settings, Theme toggle, About
-- Search icon in top bar opens full-screen search
-- Swipe-back gesture for drill-down navigation
-
-### 3.11 Select Mode
-
-**Reference:** `wireframes/11-select-mode-desktop.svg`
-
-**Components:**
-- Selection action bar (replaces normal toolbar, colored background)
-- Selected count, Select All / Clear buttons
-- Actions: Edit Tags, ML Suggestions, Move
-- Done button to exit select mode
-- Checkbox overlays on all images
-- Selected images have border highlight + subtle tint
-
-**Behaviors:**
-- Click to toggle individual selection
-- Shift+click for range select
-- Ctrl+click for multi-select (additive)
-- Mobile: tap to toggle, no range select gesture
+**Mobile Bottom Bar (4 tabs):**
+- Home, Search, Tags, More
+- "More" opens a bottom sheet with: Backup and Restore, Settings, Theme toggle, About
+- Active tab: indigo text + pill background
+- Inactive: gray icon + text
 
 ---
 
@@ -543,110 +505,100 @@ flowchart TD
 ### 4.1 Anime Card
 
 **States:**
-- Default: White background, subtle border, cover image + info
-- Hover: Slight scale (1.02), shadow elevation, border color change
+- Default: Dark surface background, cover image, anime name, stats
+- Hover: Slight scale (1.02), border glow, surface elevation change
 - Active/Pressed: Scale down (0.98)
 - Loading: Skeleton placeholder for cover + text
-- Empty: Placeholder gradient for cover, "No images" text
+- Empty: Gradient placeholder, "No images" text
 
 **Behavior:**
-- Click navigates to anime detail
+- Click navigates to Anime Detail
 - Right-click opens context menu (Rename, Delete)
 - Long-press on mobile opens action sheet
 
 ### 4.2 Image Thumbnail
 
 **States:**
-- Default: Image with slight border radius, no decoration
+- Default: Image with slight border radius (12px), no decoration
 - Hover: Subtle brightness overlay, pointer cursor
-- Selected (select mode): Indigo border (3px), checkbox overlay (top-left), subtle tint
+- Selected (select mode): Indigo border (4px), checkbox overlay (top-left), 15% tint
+- Rubber band intersecting: Dashed indigo border, 10% tint
 - Loading: Skeleton with aspect ratio preserved
 - Error: Broken image icon with retry option
 
 **Behavior:**
 - View mode: click opens full-screen viewer
-- Select mode: click toggles selection checkbox
+- Select mode: click toggles selection
+- Rubber band: automatically selected when rectangle intersects
 - Lazy-loaded with intersection observer
-- Width parameter passed for responsive sizing
 
 ### 4.3 Tag Chip
 
 **States:**
-- Default: Colored background based on category, text
-- Hover: Darker background shade
-- Active: Border highlight
+- Default: Category-colored background + border
+- Hover: Slightly darker background
+- Active: Stronger border
 - Removable: X button appears on hover/focus
-- Disabled: Reduced opacity
+- Include filter: Indigo background, "+" prefix
+- Exclude filter: Red background, "-" prefix
 
-**Category Colors:**
-- Character: `#eef2ff` border `#c7d2fe` (Indigo)
-- Scene: `#f0fdf4` border `#bbf7d0` (Green)
-- Location: `#fefce8` border `#fef08a` (Yellow)
-- Object: `#fef2f2` border `#fecaca` (Red)
-- Uncategorized: `#f3f4f6` border `#e5e7eb` (Gray)
+**Category Colors (Dark theme):**
+- Character: `#312e81` border `#818cf8` text `#818cf8`
+- Scene: `#1a3a2e` border `#6ee7b7` text `#6ee7b7`
+- Location: `#3b2600` border `#fcd34d` text `#fcd34d`
+- Object: `#3b1a1a` border `#fca5a5` text `#fca5a5`
+- Uncategorized: `#1e1e2e` border `#64748b` text `#94a3b8`
 
 ### 4.4 Tri-State Checkbox
 
 **States:**
-- Unchecked: White fill, gray border
-- Checked: Primary fill, white checkmark
-- Indeterminate: White fill, primary border, horizontal dash
-- Hover: Background highlight on row
+- Unchecked: Transparent fill, dim border (`#2d2d3f`)
+- Checked: Primary fill (`#818cf8`), white checkmark
+- Indeterminate: Transparent fill, primary border, horizontal dash
+- Adding (pending): Green background (`#0a2e1a`), green checkmark
+- Removing (pending): Red background (`#2e0a0a`), red border, strikethrough text
+- Hover: Row background highlight
 - Disabled: Reduced opacity, no pointer
 
 **Behavior:**
 - Unchecked -> click -> Checked (add tag to ALL selected images)
 - Checked -> click -> Unchecked (remove from ALL)
-- Indeterminate -> click -> Checked (add to remaining images)
+- Indeterminate -> click -> Checked (add to remaining)
 
-### 4.5 Folder Tree Item
+### 4.5 Entry Chip
 
 **States:**
-- Default: Folder icon, name, image count
-- Hover: Background highlight
-- Selected: Primary background tint, bold text
-- Expanded: Open folder icon, children visible
-- Collapsed: Closed folder icon, triangle indicator
-- Editing: Name becomes text input
+- Default: Dark surface background, dim border, muted text
+- Active/Selected: Primary fill, white text
+- Hover: Border brightens
 
 **Behavior:**
-- Single click selects and shows folder images
-- Double click enters rename mode (desktop)
-- Expand/collapse triangle for nested folders
-- Right-click context menu: New Folder, Rename, Import, Edit Tags
+- Click filters image grid to that entry
+- "All Images" is always the first chip (default selected)
+- Right-click / long-press for context menu: Rename, Set Type, Upload Images, Delete
+- Horizontally scrollable container
 
-### 4.6 Entry Tree Item
-
-**States:**
-- Default: Entry name, image count, type indicator
-- Hover: Background highlight
-- Selected: Primary background, text color change
-- Expanded: Shows sub-entries indented
-
-**Behavior:**
-- Click filters image grid to this entry
-- "All Images" special entry shows all anime images
-- Context menu: Add Sub-entry, Rename, Set Type, Upload Images, Delete
-
-### 4.7 Search Filter Chip
+### 4.6 Search Filter Chip
 
 **States:**
-- Active: Primary-subtle background, primary border, X button
-- Hover: Darker background
+- Include: Indigo background with indigo border, "+" prefix
+- Exclude: Red background with red border, "-" prefix
+- Anime filter: Surface background with border, dropdown indicator
+- Removable: X button at end
 
 **Behavior:**
 - Click X removes filter
-- Non-removable for display-only contexts
-- Horizontally scrollable container on mobile
+- Anime chip opens dropdown to change selection
+- Tag chips can be toggled between include/exclude
 
-### 4.8 Bottom Tab Bar Item
+### 4.7 Bottom Tab Bar Item
 
 **States:**
 - Default: Gray icon + label
-- Active: Primary color icon + label, subtle background pill
+- Active: Primary color icon + label, subtle pill background
 - Badge: Notification dot for import progress
 
-### 4.9 Command Palette
+### 4.8 Command Palette
 
 **States:**
 - Closed: Not visible
@@ -656,27 +608,87 @@ flowchart TD
 
 **Behavior:**
 - Ctrl+K to open, Esc to close
-- Type to search -- debounced 200ms
-- Results grouped: Anime, Tags, Folders, Actions
-- Arrow keys to navigate results, Enter to select
+- Type to search (debounced 200ms)
+- Results grouped: Anime, Tags, Actions
+- Arrow keys to navigate, Enter to select
 - Recent searches shown when empty
+
+### 4.9 Rubber Band Selection Rectangle
+
+**States:**
+- Drawing: Semi-transparent indigo fill (8% opacity), dashed indigo border (2px)
+- Absent: Not rendered
+
+**Behavior:**
+- Initiated by mousedown on empty grid space (not on an image)
+- Extends to current mouse position during drag
+- All images whose bounding boxes intersect the rectangle are "pending selected"
+- On mouseup, pending selections become actual selections
+- Works with Ctrl held to add to existing selection (without clearing)
 
 ---
 
-## 5. Interaction Patterns
+## 5. Select Mode Specification
 
-### 5.1 Image Grid Scrolling
-- Virtual scrolling using `react-window` for grids over 100 images
-- Progressive image loading with quality parameter based on grid cell size
+### 5.1 Entering Select Mode
+- Click "Select" toggle in the toolbar
+- Or: Ctrl+Click on any image in view mode (enters select mode + selects that image)
+- Select mode replaces the normal toolbar with the selection action bar (indigo background)
+
+### 5.2 Selection Methods
+
+**Click (toggle):**
+- Click an image to toggle its selection state
+- Deselects if already selected, selects if not
+
+**Shift+Click (range):**
+- Selects all images between the last selected image and the clicked image
+- Range is determined by grid order (left-to-right, top-to-bottom)
+- Does not deselect previously selected images outside the range
+
+**Ctrl+Click / Cmd+Click (additive toggle):**
+- Toggles a single image without affecting other selections
+- Useful for picking non-contiguous images
+
+**Rubber Band / Lasso Selection (drag):**
+- Click and drag on empty grid space (not on an image) to start drawing a selection rectangle
+- All images whose bounding boxes intersect the rectangle are visually marked as "pending"
+- On mouse release, all intersecting images are added to the selection
+- If Ctrl is held during drag, adds to existing selection; otherwise replaces selection
+- Visual: semi-transparent indigo rectangle with dashed border
+
+**Select All (Ctrl+A):**
+- Selects all images in the current view (respecting any active entry/tag filters)
+
+### 5.3 Visual Feedback
+- **Selected**: 4px indigo border + 15% indigo tint overlay + filled checkbox
+- **Pending (rubber band)**: 3px dashed indigo border + 10% tint + partially filled checkbox
+- **Unselected**: Empty checkbox overlay (visible only in select mode)
+- **Selection action bar**: Full-width indigo bar with count, Select All, Clear, Edit Tags, Done
+
+### 5.4 Exiting Select Mode
+- Click "Done" in the action bar
+- Press Esc
+- Navigate away from the page
+
+### 5.5 Mobile Select Mode
+- Enter by tapping "Select" toggle
+- Tap to toggle individual selection
+- No rubber band drag (not natural on touch)
+- Long-press and drag to select multiple (future enhancement)
+- Shift+tap not available (no keyboard on mobile typically)
+
+---
+
+## 6. Interaction Patterns
+
+### 6.1 Image Grid Scrolling
+- Virtual scrolling for grids over 100 images
+- Progressive image loading with quality based on grid cell size
 - Scroll position preserved when returning from image viewer
 - Pull-to-refresh on mobile
 
-### 5.2 Drag and Drop (Future Enhancement)
-- Drag images to folder tree items to move
-- Drag images to tag chips to assign tags
-- Visual drop targets highlight on drag over
-
-### 5.3 Keyboard Navigation
+### 6.2 Keyboard Navigation
 | Key | Context | Action |
 |-----|---------|--------|
 | Ctrl+K | Global | Open command palette |
@@ -687,9 +699,9 @@ flowchart TD
 | T | Viewer | Toggle tag panel |
 | Space | Viewer | Start/stop slideshow |
 | Ctrl+A | Grid (select mode) | Select all |
-| Delete | Grid (selected) | Prompt to remove from collection |
+| Delete | Grid (selected) | Prompt to remove |
 
-### 5.4 Gesture Support (Mobile)
+### 6.3 Gesture Support (Mobile)
 | Gesture | Context | Action |
 |---------|---------|--------|
 | Swipe left/right | Viewer | Navigate images |
@@ -699,102 +711,101 @@ flowchart TD
 | Pull down | Grid/List | Refresh |
 | Long press | Card/Image | Open action sheet |
 
-### 5.5 Transitions and Animations
+### 6.4 Transitions and Animations
 - Page transitions: Shared element animation for image -> viewer
 - Sidebar expand: 200ms ease-out width transition
 - Modal entry: Scale from 0.95 + fade in, 150ms
 - Tag chip add/remove: Scale bounce (0 -> 1.05 -> 1), 200ms
 - Image selection: Border + tint with 100ms transition
+- Rubber band: Real-time rectangle rendering at 60fps
 - Toast notifications: Slide up from bottom-right, auto-dismiss 5s
-- Import progress: Smooth progress bar animation
 
 ---
 
-## 6. Responsive Design
+## 7. Responsive Design
 
-### 6.1 Breakpoint System
+### 7.1 Breakpoint System
 
 | Breakpoint | Width | Layout |
 |------------|-------|--------|
 | Mobile | 0 - 639px | Single column, bottom tabs |
-| Tablet | 640 - 1023px | 2-column layouts, bottom tabs |
-| Desktop | 1024 - 1439px | Icon rail + content, panels collapse |
-| Wide | 1440px+ | Icon rail + panels + content, full layout |
+| Tablet | 640 - 1023px | 2-3 column layouts, bottom tabs |
+| Desktop | 1024 - 2559px | Icon rail + content |
+| 4K | 2560px+ | Icon rail + expansive multi-column, full layout |
 
-### 6.2 Navigation Transformation
+### 7.2 Navigation Transformation
 
 **Desktop (1024px+):**
-- 64px icon rail sidebar, expands to 200px on hover
-- Top bar with global search
-- Breadcrumb navigation for deep pages
+- 80px icon rail sidebar, expands to 200px on hover
+- No top bar (search is in hero sections)
+- Breadcrumb navigation on detail pages
 
 **Tablet (640-1023px):**
-- Same icon rail but no hover-expand (always 64px)
-- Sub-page panels become collapsible drawers
+- Icon rail at 80px, no hover-expand
 - Image grids: 3 columns
+- Filter chips horizontally scrollable
 
 **Mobile (< 640px):**
-- Bottom tab bar (5 tabs)
-- No sidebar at all
+- 4-tab bottom bar (Home, Search, Tags, More)
+- No sidebar
 - Full-width layouts
-- Panels push-navigate instead of side-by-side
 - Image grids: 2 columns
+- Panels become full-page views or bottom sheets
 
-### 6.3 Image Grid Adaptation
+### 7.3 Image Grid Adaptation
 
 | Breakpoint | Columns | Min Card Width |
 |------------|---------|----------------|
 | Mobile | 2 | 160px |
-| Tablet | 3 | 200px |
-| Desktop | 4 | 240px |
-| Wide | 4-5 | 280px |
+| Tablet | 3-4 | 200px |
+| Desktop | 5-6 | 280px |
+| 4K | 6-8 | 480px |
 
 Grid uses `auto-fill, minmax(var(--min-card-width), 1fr)` for fluid column count.
 
-### 6.4 Touch Target Sizes
+### 7.4 Touch Target Sizes
 - Minimum touch target: 44x44px (Apple HIG)
-- Button minimum height: 32px (desktop), 40px (mobile)
-- List item minimum height: 44px
-- Checkbox/radio: 20x20px visual, 44x44px tap area
+- Button minimum height: 36px (desktop), 44px (mobile)
+- List item minimum height: 48px
+- Checkbox/radio: 24x24px visual, 44x44px tap area
 - Tab bar items: 48px height minimum
 
-### 6.5 Panel Behavior
+### 7.5 Panel Behavior
 
-| Panel | Desktop | Tablet | Mobile |
-|-------|---------|--------|--------|
-| Sidebar nav | Icon rail (64px) | Icon rail (64px) | Bottom tabs |
-| Search filters | Side panel (300px) | Collapsible drawer | Bottom sheet |
-| Anime entries | Side panel (320px) | Collapsible drawer | Horizontal tabs |
-| Tag tree | Side panel (380px) | Full page | Full page |
-| Image viewer tags | Right panel (320px) | Bottom panel | Bottom sheet |
-| Folder tree | Side panel (380px) | Full page | Drill-down nav |
+| Element | Desktop | Tablet | Mobile |
+|---------|---------|--------|--------|
+| Sidebar nav | Icon rail (80px) | Icon rail (80px) | 4-tab bottom bar |
+| Search filters | Inline chips | Inline chips | Scrollable chips |
+| Anime entries | Horizontal chips | Horizontal chips | Horizontal chips |
+| Tag management | Card grid | Card grid | List view |
+| Image viewer tags | Right panel (480px) | Bottom panel | Bottom sheet |
 
 ---
 
-## 7. Accessibility Requirements
+## 8. Accessibility Requirements
 
-### 7.1 Keyboard Navigation
+### 8.1 Keyboard Navigation
 - [x] All interactive elements focusable via Tab
 - [x] Focus visible indicator: 2px primary ring with 2px offset
 - [x] Skip-to-content link as first focusable element
-- [x] Arrow keys navigate within component groups (tabs, tree, grid)
+- [x] Arrow keys navigate within component groups (tabs, grid)
 - [x] Enter/Space activate buttons and toggles
-- [x] Escape closes modals, drawers, and popups
+- [x] Escape closes modals, drawers, popups, and select mode
 - [x] Focus trapped within open modals
 - [x] Focus returned to trigger element on modal close
 
-### 7.2 Screen Reader Support
+### 8.2 Screen Reader Support
 - [x] Semantic HTML: `nav`, `main`, `header`, `section`, `aside`
 - [x] ARIA landmarks for all major regions
 - [x] Images have descriptive alt text (filename + tags)
 - [x] Live regions for toast notifications and progress updates
-- [x] `aria-expanded` on tree items and collapsible sections
 - [x] `aria-selected` on grid items in select mode
 - [x] `aria-checked` with `"mixed"` value for indeterminate checkboxes
 - [x] `role="dialog"` with `aria-labelledby` for all modals
 - [x] Image count announcements when filtering changes results
+- [x] Rubber band selection announces count of newly selected images
 
-### 7.3 Color Contrast
+### 8.3 Color Contrast
 - [x] Text contrast: minimum 4.5:1 (AA) for body text
 - [x] Large text contrast: minimum 3:1 (AA)
 - [x] Non-text contrast: minimum 3:1 for borders and icons
@@ -802,17 +813,18 @@ Grid uses `auto-fill, minmax(var(--min-card-width), 1fr)` for fluid column count
 - [x] Tag categories distinguishable by shape/icon in addition to color
 - [x] Both light and dark themes tested for contrast compliance
 
-### 7.4 Focus Indicators
-- Default: 2px solid `#6366f1` with 2px offset, visible in both themes
+### 8.4 Focus Indicators
+- Default: 2px solid `#818cf8` with 2px offset, visible in both themes
 - High contrast mode: 3px solid ring
 - Focus-visible only (no focus ring on mouse click)
 
-### 7.5 Motion Preferences
+### 8.5 Motion Preferences
 - `prefers-reduced-motion`: disable all transitions and animations
+- Rubber band selection still works but without animation (instant rectangle)
 - Slideshow respects user preference
 - Progress bars use static states instead of animation
 
-### 7.6 Additional Considerations
+### 8.6 Additional Considerations
 - Text resizable to 200% without horizontal scrolling
 - Touch targets meet 44x44px minimum
 - Form fields have visible labels (not placeholder-only)
@@ -821,44 +833,41 @@ Grid uses `auto-fill, minmax(var(--min-card-width), 1fr)` for fluid column count
 
 ---
 
-## 8. Implementation Technology Recommendations
+## 9. Implementation Technology Recommendations
 
 ### Component Library
 Replace MUI with:
-- **Radix UI** -- Headless, accessible primitives (Dialog, Popover, Select, Tabs, Tree, Checkbox, etc.)
-- **Tailwind CSS** -- Utility-first styling, dark mode support, responsive design
+- **Radix UI** -- Headless, accessible primitives
+- **Tailwind CSS** -- Utility-first styling, dark mode support
 - **tailwind-merge** -- Merge utility for component variants
 - **class-variance-authority (cva)** -- Type-safe component variants
 
 ### Key Libraries
-- `react-window` (keep) -- Virtualized image grid
-- `react-zoom-pan-pinch` (keep) -- Image viewer zoom
-- `@tanstack/react-virtual` -- Alternative/upgrade to react-window
-- `cmdk` -- Command palette component (Linear-style)
-- `lucide-react` -- Icon set (replaces @mui/icons-material)
+- `react-window` or `@tanstack/react-virtual` -- Virtualized image grid
+- `react-zoom-pan-pinch` -- Image viewer zoom
+- `cmdk` -- Command palette (Linear-style)
+- `lucide-react` -- Icon set
 - `sonner` -- Toast notifications
-- `zustand` -- Lightweight state management (replace scattered useState)
+- `zustand` -- Lightweight state management
 
 ### File Structure Suggestion
 ```
 frontend/src/
   components/
     ui/           -- Base UI components (button, input, card, dialog, etc.)
-    layout/       -- Shell, sidebar, bottom-tabs, top-bar
-    image/        -- ImageGrid, ImageCard, ImageViewer, ThumbnailStrip
+    layout/       -- Shell, sidebar, bottom-tabs
+    image/        -- ImageGrid, ImageCard, ImageViewer, ThumbnailStrip, RubberBandSelect
     tag/          -- TagChip, TagTree, TagCheckbox, TagEditor
-    anime/        -- AnimeCard, EntryTree, EntryTab
-    folder/       -- FolderTree, FolderInfo, Breadcrumb
-    search/       -- CommandPalette, FilterPanel, FilterChip
+    anime/        -- AnimeCard, EntryChip
+    search/       -- CommandPalette, FilterChip, SearchBar
   pages/
-    library/      -- AnimeListPage
+    home/         -- AnimeListPage
     anime/        -- AnimeDetailPage
     search/       -- SearchPage
-    folders/      -- FolderBrowsePage
-    tags/          -- TagListPage, ImageTagEditorPage
+    tags/         -- TagListPage, ImageTagEditorPage
     backup/       -- BackupPage
     settings/     -- SettingsPage
-  hooks/          -- useImageGrid, useSelection, useSearch, useTags
+  hooks/          -- useImageGrid, useSelection, useRubberBand, useSearch, useTags
   stores/         -- zustand stores for global state
   styles/         -- Tailwind config, global styles, theme tokens
 ```
@@ -871,23 +880,21 @@ All wireframes are in `docs/ux-redesign/wireframes/`:
 
 | File | Description |
 |------|-------------|
-| `01-home-library-desktop.svg` | Library grid with anime cards (1440px) |
-| `01-home-library-mobile.svg` | Library with bottom tabs (375px) |
-| `02-anime-detail-desktop.svg` | Anime detail: entry tree + image grid (1440px) |
-| `02-anime-detail-mobile.svg` | Anime detail: tabs + compact grid (375px) |
-| `03-image-viewer-desktop.svg` | Full-screen viewer with tag panel (1440px) |
-| `03-image-viewer-mobile.svg` | Full-screen viewer with bottom sheet (375px) |
-| `04-search-desktop.svg` | Search with filter sidebar (1440px) |
-| `04-search-mobile.svg` | Search with filter chips + bottom sheet (375px) |
-| `05-tag-management-desktop.svg` | Tag tree + detail panel (1440px) |
-| `05-tag-management-mobile.svg` | Tag list with drill-down (375px) |
-| `06-image-tag-editor-desktop.svg` | Manual tags + ML suggestions split (1440px) |
-| `06-image-tag-editor-mobile.svg` | Tabbed tag editor (375px) |
-| `07-folder-management-desktop.svg` | Folder tree + image grid (1440px) |
-| `07-folder-management-mobile.svg` | File-browser style drill-down (375px) |
-| `08-backup-restore-desktop.svg` | Backup cards centered layout (1440px) |
-| `08-backup-restore-mobile.svg` | Backup stacked cards (375px) |
-| `09-settings-desktop.svg` | Settings with section nav (1440px) |
-| `09-settings-mobile.svg` | iOS-style settings list (375px) |
-| `10-navigation-pattern.svg` | Desktop icon rail vs mobile bottom tabs comparison |
-| `11-select-mode-desktop.svg` | Image selection with action bar (1440px) |
+| `01-home-desktop.svg` | Home with hero + collection grid (3840x2160) |
+| `01-home-mobile.svg` | Home with bottom tabs (375x812) |
+| `02-anime-detail-desktop.svg` | Hero header + entry chips + masonry grid (3840x2160) |
+| `02-anime-detail-mobile.svg` | Compact hero + chips + 2-col grid (375x812) |
+| `03-image-viewer-desktop.svg` | Full-screen viewer with tag panel (3840x2160) |
+| `03-image-viewer-mobile.svg` | Full-screen viewer with bottom sheet (375x812) |
+| `04-search-desktop.svg` | Inline filters + full-width results (3840x2160) |
+| `04-search-mobile.svg` | Search bar + filter chips + results (375x812) |
+| `05-tag-management-desktop.svg` | Tag cards by category with previews (3840x2160) |
+| `05-tag-management-mobile.svg` | Tag list with thumbnails (375x812) |
+| `06-image-tag-editor-desktop.svg` | Full-width tri-state checkboxes, no ML (3840x2160) |
+| `06-image-tag-editor-mobile.svg` | Single-column tag checkboxes (375x812) |
+| `07-backup-restore-desktop.svg` | Centered card layout (3840x2160) |
+| `07-backup-restore-mobile.svg` | Stacked cards (375x812) |
+| `08-settings-desktop.svg` | Horizontal section tabs + form (3840x2160) |
+| `08-settings-mobile.svg` | iOS-style settings list (375x812) |
+| `09-select-mode-desktop.svg` | Rubber band selection shown (3840x2160) |
+| `10-navigation-pattern.svg` | Icon rail + mobile bottom bar comparison |

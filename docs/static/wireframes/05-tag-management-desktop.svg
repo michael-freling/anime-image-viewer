@@ -1,165 +1,169 @@
-<svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 3840 2160" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <style>
       text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
-      .label { font-size: 11px; fill: #888; }
-      .heading { font-size: 18px; fill: #111; font-weight: 600; }
-      .subheading { font-size: 14px; fill: #111; font-weight: 500; }
-      .body { font-size: 12px; fill: #555; }
-      .small { font-size: 10px; fill: #999; }
+      .label { font-size: 22px; fill: #888; }
+      .heading { font-size: 44px; fill: #f1f5f9; font-weight: 700; }
+      .subheading { font-size: 28px; fill: #f1f5f9; font-weight: 500; }
+      .body { font-size: 24px; fill: #94a3b8; }
+      .small { font-size: 20px; fill: #64748b; }
     </style>
   </defs>
 
   <!-- Background -->
-  <rect width="1440" height="900" fill="#fafafa"/>
+  <rect width="3840" height="2160" fill="#0f0f14"/>
 
-  <!-- ==================== TOP BAR ==================== -->
-  <rect x="0" y="0" width="1440" height="56" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
-  <rect x="24" y="14" width="28" height="28" rx="6" fill="#6366f1"/>
-  <text x="40" y="33" font-size="14" fill="#fff" font-weight="700" text-anchor="middle">A</text>
-  <text x="64" y="34" font-size="15" fill="#111" font-weight="600">AnimeVault</text>
-  <rect x="460" y="12" width="520" height="32" rx="8" fill="#f3f4f6" stroke="#e5e7eb" stroke-width="1"/>
-  <text x="480" y="32" class="body" fill="#aaa">Search anime, images, tags...</text>
+  <!-- Icon rail -->
+  <rect x="0" y="0" width="80" height="2160" fill="#16161e"/>
+  <rect x="16" y="20" width="48" height="48" rx="12" fill="#818cf8"/>
+  <text x="40" y="52" font-size="28" fill="#fff" font-weight="700" text-anchor="middle">A</text>
+  <!-- Tags (active) -->
+  <g transform="translate(0, 320)">
+    <rect x="8" y="0" width="64" height="64" rx="12" fill="#1e1e2e"/>
+    <text x="40" y="84" font-size="18" fill="#818cf8" text-anchor="middle" font-weight="500">Tags</text>
+  </g>
 
-  <!-- ==================== SIDEBAR ==================== -->
-  <rect x="0" y="56" width="64" height="844" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
-  <rect x="8" y="236" width="48" height="44" rx="8" fill="#eef2ff"/>
-  <text x="32" y="268" class="small" text-anchor="middle" fill="#6366f1">Tags</text>
+  <!-- ==================== HEADER ==================== -->
+  <rect x="80" y="0" width="3760" height="120" fill="#16161e"/>
+  <text x="160" y="60" class="heading" font-size="40">Tags</text>
+  <text x="160" y="96" class="body">47 tags across 5 categories</text>
 
-  <!-- ==================== TAG LIST PANEL (left) ==================== -->
-  <rect x="64" y="56" width="380" height="844" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <!-- Search and create -->
+  <rect x="1400" y="28" width="600" height="52" rx="26" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1440" y="62" font-size="22" fill="#475569">Search tags...</text>
 
-  <!-- Panel Header -->
-  <text x="84" y="88" class="heading" font-size="16">Tags</text>
-  <text x="84" y="106" class="body">42 tags across 5 categories</text>
+  <rect x="3440" y="28" width="200" height="52" rx="12" fill="#818cf8"/>
+  <text x="3540" y="62" font-size="24" fill="#fff" text-anchor="middle" font-weight="500">+ New Tag</text>
 
-  <rect x="360" y="72" width="64" height="28" rx="6" fill="#6366f1"/>
-  <text x="392" y="90" font-size="10" fill="#fff" text-anchor="middle">+ New</text>
+  <!-- ==================== TAG CARDS LAYOUT (card grid, NOT tree + panel) ==================== -->
+  <!-- Category: Characters -->
+  <text x="160" y="176" font-size="32" fill="#f1f5f9" font-weight="600">Characters</text>
+  <text x="490" y="176" font-size="22" fill="#64748b">18 tags</text>
 
-  <!-- Search -->
-  <rect x="84" y="118" width="340" height="32" rx="6" fill="#f3f4f6"/>
-  <text x="104" y="138" class="body" fill="#aaa">Search tags...</text>
+  <!-- Tag cards (large, with preview images) -->
+  <g transform="translate(160, 200)">
+    <rect width="560" height="200" rx="16" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <!-- Preview images (horizontal strip at top) -->
+    <rect x="0" y="0" width="140" height="100" rx="16" fill="#312e81"/>
+    <rect x="140" y="0" width="140" height="100" fill="#831843"/>
+    <rect x="280" y="0" width="140" height="100" fill="#14532d"/>
+    <rect x="420" y="0" width="140" height="100" rx="16" fill="#713f12"/>
+    <rect x="420" y="0" width="140" height="100" rx="0" fill="#713f12"/>
+    <rect x="416" y="0" width="4" height="100" fill="#713f12"/>
+    <!-- Tag info -->
+    <text x="20" y="136" font-size="26" fill="#f1f5f9" font-weight="500">Eren</text>
+    <text x="20" y="166" font-size="20" fill="#64748b">86 images -- 3 anime</text>
+    <!-- Actions -->
+    <rect x="440" y="120" width="96" height="36" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <text x="488" y="144" font-size="18" fill="#94a3b8" text-anchor="middle">Edit</text>
+    <rect x="440" y="160" width="96" height="28" rx="8" fill="transparent"/>
+    <text x="488" y="180" font-size="16" fill="#64748b" text-anchor="middle">...</text>
+  </g>
 
-  <line x1="84" y1="162" x2="424" y2="162" stroke="#e5e7eb" stroke-width="1"/>
+  <g transform="translate(750, 200)">
+    <rect width="560" height="200" rx="16" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <rect x="0" y="0" width="140" height="100" rx="16" fill="#831843"/>
+    <rect x="140" y="0" width="140" height="100" fill="#3b0764"/>
+    <rect x="280" y="0" width="140" height="100" fill="#312e81"/>
+    <rect x="420" y="0" width="140" height="100" rx="16" fill="#1c1917"/>
+    <text x="20" y="136" font-size="26" fill="#f1f5f9" font-weight="500">Mikasa</text>
+    <text x="20" y="166" font-size="20" fill="#64748b">72 images -- 2 anime</text>
+    <rect x="440" y="120" width="96" height="36" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <text x="488" y="144" font-size="18" fill="#94a3b8" text-anchor="middle">Edit</text>
+  </g>
 
-  <!-- Tag Tree -->
-  <!-- Category: Characters (expanded) -->
-  <rect x="84" y="170" width="340" height="28" rx="4" fill="#f8fafc"/>
-  <text x="100" y="188" font-size="12" fill="#111" font-weight="500">&#9662; Characters</text>
-  <text x="400" y="188" class="small" text-anchor="end">18</text>
+  <g transform="translate(1340, 200)">
+    <rect width="560" height="200" rx="16" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <rect x="0" y="0" width="140" height="100" rx="16" fill="#14532d"/>
+    <rect x="140" y="0" width="140" height="100" fill="#713f12"/>
+    <rect x="280" y="0" width="140" height="100" fill="#881337"/>
+    <rect x="420" y="0" width="140" height="100" rx="16" fill="#134e4a"/>
+    <text x="20" y="136" font-size="26" fill="#f1f5f9" font-weight="500">Armin</text>
+    <text x="20" y="166" font-size="20" fill="#64748b">54 images -- 1 anime</text>
+    <rect x="440" y="120" width="96" height="36" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <text x="488" y="144" font-size="18" fill="#94a3b8" text-anchor="middle">Edit</text>
+  </g>
 
-  <text x="120" y="212" class="body">Eren Yeager</text>
-  <text x="408" y="212" class="small" text-anchor="end">23</text>
-  <!-- Selected tag -->
-  <rect x="84" y="220" width="340" height="28" rx="4" fill="#eef2ff"/>
-  <text x="120" y="238" class="body" fill="#6366f1">Mikasa Ackerman</text>
-  <text x="408" y="238" class="small" text-anchor="end" fill="#6366f1">31</text>
-  <text x="120" y="258" class="body">Armin Arlert</text>
-  <text x="408" y="258" class="small" text-anchor="end">15</text>
-  <text x="120" y="278" class="body">Levi Ackerman</text>
-  <text x="408" y="278" class="small" text-anchor="end">28</text>
-  <text x="120" y="298" class="body">Historia Reiss</text>
-  <text x="408" y="298" class="small" text-anchor="end">8</text>
+  <g transform="translate(1930, 200)">
+    <rect width="560" height="200" rx="16" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <rect x="0" y="0" width="140" height="100" rx="16" fill="#4a1d96"/>
+    <rect x="140" y="0" width="140" height="100" fill="#7f1d1d"/>
+    <rect x="280" y="0" width="280" height="100" rx="16" fill="#1e3a5f"/>
+    <text x="20" y="136" font-size="26" fill="#f1f5f9" font-weight="500">Levi</text>
+    <text x="20" y="166" font-size="20" fill="#64748b">48 images -- 1 anime</text>
+    <rect x="440" y="120" width="96" height="36" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <text x="488" y="144" font-size="18" fill="#94a3b8" text-anchor="middle">Edit</text>
+  </g>
 
-  <!-- Category: Scenes (collapsed) -->
-  <rect x="84" y="314" width="340" height="28" rx="4" fill="#f8fafc"/>
-  <text x="100" y="332" font-size="12" fill="#111" font-weight="500">&#9656; Scenes</text>
-  <text x="400" y="332" class="small" text-anchor="end">12</text>
+  <g transform="translate(2520, 200)">
+    <rect width="560" height="200" rx="16" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <rect x="0" y="0" width="280" height="100" rx="16" fill="#365314"/>
+    <rect x="280" y="0" width="280" height="100" rx="16" fill="#78350f"/>
+    <text x="20" y="136" font-size="26" fill="#f1f5f9" font-weight="500">Historia</text>
+    <text x="20" y="166" font-size="20" fill="#64748b">32 images -- 1 anime</text>
+    <rect x="440" y="120" width="96" height="36" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <text x="488" y="144" font-size="18" fill="#94a3b8" text-anchor="middle">Edit</text>
+  </g>
+
+  <g transform="translate(3110, 200)">
+    <rect width="560" height="200" rx="16" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <rect x="0" y="0" width="560" height="100" rx="16" fill="#2d2d3f"/>
+    <text x="280" y="58" font-size="22" fill="#475569" text-anchor="middle">+3 more characters...</text>
+    <text x="20" y="136" font-size="26" fill="#f1f5f9" font-weight="500">Hange, Sasha, Erwin</text>
+    <text x="20" y="166" font-size="20" fill="#64748b">Combined: 67 images</text>
+  </g>
+
+  <!-- Category: Scenes -->
+  <text x="160" y="470" font-size="32" fill="#f1f5f9" font-weight="600">Scenes</text>
+  <text x="360" y="470" font-size="22" fill="#64748b">12 tags</text>
+
+  <g transform="translate(160, 494)">
+    <rect width="560" height="200" rx="16" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <rect x="0" y="0" width="560" height="100" rx="16" fill="#14532d"/>
+    <text x="20" y="136" font-size="26" fill="#f1f5f9" font-weight="500">Outdoor</text>
+    <text x="20" y="166" font-size="20" fill="#64748b">124 images -- 8 anime</text>
+  </g>
+
+  <g transform="translate(750, 494)">
+    <rect width="560" height="200" rx="16" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <rect x="0" y="0" width="560" height="100" rx="16" fill="#312e81"/>
+    <text x="20" y="136" font-size="26" fill="#f1f5f9" font-weight="500">Indoor</text>
+    <text x="20" y="166" font-size="20" fill="#64748b">98 images -- 7 anime</text>
+  </g>
+
+  <g transform="translate(1340, 494)">
+    <rect width="560" height="200" rx="16" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <rect x="0" y="0" width="560" height="100" rx="16" fill="#831843"/>
+    <text x="20" y="136" font-size="26" fill="#f1f5f9" font-weight="500">Action</text>
+    <text x="20" y="166" font-size="20" fill="#64748b">156 images -- 10 anime</text>
+  </g>
+
+  <g transform="translate(1930, 494)">
+    <rect width="560" height="200" rx="16" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <rect x="0" y="0" width="560" height="100" rx="16" fill="#713f12"/>
+    <text x="20" y="136" font-size="26" fill="#f1f5f9" font-weight="500">Romance</text>
+    <text x="20" y="166" font-size="20" fill="#64748b">42 images -- 4 anime</text>
+  </g>
 
   <!-- Category: Locations -->
-  <rect x="84" y="350" width="340" height="28" rx="4" fill="#f8fafc"/>
-  <text x="100" y="368" font-size="12" fill="#111" font-weight="500">&#9656; Locations</text>
-  <text x="400" y="368" class="small" text-anchor="end">6</text>
+  <text x="160" y="764" font-size="32" fill="#f1f5f9" font-weight="600">Locations</text>
+  <text x="420" y="764" font-size="22" fill="#64748b">8 tags</text>
 
-  <!-- Category: Objects -->
-  <rect x="84" y="386" width="340" height="28" rx="4" fill="#f8fafc"/>
-  <text x="100" y="404" font-size="12" fill="#111" font-weight="500">&#9656; Objects</text>
-  <text x="400" y="404" class="small" text-anchor="end">4</text>
-
-  <!-- Uncategorized -->
-  <rect x="84" y="422" width="340" height="28" rx="4" fill="#f8fafc"/>
-  <text x="100" y="440" font-size="12" fill="#111" font-weight="500">&#9656; Uncategorized</text>
-  <text x="400" y="440" class="small" text-anchor="end">2</text>
-
-  <!-- ==================== TAG DETAIL PANEL (right) ==================== -->
-  <rect x="444" y="56" width="996" height="844" fill="#fafafa"/>
-
-  <!-- Detail Header -->
-  <rect x="444" y="56" width="996" height="80" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
-  <text x="474" y="88" font-size="16" fill="#111" font-weight="600">Mikasa Ackerman</text>
-  <text x="474" y="108" class="body">Character tag -- 31 images -- 4 folders</text>
-
-  <!-- Action buttons -->
-  <rect x="1220" y="76" width="60" height="28" rx="6" fill="#fff" stroke="#d1d5db" stroke-width="1"/>
-  <text x="1250" y="94" font-size="10" fill="#555" text-anchor="middle">Rename</text>
-  <rect x="1288" y="76" width="60" height="28" rx="6" fill="#fff" stroke="#d1d5db" stroke-width="1"/>
-  <text x="1318" y="94" font-size="10" fill="#555" text-anchor="middle">Merge</text>
-  <rect x="1356" y="76" width="60" height="28" rx="6" fill="#fff" stroke="#fecaca" stroke-width="1"/>
-  <text x="1386" y="94" font-size="10" fill="#dc2626" text-anchor="middle">Delete</text>
-
-  <!-- Category select -->
-  <text x="474" y="160" font-size="11" fill="#888" font-weight="500" letter-spacing="1">CATEGORY</text>
-  <rect x="474" y="168" width="160" height="28" rx="6" fill="#f3f4f6"/>
-  <text x="494" y="186" class="body">Character</text>
-  <text x="616" y="186" class="body" fill="#888">&#9660;</text>
-
-  <line x1="474" y1="210" x2="1420" y2="210" stroke="#e5e7eb" stroke-width="1"/>
-
-  <!-- Folders with this tag -->
-  <text x="474" y="234" font-size="11" fill="#888" font-weight="500" letter-spacing="1">FOLDERS WITH THIS TAG</text>
-
-  <rect x="474" y="244" width="920" height="100" rx="8" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
-  <text x="494" y="268" class="body" fill="#6366f1">&#128193; attack-on-titan/season-1/</text>
-  <text x="494" y="288" class="body" fill="#6366f1">&#128193; attack-on-titan/season-2/</text>
-  <text x="494" y="308" class="body" fill="#6366f1">&#128193; attack-on-titan/season-3/part-1/</text>
-  <text x="494" y="328" class="body" fill="#6366f1">&#128193; attack-on-titan/season-4/</text>
-
-  <line x1="474" y1="360" x2="1420" y2="360" stroke="#e5e7eb" stroke-width="1"/>
-
-  <!-- Preview images -->
-  <text x="474" y="384" font-size="11" fill="#888" font-weight="500" letter-spacing="1">IMAGES (31)</text>
-  <text x="1400" y="384" font-size="10" fill="#6366f1" text-anchor="end">View all</text>
-
-  <!-- Image preview grid -->
-  <g transform="translate(474, 396)">
-    <rect width="180" height="120" rx="6" fill="#e0e7ff"/>
-    <text x="90" y="64" class="small" fill="#a5b4fc" text-anchor="middle">Image 1</text>
-  </g>
-  <g transform="translate(666, 396)">
-    <rect width="180" height="120" rx="6" fill="#fce7f3"/>
-    <text x="90" y="64" class="small" fill="#f9a8d4" text-anchor="middle">Image 2</text>
-  </g>
-  <g transform="translate(858, 396)">
-    <rect width="180" height="120" rx="6" fill="#d1fae5"/>
-    <text x="90" y="64" class="small" fill="#6ee7b7" text-anchor="middle">Image 3</text>
-  </g>
-  <g transform="translate(1050, 396)">
-    <rect width="180" height="120" rx="6" fill="#fef3c7"/>
-    <text x="90" y="64" class="small" fill="#fcd34d" text-anchor="middle">Image 4</text>
-  </g>
-  <g transform="translate(1242, 396)">
-    <rect width="180" height="120" rx="6" fill="#ddd6fe"/>
-    <text x="90" y="64" class="small" fill="#c4b5fd" text-anchor="middle">Image 5</text>
+  <g transform="translate(160, 788)">
+    <rect width="560" height="200" rx="16" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <rect x="0" y="0" width="560" height="100" rx="16" fill="#1e3a5f"/>
+    <text x="20" y="136" font-size="26" fill="#f1f5f9" font-weight="500">School</text>
+    <text x="20" y="166" font-size="20" fill="#64748b">89 images -- 6 anime</text>
   </g>
 
-  <!-- Second row -->
-  <g transform="translate(474, 528)">
-    <rect width="180" height="120" rx="6" fill="#fbcfe8"/>
-  </g>
-  <g transform="translate(666, 528)">
-    <rect width="180" height="120" rx="6" fill="#ccfbf1"/>
-  </g>
-  <g transform="translate(858, 528)">
-    <rect width="180" height="120" rx="6" fill="#fee2e2"/>
-  </g>
-  <g transform="translate(1050, 528)">
-    <rect width="180" height="120" rx="6" fill="#e0e7ff"/>
-  </g>
-  <g transform="translate(1242, 528)">
-    <rect width="180" height="120" rx="6" fill="#fef3c7"/>
+  <g transform="translate(750, 788)">
+    <rect width="560" height="200" rx="16" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <rect x="0" y="0" width="560" height="100" rx="16" fill="#4a1d96"/>
+    <text x="20" y="136" font-size="26" fill="#f1f5f9" font-weight="500">City</text>
+    <text x="20" y="166" font-size="20" fill="#64748b">67 images -- 5 anime</text>
   </g>
 
   <!-- Annotations -->
-  <text x="264" y="890" class="label" text-anchor="middle">Tag tree with counts and search</text>
-  <text x="920" y="890" class="label" text-anchor="middle">Tag detail: category, folders, image previews, actions</text>
+  <text x="1960" y="2100" class="label" text-anchor="middle">Visual tag cards with preview images -- Grouped by category -- NOT a tree + detail panel split</text>
+  <text x="1960" y="2140" class="label" text-anchor="middle">Inspired by Pinterest boards / Google Photos albums -- Each tag card shows preview images</text>
 </svg>

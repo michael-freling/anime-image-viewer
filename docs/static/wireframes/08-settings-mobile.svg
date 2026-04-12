@@ -1,0 +1,94 @@
+<svg viewBox="0 0 375 812" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .body { font-size: 12px; fill: #94a3b8; }
+      .small { font-size: 10px; fill: #64748b; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="375" height="812" fill="#0f0f14"/>
+  <text x="20" y="30" font-size="12" fill="#f1f5f9" font-weight="600">9:41</text>
+
+  <!-- Header -->
+  <text x="20" y="72" font-size="22" fill="#f1f5f9" font-weight="700">Settings</text>
+
+  <!-- Settings list (iOS-style) -->
+  <!-- General section -->
+  <text x="20" y="108" font-size="14" fill="#64748b" font-weight="500">GENERAL</text>
+
+  <rect x="20" y="118" width="335" height="192" rx="12" fill="#1e1e2e"/>
+
+  <g transform="translate(20, 118)">
+    <text x="16" y="32" font-size="14" fill="#f1f5f9">Image Root Directory</text>
+    <text x="304" y="32" font-size="12" fill="#64748b" text-anchor="end">&gt;</text>
+    <text x="16" y="50" font-size="10" fill="#475569">/home/user/anime-images/</text>
+    <line x1="16" y1="60" x2="319" y2="60" stroke="#2d2d3f" stroke-width="0.5"/>
+
+    <text x="16" y="82" font-size="14" fill="#f1f5f9">Config Directory</text>
+    <text x="304" y="82" font-size="12" fill="#64748b" text-anchor="end">&gt;</text>
+    <line x1="16" y1="96" x2="319" y2="96" stroke="#2d2d3f" stroke-width="0.5"/>
+
+    <text x="16" y="118" font-size="14" fill="#f1f5f9">Log Directory</text>
+    <text x="304" y="118" font-size="12" fill="#64748b" text-anchor="end">&gt;</text>
+    <line x1="16" y1="132" x2="319" y2="132" stroke="#2d2d3f" stroke-width="0.5"/>
+
+    <text x="16" y="154" font-size="14" fill="#f1f5f9">Backup Directory</text>
+    <text x="304" y="154" font-size="12" fill="#64748b" text-anchor="end">&gt;</text>
+  </g>
+
+  <!-- Appearance section -->
+  <text x="20" y="338" font-size="14" fill="#64748b" font-weight="500">APPEARANCE</text>
+
+  <rect x="20" y="348" width="335" height="104" rx="12" fill="#1e1e2e"/>
+
+  <g transform="translate(20, 348)">
+    <text x="16" y="32" font-size="14" fill="#f1f5f9">Theme</text>
+    <!-- Segmented control -->
+    <rect x="160" y="12" width="156" height="32" rx="8" fill="#0f0f14"/>
+    <rect x="162" y="14" width="50" height="28" rx="6" fill="#818cf8"/>
+    <text x="187" y="34" font-size="10" fill="#fff" text-anchor="middle">Light</text>
+    <text x="237" y="34" font-size="10" fill="#64748b" text-anchor="middle">Dark</text>
+    <text x="290" y="34" font-size="10" fill="#64748b" text-anchor="middle">System</text>
+    <line x1="16" y1="52" x2="319" y2="52" stroke="#2d2d3f" stroke-width="0.5"/>
+
+    <text x="16" y="76" font-size="14" fill="#f1f5f9">Grid Columns</text>
+    <text x="304" y="76" font-size="13" fill="#94a3b8" text-anchor="end">Auto</text>
+  </g>
+
+  <!-- About section -->
+  <text x="20" y="480" font-size="14" fill="#64748b" font-weight="500">ABOUT</text>
+
+  <rect x="20" y="490" width="335" height="104" rx="12" fill="#1e1e2e"/>
+
+  <g transform="translate(20, 490)">
+    <text x="16" y="32" font-size="14" fill="#f1f5f9">Version</text>
+    <text x="304" y="32" font-size="13" fill="#64748b" text-anchor="end">1.0.0</text>
+    <line x1="16" y1="48" x2="319" y2="48" stroke="#2d2d3f" stroke-width="0.5"/>
+
+    <text x="16" y="72" font-size="14" fill="#f1f5f9">GitHub</text>
+    <text x="304" y="72" font-size="12" fill="#818cf8" text-anchor="end">Open</text>
+  </g>
+
+  <!-- Danger zone -->
+  <text x="20" y="626" font-size="14" fill="#64748b" font-weight="500">DANGER ZONE</text>
+  <rect x="20" y="636" width="335" height="48" rx="12" fill="#1e1e2e"/>
+  <text x="36" y="666" font-size="14" fill="#fca5a5">Reset to Defaults</text>
+
+  <!-- Bottom Tab Bar -->
+  <rect x="0" y="748" width="375" height="64" fill="#16161e" stroke="#2d2d3f" stroke-width="1"/>
+  <g transform="translate(30, 756)">
+    <text x="34" y="40" font-size="10" fill="#64748b" text-anchor="middle">Home</text>
+  </g>
+  <g transform="translate(123, 756)">
+    <text x="34" y="40" font-size="10" fill="#64748b" text-anchor="middle">Search</text>
+  </g>
+  <g transform="translate(216, 756)">
+    <text x="34" y="40" font-size="10" fill="#64748b" text-anchor="middle">Tags</text>
+  </g>
+  <g transform="translate(309, 756)">
+    <rect x="10" y="-2" width="48" height="28" rx="14" fill="#1e1e2e"/>
+    <text x="34" y="40" font-size="10" fill="#818cf8" text-anchor="middle">More</text>
+  </g>
+</svg>

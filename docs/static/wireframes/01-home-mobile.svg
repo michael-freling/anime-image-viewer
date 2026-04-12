@@ -1,0 +1,128 @@
+<svg viewBox="0 0 375 812" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 9px; fill: #888; }
+      .heading { font-size: 22px; fill: #f1f5f9; font-weight: 700; }
+      .subheading { font-size: 14px; fill: #f1f5f9; font-weight: 500; }
+      .body { font-size: 12px; fill: #94a3b8; }
+      .small { font-size: 10px; fill: #64748b; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="375" height="812" fill="#0f0f14"/>
+
+  <!-- Status bar -->
+  <rect width="375" height="44" fill="#0f0f14"/>
+  <text x="20" y="30" font-size="12" fill="#f1f5f9" font-weight="600">9:41</text>
+  <text x="355" y="30" font-size="10" fill="#f1f5f9" text-anchor="end">100%</text>
+
+  <!-- Page Title -->
+  <text x="20" y="80" class="heading">Home</text>
+  <text x="20" y="100" class="body">24 anime -- 1,847 images</text>
+
+  <!-- Action buttons -->
+  <rect x="240" y="60" width="56" height="32" rx="8" fill="#818cf8"/>
+  <text x="268" y="81" font-size="11" fill="#fff" text-anchor="middle">+ Add</text>
+  <rect x="304" y="60" width="56" height="32" rx="8" fill="#1e1e2e" stroke="#2d2d3f"/>
+  <text x="332" y="81" font-size="11" fill="#94a3b8" text-anchor="middle">Import</text>
+
+  <!-- Search bar -->
+  <rect x="20" y="116" width="335" height="40" rx="20" fill="#1e1e2e" stroke="#2d2d3f"/>
+  <text x="48" y="141" class="body" fill="#475569">Search... Ctrl+K</text>
+  <circle cx="36" cy="136" r="8" fill="none" stroke="#475569" stroke-width="1.5"/>
+  <line x1="42" y1="142" x2="46" y2="146" stroke="#475569" stroke-width="1.5"/>
+
+  <!-- Recently Updated (horizontal scroll) -->
+  <text x="20" y="186" font-size="14" fill="#94a3b8" font-weight="600">Recently Updated</text>
+
+  <g transform="translate(20, 198)">
+    <rect width="200" height="56" rx="10" fill="#1e1e2e"/>
+    <rect width="56" height="56" rx="10" fill="#312e81"/>
+    <text x="28" y="32" font-size="10" fill="#818cf8" text-anchor="middle">Img</text>
+    <text x="66" y="26" font-size="12" fill="#f1f5f9" font-weight="500">Attack on Titan</text>
+    <text x="66" y="42" font-size="10" fill="#64748b">Updated 2h ago</text>
+  </g>
+
+  <g transform="translate(228, 198)">
+    <rect width="200" height="56" rx="10" fill="#1e1e2e"/>
+    <rect width="56" height="56" rx="10" fill="#831843"/>
+    <text x="28" y="32" font-size="10" fill="#f9a8d4" text-anchor="middle">Img</text>
+    <text x="66" y="26" font-size="12" fill="#f1f5f9" font-weight="500">Spy x Family</text>
+    <text x="66" y="42" font-size="10" fill="#64748b">Updated yesterday</text>
+  </g>
+
+  <!-- Collection Grid (2 columns) -->
+  <text x="20" y="290" font-size="14" fill="#94a3b8" font-weight="600">Collection</text>
+  <text x="340" y="290" font-size="11" fill="#64748b" text-anchor="end">Sort: A-Z</text>
+
+  <!-- Row 1 -->
+  <g transform="translate(20, 302)">
+    <rect width="166" height="180" rx="12" fill="#1e1e2e"/>
+    <rect width="166" height="120" rx="12" fill="#312e81"/>
+    <rect y="110" width="166" height="10" fill="#1e1e2e"/>
+    <text x="83" y="66" font-size="12" fill="#818cf8" text-anchor="middle">Cover</text>
+    <text x="12" y="148" font-size="13" fill="#f1f5f9" font-weight="500">Attack on Titan</text>
+    <text x="12" y="166" font-size="10" fill="#64748b">342 images</text>
+  </g>
+
+  <g transform="translate(194, 302)">
+    <rect width="166" height="180" rx="12" fill="#1e1e2e"/>
+    <rect width="166" height="120" rx="12" fill="#831843"/>
+    <rect y="110" width="166" height="10" fill="#1e1e2e"/>
+    <text x="83" y="66" font-size="12" fill="#f9a8d4" text-anchor="middle">Cover</text>
+    <text x="12" y="148" font-size="13" fill="#f1f5f9" font-weight="500">Spy x Family</text>
+    <text x="12" y="166" font-size="10" fill="#64748b">218 images</text>
+  </g>
+
+  <!-- Row 2 -->
+  <g transform="translate(20, 494)">
+    <rect width="166" height="180" rx="12" fill="#1e1e2e"/>
+    <rect width="166" height="120" rx="12" fill="#14532d"/>
+    <rect y="110" width="166" height="10" fill="#1e1e2e"/>
+    <text x="83" y="66" font-size="12" fill="#6ee7b7" text-anchor="middle">Cover</text>
+    <text x="12" y="148" font-size="13" fill="#f1f5f9" font-weight="500">Jujutsu Kaisen</text>
+    <text x="12" y="166" font-size="10" fill="#64748b">187 images</text>
+  </g>
+
+  <g transform="translate(194, 494)">
+    <rect width="166" height="180" rx="12" fill="#1e1e2e"/>
+    <rect width="166" height="120" rx="12" fill="#713f12"/>
+    <rect y="110" width="166" height="10" fill="#1e1e2e"/>
+    <text x="83" y="66" font-size="12" fill="#fcd34d" text-anchor="middle">Cover</text>
+    <text x="12" y="148" font-size="13" fill="#f1f5f9" font-weight="500">Demon Slayer</text>
+    <text x="12" y="166" font-size="10" fill="#64748b">276 images</text>
+  </g>
+
+  <!-- Bottom Tab Bar -->
+  <rect x="0" y="748" width="375" height="64" fill="#16161e" stroke="#2d2d3f" stroke-width="1"/>
+
+  <!-- Home (active) -->
+  <g transform="translate(30, 756)">
+    <rect x="10" y="-2" width="48" height="28" rx="14" fill="#1e1e2e"/>
+    <rect x="22" y="4" width="24" height="16" rx="3" fill="none" stroke="#818cf8" stroke-width="1.5"/>
+    <text x="34" y="40" font-size="10" fill="#818cf8" text-anchor="middle">Home</text>
+  </g>
+
+  <!-- Search -->
+  <g transform="translate(123, 756)">
+    <circle cx="34" cy="12" r="8" fill="none" stroke="#64748b" stroke-width="1.5"/>
+    <line x1="40" y1="18" x2="46" y2="24" stroke="#64748b" stroke-width="1.5"/>
+    <text x="34" y="40" font-size="10" fill="#64748b" text-anchor="middle">Search</text>
+  </g>
+
+  <!-- Tags -->
+  <g transform="translate(216, 756)">
+    <rect x="18" y="4" width="24" height="16" rx="5" fill="none" stroke="#64748b" stroke-width="1.5" transform="rotate(-8, 30, 12)"/>
+    <text x="34" y="40" font-size="10" fill="#64748b" text-anchor="middle">Tags</text>
+  </g>
+
+  <!-- More -->
+  <g transform="translate(309, 756)">
+    <circle cx="26" cy="12" r="2" fill="#64748b"/>
+    <circle cx="34" cy="12" r="2" fill="#64748b"/>
+    <circle cx="42" cy="12" r="2" fill="#64748b"/>
+    <text x="34" y="40" font-size="10" fill="#64748b" text-anchor="middle">More</text>
+  </g>
+</svg>

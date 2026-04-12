@@ -1,0 +1,90 @@
+<svg viewBox="0 0 375 812" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .body { font-size: 12px; fill: #94a3b8; }
+      .small { font-size: 10px; fill: #64748b; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="375" height="812" fill="#0f0f14"/>
+  <text x="20" y="30" font-size="12" fill="#f1f5f9" font-weight="600">9:41</text>
+
+  <!-- Header -->
+  <text x="20" y="72" font-size="22" fill="#f1f5f9" font-weight="700">Backup</text>
+
+  <!-- Create Backup card -->
+  <rect x="20" y="92" width="335" height="180" rx="16" fill="#1e1e2e"/>
+  <text x="36" y="120" font-size="16" fill="#f1f5f9" font-weight="600">Create Backup</text>
+
+  <text x="36" y="152" font-size="12" fill="#94a3b8">Include images</text>
+  <rect x="288" y="136" width="40" height="24" rx="12" fill="#818cf8"/>
+  <circle cx="316" cy="148" r="8" fill="#fff"/>
+
+  <text x="36" y="188" font-size="12" fill="#94a3b8">Target: /home/user/backups/</text>
+  <text x="310" y="188" font-size="12" fill="#818cf8" text-anchor="end">Change</text>
+
+  <rect x="36" y="210" width="120" height="40" rx="10" fill="#818cf8"/>
+  <text x="96" y="236" font-size="13" fill="#fff" text-anchor="middle">Create</text>
+
+  <!-- History -->
+  <text x="20" y="304" font-size="16" fill="#f1f5f9" font-weight="600">History</text>
+
+  <g transform="translate(20, 318)">
+    <rect width="335" height="80" rx="12" fill="#1e1e2e"/>
+    <text x="16" y="28" font-size="13" fill="#f1f5f9">Apr 12, 2026 -- 10:30 AM</text>
+    <rect x="260" y="10" width="48" height="22" rx="11" fill="#1a3a2e"/>
+    <text x="284" y="26" font-size="10" fill="#6ee7b7" text-anchor="middle">auto</text>
+    <text x="16" y="50" font-size="11" fill="#64748b">2.4 GB -- With images</text>
+    <text x="16" y="70" font-size="12" fill="#818cf8">Restore</text>
+    <text x="100" y="70" font-size="12" fill="#fca5a5">Delete</text>
+  </g>
+
+  <g transform="translate(20, 406)">
+    <rect width="335" height="80" rx="12" fill="#1e1e2e"/>
+    <text x="16" y="28" font-size="13" fill="#f1f5f9">Apr 11, 2026 -- 2:15 PM</text>
+    <rect x="260" y="10" width="60" height="22" rx="11" fill="#312e81"/>
+    <text x="290" y="26" font-size="10" fill="#818cf8" text-anchor="middle">manual</text>
+    <text x="16" y="50" font-size="11" fill="#64748b">48 MB -- Without images</text>
+    <text x="16" y="70" font-size="12" fill="#818cf8">Restore</text>
+    <text x="100" y="70" font-size="12" fill="#fca5a5">Delete</text>
+  </g>
+
+  <!-- Auto-Backup -->
+  <text x="20" y="530" font-size="16" fill="#f1f5f9" font-weight="600">Auto-Backup</text>
+
+  <rect x="20" y="544" width="335" height="180" rx="12" fill="#1e1e2e"/>
+  <text x="36" y="574" font-size="12" fill="#94a3b8">Enabled</text>
+  <rect x="288" y="558" width="40" height="24" rx="12" fill="#818cf8"/>
+  <circle cx="316" cy="570" r="8" fill="#fff"/>
+
+  <text x="36" y="608" font-size="12" fill="#94a3b8">Idle minutes</text>
+  <text x="320" y="608" font-size="13" fill="#f1f5f9" text-anchor="end">30</text>
+
+  <text x="36" y="640" font-size="12" fill="#94a3b8">Keep last</text>
+  <text x="320" y="640" font-size="13" fill="#f1f5f9" text-anchor="end">5</text>
+
+  <text x="36" y="672" font-size="12" fill="#94a3b8">Include images</text>
+  <rect x="288" y="656" width="40" height="24" rx="12" fill="#2d2d3f"/>
+  <circle cx="300" cy="668" r="8" fill="#64748b"/>
+
+  <rect x="36" y="692" width="100" height="36" rx="8" fill="#818cf8"/>
+  <text x="86" y="716" font-size="12" fill="#fff" text-anchor="middle">Save</text>
+
+  <!-- Bottom Tab Bar -->
+  <rect x="0" y="748" width="375" height="64" fill="#16161e" stroke="#2d2d3f" stroke-width="1"/>
+  <g transform="translate(30, 756)">
+    <text x="34" y="40" font-size="10" fill="#64748b" text-anchor="middle">Home</text>
+  </g>
+  <g transform="translate(123, 756)">
+    <text x="34" y="40" font-size="10" fill="#64748b" text-anchor="middle">Search</text>
+  </g>
+  <g transform="translate(216, 756)">
+    <text x="34" y="40" font-size="10" fill="#64748b" text-anchor="middle">Tags</text>
+  </g>
+  <g transform="translate(309, 756)">
+    <rect x="10" y="-2" width="48" height="28" rx="14" fill="#1e1e2e"/>
+    <text x="34" y="40" font-size="10" fill="#818cf8" text-anchor="middle">More</text>
+  </g>
+</svg>
