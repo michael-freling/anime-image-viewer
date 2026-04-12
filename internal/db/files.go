@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"fmt"
 
 	"gorm.io/gorm"
 )
@@ -222,24 +221,20 @@ func (client *FileClient) UpdateContentHash(id uint, hash string) error {
 }
 
 // BatchUpdateContentHashes updates the content_hash column for multiple file
-// records in a single SQL statement using a CASE expression. The updates map
-// is keyed by file ID.
+// records in a single transaction. The updates map is keyed by file ID.
 func (client *FileClient) BatchUpdateContentHashes(updates map[uint]string) error {
 	if len(updates) == 0 {
 		return nil
 	}
-
-	ids := make([]uint, 0, len(updates))
-	caseExpr := "CASE id"
-	for id, hash := range updates {
-		ids = append(ids, id)
-		caseExpr += fmt.Sprintf(" WHEN %d THEN '%s'", id, hash)
-	}
-	caseExpr += " END"
-
-	return client.connection.
-		Model(&File{}).
-		Where("id IN ?", ids).
-		Update("content_hash", gorm.Expr(caseExpr)).
-		Error
+	return client.connection.Transaction(func(tx *gorm.DB) error {
+		for id, hash := range updates {
+			if err := tx.Model(&File{}).
+				Where("id = ?", id).
+				Update("content_hash", hash).
+				Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
