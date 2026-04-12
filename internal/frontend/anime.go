@@ -14,8 +14,9 @@ import (
 
 // Anime is the JSON-friendly anime model exposed to the frontend.
 type Anime struct {
-	ID   uint   `json:"id"`
-	Name string `json:"name"`
+	ID        uint   `json:"id"`
+	Name      string `json:"name"`
+	AniListID *int   `json:"aniListId"`
 }
 
 // AnimeListItem is an anime row plus its image count for the list page.
@@ -61,12 +62,14 @@ type UnassignedFolder struct {
 
 // AnimeEntryInfo is an entry (season, movie, other) in the anime's folder tree.
 type AnimeEntryInfo struct {
-	ID          uint             `json:"id"`
-	Name        string           `json:"name"`
-	EntryType   string           `json:"entryType"`
-	EntryNumber *uint            `json:"entryNumber"`
-	ImageCount  uint             `json:"imageCount"`
-	Children    []AnimeEntryInfo `json:"children"`
+	ID           uint             `json:"id"`
+	Name         string           `json:"name"`
+	EntryType    string           `json:"entryType"`
+	EntryNumber  *uint            `json:"entryNumber"`
+	AiringSeason string           `json:"airingSeason"`
+	AiringYear   *uint            `json:"airingYear"`
+	ImageCount   uint             `json:"imageCount"`
+	Children     []AnimeEntryInfo `json:"children"`
 }
 
 // AnimeDetailsResponse is the payload of the landing page request.
@@ -152,6 +155,12 @@ func (s *AnimeService) GetAnimeDetails(ctx context.Context, id uint) (AnimeDetai
 		return AnimeDetailsResponse{}, err
 	}
 
+	// Read the DB row to get AniListID (core Anime struct does not carry it).
+	dbAnime, err := s.dbClient.Anime().FindByValue(ctx, &db.Anime{ID: id})
+	if err != nil {
+		return AnimeDetailsResponse{}, fmt.Errorf("Anime.FindByValue: %w", err)
+	}
+
 	// Derive tags from images in the anime's folder tree
 	derivedTags, err := s.core.DeriveTagsForAnime(id)
 	if err != nil {
@@ -195,7 +204,7 @@ func (s *AnimeService) GetAnimeDetails(ctx context.Context, id uint) (AnimeDetai
 	entryInfos := convertEntries(coreEntries)
 
 	return AnimeDetailsResponse{
-		Anime:      Anime{ID: a.ID, Name: a.Name},
+		Anime:      Anime{ID: a.ID, Name: a.Name, AniListID: dbAnime.AniListID},
 		Tags:       tagInfos,
 		Folders:    folderInfos,
 		FolderTree: folderTree,
@@ -525,6 +534,46 @@ func (s *AnimeService) GetNextEntryNumber(animeID uint, entryType string) (uint,
 	return s.core.NextEntryNumber(animeID, entryType)
 }
 
+// SearchAniList searches for anime on AniList.
+func (s *AnimeService) SearchAniList(ctx context.Context, query string) ([]AniListSearchResult, error) {
+	results, err := s.core.SearchAniList(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]AniListSearchResult, len(results))
+	for i, r := range results {
+		coverURL := r.CoverImage.Large
+		if coverURL == "" {
+			coverURL = r.CoverImage.Medium
+		}
+		out[i] = AniListSearchResult{
+			ID:            r.ID,
+			TitleRomaji:   r.Title.Romaji,
+			TitleEnglish:  r.Title.English,
+			TitleNative:   r.Title.Native,
+			Format:        r.Format,
+			Status:        r.Status,
+			Season:        r.Season,
+			SeasonYear:    r.SeasonYear,
+			Episodes:      r.Episodes,
+			CoverImageURL: coverURL,
+		}
+	}
+	return out, nil
+}
+
+// ImportFromAniList imports entries and characters from AniList.
+func (s *AnimeService) ImportFromAniList(ctx context.Context, animeID uint, aniListID int) (AniListImportResult, error) {
+	result, err := s.core.ImportFromAniList(ctx, animeID, aniListID)
+	if err != nil {
+		return AniListImportResult{}, err
+	}
+	return AniListImportResult{
+		EntriesCreated:    result.EntriesCreated,
+		CharactersCreated: result.CharactersCreated,
+	}, nil
+}
+
 func convertEntries(entries []anime.AnimeEntry) []AnimeEntryInfo {
 	if entries == nil {
 		return nil
@@ -542,11 +591,13 @@ func convertEntry(e anime.AnimeEntry) AnimeEntryInfo {
 		children = append(children, convertEntry(c))
 	}
 	return AnimeEntryInfo{
-		ID:          e.ID,
-		Name:        e.Name,
-		EntryType:   e.EntryType,
-		EntryNumber: e.EntryNumber,
-		ImageCount:  e.ImageCount,
-		Children:    children,
+		ID:           e.ID,
+		Name:         e.Name,
+		EntryType:    e.EntryType,
+		EntryNumber:  e.EntryNumber,
+		AiringSeason: e.AiringSeason,
+		AiringYear:   e.AiringYear,
+		ImageCount:   e.ImageCount,
+		Children:     children,
 	}
 }
