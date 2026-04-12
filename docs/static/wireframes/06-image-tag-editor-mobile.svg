@@ -1,0 +1,103 @@
+<svg viewBox="0 0 375 812" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 10px; fill: #888; }
+      .heading { font-size: 17px; fill: #111; font-weight: 600; }
+      .body { font-size: 12px; fill: #555; }
+      .small { font-size: 10px; fill: #999; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="375" height="812" fill="#fafafa"/>
+  <rect x="0" y="0" width="375" height="44" fill="#fff"/>
+
+  <!-- ==================== TOP BAR ==================== -->
+  <rect x="0" y="44" width="375" height="48" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="16" y="72" font-size="16" fill="#6366f1">&#8592;</text>
+  <text x="44" y="72" font-size="14" fill="#111" font-weight="500">Edit Tags (8 images)</text>
+  <rect x="304" y="56" width="56" height="28" rx="6" fill="#6366f1"/>
+  <text x="332" y="74" font-size="10" fill="#fff" text-anchor="middle">Apply</text>
+
+  <!-- ==================== IMAGE STRIP ==================== -->
+  <rect x="0" y="92" width="375" height="64" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <rect x="12" y="100" width="44" height="44" rx="4" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.5"/>
+  <rect x="62" y="100" width="44" height="44" rx="4" fill="#fce7f3"/>
+  <rect x="112" y="100" width="44" height="44" rx="4" fill="#d1fae5"/>
+  <rect x="162" y="100" width="44" height="44" rx="4" fill="#fef3c7"/>
+  <rect x="212" y="100" width="44" height="44" rx="4" fill="#ddd6fe"/>
+  <rect x="262" y="100" width="44" height="44" rx="4" fill="#fbcfe8"/>
+  <rect x="312" y="100" width="44" height="44" rx="4" fill="#ccfbf1"/>
+
+  <!-- ==================== TAB: Tags / ML Suggestions ==================== -->
+  <rect x="0" y="156" width="375" height="36" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <rect x="16" y="162" width="100" height="24" rx="12" fill="#6366f1"/>
+  <text x="66" y="178" font-size="10" fill="#fff" text-anchor="middle">Manual Tags</text>
+  <rect x="124" y="162" width="110" height="24" rx="12" fill="#f3f4f6"/>
+  <text x="179" y="178" font-size="10" fill="#555" text-anchor="middle">ML Suggestions</text>
+
+  <!-- ==================== TAG SEARCH ==================== -->
+  <rect x="16" y="204" width="343" height="32" rx="6" fill="#f3f4f6"/>
+  <text x="36" y="224" class="body" fill="#aaa">Search tags...</text>
+
+  <!-- ==================== TAG LIST WITH CHECKBOXES ==================== -->
+  <!-- Pending changes banner -->
+  <rect x="16" y="244" width="343" height="28" rx="6" fill="#eef2ff"/>
+  <text x="30" y="262" font-size="10" fill="#6366f1">+2 added, -1 removed</text>
+
+  <!-- Characters -->
+  <text x="16" y="292" font-size="12" fill="#111" font-weight="500">&#9662; Characters</text>
+
+  <!-- Checked -->
+  <rect x="0" y="300" width="375" height="40" fill="#fff"/>
+  <rect x="32" y="310" width="16" height="16" rx="3" fill="#6366f1"/>
+  <text x="40" y="322" font-size="10" fill="#fff" text-anchor="middle">v</text>
+  <text x="56" y="324" class="body">Eren Yeager</text>
+  <text x="350" y="324" class="small" text-anchor="end">8/8</text>
+
+  <!-- Indeterminate -->
+  <rect x="0" y="340" width="375" height="40" fill="#fff"/>
+  <rect x="32" y="350" width="16" height="16" rx="3" fill="#fff" stroke="#6366f1" stroke-width="1.5"/>
+  <line x1="36" y1="358" x2="44" y2="358" stroke="#6366f1" stroke-width="2"/>
+  <text x="56" y="364" class="body">Mikasa Ackerman</text>
+  <text x="350" y="364" class="small" text-anchor="end">3/8</text>
+
+  <!-- Unchecked -->
+  <rect x="0" y="380" width="375" height="40" fill="#fff"/>
+  <rect x="32" y="390" width="16" height="16" rx="3" fill="#fff" stroke="#d1d5db" stroke-width="1.5"/>
+  <text x="56" y="404" class="body">Armin Arlert</text>
+  <text x="350" y="404" class="small" text-anchor="end">0/8</text>
+
+  <rect x="0" y="420" width="375" height="40" fill="#fff"/>
+  <rect x="32" y="430" width="16" height="16" rx="3" fill="#fff" stroke="#d1d5db" stroke-width="1.5"/>
+  <text x="56" y="444" class="body">Levi Ackerman</text>
+  <text x="350" y="444" class="small" text-anchor="end">0/8</text>
+
+  <!-- Scenes -->
+  <text x="16" y="480" font-size="12" fill="#111" font-weight="500">&#9662; Scenes</text>
+
+  <rect x="0" y="488" width="375" height="40" fill="#fff"/>
+  <rect x="32" y="498" width="16" height="16" rx="3" fill="#6366f1"/>
+  <text x="40" y="510" font-size="10" fill="#fff" text-anchor="middle">v</text>
+  <text x="56" y="512" class="body">Action</text>
+  <text x="350" y="512" class="small" text-anchor="end">8/8</text>
+
+  <rect x="0" y="528" width="375" height="40" fill="#fff"/>
+  <rect x="32" y="538" width="16" height="16" rx="3" fill="#fff" stroke="#d1d5db" stroke-width="1.5"/>
+  <text x="56" y="552" class="body">Romance</text>
+  <text x="350" y="552" class="small" text-anchor="end">0/8</text>
+
+  <rect x="0" y="568" width="375" height="40" fill="#fff"/>
+  <rect x="32" y="578" width="16" height="16" rx="3" fill="#fff" stroke="#6366f1" stroke-width="1.5"/>
+  <line x1="36" y1="586" x2="44" y2="586" stroke="#6366f1" stroke-width="2"/>
+  <text x="56" y="592" class="body">Comedy</text>
+  <text x="350" y="592" class="small" text-anchor="end">2/8</text>
+
+  <!-- Locations collapsed -->
+  <text x="16" y="628" font-size="12" fill="#111" font-weight="500">&#9656; Locations</text>
+  <text x="16" y="654" font-size="12" fill="#111" font-weight="500">&#9656; Objects</text>
+
+  <!-- Annotation -->
+  <text x="188" y="808" class="label" text-anchor="middle">Tabs switch between manual tag tree and ML suggestions</text>
+</svg>

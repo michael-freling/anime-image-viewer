@@ -1,0 +1,229 @@
+<svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 11px; fill: #888; }
+      .heading { font-size: 18px; fill: #111; font-weight: 600; }
+      .subheading { font-size: 14px; fill: #111; font-weight: 500; }
+      .body { font-size: 12px; fill: #555; }
+      .small { font-size: 10px; fill: #999; }
+      .icon-text { font-size: 10px; fill: #666; }
+      .accent { fill: #6366f1; }
+      .accent-text { font-size: 12px; fill: #6366f1; font-weight: 500; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1440" height="900" fill="#fafafa"/>
+
+  <!-- ==================== TOP BAR ==================== -->
+  <rect x="0" y="0" width="1440" height="56" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+
+  <!-- App Logo / Name -->
+  <rect x="24" y="14" width="28" height="28" rx="6" fill="#6366f1"/>
+  <text x="40" y="33" font-size="14" fill="#fff" font-weight="700" text-anchor="middle">A</text>
+  <text x="64" y="34" font-size="15" fill="#111" font-weight="600">AnimeVault</text>
+
+  <!-- Global Search Bar (center) -->
+  <rect x="460" y="12" width="520" height="32" rx="8" fill="#f3f4f6" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="480" y="32" class="body" fill="#aaa">Search anime, images, tags... (Ctrl+K)</text>
+  <rect x="940" y="18" width="28" height="20" rx="4" fill="#e5e7eb"/>
+  <text x="954" y="32" font-size="9" fill="#888" text-anchor="middle">/</text>
+
+  <!-- Right side: Theme toggle + Settings gear -->
+  <circle cx="1360" cy="28" r="14" fill="none" stroke="#d1d5db" stroke-width="1.5"/>
+  <text x="1360" y="32" font-size="12" fill="#888" text-anchor="middle">*</text>
+  <circle cx="1400" cy="28" r="14" fill="none" stroke="#d1d5db" stroke-width="1.5"/>
+  <text x="1400" y="33" font-size="14" fill="#888" text-anchor="middle">G</text>
+
+  <!-- ==================== SIDEBAR (64px collapsed on desktop, icons only) ==================== -->
+  <rect x="0" y="56" width="64" height="844" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+
+  <!-- Sidebar Nav Icons -->
+  <!-- Library (active) -->
+  <rect x="8" y="68" width="48" height="44" rx="8" fill="#eef2ff"/>
+  <rect x="20" y="76" width="24" height="18" rx="3" fill="none" stroke="#6366f1" stroke-width="1.5"/>
+  <rect x="22" y="80" width="8" height="10" rx="1" fill="#6366f1" opacity="0.3"/>
+  <rect x="32" y="80" width="8" height="10" rx="1" fill="#6366f1" opacity="0.3"/>
+  <text x="32" y="104" class="small" text-anchor="middle" fill="#6366f1">Library</text>
+
+  <!-- Search -->
+  <g transform="translate(8, 124)">
+    <rect width="48" height="44" rx="8" fill="transparent"/>
+    <circle cx="24" cy="18" r="8" fill="none" stroke="#888" stroke-width="1.5"/>
+    <line x1="30" y1="24" x2="36" y2="30" stroke="#888" stroke-width="1.5"/>
+    <text x="24" y="40" class="small" text-anchor="middle">Search</text>
+  </g>
+
+  <!-- Folders -->
+  <g transform="translate(8, 180)">
+    <rect width="48" height="44" rx="8" fill="transparent"/>
+    <rect x="12" y="6" width="24" height="20" rx="3" fill="none" stroke="#888" stroke-width="1.5"/>
+    <path d="M12 12 L24 12 L26 8 L36 8 L36 12" fill="none" stroke="#888" stroke-width="1.5"/>
+    <text x="24" y="40" class="small" text-anchor="middle">Folders</text>
+  </g>
+
+  <!-- Tags -->
+  <g transform="translate(8, 236)">
+    <rect width="48" height="44" rx="8" fill="transparent"/>
+    <rect x="14" y="6" width="20" height="14" rx="3" fill="none" stroke="#888" stroke-width="1.5" transform="rotate(-10, 24, 14)"/>
+    <text x="24" y="40" class="small" text-anchor="middle">Tags</text>
+  </g>
+
+  <!-- Divider -->
+  <line x1="16" y1="296" x2="48" y2="296" stroke="#e5e7eb" stroke-width="1"/>
+
+  <!-- Backup -->
+  <g transform="translate(8, 308)">
+    <rect width="48" height="44" rx="8" fill="transparent"/>
+    <circle cx="24" cy="16" r="10" fill="none" stroke="#888" stroke-width="1.5"/>
+    <path d="M18 16 L24 10 L30 16" fill="none" stroke="#888" stroke-width="1.5"/>
+    <line x1="24" y1="10" x2="24" y2="22" stroke="#888" stroke-width="1.5"/>
+    <text x="24" y="40" class="small" text-anchor="middle">Backup</text>
+  </g>
+
+  <!-- Settings -->
+  <g transform="translate(8, 364)">
+    <rect width="48" height="44" rx="8" fill="transparent"/>
+    <circle cx="24" cy="16" r="10" fill="none" stroke="#888" stroke-width="1.5"/>
+    <circle cx="24" cy="16" r="3" fill="#888"/>
+    <text x="24" y="40" class="small" text-anchor="middle">Settings</text>
+  </g>
+
+  <!-- ==================== MAIN CONTENT ==================== -->
+  <rect x="64" y="56" width="1376" height="844" fill="#fafafa"/>
+
+  <!-- Page Header Row -->
+  <text x="96" y="96" class="heading">Library</text>
+  <text x="96" y="114" class="body">24 anime -- 1,847 images</text>
+
+  <!-- Action Buttons (right aligned) -->
+  <rect x="1180" y="76" width="100" height="32" rx="6" fill="#6366f1"/>
+  <text x="1230" y="96" font-size="12" fill="#fff" text-anchor="middle" font-weight="500">+ Add Anime</text>
+
+  <rect x="1292" y="76" width="100" height="32" rx="6" fill="#fff" stroke="#d1d5db" stroke-width="1"/>
+  <text x="1342" y="96" font-size="12" fill="#555" text-anchor="middle">Import</text>
+
+  <!-- Filter / Sort Row -->
+  <rect x="96" y="128" width="200" height="30" rx="6" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="116" y="147" class="body" fill="#aaa">Filter anime...</text>
+
+  <rect x="308" y="128" width="80" height="30" rx="6" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="332" y="147" class="body">Grid</text>
+  <text x="368" y="147" class="body" fill="#aaa">|</text>
+  <text x="378" y="147" class="body" fill="#aaa">List</text>
+
+  <rect x="400" y="128" width="100" height="30" rx="6" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="420" y="147" class="body">Sort: Name</text>
+
+  <!-- ==================== ANIME CARD GRID ==================== -->
+  <!-- Row 1 -->
+  <!-- Card 1 -->
+  <g transform="translate(96, 176)">
+    <rect width="296" height="200" rx="10" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+    <!-- Cover image placeholder -->
+    <rect x="0" y="0" width="296" height="140" rx="10" fill="#e0e7ff"/>
+    <rect x="0" y="130" width="296" height="10" fill="#fff"/>
+    <text x="148" y="76" class="body" fill="#a5b4fc" text-anchor="middle">Cover Image</text>
+    <!-- Card info -->
+    <text x="12" y="162" class="subheading">Attack on Titan</text>
+    <text x="12" y="180" class="body">4 seasons -- 342 images</text>
+    <!-- Badge -->
+    <rect x="230" y="150" width="54" height="20" rx="10" fill="#eef2ff"/>
+    <text x="257" y="163" font-size="10" fill="#6366f1" text-anchor="middle">S4</text>
+  </g>
+
+  <!-- Card 2 -->
+  <g transform="translate(408, 176)">
+    <rect width="296" height="200" rx="10" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+    <rect x="0" y="0" width="296" height="140" rx="10" fill="#fce7f3"/>
+    <rect x="0" y="130" width="296" height="10" fill="#fff"/>
+    <text x="148" y="76" class="body" fill="#f9a8d4" text-anchor="middle">Cover Image</text>
+    <text x="12" y="162" class="subheading">Spy x Family</text>
+    <text x="12" y="180" class="body">2 seasons -- 218 images</text>
+    <rect x="230" y="150" width="54" height="20" rx="10" fill="#eef2ff"/>
+    <text x="257" y="163" font-size="10" fill="#6366f1" text-anchor="middle">S2</text>
+  </g>
+
+  <!-- Card 3 -->
+  <g transform="translate(720, 176)">
+    <rect width="296" height="200" rx="10" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+    <rect x="0" y="0" width="296" height="140" rx="10" fill="#d1fae5"/>
+    <rect x="0" y="130" width="296" height="10" fill="#fff"/>
+    <text x="148" y="76" class="body" fill="#6ee7b7" text-anchor="middle">Cover Image</text>
+    <text x="12" y="162" class="subheading">Jujutsu Kaisen</text>
+    <text x="12" y="180" class="body">2 seasons -- 187 images</text>
+    <rect x="230" y="150" width="54" height="20" rx="10" fill="#eef2ff"/>
+    <text x="257" y="163" font-size="10" fill="#6366f1" text-anchor="middle">S2</text>
+  </g>
+
+  <!-- Card 4 -->
+  <g transform="translate(1032, 176)">
+    <rect width="296" height="200" rx="10" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+    <rect x="0" y="0" width="296" height="140" rx="10" fill="#fef3c7"/>
+    <rect x="0" y="130" width="296" height="10" fill="#fff"/>
+    <text x="148" y="76" class="body" fill="#fcd34d" text-anchor="middle">Cover Image</text>
+    <text x="12" y="162" class="subheading">Demon Slayer</text>
+    <text x="12" y="180" class="body">Movie + 3 seasons -- 276 images</text>
+    <rect x="220" y="150" width="64" height="20" rx="10" fill="#eef2ff"/>
+    <text x="252" y="163" font-size="10" fill="#6366f1" text-anchor="middle">Movie</text>
+  </g>
+
+  <!-- Row 2 -->
+  <g transform="translate(96, 392)">
+    <rect width="296" height="200" rx="10" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+    <rect x="0" y="0" width="296" height="140" rx="10" fill="#e0e7ff"/>
+    <rect x="0" y="130" width="296" height="10" fill="#fff"/>
+    <text x="148" y="76" class="body" fill="#a5b4fc" text-anchor="middle">Cover Image</text>
+    <text x="12" y="162" class="subheading">Frieren</text>
+    <text x="12" y="180" class="body">1 season -- 156 images</text>
+  </g>
+
+  <g transform="translate(408, 392)">
+    <rect width="296" height="200" rx="10" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+    <rect x="0" y="0" width="296" height="140" rx="10" fill="#ddd6fe"/>
+    <rect x="0" y="130" width="296" height="10" fill="#fff"/>
+    <text x="148" y="76" class="body" fill="#c4b5fd" text-anchor="middle">Cover Image</text>
+    <text x="12" y="162" class="subheading">Chainsaw Man</text>
+    <text x="12" y="180" class="body">1 season -- 94 images</text>
+  </g>
+
+  <g transform="translate(720, 392)">
+    <rect width="296" height="200" rx="10" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+    <rect x="0" y="0" width="296" height="140" rx="10" fill="#fbcfe8"/>
+    <rect x="0" y="130" width="296" height="10" fill="#fff"/>
+    <text x="148" y="76" class="body" fill="#f9a8d4" text-anchor="middle">Cover Image</text>
+    <text x="12" y="162" class="subheading">Bocchi the Rock!</text>
+    <text x="12" y="180" class="body">1 season -- 112 images</text>
+  </g>
+
+  <g transform="translate(1032, 392)">
+    <rect width="296" height="200" rx="10" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+    <rect x="0" y="0" width="296" height="140" rx="10" fill="#ccfbf1"/>
+    <rect x="0" y="130" width="296" height="10" fill="#fff"/>
+    <text x="148" y="76" class="body" fill="#5eead4" text-anchor="middle">Cover Image</text>
+    <text x="12" y="162" class="subheading">Oshi no Ko</text>
+    <text x="12" y="180" class="body">2 seasons -- 203 images</text>
+  </g>
+
+  <!-- Row 3 (partial) -->
+  <g transform="translate(96, 608)">
+    <rect width="296" height="200" rx="10" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+    <rect x="0" y="0" width="296" height="140" rx="10" fill="#fee2e2"/>
+    <rect x="0" y="130" width="296" height="10" fill="#fff"/>
+    <text x="148" y="76" class="body" fill="#fca5a5" text-anchor="middle">Cover Image</text>
+    <text x="12" y="162" class="subheading">My Hero Academia</text>
+    <text x="12" y="180" class="body">7 seasons -- 259 images</text>
+  </g>
+
+  <!-- Import progress toast (bottom right) -->
+  <rect x="1140" y="840" width="280" height="44" rx="8" fill="#111827" opacity="0.95"/>
+  <text x="1160" y="860" font-size="11" fill="#fff">Importing "Frieren S2"...</text>
+  <rect x="1160" y="868" width="200" height="4" rx="2" fill="#374151"/>
+  <rect x="1160" y="868" width="120" height="4" rx="2" fill="#6366f1"/>
+  <text x="1400" y="866" font-size="10" fill="#9ca3af" text-anchor="end">60%</text>
+
+  <!-- Annotation Labels -->
+  <text x="1340" y="56" class="label" text-anchor="end">Global search: Ctrl+K</text>
+  <text x="64" y="870" class="label">Icon rail nav -- expands on hover</text>
+</svg>

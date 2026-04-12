@@ -1,0 +1,100 @@
+<svg viewBox="0 0 375 812" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 10px; fill: #888; }
+      .heading { font-size: 17px; fill: #111; font-weight: 600; }
+      .body { font-size: 12px; fill: #555; }
+      .small { font-size: 10px; fill: #999; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="375" height="812" fill="#fafafa"/>
+
+  <!-- Status bar -->
+  <rect x="0" y="0" width="375" height="44" fill="#fff"/>
+
+  <!-- ==================== SEARCH BAR ==================== -->
+  <rect x="0" y="44" width="375" height="56" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="16" y="72" font-size="16" fill="#888">&#8592;</text>
+  <rect x="44" y="56" width="280" height="32" rx="8" fill="#f3f4f6" stroke="#6366f1" stroke-width="1.5"/>
+  <text x="60" y="76" class="body" fill="#111">mikasa outdoor</text>
+  <!-- Filter button -->
+  <rect x="332" y="56" width="32" height="32" rx="8" fill="#eef2ff"/>
+  <text x="348" y="76" font-size="14" fill="#6366f1" text-anchor="middle">F</text>
+
+  <!-- ==================== ACTIVE FILTER CHIPS (horizontal scroll) ==================== -->
+  <rect x="0" y="100" width="375" height="36" fill="#fff"/>
+  <rect x="12" y="106" width="56" height="24" rx="12" fill="#eef2ff" stroke="#c7d2fe" stroke-width="1"/>
+  <text x="40" y="122" font-size="9" fill="#6366f1" text-anchor="middle">All x</text>
+  <rect x="74" y="106" width="80" height="24" rx="12" fill="#eef2ff" stroke="#c7d2fe" stroke-width="1"/>
+  <text x="114" y="122" font-size="9" fill="#6366f1" text-anchor="middle">Outdoor x</text>
+  <rect x="160" y="106" width="60" height="24" rx="12" fill="#f3f4f6"/>
+  <text x="190" y="122" font-size="9" fill="#888" text-anchor="middle">+ Filter</text>
+
+  <!-- Results count + sort -->
+  <rect x="0" y="136" width="375" height="28" fill="#fafafa"/>
+  <text x="16" y="154" class="small" fill="#555">128 results</text>
+  <text x="360" y="154" class="small" text-anchor="end" fill="#888">Sort: Date</text>
+
+  <!-- ==================== RESULTS GRID (2 column) ==================== -->
+  <g transform="translate(10, 170)">
+    <rect width="172" height="115" rx="8" fill="#e0e7ff"/>
+    <text x="86" y="60" class="small" fill="#a5b4fc" text-anchor="middle">Result</text>
+    <rect x="6" y="90" width="76" height="16" rx="3" fill="#111" opacity="0.7"/>
+    <text x="44" y="102" font-size="8" fill="#fff" text-anchor="middle">Attack on Titan</text>
+  </g>
+  <g transform="translate(192, 170)">
+    <rect width="172" height="115" rx="8" fill="#fce7f3"/>
+    <text x="86" y="60" class="small" fill="#f9a8d4" text-anchor="middle">Result</text>
+    <rect x="6" y="90" width="76" height="16" rx="3" fill="#111" opacity="0.7"/>
+    <text x="44" y="102" font-size="8" fill="#fff" text-anchor="middle">Attack on Titan</text>
+  </g>
+
+  <g transform="translate(10, 295)">
+    <rect width="172" height="115" rx="8" fill="#d1fae5"/>
+  </g>
+  <g transform="translate(192, 295)">
+    <rect width="172" height="115" rx="8" fill="#fef3c7"/>
+  </g>
+
+  <g transform="translate(10, 420)">
+    <rect width="172" height="115" rx="8" fill="#ddd6fe"/>
+  </g>
+  <g transform="translate(192, 420)">
+    <rect width="172" height="115" rx="8" fill="#fbcfe8"/>
+  </g>
+
+  <g transform="translate(10, 545)">
+    <rect width="172" height="115" rx="8" fill="#ccfbf1"/>
+  </g>
+  <g transform="translate(192, 545)">
+    <rect width="172" height="115" rx="8" fill="#fee2e2"/>
+  </g>
+
+  <!-- ==================== FILTER BOTTOM SHEET (shown when F is tapped) ==================== -->
+  <!-- This is a conceptual overlay -- in practice it slides up as a bottom sheet -->
+
+  <!-- ==================== BOTTOM NAV ==================== -->
+  <rect x="0" y="748" width="375" height="64" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <g transform="translate(99, 756)">
+    <rect x="0" y="0" width="56" height="40" rx="8" fill="#eef2ff"/>
+    <text x="28" y="28" font-size="9" fill="#6366f1" text-anchor="middle" font-weight="500">Search</text>
+  </g>
+  <g transform="translate(24, 756)">
+    <text x="28" y="28" font-size="9" fill="#888" text-anchor="middle">Library</text>
+  </g>
+  <g transform="translate(174, 756)">
+    <text x="28" y="28" font-size="9" fill="#888" text-anchor="middle">Folders</text>
+  </g>
+  <g transform="translate(249, 756)">
+    <text x="28" y="28" font-size="9" fill="#888" text-anchor="middle">Tags</text>
+  </g>
+  <g transform="translate(318, 756)">
+    <text x="21" y="28" font-size="9" fill="#888" text-anchor="middle">More</text>
+  </g>
+
+  <!-- Annotation -->
+  <text x="188" y="808" class="label" text-anchor="middle">Filter button opens bottom sheet with all filters</text>
+</svg>

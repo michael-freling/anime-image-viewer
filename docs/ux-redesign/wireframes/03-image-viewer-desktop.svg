@@ -1,0 +1,137 @@
+<svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 11px; fill: #888; }
+      .body { font-size: 12px; fill: #ccc; }
+      .small { font-size: 10px; fill: #999; }
+    </style>
+  </defs>
+
+  <!-- Full-screen dark background -->
+  <rect width="1440" height="900" fill="#111"/>
+
+  <!-- ==================== TOP OVERLAY BAR (fades on idle) ==================== -->
+  <rect x="0" y="0" width="1440" height="56" fill="#111" opacity="0.8"/>
+
+  <!-- Close button -->
+  <text x="28" y="36" font-size="22" fill="#fff">&#10005;</text>
+
+  <!-- Image counter -->
+  <text x="720" y="36" font-size="13" fill="#ccc" text-anchor="middle">Image 5 of 342</text>
+
+  <!-- Filename -->
+  <text x="720" y="52" font-size="10" fill="#888" text-anchor="middle">attack_on_titan_s1_ep03_screenshot_001.png</text>
+
+  <!-- Right actions -->
+  <!-- Zoom controls -->
+  <rect x="1200" y="14" width="32" height="28" rx="6" fill="#333"/>
+  <text x="1216" y="34" font-size="16" fill="#fff" text-anchor="middle">+</text>
+
+  <rect x="1240" y="14" width="32" height="28" rx="6" fill="#333"/>
+  <text x="1256" y="34" font-size="16" fill="#fff" text-anchor="middle">-</text>
+
+  <rect x="1280" y="14" width="32" height="28" rx="6" fill="#333"/>
+  <text x="1296" y="32" font-size="11" fill="#fff" text-anchor="middle">Fit</text>
+
+  <!-- Info toggle -->
+  <rect x="1330" y="14" width="28" height="28" rx="6" fill="#333"/>
+  <text x="1344" y="33" font-size="12" fill="#fff" text-anchor="middle">i</text>
+
+  <!-- Tag quick-edit toggle -->
+  <rect x="1366" y="14" width="52" height="28" rx="6" fill="#6366f1"/>
+  <text x="1392" y="33" font-size="10" fill="#fff" text-anchor="middle">Tags</text>
+
+  <!-- ==================== MAIN IMAGE AREA ==================== -->
+  <rect x="80" y="80" width="1280" height="720" rx="4" fill="#1a1a2e"/>
+  <text x="720" y="440" font-size="16" fill="#444" text-anchor="middle">Full-resolution image with zoom/pan</text>
+  <rect x="320" y="200" width="800" height="500" rx="4" fill="#222244" opacity="0.5"/>
+  <text x="720" y="460" font-size="12" fill="#555" text-anchor="middle">16:9 image displayed at best fit</text>
+
+  <!-- ==================== LEFT ARROW NAV ==================== -->
+  <rect x="16" y="380" width="48" height="140" rx="24" fill="#333" opacity="0.6"/>
+  <text x="40" y="456" font-size="24" fill="#fff" text-anchor="middle">&#8249;</text>
+
+  <!-- ==================== RIGHT ARROW NAV ==================== -->
+  <rect x="1376" y="380" width="48" height="140" rx="24" fill="#333" opacity="0.6"/>
+  <text x="1400" y="456" font-size="24" fill="#fff" text-anchor="middle">&#8250;</text>
+
+  <!-- ==================== RIGHT SIDE PANEL (when Tags panel open) ==================== -->
+  <rect x="1120" y="56" width="320" height="788" fill="#1e1e2e" rx="12" opacity="0.95"/>
+  <rect x="1120" y="56" width="320" height="44" fill="#252536" rx="12"/>
+  <rect x="1120" y="84" width="320" height="16" fill="#252536"/>
+  <text x="1140" y="84" font-size="13" fill="#fff" font-weight="500">Image Tags</text>
+  <text x="1416" y="84" font-size="14" fill="#888" text-anchor="end">&#10005;</text>
+
+  <!-- Current tags -->
+  <text x="1140" y="120" font-size="10" fill="#888" font-weight="500">ASSIGNED</text>
+
+  <rect x="1140" y="130" width="64" height="24" rx="12" fill="#312e81"/>
+  <text x="1172" y="146" font-size="10" fill="#a5b4fc" text-anchor="middle">Action</text>
+  <rect x="1212" y="130" width="56" height="24" rx="12" fill="#312e81"/>
+  <text x="1240" y="146" font-size="10" fill="#a5b4fc" text-anchor="middle">Eren</text>
+  <rect x="1276" y="130" width="72" height="24" rx="12" fill="#312e81"/>
+  <text x="1312" y="146" font-size="10" fill="#a5b4fc" text-anchor="middle">Outdoor</text>
+  <rect x="1140" y="160" width="64" height="24" rx="12" fill="#312e81"/>
+  <text x="1172" y="176" font-size="10" fill="#a5b4fc" text-anchor="middle">Battle</text>
+
+  <line x1="1140" y1="196" x2="1420" y2="196" stroke="#333" stroke-width="1"/>
+
+  <!-- ML Suggested tags -->
+  <text x="1140" y="216" font-size="10" fill="#888" font-weight="500">SUGGESTED (ML)</text>
+
+  <!-- Confidence slider -->
+  <text x="1140" y="236" font-size="10" fill="#666">Min confidence:</text>
+  <rect x="1240" y="228" width="120" height="4" rx="2" fill="#333"/>
+  <rect x="1240" y="228" width="72" height="4" rx="2" fill="#6366f1"/>
+  <circle cx="1312" cy="230" r="6" fill="#6366f1"/>
+  <text x="1380" y="236" font-size="10" fill="#ccc">60%</text>
+
+  <rect x="1140" y="248" width="72" height="24" rx="12" fill="#1a2e1a" stroke="#22c55e" stroke-width="1"/>
+  <text x="1176" y="264" font-size="10" fill="#4ade80" text-anchor="middle">Sunset 87%</text>
+  <rect x="1220" y="248" width="80" height="24" rx="12" fill="#1a2e1a" stroke="#22c55e" stroke-width="1"/>
+  <text x="1260" y="264" font-size="10" fill="#4ade80" text-anchor="middle">Mikasa 72%</text>
+  <rect x="1308" y="248" width="76" height="24" rx="12" fill="#1a1a1a" stroke="#444" stroke-width="1"/>
+  <text x="1346" y="264" font-size="10" fill="#666" text-anchor="middle">Horse 42%</text>
+
+  <!-- Quick-add button -->
+  <rect x="1140" y="288" width="280" height="32" rx="6" fill="#6366f1"/>
+  <text x="1280" y="308" font-size="11" fill="#fff" text-anchor="middle">Apply 2 Suggested Tags</text>
+
+  <line x1="1140" y1="332" x2="1420" y2="332" stroke="#333" stroke-width="1"/>
+
+  <!-- Browse all tags -->
+  <text x="1140" y="352" font-size="10" fill="#888" font-weight="500">ALL TAGS</text>
+  <rect x="1140" y="360" width="260" height="28" rx="6" fill="#252536"/>
+  <text x="1160" y="378" font-size="10" fill="#666">Search tags...</text>
+
+  <!-- Tag tree -->
+  <text x="1152" y="404" font-size="11" fill="#ccc">&#9656; Characters</text>
+  <text x="1152" y="424" font-size="11" fill="#ccc">&#9662; Scenes</text>
+  <text x="1172" y="444" font-size="11" fill="#888">Action</text>
+  <text x="1172" y="464" font-size="11" fill="#888">Romance</text>
+  <text x="1172" y="484" font-size="11" fill="#888">Comedy</text>
+  <text x="1152" y="508" font-size="11" fill="#ccc">&#9656; Locations</text>
+  <text x="1152" y="528" font-size="11" fill="#ccc">&#9656; Objects</text>
+
+  <!-- ==================== BOTTOM THUMBNAIL STRIP ==================== -->
+  <rect x="80" y="820" width="1280" height="64" rx="8" fill="#1a1a1a" opacity="0.8"/>
+
+  <!-- Thumbnails -->
+  <rect x="100" y="828" width="48" height="48" rx="4" fill="#333"/>
+  <rect x="156" y="828" width="48" height="48" rx="4" fill="#444"/>
+  <rect x="212" y="828" width="48" height="48" rx="4" fill="#333"/>
+  <rect x="268" y="828" width="48" height="48" rx="4" fill="#444"/>
+  <!-- Active thumbnail -->
+  <rect x="324" y="826" width="52" height="52" rx="4" fill="#555" stroke="#6366f1" stroke-width="2"/>
+  <rect x="380" y="828" width="48" height="48" rx="4" fill="#333"/>
+  <rect x="436" y="828" width="48" height="48" rx="4" fill="#444"/>
+  <rect x="492" y="828" width="48" height="48" rx="4" fill="#333"/>
+  <rect x="548" y="828" width="48" height="48" rx="4" fill="#444"/>
+  <rect x="604" y="828" width="48" height="48" rx="4" fill="#333"/>
+  <rect x="660" y="828" width="48" height="48" rx="4" fill="#444"/>
+  <rect x="716" y="828" width="48" height="48" rx="4" fill="#333"/>
+
+  <!-- Keyboard hints -->
+  <text x="720" y="896" class="label" text-anchor="middle" fill="#555">Arrow keys: navigate -- +/-: zoom -- T: toggle tags -- Esc: close -- Space: play slideshow</text>
+</svg>

@@ -1,0 +1,153 @@
+<svg viewBox="0 0 375 812" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 10px; fill: #888; }
+      .heading { font-size: 18px; fill: #111; font-weight: 600; }
+      .subheading { font-size: 14px; fill: #111; font-weight: 500; }
+      .body { font-size: 12px; fill: #555; }
+      .small { font-size: 10px; fill: #999; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="375" height="812" fill="#fafafa"/>
+
+  <!-- ==================== STATUS BAR (mobile) ==================== -->
+  <rect x="0" y="0" width="375" height="44" fill="#fff"/>
+  <text x="188" y="28" font-size="12" fill="#111" text-anchor="middle" font-weight="500">9:41</text>
+
+  <!-- ==================== TOP BAR ==================== -->
+  <rect x="0" y="44" width="375" height="52" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="16" y="76" font-size="17" fill="#111" font-weight="600">Library</text>
+  <!-- Search icon -->
+  <circle cx="316" cy="70" r="14" fill="none" stroke="#d1d5db" stroke-width="1.5"/>
+  <circle cx="312" cy="67" r="6" fill="none" stroke="#888" stroke-width="1.2"/>
+  <line x1="316" y1="71" x2="320" y2="75" stroke="#888" stroke-width="1.2"/>
+  <!-- Add button -->
+  <rect x="340" y="58" width="24" height="24" rx="6" fill="#6366f1"/>
+  <text x="352" y="74" font-size="16" fill="#fff" text-anchor="middle">+</text>
+
+  <!-- Stats line -->
+  <text x="16" y="92" class="body" fill="#888">24 anime -- 1,847 images</text>
+
+  <!-- ==================== FILTER BAR ==================== -->
+  <rect x="0" y="100" width="375" height="42" fill="#fff"/>
+  <rect x="16" y="108" width="160" height="28" rx="6" fill="#f3f4f6"/>
+  <text x="32" y="126" class="body" fill="#aaa">Filter...</text>
+
+  <rect x="184" y="108" width="56" height="28" rx="6" fill="#eef2ff" stroke="#c7d2fe" stroke-width="1"/>
+  <text x="212" y="126" font-size="11" fill="#6366f1" text-anchor="middle">Grid</text>
+
+  <rect x="248" y="108" width="56" height="28" rx="6" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="276" y="126" font-size="11" fill="#888" text-anchor="middle">List</text>
+
+  <rect x="312" y="108" width="48" height="28" rx="6" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="336" y="126" font-size="11" fill="#888" text-anchor="middle">Sort</text>
+
+  <!-- ==================== ANIME CARDS (2 column grid) ==================== -->
+  <!-- Row 1 -->
+  <g transform="translate(16, 150)">
+    <rect width="167" height="170" rx="10" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+    <rect x="0" y="0" width="167" height="110" rx="10" fill="#e0e7ff"/>
+    <rect x="0" y="100" width="167" height="10" fill="#fff"/>
+    <text x="84" y="60" class="body" fill="#a5b4fc" text-anchor="middle">Cover</text>
+    <text x="10" y="130" class="subheading" font-size="12">Attack on Titan</text>
+    <text x="10" y="146" class="small">342 images</text>
+    <rect x="112" y="122" width="44" height="18" rx="9" fill="#eef2ff"/>
+    <text x="134" y="134" font-size="9" fill="#6366f1" text-anchor="middle">S4</text>
+  </g>
+
+  <g transform="translate(192, 150)">
+    <rect width="167" height="170" rx="10" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+    <rect x="0" y="0" width="167" height="110" rx="10" fill="#fce7f3"/>
+    <rect x="0" y="100" width="167" height="10" fill="#fff"/>
+    <text x="84" y="60" class="body" fill="#f9a8d4" text-anchor="middle">Cover</text>
+    <text x="10" y="130" class="subheading" font-size="12">Spy x Family</text>
+    <text x="10" y="146" class="small">218 images</text>
+    <rect x="112" y="122" width="44" height="18" rx="9" fill="#eef2ff"/>
+    <text x="134" y="134" font-size="9" fill="#6366f1" text-anchor="middle">S2</text>
+  </g>
+
+  <!-- Row 2 -->
+  <g transform="translate(16, 330)">
+    <rect width="167" height="170" rx="10" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+    <rect x="0" y="0" width="167" height="110" rx="10" fill="#d1fae5"/>
+    <rect x="0" y="100" width="167" height="10" fill="#fff"/>
+    <text x="84" y="60" class="body" fill="#6ee7b7" text-anchor="middle">Cover</text>
+    <text x="10" y="130" class="subheading" font-size="12">Jujutsu Kaisen</text>
+    <text x="10" y="146" class="small">187 images</text>
+  </g>
+
+  <g transform="translate(192, 330)">
+    <rect width="167" height="170" rx="10" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+    <rect x="0" y="0" width="167" height="110" rx="10" fill="#fef3c7"/>
+    <rect x="0" y="100" width="167" height="10" fill="#fff"/>
+    <text x="84" y="60" class="body" fill="#fcd34d" text-anchor="middle">Cover</text>
+    <text x="10" y="130" class="subheading" font-size="12">Demon Slayer</text>
+    <text x="10" y="146" class="small">276 images</text>
+  </g>
+
+  <!-- Row 3 -->
+  <g transform="translate(16, 510)">
+    <rect width="167" height="170" rx="10" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+    <rect x="0" y="0" width="167" height="110" rx="10" fill="#e0e7ff"/>
+    <rect x="0" y="100" width="167" height="10" fill="#fff"/>
+    <text x="84" y="60" class="body" fill="#a5b4fc" text-anchor="middle">Cover</text>
+    <text x="10" y="130" class="subheading" font-size="12">Frieren</text>
+    <text x="10" y="146" class="small">156 images</text>
+  </g>
+
+  <g transform="translate(192, 510)">
+    <rect width="167" height="170" rx="10" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+    <rect x="0" y="0" width="167" height="110" rx="10" fill="#ddd6fe"/>
+    <rect x="0" y="100" width="167" height="10" fill="#fff"/>
+    <text x="84" y="60" class="body" fill="#c4b5fd" text-anchor="middle">Cover</text>
+    <text x="10" y="130" class="subheading" font-size="12">Chainsaw Man</text>
+    <text x="10" y="146" class="small">94 images</text>
+  </g>
+
+  <!-- ==================== BOTTOM NAV BAR ==================== -->
+  <rect x="0" y="748" width="375" height="64" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+
+  <!-- Library (active) -->
+  <g transform="translate(24, 756)">
+    <rect x="0" y="0" width="56" height="40" rx="8" fill="#eef2ff"/>
+    <rect x="16" y="4" width="24" height="16" rx="3" fill="none" stroke="#6366f1" stroke-width="1.5"/>
+    <text x="28" y="36" font-size="9" fill="#6366f1" text-anchor="middle" font-weight="500">Library</text>
+  </g>
+
+  <!-- Search -->
+  <g transform="translate(99, 756)">
+    <rect x="0" y="0" width="56" height="40" rx="8" fill="transparent"/>
+    <circle cx="28" cy="12" r="8" fill="none" stroke="#888" stroke-width="1.2"/>
+    <line x1="33" y1="18" x2="38" y2="23" stroke="#888" stroke-width="1.2"/>
+    <text x="28" y="36" font-size="9" fill="#888" text-anchor="middle">Search</text>
+  </g>
+
+  <!-- Folders -->
+  <g transform="translate(174, 756)">
+    <rect x="0" y="0" width="56" height="40" rx="8" fill="transparent"/>
+    <rect x="14" y="4" width="24" height="16" rx="3" fill="none" stroke="#888" stroke-width="1.2"/>
+    <text x="28" y="36" font-size="9" fill="#888" text-anchor="middle">Folders</text>
+  </g>
+
+  <!-- Tags -->
+  <g transform="translate(249, 756)">
+    <rect x="0" y="0" width="56" height="40" rx="8" fill="transparent"/>
+    <rect x="14" y="4" width="20" height="12" rx="3" fill="none" stroke="#888" stroke-width="1.2"/>
+    <text x="28" y="36" font-size="9" fill="#888" text-anchor="middle">Tags</text>
+  </g>
+
+  <!-- More -->
+  <g transform="translate(318, 756)">
+    <rect x="0" y="0" width="42" height="40" rx="8" fill="transparent"/>
+    <circle cx="12" cy="12" r="2" fill="#888"/>
+    <circle cx="21" cy="12" r="2" fill="#888"/>
+    <circle cx="30" cy="12" r="2" fill="#888"/>
+    <text x="21" y="36" font-size="9" fill="#888" text-anchor="middle">More</text>
+  </g>
+
+  <!-- Annotation -->
+  <text x="188" y="808" class="label" text-anchor="middle">Bottom nav: Library, Search, Folders, Tags, More</text>
+</svg>

@@ -1,0 +1,110 @@
+<svg viewBox="0 0 375 812" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 10px; fill: #888; }
+      .heading { font-size: 17px; fill: #111; font-weight: 600; }
+      .body { font-size: 12px; fill: #555; }
+      .small { font-size: 10px; fill: #999; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="375" height="812" fill="#fafafa"/>
+  <rect x="0" y="0" width="375" height="44" fill="#fff"/>
+
+  <!-- ==================== TOP BAR ==================== -->
+  <rect x="0" y="44" width="375" height="52" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="16" y="76" class="heading">Folders</text>
+  <text x="16" y="92" class="small" fill="#888">12 folders</text>
+
+  <!-- Mode toggle -->
+  <rect x="240" y="58" width="56" height="24" rx="4" fill="#6366f1"/>
+  <text x="268" y="74" font-size="9" fill="#fff" text-anchor="middle">Browse</text>
+  <rect x="296" y="58" width="64" height="24" rx="4" fill="#fff" stroke="#d1d5db" stroke-width="1"/>
+  <text x="328" y="74" font-size="9" fill="#555" text-anchor="middle">Edit Tags</text>
+
+  <!-- ==================== BREADCRUMB ==================== -->
+  <rect x="0" y="100" width="375" height="32" fill="#f8fafc" stroke="#e5e7eb" stroke-width="0.5"/>
+  <text x="16" y="120" class="body" fill="#6366f1">anime-images</text>
+  <text x="100" y="120" class="body" fill="#ccc">/</text>
+  <text x="110" y="120" class="body" fill="#111">attack-on-titan</text>
+
+  <!-- ==================== FOLDER LIST (native-feeling file browser) ==================== -->
+  <!-- Folders first -->
+  <rect x="0" y="132" width="375" height="48" fill="#fff" stroke="#f3f4f6" stroke-width="0.5"/>
+  <text x="16" y="158" font-size="16">&#128193;</text>
+  <text x="40" y="154" class="body" font-weight="500">season-1/</text>
+  <text x="40" y="168" class="small">86 images</text>
+  <text x="360" y="160" class="body" fill="#ccc" text-anchor="end">&#8250;</text>
+
+  <rect x="0" y="180" width="375" height="48" fill="#fff" stroke="#f3f4f6" stroke-width="0.5"/>
+  <text x="16" y="206" font-size="16">&#128193;</text>
+  <text x="40" y="202" class="body" font-weight="500">season-2/</text>
+  <text x="40" y="216" class="small">72 images</text>
+  <text x="360" y="208" class="body" fill="#ccc" text-anchor="end">&#8250;</text>
+
+  <rect x="0" y="228" width="375" height="48" fill="#fff" stroke="#f3f4f6" stroke-width="0.5"/>
+  <text x="16" y="254" font-size="16">&#128193;</text>
+  <text x="40" y="250" class="body" font-weight="500">season-3/</text>
+  <text x="40" y="264" class="small">98 images -- 2 subfolders</text>
+  <text x="360" y="256" class="body" fill="#ccc" text-anchor="end">&#8250;</text>
+
+  <rect x="0" y="276" width="375" height="48" fill="#fff" stroke="#f3f4f6" stroke-width="0.5"/>
+  <text x="16" y="302" font-size="16">&#128193;</text>
+  <text x="40" y="298" class="body" font-weight="500">season-4/</text>
+  <text x="40" y="312" class="small">86 images</text>
+  <text x="360" y="304" class="body" fill="#ccc" text-anchor="end">&#8250;</text>
+
+  <!-- Divider: Images in this folder -->
+  <rect x="0" y="332" width="375" height="28" fill="#f8fafc"/>
+  <text x="16" y="350" font-size="10" fill="#888" font-weight="500">IMAGES IN THIS FOLDER (0 directly)</text>
+
+  <!-- Empty state for root-level images -->
+  <rect x="0" y="360" width="375" height="60" fill="#fff"/>
+  <text x="188" y="394" class="body" fill="#aaa" text-anchor="middle">Images are in subfolders</text>
+
+  <!-- Folder info section -->
+  <rect x="0" y="430" width="375" height="1" fill="#e5e7eb"/>
+  <rect x="16" y="440" width="343" height="100" rx="8" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="32" y="462" font-size="10" fill="#888" font-weight="500">FOLDER INFO</text>
+  <text x="32" y="480" class="body" font-weight="500">attack-on-titan/</text>
+  <text x="32" y="496" class="small">Anime: Attack on Titan</text>
+  <text x="32" y="512" class="small">Total: 342 images across 4 subfolders</text>
+
+  <!-- Tags on this folder -->
+  <text x="32" y="530" class="small" fill="#888">Tags:</text>
+  <rect x="60" y="518" width="52" height="18" rx="9" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="86" y="530" font-size="9" fill="#16a34a" text-anchor="middle">Action</text>
+  <rect x="118" y="518" width="56" height="18" rx="9" fill="#fefce8" stroke="#fef08a" stroke-width="1"/>
+  <text x="146" y="530" font-size="9" fill="#ca8a04" text-anchor="middle">Fantasy</text>
+
+  <!-- Action buttons -->
+  <rect x="16" y="558" width="108" height="32" rx="6" fill="#fff" stroke="#6366f1" stroke-width="1"/>
+  <text x="70" y="578" font-size="10" fill="#6366f1" text-anchor="middle">Import Images</text>
+  <rect x="132" y="558" width="80" height="32" rx="6" fill="#fff" stroke="#d1d5db" stroke-width="1"/>
+  <text x="172" y="578" font-size="10" fill="#555" text-anchor="middle">Rename</text>
+  <rect x="220" y="558" width="80" height="32" rx="6" fill="#fff" stroke="#d1d5db" stroke-width="1"/>
+  <text x="260" y="578" font-size="10" fill="#555" text-anchor="middle">Edit Tags</text>
+
+  <!-- ==================== BOTTOM NAV ==================== -->
+  <rect x="0" y="748" width="375" height="64" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <g transform="translate(174, 756)">
+    <rect x="0" y="0" width="56" height="40" rx="8" fill="#eef2ff"/>
+    <text x="28" y="28" font-size="9" fill="#6366f1" text-anchor="middle" font-weight="500">Folders</text>
+  </g>
+  <g transform="translate(24, 756)">
+    <text x="28" y="28" font-size="9" fill="#888" text-anchor="middle">Library</text>
+  </g>
+  <g transform="translate(99, 756)">
+    <text x="28" y="28" font-size="9" fill="#888" text-anchor="middle">Search</text>
+  </g>
+  <g transform="translate(249, 756)">
+    <text x="28" y="28" font-size="9" fill="#888" text-anchor="middle">Tags</text>
+  </g>
+  <g transform="translate(318, 756)">
+    <text x="21" y="28" font-size="9" fill="#888" text-anchor="middle">More</text>
+  </g>
+
+  <text x="188" y="808" class="label" text-anchor="middle">Native file-browser feel; tap folder to drill in</text>
+</svg>

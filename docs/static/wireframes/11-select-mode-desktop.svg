@@ -1,0 +1,133 @@
+<svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 11px; fill: #888; }
+      .heading { font-size: 18px; fill: #111; font-weight: 600; }
+      .subheading { font-size: 14px; fill: #111; font-weight: 500; }
+      .body { font-size: 12px; fill: #555; }
+      .small { font-size: 10px; fill: #999; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1440" height="900" fill="#fafafa"/>
+
+  <!-- ==================== TOP BAR ==================== -->
+  <rect x="0" y="0" width="1440" height="56" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="24" y="34" font-size="18" fill="#6366f1">&#8592;</text>
+  <text x="48" y="34" class="body" fill="#888">Library /</text>
+  <text x="100" y="34" class="subheading">Attack on Titan</text>
+
+  <!-- ==================== SIDEBAR ==================== -->
+  <rect x="0" y="56" width="64" height="844" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+
+  <!-- ==================== SELECTION ACTION BAR (replaces normal toolbar when in select mode) ==================== -->
+  <rect x="64" y="56" width="1376" height="52" fill="#6366f1"/>
+
+  <!-- Selected count -->
+  <text x="84" y="86" font-size="14" fill="#fff" font-weight="500">5 images selected</text>
+
+  <!-- Select all / Deselect all -->
+  <rect x="264" y="70" width="80" height="26" rx="4" fill="rgba(255,255,255,0.15)"/>
+  <text x="304" y="87" font-size="10" fill="#fff" text-anchor="middle">Select All</text>
+
+  <rect x="352" y="70" width="80" height="26" rx="4" fill="rgba(255,255,255,0.15)"/>
+  <text x="392" y="87" font-size="10" fill="#fff" text-anchor="middle">Clear</text>
+
+  <!-- Actions -->
+  <rect x="980" y="70" width="100" height="26" rx="4" fill="#fff"/>
+  <text x="1030" y="87" font-size="10" fill="#6366f1" text-anchor="middle">Edit Tags</text>
+
+  <rect x="1092" y="70" width="120" height="26" rx="4" fill="rgba(255,255,255,0.15)"/>
+  <text x="1152" y="87" font-size="10" fill="#fff" text-anchor="middle">ML Suggestions</text>
+
+  <rect x="1224" y="70" width="80" height="26" rx="4" fill="rgba(255,255,255,0.15)"/>
+  <text x="1264" y="87" font-size="10" fill="#fff" text-anchor="middle">Move</text>
+
+  <!-- Cancel -->
+  <rect x="1360" y="70" width="60" height="26" rx="4" fill="rgba(255,255,255,0.2)"/>
+  <text x="1390" y="87" font-size="10" fill="#fff" text-anchor="middle">Done</text>
+
+  <!-- ==================== IMAGE GRID WITH SELECTION OVERLAYS ==================== -->
+  <!-- Row 1 -->
+  <g transform="translate(96, 120)">
+    <!-- Selected image -->
+    <rect width="300" height="200" rx="8" fill="#e0e7ff" stroke="#6366f1" stroke-width="3"/>
+    <text x="150" y="104" class="small" fill="#a5b4fc" text-anchor="middle">Image 1</text>
+    <!-- Checkbox overlay -->
+    <rect x="12" y="12" width="24" height="24" rx="12" fill="#6366f1"/>
+    <text x="24" y="28" font-size="14" fill="#fff" text-anchor="middle">v</text>
+    <!-- Dim overlay -->
+    <rect width="300" height="200" rx="8" fill="#6366f1" opacity="0.08"/>
+  </g>
+
+  <g transform="translate(408, 120)">
+    <rect width="300" height="200" rx="8" fill="#fce7f3" stroke="#6366f1" stroke-width="3"/>
+    <text x="150" y="104" class="small" fill="#f9a8d4" text-anchor="middle">Image 2</text>
+    <rect x="12" y="12" width="24" height="24" rx="12" fill="#6366f1"/>
+    <text x="24" y="28" font-size="14" fill="#fff" text-anchor="middle">v</text>
+    <rect width="300" height="200" rx="8" fill="#6366f1" opacity="0.08"/>
+  </g>
+
+  <g transform="translate(720, 120)">
+    <!-- Unselected image -->
+    <rect width="300" height="200" rx="8" fill="#d1fae5"/>
+    <text x="150" y="104" class="small" fill="#6ee7b7" text-anchor="middle">Image 3</text>
+    <!-- Empty checkbox -->
+    <rect x="12" y="12" width="24" height="24" rx="12" fill="rgba(0,0,0,0.3)"/>
+  </g>
+
+  <g transform="translate(1032, 120)">
+    <rect width="300" height="200" rx="8" fill="#fef3c7" stroke="#6366f1" stroke-width="3"/>
+    <text x="150" y="104" class="small" fill="#fcd34d" text-anchor="middle">Image 4</text>
+    <rect x="12" y="12" width="24" height="24" rx="12" fill="#6366f1"/>
+    <text x="24" y="28" font-size="14" fill="#fff" text-anchor="middle">v</text>
+    <rect width="300" height="200" rx="8" fill="#6366f1" opacity="0.08"/>
+  </g>
+
+  <!-- Row 2 -->
+  <g transform="translate(96, 332)">
+    <rect width="300" height="200" rx="8" fill="#ddd6fe"/>
+    <rect x="12" y="12" width="24" height="24" rx="12" fill="rgba(0,0,0,0.3)"/>
+  </g>
+  <g transform="translate(408, 332)">
+    <rect width="300" height="200" rx="8" fill="#fbcfe8" stroke="#6366f1" stroke-width="3"/>
+    <rect x="12" y="12" width="24" height="24" rx="12" fill="#6366f1"/>
+    <text x="24" y="348" font-size="14" fill="#fff" text-anchor="middle">v</text>
+    <rect width="300" height="200" rx="8" fill="#6366f1" opacity="0.08"/>
+  </g>
+  <g transform="translate(720, 332)">
+    <rect width="300" height="200" rx="8" fill="#ccfbf1"/>
+    <rect x="12" y="12" width="24" height="24" rx="12" fill="rgba(0,0,0,0.3)"/>
+  </g>
+  <g transform="translate(1032, 332)">
+    <rect width="300" height="200" rx="8" fill="#fee2e2" stroke="#6366f1" stroke-width="3"/>
+    <rect x="12" y="12" width="24" height="24" rx="12" fill="#6366f1"/>
+    <text x="24" y="28" font-size="14" fill="#fff" text-anchor="middle">v</text>
+    <rect width="300" height="200" rx="8" fill="#6366f1" opacity="0.08"/>
+  </g>
+
+  <!-- Row 3 -->
+  <g transform="translate(96, 544)">
+    <rect width="300" height="200" rx="8" fill="#e0e7ff"/>
+    <rect x="12" y="12" width="24" height="24" rx="12" fill="rgba(0,0,0,0.3)"/>
+  </g>
+  <g transform="translate(408, 544)">
+    <rect width="300" height="200" rx="8" fill="#fef3c7"/>
+    <rect x="12" y="12" width="24" height="24" rx="12" fill="rgba(0,0,0,0.3)"/>
+  </g>
+  <g transform="translate(720, 544)">
+    <rect width="300" height="200" rx="8" fill="#d1fae5"/>
+    <rect x="12" y="12" width="24" height="24" rx="12" fill="rgba(0,0,0,0.3)"/>
+  </g>
+  <g transform="translate(1032, 544)">
+    <rect width="300" height="200" rx="8" fill="#ddd6fe"/>
+    <rect x="12" y="12" width="24" height="24" rx="12" fill="rgba(0,0,0,0.3)"/>
+  </g>
+
+  <!-- Annotations -->
+  <text x="720" y="790" class="label" text-anchor="middle">Select mode: checkboxes appear on all images, selection bar replaces toolbar</text>
+  <text x="720" y="810" class="label" text-anchor="middle">Shift+click for range select -- Ctrl+click for individual toggle</text>
+  <text x="720" y="830" class="label" text-anchor="middle">Actions: Edit Tags (manual), ML Suggestions, Move to folder</text>
+</svg>

@@ -1,0 +1,171 @@
+<svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 11px; fill: #888; }
+      .heading { font-size: 16px; fill: #111; font-weight: 600; }
+      .body { font-size: 12px; fill: #555; }
+      .small { font-size: 10px; fill: #999; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1440" height="900" fill="#fafafa"/>
+
+  <!-- Title -->
+  <text x="720" y="32" font-size="18" fill="#111" text-anchor="middle" font-weight="600">Navigation Pattern: Desktop vs Mobile</text>
+
+  <!-- ============================================================ -->
+  <!-- DESKTOP: Icon Rail Sidebar (left half) -->
+  <!-- ============================================================ -->
+  <text x="360" y="64" class="heading" text-anchor="middle">Desktop: Icon Rail (64px collapsed)</text>
+  <text x="360" y="82" class="body" text-anchor="middle">Expands to 200px on hover -- always visible</text>
+
+  <!-- Desktop frame -->
+  <rect x="60" y="100" width="600" height="500" rx="8" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+
+  <!-- Top bar -->
+  <rect x="60" y="100" width="600" height="36" rx="8" fill="#f8fafc"/>
+  <rect x="60" y="124" width="600" height="12" fill="#f8fafc"/>
+  <rect x="76" y="108" width="18" height="18" rx="4" fill="#6366f1"/>
+  <text x="100" y="122" font-size="10" fill="#111" font-weight="500">AnimeVault</text>
+  <rect x="280" y="108" width="200" height="18" rx="4" fill="#f3f4f6"/>
+  <text x="290" y="120" font-size="9" fill="#aaa">Ctrl+K</text>
+
+  <!-- Collapsed sidebar -->
+  <rect x="60" y="136" width="48" height="464" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+
+  <!-- Icons -->
+  <rect x="68" y="148" width="32" height="28" rx="6" fill="#eef2ff"/>
+  <text x="84" y="166" font-size="8" fill="#6366f1" text-anchor="middle">Lib</text>
+
+  <rect x="68" y="184" width="32" height="28" rx="6" fill="transparent"/>
+  <text x="84" y="202" font-size="8" fill="#888" text-anchor="middle">Srch</text>
+
+  <rect x="68" y="220" width="32" height="28" rx="6" fill="transparent"/>
+  <text x="84" y="238" font-size="8" fill="#888" text-anchor="middle">Fold</text>
+
+  <rect x="68" y="256" width="32" height="28" rx="6" fill="transparent"/>
+  <text x="84" y="274" font-size="8" fill="#888" text-anchor="middle">Tags</text>
+
+  <line x1="72" y1="296" x2="100" y2="296" stroke="#e5e7eb" stroke-width="1"/>
+
+  <rect x="68" y="308" width="32" height="28" rx="6" fill="transparent"/>
+  <text x="84" y="326" font-size="8" fill="#888" text-anchor="middle">Bkup</text>
+
+  <rect x="68" y="344" width="32" height="28" rx="6" fill="transparent"/>
+  <text x="84" y="362" font-size="8" fill="#888" text-anchor="middle">Sett</text>
+
+  <!-- Content area -->
+  <rect x="108" y="136" width="552" height="464" fill="#fafafa"/>
+  <text x="384" y="380" class="body" fill="#aaa" text-anchor="middle">Content Area</text>
+
+  <!-- Arrow showing hover expand -->
+  <line x1="110" y1="448" x2="160" y2="448" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="4"/>
+  <text x="135" y="440" font-size="8" fill="#6366f1" text-anchor="middle">hover</text>
+
+  <!-- Expanded state overlay -->
+  <rect x="60" y="480" width="160" height="120" rx="6" fill="#fff" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="4"/>
+  <text x="68" y="498" font-size="8" fill="#6366f1">Expanded (200px):</text>
+  <rect x="68" y="504" width="144" height="20" rx="4" fill="#eef2ff"/>
+  <text x="76" y="518" font-size="9" fill="#6366f1">Library</text>
+  <text x="76" y="538" font-size="9" fill="#888">Search</text>
+  <text x="76" y="554" font-size="9" fill="#888">Folders</text>
+  <text x="76" y="570" font-size="9" fill="#888">Tags</text>
+  <text x="76" y="586" font-size="9" fill="#888">Backup</text>
+
+  <!-- Desktop key behaviors -->
+  <rect x="60" y="620" width="600" height="100" rx="8" fill="#f8fafc" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="80" y="642" class="body" font-weight="500">Desktop Navigation Behaviors:</text>
+  <text x="80" y="660" class="small">-- Icon rail always visible (64px), expands to 200px on hover</text>
+  <text x="80" y="676" class="small">-- Ctrl+K opens command palette (global search + actions)</text>
+  <text x="80" y="692" class="small">-- Breadcrumbs in top bar for deep navigation</text>
+  <text x="80" y="708" class="small">-- Right-click context menus on items</text>
+
+  <!-- ============================================================ -->
+  <!-- MOBILE: Bottom Tab Bar (right half) -->
+  <!-- ============================================================ -->
+  <text x="1080" y="64" class="heading" text-anchor="middle">Mobile: Bottom Tab Bar (5 tabs)</text>
+  <text x="1080" y="82" class="body" text-anchor="middle">Always visible -- "More" for secondary pages</text>
+
+  <!-- Mobile frame -->
+  <rect x="920" y="100" width="320" height="580" rx="20" fill="#fff" stroke="#e5e7eb" stroke-width="2"/>
+
+  <!-- Status bar -->
+  <rect x="920" y="100" width="320" height="28" rx="20" fill="#f8fafc"/>
+  <rect x="920" y="118" width="320" height="10" fill="#f8fafc"/>
+
+  <!-- Content area -->
+  <rect x="936" y="128" width="288" height="468" fill="#fafafa" rx="4"/>
+  <text x="1080" y="370" class="body" fill="#aaa" text-anchor="middle">Content Area</text>
+
+  <!-- Bottom tab bar -->
+  <rect x="920" y="596" width="320" height="56" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <rect x="920" y="638" width="320" height="18" rx="0" fill="#fff"/>
+  <rect x="920" y="648" width="320" height="8" rx="0" fill="#fff"/>
+
+  <!-- Tab items -->
+  <g transform="translate(932, 604)">
+    <rect x="0" y="0" width="48" height="32" rx="6" fill="#eef2ff"/>
+    <text x="24" y="14" font-size="8" fill="#6366f1" text-anchor="middle">Lib</text>
+    <text x="24" y="26" font-size="7" fill="#6366f1" text-anchor="middle">Library</text>
+  </g>
+  <g transform="translate(990, 604)">
+    <text x="24" y="14" font-size="8" fill="#888" text-anchor="middle">Srch</text>
+    <text x="24" y="26" font-size="7" fill="#888" text-anchor="middle">Search</text>
+  </g>
+  <g transform="translate(1048, 604)">
+    <text x="24" y="14" font-size="8" fill="#888" text-anchor="middle">Fold</text>
+    <text x="24" y="26" font-size="7" fill="#888" text-anchor="middle">Folders</text>
+  </g>
+  <g transform="translate(1106, 604)">
+    <text x="24" y="14" font-size="8" fill="#888" text-anchor="middle">Tags</text>
+    <text x="24" y="26" font-size="7" fill="#888" text-anchor="middle">Tags</text>
+  </g>
+  <g transform="translate(1164, 604)">
+    <text x="24" y="14" font-size="8" fill="#888" text-anchor="middle">...</text>
+    <text x="24" y="26" font-size="7" fill="#888" text-anchor="middle">More</text>
+  </g>
+
+  <!-- "More" menu expanded overlay -->
+  <rect x="1060" y="440" width="180" height="160" rx="12" fill="#fff" stroke="#e5e7eb" stroke-width="1.5"/>
+  <text x="1080" y="462" font-size="10" fill="#111" font-weight="500">"More" Menu</text>
+  <line x1="1072" y1="470" x2="1228" y2="470" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="1080" y="490" font-size="10" fill="#555">Backup</text>
+  <text x="1080" y="510" font-size="10" fill="#555">Settings</text>
+  <line x1="1072" y1="520" x2="1228" y2="520" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="1080" y="540" font-size="10" fill="#555">Theme: System</text>
+  <line x1="1072" y1="550" x2="1228" y2="550" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="1080" y="570" font-size="10" fill="#888">About</text>
+  <text x="1080" y="590" font-size="10" fill="#888">Version 1.0.0</text>
+
+  <!-- Arrow pointing to More -->
+  <line x1="1188" y1="604" x2="1150" y2="600" stroke="#6366f1" stroke-width="1" stroke-dasharray="3"/>
+
+  <!-- Mobile key behaviors -->
+  <rect x="780" y="700" width="600" height="120" rx="8" fill="#f8fafc" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="800" y="722" class="body" font-weight="500">Mobile Navigation Behaviors:</text>
+  <text x="800" y="740" class="small">-- 5-tab bottom bar: Library, Search, Folders, Tags, More</text>
+  <text x="800" y="756" class="small">-- "More" slides up a bottom sheet for Backup, Settings, About</text>
+  <text x="800" y="772" class="small">-- Search icon in top bar opens full-screen search</text>
+  <text x="800" y="788" class="small">-- Swipe back gesture for drill-down navigation</text>
+  <text x="800" y="804" class="small">-- Pull-to-refresh on image grids and lists</text>
+
+  <!-- ============================================================ -->
+  <!-- COMMAND PALETTE (center bottom) -->
+  <!-- ============================================================ -->
+  <rect x="440" y="730" width="320" height="160" rx="12" fill="#fff" stroke="#6366f1" stroke-width="2"/>
+  <text x="460" y="756" font-size="12" fill="#111" font-weight="500">Command Palette (Ctrl+K)</text>
+  <rect x="460" y="766" width="280" height="28" rx="6" fill="#f3f4f6" stroke="#6366f1" stroke-width="1"/>
+  <text x="476" y="784" font-size="10" fill="#111">attack on ti...</text>
+
+  <text x="460" y="810" font-size="10" fill="#555">Attack on Titan</text>
+  <text x="720" y="810" font-size="9" fill="#888" text-anchor="end">Anime</text>
+  <text x="460" y="828" font-size="10" fill="#888">attack-on-titan/ (folder)</text>
+  <text x="720" y="828" font-size="9" fill="#888" text-anchor="end">Folder</text>
+  <text x="460" y="846" font-size="10" fill="#888">"Attack" tag</text>
+  <text x="720" y="846" font-size="9" fill="#888" text-anchor="end">Tag</text>
+  <text x="460" y="864" font-size="10" fill="#888">Search "attack on titan"</text>
+  <text x="720" y="864" font-size="9" fill="#6366f1" text-anchor="end">Search</text>
+  <text x="460" y="880" font-size="9" fill="#aaa">Desktop only -- type to search everything</text>
+</svg>

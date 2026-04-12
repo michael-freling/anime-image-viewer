@@ -1,0 +1,97 @@
+<svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 11px; fill: #888; }
+      .heading { font-size: 18px; fill: #111; font-weight: 600; }
+      .subheading { font-size: 14px; fill: #111; font-weight: 500; }
+      .body { font-size: 12px; fill: #555; }
+      .small { font-size: 10px; fill: #999; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1440" height="900" fill="#fafafa"/>
+
+  <!-- ==================== TOP BAR ==================== -->
+  <rect x="0" y="0" width="1440" height="56" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <rect x="24" y="14" width="28" height="28" rx="6" fill="#6366f1"/>
+  <text x="40" y="33" font-size="14" fill="#fff" font-weight="700" text-anchor="middle">A</text>
+  <text x="64" y="34" font-size="15" fill="#111" font-weight="600">AnimeVault</text>
+
+  <!-- ==================== SIDEBAR ==================== -->
+  <rect x="0" y="56" width="64" height="844" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <rect x="8" y="364" width="48" height="44" rx="8" fill="#eef2ff"/>
+  <text x="32" y="396" class="small" text-anchor="middle" fill="#6366f1">Settings</text>
+
+  <!-- ==================== SETTINGS NAV (left panel) ==================== -->
+  <rect x="64" y="56" width="260" height="844" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="84" y="88" class="heading" font-size="16">Settings</text>
+
+  <!-- Settings nav items -->
+  <rect x="72" y="104" width="244" height="36" rx="6" fill="#eef2ff"/>
+  <text x="92" y="126" class="body" fill="#6366f1" font-weight="500">General</text>
+
+  <rect x="72" y="144" width="244" height="36" rx="6" fill="transparent"/>
+  <text x="92" y="166" class="body">Appearance</text>
+
+  <rect x="72" y="184" width="244" height="36" rx="6" fill="transparent"/>
+  <text x="92" y="206" class="body">Backup</text>
+
+  <rect x="72" y="224" width="244" height="36" rx="6" fill="transparent"/>
+  <text x="92" y="246" class="body">About</text>
+
+  <!-- ==================== SETTINGS CONTENT (right, centered) ==================== -->
+  <rect x="324" y="56" width="1116" height="844" fill="#fafafa"/>
+
+  <text x="480" y="100" class="heading">General Settings</text>
+
+  <!-- ==================== DIRECTORIES CARD ==================== -->
+  <rect x="480" y="120" width="640" height="280" rx="12" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="512" y="152" class="subheading">Directories</text>
+  <text x="512" y="170" class="body" fill="#888">Configure where your data is stored</text>
+
+  <!-- Image Root -->
+  <text x="512" y="200" font-size="11" fill="#111" font-weight="500">Image Root Directory</text>
+  <rect x="512" y="208" width="420" height="28" rx="6" fill="#f3f4f6"/>
+  <text x="528" y="226" class="body">/home/user/anime-images</text>
+  <rect x="940" y="208" width="64" height="28" rx="6" fill="#fff" stroke="#d1d5db" stroke-width="1"/>
+  <text x="972" y="226" font-size="10" fill="#555" text-anchor="middle">Browse</text>
+
+  <!-- Config Dir -->
+  <text x="512" y="254" font-size="11" fill="#111" font-weight="500">Config Directory</text>
+  <rect x="512" y="262" width="420" height="28" rx="6" fill="#f3f4f6"/>
+  <text x="528" y="280" class="body">/home/user/.config/anime-image-viewer</text>
+  <rect x="940" y="262" width="64" height="28" rx="6" fill="#fff" stroke="#d1d5db" stroke-width="1"/>
+  <text x="972" y="280" font-size="10" fill="#555" text-anchor="middle">Browse</text>
+
+  <!-- Log Dir -->
+  <text x="512" y="308" font-size="11" fill="#111" font-weight="500">Log Directory</text>
+  <rect x="512" y="316" width="420" height="28" rx="6" fill="#f3f4f6"/>
+  <text x="528" y="334" class="body">/home/user/.local/log/anime-image-viewer</text>
+  <rect x="940" y="316" width="64" height="28" rx="6" fill="#fff" stroke="#d1d5db" stroke-width="1"/>
+  <text x="972" y="334" font-size="10" fill="#555" text-anchor="middle">Browse</text>
+
+  <!-- Backup Dir -->
+  <text x="512" y="362" font-size="11" fill="#111" font-weight="500">Backup Directory</text>
+  <rect x="512" y="370" width="420" height="28" rx="6" fill="#f3f4f6"/>
+  <text x="528" y="388" class="body">/home/user/backups/anime-image-viewer</text>
+  <rect x="940" y="370" width="64" height="28" rx="6" fill="#fff" stroke="#d1d5db" stroke-width="1"/>
+  <text x="972" y="388" font-size="10" fill="#555" text-anchor="middle">Browse</text>
+
+  <!-- ==================== SAVE / RESET ROW ==================== -->
+  <rect x="480" y="420" width="640" height="56" rx="0" fill="transparent"/>
+
+  <rect x="480" y="428" width="72" height="32" rx="6" fill="#6366f1"/>
+  <text x="516" y="448" font-size="11" fill="#fff" text-anchor="middle">Save</text>
+
+  <rect x="564" y="428" width="120" height="32" rx="6" fill="#fff" stroke="#d1d5db" stroke-width="1"/>
+  <text x="624" y="448" font-size="11" fill="#555" text-anchor="middle">Reset to Defaults</text>
+
+  <!-- Info notice -->
+  <rect x="480" y="476" width="640" height="36" rx="8" fill="#fffbeb" stroke="#fef08a" stroke-width="1"/>
+  <text x="504" y="498" class="body" fill="#92400e">Changes to directories require an app restart to take effect.</text>
+
+  <!-- Annotation -->
+  <text x="720" y="890" class="label" text-anchor="middle">Settings with left nav for sections -- Appearance for theme, About for version info</text>
+</svg>

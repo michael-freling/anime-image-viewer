@@ -1,0 +1,144 @@
+<svg viewBox="0 0 375 812" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 10px; fill: #888; }
+      .heading { font-size: 17px; fill: #111; font-weight: 600; }
+      .subheading { font-size: 13px; fill: #111; font-weight: 500; }
+      .body { font-size: 12px; fill: #555; }
+      .small { font-size: 10px; fill: #999; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="375" height="812" fill="#fafafa"/>
+
+  <!-- Status bar -->
+  <rect x="0" y="0" width="375" height="44" fill="#fff"/>
+
+  <!-- ==================== TOP BAR ==================== -->
+  <rect x="0" y="44" width="375" height="52" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="16" y="74" font-size="18" fill="#6366f1">&#8592;</text>
+  <text x="42" y="74" class="heading" font-size="15">Attack on Titan</text>
+  <!-- More menu -->
+  <circle cx="340" cy="70" r="2" fill="#888"/>
+  <circle cx="348" cy="70" r="2" fill="#888"/>
+  <circle cx="356" cy="70" r="2" fill="#888"/>
+
+  <!-- Stats -->
+  <text x="16" y="92" class="body" fill="#888">342 images -- 4 seasons</text>
+
+  <!-- ==================== ENTRY TABS (horizontal scroll) ==================== -->
+  <rect x="0" y="100" width="375" height="40" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+
+  <rect x="12" y="106" width="48" height="28" rx="14" fill="#6366f1"/>
+  <text x="36" y="124" font-size="10" fill="#fff" text-anchor="middle">All</text>
+
+  <rect x="68" y="106" width="72" height="28" rx="14" fill="#f3f4f6"/>
+  <text x="104" y="124" font-size="10" fill="#555" text-anchor="middle">Season 1</text>
+
+  <rect x="148" y="106" width="72" height="28" rx="14" fill="#f3f4f6"/>
+  <text x="184" y="124" font-size="10" fill="#555" text-anchor="middle">Season 2</text>
+
+  <rect x="228" y="106" width="72" height="28" rx="14" fill="#f3f4f6"/>
+  <text x="264" y="124" font-size="10" fill="#555" text-anchor="middle">Season 3</text>
+
+  <rect x="308" y="106" width="72" height="28" rx="14" fill="#f3f4f6"/>
+  <text x="344" y="124" font-size="10" fill="#555" text-anchor="middle">Season 4</text>
+
+  <!-- Scroll indicator -->
+  <text x="370" y="124" font-size="14" fill="#ccc">&#8250;</text>
+
+  <!-- ==================== CHARACTER + TAG CHIPS (collapsible) ==================== -->
+  <rect x="0" y="140" width="375" height="68" fill="#fff"/>
+
+  <text x="16" y="160" font-size="10" fill="#888" font-weight="500">CHARACTERS</text>
+  <rect x="16" y="166" width="50" height="22" rx="11" fill="#f3f4f6"/>
+  <text x="41" y="180" font-size="9" fill="#555" text-anchor="middle">Eren</text>
+  <rect x="72" y="166" width="56" height="22" rx="11" fill="#f3f4f6"/>
+  <text x="100" y="180" font-size="9" fill="#555" text-anchor="middle">Mikasa</text>
+  <rect x="134" y="166" width="50" height="22" rx="11" fill="#f3f4f6"/>
+  <text x="159" y="180" font-size="9" fill="#555" text-anchor="middle">Armin</text>
+  <rect x="190" y="166" width="44" height="22" rx="11" fill="#f3f4f6"/>
+  <text x="212" y="180" font-size="9" fill="#555" text-anchor="middle">Levi</text>
+  <rect x="240" y="166" width="32" height="22" rx="11" fill="#f3f4f6"/>
+  <text x="256" y="180" font-size="9" fill="#888" text-anchor="middle">+3</text>
+
+  <text x="16" y="198" font-size="10" fill="#888" font-weight="500">TAGS</text>
+  <text x="55" y="198" font-size="9" fill="#555">Action, Fantasy, Drama</text>
+
+  <!-- ==================== TOOLBAR ==================== -->
+  <rect x="0" y="208" width="375" height="36" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="16" y="230" class="small" fill="#555">342 images</text>
+
+  <rect x="180" y="214" width="44" height="24" rx="4" fill="#6366f1"/>
+  <text x="202" y="230" font-size="9" fill="#fff" text-anchor="middle">View</text>
+  <rect x="224" y="214" width="50" height="24" rx="4" fill="#fff" stroke="#d1d5db" stroke-width="1"/>
+  <text x="249" y="230" font-size="9" fill="#555" text-anchor="middle">Select</text>
+
+  <rect x="286" y="214" width="72" height="24" rx="4" fill="#fff" stroke="#d1d5db" stroke-width="1"/>
+  <text x="322" y="230" font-size="9" fill="#888" text-anchor="middle">Filter tag</text>
+
+  <!-- ==================== IMAGE GRID (2 column) ==================== -->
+  <!-- Row 1 -->
+  <g transform="translate(10, 252)">
+    <rect width="172" height="115" rx="8" fill="#e0e7ff"/>
+    <text x="86" y="60" class="small" fill="#a5b4fc" text-anchor="middle">Image</text>
+  </g>
+  <g transform="translate(192, 252)">
+    <rect width="172" height="115" rx="8" fill="#fce7f3"/>
+    <text x="86" y="60" class="small" fill="#f9a8d4" text-anchor="middle">Image</text>
+  </g>
+
+  <!-- Row 2 -->
+  <g transform="translate(10, 377)">
+    <rect width="172" height="115" rx="8" fill="#d1fae5"/>
+    <text x="86" y="60" class="small" fill="#6ee7b7" text-anchor="middle">Image</text>
+  </g>
+  <g transform="translate(192, 377)">
+    <rect width="172" height="115" rx="8" fill="#fef3c7"/>
+    <text x="86" y="60" class="small" fill="#fcd34d" text-anchor="middle">Image</text>
+  </g>
+
+  <!-- Row 3 -->
+  <g transform="translate(10, 502)">
+    <rect width="172" height="115" rx="8" fill="#ddd6fe"/>
+    <text x="86" y="60" class="small" fill="#c4b5fd" text-anchor="middle">Image</text>
+  </g>
+  <g transform="translate(192, 502)">
+    <rect width="172" height="115" rx="8" fill="#fbcfe8"/>
+    <text x="86" y="60" class="small" fill="#f9a8d4" text-anchor="middle">Image</text>
+  </g>
+
+  <!-- Row 4 -->
+  <g transform="translate(10, 627)">
+    <rect width="172" height="115" rx="8" fill="#ccfbf1"/>
+    <text x="86" y="60" class="small" fill="#5eead4" text-anchor="middle">Image</text>
+  </g>
+  <g transform="translate(192, 627)">
+    <rect width="172" height="115" rx="8" fill="#fee2e2"/>
+    <text x="86" y="60" class="small" fill="#fca5a5" text-anchor="middle">Image</text>
+  </g>
+
+  <!-- ==================== BOTTOM NAV ==================== -->
+  <rect x="0" y="748" width="375" height="64" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <g transform="translate(24, 756)">
+    <rect x="0" y="0" width="56" height="40" rx="8" fill="#eef2ff"/>
+    <text x="28" y="28" font-size="9" fill="#6366f1" text-anchor="middle" font-weight="500">Library</text>
+  </g>
+  <g transform="translate(99, 756)">
+    <text x="28" y="28" font-size="9" fill="#888" text-anchor="middle">Search</text>
+  </g>
+  <g transform="translate(174, 756)">
+    <text x="28" y="28" font-size="9" fill="#888" text-anchor="middle">Folders</text>
+  </g>
+  <g transform="translate(249, 756)">
+    <text x="28" y="28" font-size="9" fill="#888" text-anchor="middle">Tags</text>
+  </g>
+  <g transform="translate(318, 756)">
+    <text x="21" y="28" font-size="9" fill="#888" text-anchor="middle">More</text>
+  </g>
+
+  <!-- Annotation -->
+  <text x="188" y="808" class="label" text-anchor="middle">Entry tabs scroll horizontally; metadata collapses</text>
+</svg>

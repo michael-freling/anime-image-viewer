@@ -1,0 +1,108 @@
+<svg viewBox="0 0 375 812" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 10px; fill: #888; }
+      .heading { font-size: 17px; fill: #111; font-weight: 600; }
+      .subheading { font-size: 13px; fill: #111; font-weight: 500; }
+      .body { font-size: 12px; fill: #555; }
+      .small { font-size: 10px; fill: #999; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="375" height="812" fill="#fafafa"/>
+  <rect x="0" y="0" width="375" height="44" fill="#fff"/>
+
+  <!-- ==================== TOP BAR ==================== -->
+  <rect x="0" y="44" width="375" height="48" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="16" y="72" font-size="16" fill="#888">&#8592;</text>
+  <text x="42" y="72" class="heading" font-size="15">Backup</text>
+
+  <!-- ==================== CREATE BACKUP ==================== -->
+  <rect x="16" y="108" width="343" height="160" rx="10" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="32" y="132" class="subheading">Create Backup</text>
+
+  <rect x="32" y="144" width="14" height="14" rx="3" fill="#fff" stroke="#d1d5db" stroke-width="1.5"/>
+  <text x="52" y="156" class="body">Include images</text>
+
+  <text x="32" y="180" class="small" fill="#888">Target:</text>
+  <rect x="32" y="188" width="230" height="26" rx="4" fill="#f3f4f6"/>
+  <text x="44" y="206" class="small" fill="#888">(default)</text>
+  <rect x="268" y="188" width="60" height="26" rx="4" fill="#fff" stroke="#d1d5db" stroke-width="1"/>
+  <text x="298" y="206" font-size="9" fill="#555" text-anchor="middle">Browse</text>
+
+  <rect x="32" y="228" width="296" height="28" rx="6" fill="#6366f1"/>
+  <text x="180" y="246" font-size="11" fill="#fff" text-anchor="middle">Create Backup</text>
+
+  <!-- ==================== BACKUP HISTORY ==================== -->
+  <rect x="16" y="284" width="343" height="280" rx="10" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="32" y="310" class="subheading">History</text>
+
+  <!-- Backup item 1 -->
+  <rect x="32" y="322" width="311" height="60" rx="6" fill="#f8fafc"/>
+  <text x="44" y="342" class="body" font-weight="500">Apr 12, 2026 2:30 PM</text>
+  <text x="44" y="358" class="small">With images -- 2.4 GB</text>
+  <rect x="252" y="332" width="44" height="22" rx="4" fill="#fff" stroke="#f59e0b" stroke-width="1"/>
+  <text x="274" y="346" font-size="9" fill="#f59e0b" text-anchor="middle">Rest.</text>
+  <rect x="300" y="332" width="36" height="22" rx="4" fill="#fff" stroke="#fecaca" stroke-width="1"/>
+  <text x="318" y="346" font-size="9" fill="#dc2626" text-anchor="middle">Del</text>
+
+  <!-- Backup item 2 -->
+  <rect x="32" y="390" width="311" height="60" rx="6" fill="#f8fafc"/>
+  <text x="44" y="410" class="body" font-weight="500">Apr 11, 2026 11:00 AM</text>
+  <text x="44" y="426" class="small">Without images -- 12 MB</text>
+  <rect x="252" y="400" width="44" height="22" rx="4" fill="#fff" stroke="#f59e0b" stroke-width="1"/>
+  <text x="274" y="414" font-size="9" fill="#f59e0b" text-anchor="middle">Rest.</text>
+  <rect x="300" y="400" width="36" height="22" rx="4" fill="#fff" stroke="#fecaca" stroke-width="1"/>
+  <text x="318" y="414" font-size="9" fill="#dc2626" text-anchor="middle">Del</text>
+
+  <!-- Backup item 3 (auto) -->
+  <rect x="32" y="458" width="311" height="60" rx="6" fill="#f8fafc"/>
+  <text x="44" y="478" class="body" font-weight="500">Apr 9, 2026 9:00 PM</text>
+  <rect x="194" y="468" width="36" height="16" rx="8" fill="#f0fdf4"/>
+  <text x="212" y="479" font-size="8" fill="#16a34a" text-anchor="middle">auto</text>
+  <text x="44" y="494" class="small">Without images -- 11 MB</text>
+  <rect x="252" y="468" width="44" height="22" rx="4" fill="#fff" stroke="#f59e0b" stroke-width="1"/>
+  <text x="274" y="482" font-size="9" fill="#f59e0b" text-anchor="middle">Rest.</text>
+  <rect x="300" y="468" width="36" height="22" rx="4" fill="#fff" stroke="#fecaca" stroke-width="1"/>
+  <text x="318" y="482" font-size="9" fill="#dc2626" text-anchor="middle">Del</text>
+
+  <!-- ==================== AUTO BACKUP SETTINGS ==================== -->
+  <rect x="16" y="580" width="343" height="140" rx="10" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="32" y="606" class="subheading">Auto-Backup</text>
+
+  <!-- Toggle -->
+  <rect x="32" y="616" width="36" height="20" rx="10" fill="#6366f1"/>
+  <circle cx="58" cy="626" r="8" fill="#fff"/>
+  <text x="76" y="630" class="body">Enabled</text>
+
+  <text x="32" y="656" class="small" fill="#888">After 30 min idle -- Keep 5 backups</text>
+
+  <rect x="32" y="668" width="14" height="14" rx="3" fill="#fff" stroke="#d1d5db" stroke-width="1.5"/>
+  <text x="52" y="680" class="body">Include images</text>
+
+  <rect x="232" y="700" width="100" height="28" rx="6" fill="#6366f1"/>
+  <text x="282" y="718" font-size="10" fill="#fff" text-anchor="middle">Save</text>
+
+  <!-- ==================== BOTTOM NAV ==================== -->
+  <rect x="0" y="748" width="375" height="64" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+  <g transform="translate(318, 756)">
+    <rect x="-8" y="0" width="56" height="40" rx="8" fill="#eef2ff"/>
+    <text x="20" y="28" font-size="9" fill="#6366f1" text-anchor="middle" font-weight="500">More</text>
+  </g>
+  <g transform="translate(24, 756)">
+    <text x="28" y="28" font-size="9" fill="#888" text-anchor="middle">Library</text>
+  </g>
+  <g transform="translate(99, 756)">
+    <text x="28" y="28" font-size="9" fill="#888" text-anchor="middle">Search</text>
+  </g>
+  <g transform="translate(174, 756)">
+    <text x="28" y="28" font-size="9" fill="#888" text-anchor="middle">Folders</text>
+  </g>
+  <g transform="translate(249, 756)">
+    <text x="28" y="28" font-size="9" fill="#888" text-anchor="middle">Tags</text>
+  </g>
+
+  <text x="188" y="808" class="label" text-anchor="middle">Accessed from "More" bottom tab</text>
+</svg>
