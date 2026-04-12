@@ -47,7 +47,7 @@ func NewBatchImageImporter(
 }
 
 // storeContentHash computes and stores the SHA256 hash for a file. Errors are
-// logged but do not fail the import.
+// logged but do not fail the import. Retries on SQLite busy/locked errors.
 func (batchImporter *BatchImageImporter) storeContentHash(fileID uint, filePath string) {
 	hash, err := image.ComputeFileHash(filePath)
 	if err != nil {
@@ -56,11 +56,20 @@ func (batchImporter *BatchImageImporter) storeContentHash(fileID uint, filePath 
 		)
 		return
 	}
-	if err := batchImporter.dbClient.File().UpdateContentHash(fileID, hash); err != nil {
-		batchImporter.logger.Warn("failed to store hash on import",
-			"path", filePath, "error", err,
-		)
+	backoffs := []time.Duration{100 * time.Millisecond, 500 * time.Millisecond, 1 * time.Second}
+	var storeErr error
+	for attempt := 0; attempt <= len(backoffs); attempt++ {
+		storeErr = batchImporter.dbClient.File().UpdateContentHash(fileID, hash)
+		if storeErr == nil {
+			return
+		}
+		if attempt < len(backoffs) {
+			time.Sleep(backoffs[attempt])
+		}
 	}
+	batchImporter.logger.Warn("failed to store hash on import",
+		"path", filePath, "error", storeErr,
+	)
 }
 
 func (batchImporter *BatchImageImporter) readImageFilePaths(
