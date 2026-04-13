@@ -47,7 +47,7 @@ const ImageWindow: FC<ImageWindowProps> = ({ images, initialId }) => {
       sx={{
         width: "100%",
         height: "100vh",
-        bgcolor: "black",
+        bgcolor: "#1e1e1e",
         position: "relative",
         overflow: "hidden",
       }}
