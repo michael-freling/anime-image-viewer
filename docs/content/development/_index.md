@@ -1,6 +1,7 @@
 ---
 title: "Development"
-weight: 20
+weight: 10
+bookCollapseSection: false
 ---
 
 ## Design

@@ -2,104 +2,227 @@
   <defs>
     <style>
       text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 9px; fill: #555; }
     </style>
   </defs>
 
   <!-- Background -->
   <rect width="375" height="812" fill="#0f0f14"/>
 
-  <!-- Status bar -->
-  <text x="20" y="30" font-size="12" fill="#f1f5f9" font-weight="600">9:41</text>
+  <!-- ==================== STATUS BAR ==================== -->
+  <text x="20" y="18" font-size="12" fill="#f1f5f9" font-weight="600">9:41</text>
+  <text x="340" y="18" font-size="11" fill="#f1f5f9" text-anchor="end">100%</text>
 
-  <!-- Header -->
-  <text x="20" y="62" font-size="20" fill="#f1f5f9" font-weight="700">Tags</text>
-  <text x="20" y="80" font-size="11" fill="#64748b">32 tags</text>
-  <rect x="296" y="48" width="64" height="28" rx="8" fill="#818cf8"/>
-  <text x="328" y="67" font-size="11" fill="#fff" text-anchor="middle">+ New</text>
+  <!-- ==================== HEADER ==================== -->
+  <text x="20" y="50" font-size="20" fill="#f1f5f9" font-weight="700">Tags</text>
+  <text x="20" y="68" font-size="11" fill="#64748b">32 tags across 5 categories</text>
+
+  <!-- Action buttons -->
+  <rect x="236" y="36" width="64" height="28" rx="8" fill="#818cf8"/>
+  <text x="268" y="55" font-size="11" fill="#fff" text-anchor="middle" font-weight="500">+ Tag</text>
+  <rect x="306" y="36" width="52" height="28" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="332" y="55" font-size="10" fill="#94a3b8" text-anchor="middle">+ Cat</text>
 
   <!-- Search -->
-  <rect x="20" y="92" width="335" height="36" rx="18" fill="#1e1e2e" stroke="#2d2d3f"/>
-  <text x="48" y="115" font-size="12" fill="#475569">Search tags...</text>
+  <rect x="20" y="80" width="335" height="36" rx="18" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <circle cx="38" cy="98" r="6" fill="none" stroke="#475569" stroke-width="1.5"/>
+  <line x1="42" y1="102" x2="46" y2="106" stroke="#475569" stroke-width="1.5"/>
+  <text x="54" y="103" font-size="12" fill="#475569">Search tags...</text>
 
-  <!-- Tag cards (real tags only -- NO character names) -->
-  <g transform="translate(20, 140)">
-    <rect width="335" height="72" rx="10" fill="#1e1e2e"/>
-    <rect width="72" height="72" rx="10" fill="#14532d"/>
-    <text x="36" y="40" font-size="10" fill="#6ee7b7" text-anchor="middle">4 imgs</text>
-    <text x="86" y="32" font-size="14" fill="#f1f5f9" font-weight="500">Outdoor</text>
-    <text x="86" y="50" font-size="11" fill="#64748b">124 images -- 8 anime</text>
-    <text x="316" y="40" font-size="13" fill="#475569" text-anchor="end">&gt;</text>
+  <!-- ==================== CATEGORY: Scene / Action (expanded) ==================== -->
+  <g transform="translate(0, 128)">
+    <!-- Category header -->
+    <rect x="12" y="0" width="351" height="40" rx="8" fill="#1e1e2e"/>
+    <!-- Chevron (expanded) -->
+    <text x="26" y="27" font-size="14" fill="#94a3b8">v</text>
+    <!-- Color indicator -->
+    <rect x="44" y="12" width="4" height="16" rx="2" fill="#f472b6"/>
+    <!-- Category name -->
+    <text x="58" y="27" font-size="14" fill="#f1f5f9" font-weight="600">Scene / Action</text>
+    <!-- Count badge -->
+    <rect x="182" y="13" width="24" height="16" rx="8" fill="#2d2d3f"/>
+    <text x="194" y="25" font-size="10" fill="#94a3b8" text-anchor="middle">5</text>
   </g>
 
-  <g transform="translate(20, 220)">
-    <rect width="335" height="72" rx="10" fill="#1e1e2e"/>
-    <rect width="72" height="72" rx="10" fill="#312e81"/>
-    <text x="36" y="40" font-size="10" fill="#818cf8" text-anchor="middle">4 imgs</text>
-    <text x="86" y="32" font-size="14" fill="#f1f5f9" font-weight="500">Indoor</text>
-    <text x="86" y="50" font-size="11" fill="#64748b">98 images -- 7 anime</text>
-    <text x="316" y="40" font-size="13" fill="#475569" text-anchor="end">&gt;</text>
+  <!-- Tag row: Battle -->
+  <g transform="translate(0, 172)">
+    <rect x="20" y="0" width="335" height="52" rx="8" fill="#16161e" stroke="#2d2d3f" stroke-width="0.5"/>
+    <text x="36" y="21" font-size="13" fill="#f1f5f9" font-weight="500">Battle</text>
+    <text x="36" y="38" font-size="11" fill="#64748b">112 images</text>
+    <!-- Anime chips -->
+    <rect x="130" y="22" width="20" height="20" rx="4" fill="#312e81"/>
+    <text x="140" y="37" font-size="7" fill="#818cf8" text-anchor="middle">AT</text>
+    <rect x="154" y="22" width="20" height="20" rx="4" fill="#14532d"/>
+    <text x="164" y="37" font-size="7" fill="#6ee7b7" text-anchor="middle">JK</text>
+    <rect x="178" y="22" width="48" height="20" rx="4" fill="#2d2d3f"/>
+    <text x="202" y="37" font-size="9" fill="#94a3b8" text-anchor="middle">+6</text>
+    <!-- Chevron -->
+    <text x="340" y="30" font-size="14" fill="#475569" text-anchor="end">&gt;</text>
   </g>
 
-  <g transform="translate(20, 300)">
-    <rect width="335" height="72" rx="10" fill="#1e1e2e"/>
-    <rect width="72" height="72" rx="10" fill="#831843"/>
-    <text x="36" y="40" font-size="10" fill="#f9a8d4" text-anchor="middle">4 imgs</text>
-    <text x="86" y="32" font-size="14" fill="#f1f5f9" font-weight="500">Action</text>
-    <text x="86" y="50" font-size="11" fill="#64748b">156 images -- 10 anime</text>
-    <text x="316" y="40" font-size="13" fill="#475569" text-anchor="end">&gt;</text>
+  <!-- Tag row: Action -->
+  <g transform="translate(0, 228)">
+    <rect x="20" y="0" width="335" height="52" rx="8" fill="#16161e" stroke="#2d2d3f" stroke-width="0.5"/>
+    <text x="36" y="21" font-size="13" fill="#f1f5f9" font-weight="500">Action</text>
+    <text x="36" y="38" font-size="11" fill="#64748b">156 images</text>
+    <rect x="130" y="22" width="20" height="20" rx="4" fill="#312e81"/>
+    <text x="140" y="37" font-size="7" fill="#818cf8" text-anchor="middle">AT</text>
+    <rect x="154" y="22" width="20" height="20" rx="4" fill="#14532d"/>
+    <text x="164" y="37" font-size="7" fill="#6ee7b7" text-anchor="middle">JK</text>
+    <rect x="178" y="22" width="20" height="20" rx="4" fill="#713f12"/>
+    <text x="188" y="37" font-size="7" fill="#fcd34d" text-anchor="middle">DS</text>
+    <rect x="202" y="22" width="48" height="20" rx="4" fill="#2d2d3f"/>
+    <text x="226" y="37" font-size="9" fill="#94a3b8" text-anchor="middle">+7</text>
+    <text x="340" y="30" font-size="14" fill="#475569" text-anchor="end">&gt;</text>
   </g>
 
-  <g transform="translate(20, 380)">
-    <rect width="335" height="72" rx="10" fill="#1e1e2e"/>
-    <rect width="72" height="72" rx="10" fill="#3b0764"/>
-    <text x="86" y="32" font-size="14" fill="#f1f5f9" font-weight="500">Romance</text>
-    <text x="86" y="50" font-size="11" fill="#64748b">42 images -- 4 anime</text>
-    <text x="316" y="40" font-size="13" fill="#475569" text-anchor="end">&gt;</text>
+  <!-- Tag row: Romance -->
+  <g transform="translate(0, 284)">
+    <rect x="20" y="0" width="335" height="52" rx="8" fill="#16161e" stroke="#2d2d3f" stroke-width="0.5"/>
+    <text x="36" y="21" font-size="13" fill="#f1f5f9" font-weight="500">Romance</text>
+    <text x="36" y="38" font-size="11" fill="#64748b">42 images</text>
+    <rect x="130" y="22" width="20" height="20" rx="4" fill="#831843"/>
+    <text x="140" y="37" font-size="7" fill="#f9a8d4" text-anchor="middle">SF</text>
+    <rect x="154" y="22" width="20" height="20" rx="4" fill="#881337"/>
+    <text x="164" y="37" font-size="7" fill="#fb7185" text-anchor="middle">KS</text>
+    <rect x="178" y="22" width="48" height="20" rx="4" fill="#2d2d3f"/>
+    <text x="202" y="37" font-size="9" fill="#94a3b8" text-anchor="middle">+2</text>
+    <text x="340" y="30" font-size="14" fill="#475569" text-anchor="end">&gt;</text>
   </g>
 
-  <g transform="translate(20, 460)">
-    <rect width="335" height="72" rx="10" fill="#1e1e2e"/>
-    <rect width="72" height="72" rx="10" fill="#1e3a5f"/>
-    <text x="86" y="32" font-size="14" fill="#f1f5f9" font-weight="500">School</text>
-    <text x="86" y="50" font-size="11" fill="#64748b">89 images -- 6 anime</text>
-    <text x="316" y="40" font-size="13" fill="#475569" text-anchor="end">&gt;</text>
+  <!-- Tag row: Comedy -->
+  <g transform="translate(0, 340)">
+    <rect x="20" y="0" width="335" height="52" rx="8" fill="#16161e" stroke="#2d2d3f" stroke-width="0.5"/>
+    <text x="36" y="21" font-size="13" fill="#f1f5f9" font-weight="500">Comedy</text>
+    <text x="36" y="38" font-size="11" fill="#64748b">67 images</text>
+    <rect x="130" y="22" width="20" height="20" rx="4" fill="#831843"/>
+    <text x="140" y="37" font-size="7" fill="#f9a8d4" text-anchor="middle">SF</text>
+    <rect x="154" y="22" width="20" height="20" rx="4" fill="#881337"/>
+    <text x="164" y="37" font-size="7" fill="#fb7185" text-anchor="middle">BR</text>
+    <rect x="178" y="22" width="48" height="20" rx="4" fill="#2d2d3f"/>
+    <text x="202" y="37" font-size="9" fill="#94a3b8" text-anchor="middle">+3</text>
+    <text x="340" y="30" font-size="14" fill="#475569" text-anchor="end">&gt;</text>
   </g>
 
-  <g transform="translate(20, 540)">
-    <rect width="335" height="72" rx="10" fill="#1e1e2e"/>
-    <rect width="72" height="72" rx="10" fill="#713f12"/>
-    <text x="86" y="32" font-size="14" fill="#f1f5f9" font-weight="500">City</text>
-    <text x="86" y="50" font-size="11" fill="#64748b">67 images -- 5 anime</text>
-    <text x="316" y="40" font-size="13" fill="#475569" text-anchor="end">&gt;</text>
+  <!-- Tag row: Slice of Life -->
+  <g transform="translate(0, 396)">
+    <rect x="20" y="0" width="335" height="52" rx="8" fill="#16161e" stroke="#2d2d3f" stroke-width="0.5"/>
+    <text x="36" y="21" font-size="13" fill="#f1f5f9" font-weight="500">Slice of Life</text>
+    <text x="36" y="38" font-size="11" fill="#64748b">45 images</text>
+    <rect x="148" y="22" width="20" height="20" rx="4" fill="#881337"/>
+    <text x="158" y="37" font-size="7" fill="#fb7185" text-anchor="middle">BR</text>
+    <rect x="172" y="22" width="48" height="20" rx="4" fill="#2d2d3f"/>
+    <text x="196" y="37" font-size="9" fill="#94a3b8" text-anchor="middle">+2</text>
+    <text x="340" y="30" font-size="14" fill="#475569" text-anchor="end">&gt;</text>
   </g>
 
-  <g transform="translate(20, 620)">
-    <rect width="335" height="72" rx="10" fill="#1e1e2e"/>
-    <rect width="72" height="72" rx="10" fill="#14532d"/>
-    <text x="86" y="32" font-size="14" fill="#f1f5f9" font-weight="500">Forest</text>
-    <text x="86" y="50" font-size="11" fill="#64748b">34 images -- 3 anime</text>
-    <text x="316" y="40" font-size="13" fill="#475569" text-anchor="end">&gt;</text>
+  <!-- ==================== CATEGORY: Nature / Weather (expanded) ==================== -->
+  <g transform="translate(0, 458)">
+    <rect x="12" y="0" width="351" height="40" rx="8" fill="#1e1e2e"/>
+    <text x="26" y="27" font-size="14" fill="#94a3b8">v</text>
+    <rect x="44" y="12" width="4" height="16" rx="2" fill="#4ade80"/>
+    <text x="58" y="27" font-size="14" fill="#f1f5f9" font-weight="600">Nature / Weather</text>
+    <rect x="204" y="13" width="24" height="16" rx="8" fill="#2d2d3f"/>
+    <text x="216" y="25" font-size="10" fill="#94a3b8" text-anchor="middle">5</text>
   </g>
 
-  <g transform="translate(20, 700)">
-    <rect width="335" height="40" rx="10" fill="#1e1e2e"/>
-    <rect width="40" height="40" rx="10" fill="#7f1d1d"/>
-    <text x="54" y="26" font-size="14" fill="#f1f5f9" font-weight="500">Battle</text>
+  <!-- Tag row: Outdoor -->
+  <g transform="translate(0, 502)">
+    <rect x="20" y="0" width="335" height="52" rx="8" fill="#16161e" stroke="#2d2d3f" stroke-width="0.5"/>
+    <text x="36" y="21" font-size="13" fill="#f1f5f9" font-weight="500">Outdoor</text>
+    <text x="36" y="38" font-size="11" fill="#64748b">124 images</text>
+    <rect x="130" y="22" width="20" height="20" rx="4" fill="#312e81"/>
+    <text x="140" y="37" font-size="7" fill="#818cf8" text-anchor="middle">AT</text>
+    <rect x="154" y="22" width="20" height="20" rx="4" fill="#14532d"/>
+    <text x="164" y="37" font-size="7" fill="#6ee7b7" text-anchor="middle">JK</text>
+    <rect x="178" y="22" width="48" height="20" rx="4" fill="#2d2d3f"/>
+    <text x="202" y="37" font-size="9" fill="#94a3b8" text-anchor="middle">+6</text>
+    <text x="340" y="30" font-size="14" fill="#475569" text-anchor="end">&gt;</text>
   </g>
 
-  <!-- Bottom Tab Bar (4 items) -->
+  <!-- Tag row: Forest -->
+  <g transform="translate(0, 558)">
+    <rect x="20" y="0" width="335" height="52" rx="8" fill="#16161e" stroke="#2d2d3f" stroke-width="0.5"/>
+    <text x="36" y="21" font-size="13" fill="#f1f5f9" font-weight="500">Forest</text>
+    <text x="36" y="38" font-size="11" fill="#64748b">34 images</text>
+    <rect x="130" y="22" width="20" height="20" rx="4" fill="#14532d"/>
+    <text x="140" y="37" font-size="7" fill="#6ee7b7" text-anchor="middle">JK</text>
+    <rect x="154" y="22" width="20" height="20" rx="4" fill="#713f12"/>
+    <text x="164" y="37" font-size="7" fill="#fcd34d" text-anchor="middle">DS</text>
+    <rect x="178" y="22" width="48" height="20" rx="4" fill="#2d2d3f"/>
+    <text x="202" y="37" font-size="9" fill="#94a3b8" text-anchor="middle">+1</text>
+    <text x="340" y="30" font-size="14" fill="#475569" text-anchor="end">&gt;</text>
+  </g>
+
+  <!-- Tag row: Rain (partially visible, indicating scroll) -->
+  <g transform="translate(0, 614)">
+    <rect x="20" y="0" width="335" height="52" rx="8" fill="#16161e" stroke="#2d2d3f" stroke-width="0.5"/>
+    <text x="36" y="21" font-size="13" fill="#f1f5f9" font-weight="500">Rain</text>
+    <text x="36" y="38" font-size="11" fill="#64748b">19 images</text>
+    <rect x="130" y="22" width="20" height="20" rx="4" fill="#1e3a5f"/>
+    <text x="140" y="37" font-size="7" fill="#7dd3fc" text-anchor="middle">VE</text>
+    <rect x="154" y="22" width="20" height="20" rx="4" fill="#312e81"/>
+    <text x="164" y="37" font-size="7" fill="#818cf8" text-anchor="middle">AT</text>
+    <rect x="178" y="22" width="48" height="20" rx="4" fill="#2d2d3f"/>
+    <text x="202" y="37" font-size="9" fill="#94a3b8" text-anchor="middle">+1</text>
+    <text x="340" y="30" font-size="14" fill="#475569" text-anchor="end">&gt;</text>
+  </g>
+
+  <!-- ==================== CATEGORY: Location (collapsed) ==================== -->
+  <g transform="translate(0, 676)">
+    <rect x="12" y="0" width="351" height="40" rx="8" fill="#1e1e2e"/>
+    <text x="28" y="27" font-size="14" fill="#94a3b8">&gt;</text>
+    <rect x="44" y="12" width="4" height="16" rx="2" fill="#60a5fa"/>
+    <text x="58" y="27" font-size="14" fill="#f1f5f9" font-weight="600">Location</text>
+    <rect x="140" y="13" width="24" height="16" rx="8" fill="#2d2d3f"/>
+    <text x="152" y="25" font-size="10" fill="#94a3b8" text-anchor="middle">3</text>
+    <text x="178" y="27" font-size="11" fill="#64748b">Indoor, School, City</text>
+  </g>
+
+  <!-- ==================== CATEGORY: Mood (collapsed) ==================== -->
+  <g transform="translate(0, 720)">
+    <rect x="12" y="0" width="351" height="40" rx="8" fill="#1e1e2e"/>
+    <text x="28" y="27" font-size="14" fill="#94a3b8">&gt;</text>
+    <rect x="44" y="12" width="4" height="16" rx="2" fill="#fbbf24"/>
+    <text x="58" y="27" font-size="14" fill="#f1f5f9" font-weight="600">Mood</text>
+    <rect x="110" y="13" width="24" height="16" rx="8" fill="#2d2d3f"/>
+    <text x="122" y="25" font-size="10" fill="#94a3b8" text-anchor="middle">2</text>
+    <text x="148" y="27" font-size="11" fill="#64748b">Night, Fantasy</text>
+  </g>
+
+  <!-- ==================== BOTTOM TAB BAR ==================== -->
   <rect x="0" y="748" width="375" height="64" fill="#16161e" stroke="#2d2d3f" stroke-width="1"/>
+
+  <!-- Home tab -->
   <g transform="translate(18, 756)">
+    <rect x="20" y="0" width="24" height="18" rx="3" fill="none" stroke="#64748b" stroke-width="1.5"/>
+    <rect x="23" y="5" width="7" height="10" rx="1" fill="#64748b" opacity="0.3"/>
+    <rect x="32" y="5" width="7" height="10" rx="1" fill="#64748b" opacity="0.3"/>
     <text x="36" y="40" font-size="10" fill="#64748b" text-anchor="middle">Home</text>
   </g>
+
+  <!-- Search tab -->
   <g transform="translate(108, 756)">
+    <circle cx="32" cy="9" r="7" fill="none" stroke="#64748b" stroke-width="1.5"/>
+    <line x1="37" y1="14" x2="42" y2="19" stroke="#64748b" stroke-width="1.5"/>
     <text x="36" y="40" font-size="10" fill="#64748b" text-anchor="middle">Search</text>
   </g>
+
+  <!-- Tags tab (active) -->
   <g transform="translate(198, 756)">
     <rect x="10" y="-2" width="52" height="28" rx="14" fill="#1e1e2e"/>
+    <rect x="22" y="2" width="20" height="14" rx="4" fill="none" stroke="#818cf8" stroke-width="1.5" transform="rotate(-8, 32, 9)"/>
+    <circle cx="30" cy="9" r="2" fill="#818cf8"/>
     <text x="36" y="40" font-size="10" fill="#818cf8" text-anchor="middle" font-weight="500">Tags</text>
   </g>
+
+  <!-- Settings tab -->
   <g transform="translate(288, 756)">
+    <circle cx="32" cy="10" r="9" fill="none" stroke="#64748b" stroke-width="1.5"/>
+    <circle cx="32" cy="10" r="3" fill="#64748b"/>
     <text x="36" y="40" font-size="10" fill="#64748b" text-anchor="middle">Settings</text>
   </g>
+
+  <!-- Annotation -->
+  <text x="187" y="806" class="label" text-anchor="middle">Grouped tags by category -- Collapsible sections -- Anime chips -- Tappable rows with chevron</text>
 </svg>

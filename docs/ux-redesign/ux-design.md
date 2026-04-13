@@ -449,19 +449,20 @@ Right-clicking (or clicking "...") on an entry tab in the main anime detail page
 **Mobile (375x812):** `wireframes/05-tag-management-mobile.svg`
 
 **Components:**
-- Header with tag count, search bar, "+ New Tag" button
-- Tag cards as a flat grid (no category grouping needed)
-- Each card: preview image strip (top), tag name, image count, anime count, edit button
-- NO character names as tags. Tags are descriptive: Outdoor, Indoor, Action, Romance, Comedy, School, City, Forest, Battle, Sunset, Night, Rain, Fantasy, Slice of Life, Beach, etc.
-- Characters are metadata of anime series, not tags.
-- NO tree + detail panel split
+- Tags grouped by collapsible category sections (Scene/Action, Nature/Weather, Location, Mood, Uncategorized)
+- Category headers: color indicator bar, name, tag count, expand/collapse chevron
+- Tag rows: name, image count, anime association chips (2-letter abbreviations), edit/delete actions
+- Anime-specific tags show which anime they belong to via small colored chips
+- "+ New Tag" and "+ New Category" buttons in header
+- Search filters across all categories, auto-expands matching sections
+- NO character names as tags -- characters are anime metadata managed on anime detail page
+- NO flat card grid -- grouped list is denser and more scannable
 
 **Layout Notes:**
-- Visual tag cards with preview images in a simple grid
-- Cards are 252px wide on desktop, 5 per row
-- Preview images show a horizontal strip of 4 sample images at the top of each card
-- Mobile: full-width list items with thumbnail + info + chevron
-- Long-press on mobile for action sheet (Rename, Merge, Delete)
+- Collapsible category sections with 4px color indicator bars (pink for Scene/Action, green for Nature/Weather, blue for Location, amber for Mood, gray for Uncategorized)
+- Dense tag rows: 38px on desktop, 52px on mobile
+- Anime association shown as small colored chips with 2-letter abbreviations plus "+N more" overflow
+- Mobile: full-width tappable rows with tag name, counts, chevron
 
 ### 3.6 Image Tag Editor
 
