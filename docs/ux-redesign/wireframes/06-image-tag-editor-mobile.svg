@@ -2,8 +2,6 @@
   <defs>
     <style>
       text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
-      .body { font-size: 12px; fill: #94a3b8; }
-      .small { font-size: 10px; fill: #64748b; }
     </style>
   </defs>
 
@@ -43,70 +41,71 @@
   <rect x="104" y="214" width="64" height="24" rx="12" fill="#3b1a1a" stroke="#fca5a5" stroke-width="1"/>
   <text x="136" y="231" font-size="10" fill="#fca5a5" text-anchor="middle">- Indoor</text>
 
-  <!-- Tag list -->
-  <!-- Characters -->
-  <text x="20" y="278" font-size="14" fill="#f1f5f9" font-weight="600">Characters</text>
+  <!-- Tag list (NO character names -- real tags only) -->
+  <!-- Scenes -->
+  <text x="20" y="278" font-size="14" fill="#f1f5f9" font-weight="600">Scenes</text>
 
-  <!-- Checked -->
+  <!-- Adding (green) -->
   <g transform="translate(20, 292)">
-    <rect width="335" height="48" rx="8" fill="#1e1e2e"/>
-    <rect x="12" y="12" width="24" height="24" rx="4" fill="#818cf8"/>
-    <text x="24" y="30" font-size="14" fill="#fff" text-anchor="middle">V</text>
-    <text x="48" y="32" font-size="14" fill="#f1f5f9">Eren</text>
-    <text x="310" y="32" font-size="11" fill="#64748b" text-anchor="end">86</text>
+    <rect width="335" height="48" rx="8" fill="#0a2e1a" stroke="#6ee7b7" stroke-width="1"/>
+    <rect x="12" y="12" width="24" height="24" rx="4" fill="#6ee7b7"/>
+    <text x="24" y="30" font-size="14" fill="#0a0a0f" text-anchor="middle">V</text>
+    <text x="48" y="32" font-size="14" fill="#6ee7b7">Outdoor</text>
+    <text x="152" y="32" font-size="10" fill="#6ee7b7">adding</text>
   </g>
 
-  <!-- Indeterminate -->
+  <!-- Removing (red) -->
   <g transform="translate(20, 346)">
-    <rect width="335" height="48" rx="8" fill="#1e1e2e"/>
-    <rect x="12" y="12" width="24" height="24" rx="4" fill="transparent" stroke="#818cf8" stroke-width="2"/>
-    <line x1="18" y1="24" x2="30" y2="24" stroke="#818cf8" stroke-width="2.5"/>
-    <text x="48" y="32" font-size="14" fill="#f1f5f9">Mikasa</text>
-    <text x="120" y="32" font-size="10" fill="#475569">(5/8)</text>
-    <text x="310" y="32" font-size="11" fill="#64748b" text-anchor="end">72</text>
+    <rect width="335" height="48" rx="8" fill="#2e0a0a" stroke="#fca5a5" stroke-width="1"/>
+    <rect x="12" y="12" width="24" height="24" rx="4" fill="transparent" stroke="#fca5a5" stroke-width="2"/>
+    <text x="48" y="32" font-size="14" fill="#fca5a5">Indoor</text>
+    <text x="140" y="32" font-size="10" fill="#fca5a5">removing</text>
   </g>
 
   <!-- Unchecked -->
   <g transform="translate(20, 400)">
     <rect width="335" height="48" rx="8" fill="#1e1e2e"/>
     <rect x="12" y="12" width="24" height="24" rx="4" fill="transparent" stroke="#2d2d3f" stroke-width="2"/>
-    <text x="48" y="32" font-size="14" fill="#f1f5f9">Armin</text>
-    <text x="310" y="32" font-size="11" fill="#64748b" text-anchor="end">54</text>
+    <text x="48" y="32" font-size="14" fill="#f1f5f9">Action</text>
+    <text x="310" y="32" font-size="11" fill="#64748b" text-anchor="end">156</text>
   </g>
 
-  <!-- Scenes -->
-  <text x="20" y="480" font-size="14" fill="#f1f5f9" font-weight="600">Scenes</text>
-
-  <!-- Adding (green) -->
-  <g transform="translate(20, 494)">
-    <rect width="335" height="48" rx="8" fill="#0a2e1a" stroke="#6ee7b7" stroke-width="1"/>
-    <rect x="12" y="12" width="24" height="24" rx="4" fill="#6ee7b7"/>
-    <text x="24" y="30" font-size="14" fill="#0a0a0f" text-anchor="middle">V</text>
-    <text x="48" y="32" font-size="14" fill="#6ee7b7">Outdoor</text>
-    <text x="180" y="32" font-size="10" fill="#6ee7b7">adding</text>
+  <g transform="translate(20, 454)">
+    <rect width="335" height="48" rx="8" fill="#1e1e2e"/>
+    <rect x="12" y="12" width="24" height="24" rx="4" fill="transparent" stroke="#2d2d3f" stroke-width="2"/>
+    <text x="48" y="32" font-size="14" fill="#f1f5f9">Romance</text>
+    <text x="310" y="32" font-size="11" fill="#64748b" text-anchor="end">42</text>
   </g>
 
-  <!-- Removing (red) -->
+  <!-- Locations -->
+  <text x="20" y="534" font-size="14" fill="#f1f5f9" font-weight="600">Locations</text>
+
+  <!-- Checked -->
   <g transform="translate(20, 548)">
-    <rect width="335" height="48" rx="8" fill="#2e0a0a" stroke="#fca5a5" stroke-width="1"/>
-    <rect x="12" y="12" width="24" height="24" rx="4" fill="transparent" stroke="#fca5a5" stroke-width="2"/>
-    <text x="48" y="32" font-size="14" fill="#fca5a5">Indoor</text>
-    <text x="168" y="32" font-size="10" fill="#fca5a5">removing</text>
+    <rect width="335" height="48" rx="8" fill="#1e1e2e"/>
+    <rect x="12" y="12" width="24" height="24" rx="4" fill="#818cf8"/>
+    <text x="24" y="30" font-size="14" fill="#fff" text-anchor="middle">V</text>
+    <text x="48" y="32" font-size="14" fill="#f1f5f9">School</text>
+    <text x="310" y="32" font-size="11" fill="#64748b" text-anchor="end">89</text>
   </g>
 
   <g transform="translate(20, 602)">
     <rect width="335" height="48" rx="8" fill="#1e1e2e"/>
     <rect x="12" y="12" width="24" height="24" rx="4" fill="transparent" stroke="#2d2d3f" stroke-width="2"/>
-    <text x="48" y="32" font-size="14" fill="#f1f5f9">Action</text>
+    <text x="48" y="32" font-size="14" fill="#f1f5f9">City</text>
+    <text x="310" y="32" font-size="11" fill="#64748b" text-anchor="end">67</text>
   </g>
 
-  <!-- Locations -->
-  <text x="20" y="682" font-size="14" fill="#f1f5f9" font-weight="600">Locations</text>
+  <!-- Mood -->
+  <text x="20" y="682" font-size="14" fill="#f1f5f9" font-weight="600">Mood / Weather</text>
 
+  <!-- Indeterminate -->
   <g transform="translate(20, 696)">
     <rect width="335" height="48" rx="8" fill="#1e1e2e"/>
-    <rect x="12" y="12" width="24" height="24" rx="4" fill="#818cf8"/>
-    <text x="24" y="30" font-size="14" fill="#fff" text-anchor="middle">V</text>
-    <text x="48" y="32" font-size="14" fill="#f1f5f9">School</text>
+    <rect x="12" y="12" width="24" height="24" rx="4" fill="transparent" stroke="#818cf8" stroke-width="2"/>
+    <line x1="18" y1="24" x2="30" y2="24" stroke="#818cf8" stroke-width="2.5"/>
+    <text x="48" y="32" font-size="14" fill="#f1f5f9">Battle</text>
+    <text x="110" y="32" font-size="10" fill="#475569">(5/8)</text>
+    <text x="310" y="32" font-size="11" fill="#64748b" text-anchor="end">112</text>
   </g>
 </svg>

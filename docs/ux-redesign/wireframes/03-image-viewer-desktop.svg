@@ -1,113 +1,33 @@
-<svg viewBox="0 0 3840 2160" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <style>
       text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
-      .label { font-size: 22px; fill: #888; }
-      .body { font-size: 24px; fill: #94a3b8; }
-      .small { font-size: 20px; fill: #64748b; }
+      .label { font-size: 11px; fill: #555; }
     </style>
   </defs>
 
   <!-- Full-screen dark background -->
-  <rect width="3840" height="2160" fill="#0a0a0f"/>
+  <rect width="1440" height="900" fill="#0a0a0f"/>
 
-  <!-- ==================== TOP BAR (semi-transparent, auto-hides) ==================== -->
-  <rect x="0" y="0" width="3840" height="80" fill="#0a0a0f" opacity="0.85"/>
+  <!-- ==================== MAIN IMAGE (fills the screen) ==================== -->
+  <rect x="80" y="40" width="1280" height="820" rx="4" fill="#1a1a2e"/>
+  <text x="720" y="440" font-size="18" fill="#475569" text-anchor="middle">Image Content</text>
+  <text x="720" y="466" font-size="12" fill="#2d2d3f" text-anchor="middle">Zoom with scroll / pinch -- Pan with drag</text>
 
-  <!-- Close button -->
-  <rect x="24" y="16" width="48" height="48" rx="24" fill="#1e1e2e"/>
-  <text x="48" y="48" font-size="28" fill="#f1f5f9" text-anchor="middle">X</text>
+  <!-- ==================== CLOSE BUTTON (top-left, always visible) ==================== -->
+  <rect x="16" y="16" width="36" height="36" rx="18" fill="rgba(30,30,46,0.8)"/>
+  <text x="34" y="40" font-size="18" fill="#f1f5f9" text-anchor="middle">X</text>
 
-  <!-- Image info (center) -->
-  <text x="1920" y="40" font-size="26" fill="#94a3b8" text-anchor="middle">12 / 342</text>
-  <text x="1920" y="66" font-size="20" fill="#475569" text-anchor="middle">attack-on-titan_s01_ep03_frame042.png</text>
+  <!-- ==================== LEFT NAV ARROW (subtle, appears on hover) ==================== -->
+  <rect x="20" y="424" width="44" height="44" rx="22" fill="rgba(30,30,46,0.6)"/>
+  <text x="38" y="452" font-size="22" fill="#f1f5f9" text-anchor="middle" opacity="0.8">&lt;</text>
 
-  <!-- Zoom controls -->
-  <rect x="3480" y="16" width="48" height="48" rx="24" fill="#1e1e2e"/>
-  <text x="3504" y="48" font-size="28" fill="#f1f5f9" text-anchor="middle">-</text>
-  <text x="3560" y="48" font-size="22" fill="#64748b" text-anchor="middle">100%</text>
-  <rect x="3600" y="16" width="48" height="48" rx="24" fill="#1e1e2e"/>
-  <text x="3624" y="48" font-size="28" fill="#f1f5f9" text-anchor="middle">+</text>
+  <!-- ==================== RIGHT NAV ARROW (subtle, appears on hover) ==================== -->
+  <rect x="1376" y="424" width="44" height="44" rx="22" fill="rgba(30,30,46,0.6)"/>
+  <text x="1398" y="452" font-size="22" fill="#f1f5f9" text-anchor="middle" opacity="0.8">&gt;</text>
 
-  <!-- Tag panel toggle -->
-  <rect x="3680" y="16" width="120" height="48" rx="24" fill="#818cf8"/>
-  <text x="3740" y="48" font-size="22" fill="#fff" text-anchor="middle">Tags (T)</text>
+  <!-- That's it. No counter. No filename. No zoom controls. No tag panel. No thumbnails. No keyboard hints. -->
 
-  <!-- ==================== MAIN IMAGE AREA ==================== -->
-  <rect x="200" y="120" width="3040" height="1800" rx="8" fill="#1a1a2e"/>
-  <text x="1720" y="1030" font-size="40" fill="#475569" text-anchor="middle">Image Content</text>
-  <text x="1720" y="1080" font-size="24" fill="#2d2d3f" text-anchor="middle">Zoom with scroll / pinch -- Pan with drag</text>
-
-  <!-- Left navigation arrow -->
-  <rect x="100" y="980" width="72" height="72" rx="36" fill="#1e1e2e" opacity="0.8"/>
-  <text x="130" y="1026" font-size="36" fill="#f1f5f9" text-anchor="middle">&lt;</text>
-
-  <!-- Right navigation arrow -->
-  <rect x="3268" y="980" width="72" height="72" rx="36" fill="#1e1e2e" opacity="0.8"/>
-  <text x="3310" y="1026" font-size="36" fill="#f1f5f9" text-anchor="middle">&gt;</text>
-
-  <!-- ==================== TAG SIDE PANEL (open state, 480px) ==================== -->
-  <rect x="3360" y="80" width="480" height="2000" fill="#16161e" stroke="#2d2d3f" stroke-width="1"/>
-
-  <text x="3392" y="130" font-size="28" fill="#f1f5f9" font-weight="600">Tags</text>
-  <text x="3800" y="130" font-size="22" fill="#818cf8" text-anchor="end">Edit</text>
-
-  <!-- Current tags -->
-  <text x="3392" y="176" font-size="20" fill="#64748b" font-weight="500">ASSIGNED TAGS</text>
-
-  <rect x="3392" y="192" width="100" height="36" rx="18" fill="#312e81" stroke="#818cf8" stroke-width="1"/>
-  <text x="3442" y="216" font-size="18" fill="#818cf8" text-anchor="middle">Action</text>
-
-  <rect x="3504" y="192" width="80" height="36" rx="18" fill="#1a3a2e" stroke="#6ee7b7" stroke-width="1"/>
-  <text x="3544" y="216" font-size="18" fill="#6ee7b7" text-anchor="middle">Eren</text>
-
-  <rect x="3596" y="192" width="100" height="36" rx="18" fill="#3b1a1a" stroke="#fca5a5" stroke-width="1"/>
-  <text x="3646" y="216" font-size="18" fill="#fca5a5" text-anchor="middle">Outdoor</text>
-
-  <rect x="3392" y="240" width="108" height="36" rx="18" fill="#2d1a3b" stroke="#c4b5fd" stroke-width="1"/>
-  <text x="3446" y="264" font-size="18" fill="#c4b5fd" text-anchor="middle">Mikasa</text>
-
-  <!-- Add tag search -->
-  <rect x="3392" y="300" width="416" height="44" rx="22" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
-  <text x="3420" y="328" font-size="20" fill="#475569">Add tag...</text>
-
-  <!-- Divider -->
-  <line x1="3392" y1="368" x2="3808" y2="368" stroke="#2d2d3f" stroke-width="1"/>
-
-  <!-- Image details -->
-  <text x="3392" y="408" font-size="20" fill="#64748b" font-weight="500">DETAILS</text>
-
-  <text x="3392" y="444" font-size="20" fill="#475569">Anime</text>
-  <text x="3808" y="444" font-size="20" fill="#94a3b8" text-anchor="end">Attack on Titan</text>
-
-  <text x="3392" y="476" font-size="20" fill="#475569">Entry</text>
-  <text x="3808" y="476" font-size="20" fill="#94a3b8" text-anchor="end">Season 1</text>
-
-  <text x="3392" y="508" font-size="20" fill="#475569">Dimensions</text>
-  <text x="3808" y="508" font-size="20" fill="#94a3b8" text-anchor="end">1920 x 1080</text>
-
-  <text x="3392" y="540" font-size="20" fill="#475569">Size</text>
-  <text x="3808" y="540" font-size="20" fill="#94a3b8" text-anchor="end">2.4 MB</text>
-
-  <text x="3392" y="572" font-size="20" fill="#475569">Added</text>
-  <text x="3808" y="572" font-size="20" fill="#94a3b8" text-anchor="end">Mar 15, 2026</text>
-
-  <!-- ==================== THUMBNAIL STRIP (bottom) ==================== -->
-  <rect x="0" y="1960" width="3840" height="120" fill="#0a0a0f" opacity="0.9"/>
-
-  <rect x="1580" y="1976" width="88" height="88" rx="6" fill="#312e81"/>
-  <rect x="1680" y="1976" width="88" height="88" rx="6" fill="#831843"/>
-  <rect x="1780" y="1976" width="88" height="88" rx="6" fill="#14532d"/>
-  <!-- Current (highlighted) -->
-  <rect x="1880" y="1972" width="96" height="96" rx="8" fill="#713f12" stroke="#818cf8" stroke-width="3"/>
-  <rect x="1988" y="1976" width="88" height="88" rx="6" fill="#3b0764"/>
-  <rect x="2088" y="1976" width="88" height="88" rx="6" fill="#1c1917"/>
-  <rect x="2188" y="1976" width="88" height="88" rx="6" fill="#881337"/>
-
-  <!-- Keyboard shortcut hints -->
-  <rect x="40" y="2088" width="600" height="40" rx="8" fill="#1e1e2e" opacity="0.7"/>
-  <text x="60" y="2114" font-size="18" fill="#475569">Arrow keys: navigate -- T: tags -- +/-: zoom -- Esc: close -- Space: slideshow</text>
-
-  <!-- Annotations -->
-  <text x="1920" y="2148" class="label" text-anchor="middle">Full-screen viewer -- Tag panel slides in from right (no ML suggestions) -- Thumbnails for quick jump</text>
+  <!-- Annotation -->
+  <text x="720" y="893" class="label" text-anchor="middle">Minimal viewer: full-screen image + close button (X) + subtle left/right arrows on hover -- Nothing else</text>
 </svg>

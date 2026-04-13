@@ -18,23 +18,24 @@ This redesign v2 takes a fundamentally different approach from v1. Rather than r
 1. **"Library" renamed to "Home"** everywhere.
 2. **Folders page removed entirely.** Users never see or interact with folders. The app manages filesystem organization internally.
 3. **ML tag suggestions removed entirely.** No confidence sliders, no suggestion panels, no "ML" references anywhere.
-4. **Desktop targets 4K (3840x2160)** instead of 1440px. More columns, more content visible.
+4. **Desktop wireframes at 1440x900.** Supports up to 4K but wireframes are designed at common desktop resolution.
 5. **Search has NO sidebars.** Inline filter chips directly above full-width results (Google Photos style).
-6. **Anime Detail has NO left panel.** Hero header with metadata, horizontal entry chips, full-width masonry grid (AniList/Pinterest style).
-7. **Tag Management uses visual cards** with preview images, not a tree+detail panel split.
-8. **Navigation reduced to 4 items:** Home, Search, Tags, and a divider before Backup and Settings.
+6. **Anime Detail has NO left panel.** Clean header with anime name, compact entry tabs, wall-to-wall masonry grid. Images are the hero.
+7. **Tag Management uses visual cards** with preview images, not a tree+detail panel split. Characters are anime metadata, NOT tags. Tags are descriptive: Outdoor, Indoor, Action, Romance, School, City, etc.
+8. **Navigation reduced to 4 items:** Home, Search, Tags, and Settings (below divider). Backup is a section within Settings, not a separate nav item.
 9. **Dark theme as default.** Modern, image-focused aesthetic.
 10. **Advanced select mode** with rubber band/lasso selection, shift+click range, ctrl+click toggle.
+11. **Image Viewer is minimal:** Full-screen image, close button (X, top-left), subtle left/right arrows on hover. No image counter, no filename, no zoom controls, no tag panel, no thumbnail strip, no keyboard hints.
 
 ### Key Design Decisions
 
 1. **No sidebars on content pages** -- Every content page (Search, Anime Detail, Tag Management) uses full-width layouts. Filters and metadata appear as inline chips, hero headers, or horizontal tabs. This maximizes image display area, especially on 4K screens.
 
-2. **Icon Rail sidebar (desktop) + 4-Tab Bottom Bar (mobile)** -- The 80px icon rail on desktop keeps navigation accessible without stealing content space. Mobile uses exactly 4 tabs: Home, Search, Tags, More.
+2. **Icon Rail sidebar (desktop) + 4-Tab Bottom Bar (mobile)** -- The 64px icon rail on desktop keeps navigation accessible without stealing content space. Mobile uses exactly 4 tabs: Home, Search, Tags, Settings.
 
 3. **Command Palette (Ctrl+K)** -- Power-user access to any anime, tag, or action without leaving the current page.
 
-4. **Hero headers on detail pages** -- Anime Detail uses a full-width hero banner with cover image background, metadata overlay, and action buttons. This replaces the old left-panel tree approach.
+4. **Clean headers on detail pages** -- Anime Detail uses a compact header with anime name and metadata, then immediately transitions to the image grid. No hero banner -- images are the hero.
 
 5. **Entry chips, not entry trees** -- Entries appear as horizontal pill tabs, not an expandable sidebar tree. Click a chip to filter the image grid. Much simpler.
 
@@ -144,12 +145,8 @@ flowchart TD
     H --> I[Full-screen Image Viewer]
 
     I --> J{Viewer Actions}
-    J -->|Arrow keys / swipe| K[Navigate to next/prev image]
-    J -->|Scroll / pinch| L[Zoom in/out]
-    J -->|Press T or Tags button| M[Open tag side panel]
-    M --> N[View and edit tags]
+    J -->|Arrow keys / swipe / arrows| K[Navigate to next/prev image]
     J -->|Press Esc or X| O[Return to grid]
-    J -->|Thumbnail strip| P[Jump to specific image]
 ```
 
 ### 2.4 Tagging Images (Manual Only)
@@ -239,7 +236,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Backup Page] --> B{Action}
+    A[Settings > Backup tab] --> B{Action}
 
     B -->|Create Backup| C[Configure options]
     C --> D[Toggle: Include images]
@@ -282,7 +279,7 @@ flowchart TD
     H --> I[Light / Dark / System toggle]
     H --> J[Grid column preference]
 
-    B -->|Backup| K[Same as Backup page settings]
+    B -->|Backup| K[Backup controls: create, restore, auto-backup]
 
     B -->|About| L[Version, links, license]
 
@@ -298,79 +295,82 @@ flowchart TD
 
 ### 3.1 Home
 
-**Desktop (3840x2160):** `wireframes/01-home-desktop.svg`
+**Desktop (1440x900):** `wireframes/01-home-desktop.svg`
 **Mobile (375x812):** `wireframes/01-home-mobile.svg`
 
 **Components:**
-- 80px icon rail sidebar (desktop) / 4-tab bottom bar (mobile)
-- Hero area with page title, stats, search bar, and quick action buttons
-- "Recently Updated" horizontal strip with compact anime cards showing recent activity
-- Collection grid: 6 columns on 4K desktop, 2 columns on mobile
-- Each card: cover image, anime name, entry count, image count, latest entry badge
+- 64px icon rail sidebar (desktop) / 4-tab bottom bar (mobile: Home, Search, Tags, Settings)
+- Compact top bar with page title, stats, search bar, and action buttons
+- Netflix-style cover card grid: full-bleed cover images with gradient overlay, anime name overlaid at bottom
+- Image count badge on each card (top-right corner)
+- 5 columns on desktop, 2 columns on mobile
 - Import progress toast (floating, bottom-right)
 
 **Layout Notes:**
-- Netflix/Crunchyroll-inspired layout: hero section at top, then scrollable grid
-- No top bar -- the icon rail handles navigation, search is prominent in the hero
-- Grid uses CSS Grid with `auto-fill, minmax(520px, 1fr)` for fluid 4K columns
-- Cards have generous padding and large cover images
-- Dark theme default: `#0f0f14` background, `#1e1e2e` card surfaces
+- Clean, tight layout with no wasted space. No big hero section.
+- Cards are cover-image-forward: the entire card is the cover, with a bottom gradient overlay for the title
+- Grid uses CSS Grid with `auto-fill, minmax(240px, 1fr)` for fluid columns
+- Dark theme default: `#0f0f14` background
 
 ### 3.2 Anime Detail
 
-**Desktop (3840x2160):** `wireframes/02-anime-detail-desktop.svg`
+**Desktop (1440x900):** `wireframes/02-anime-detail-desktop.svg`
 **Mobile (375x812):** `wireframes/02-anime-detail-mobile.svg`
 
 **Components:**
-- Full-width hero header with blurred cover image, anime title, metadata, action buttons
-- Horizontal entry chip tabs (scrollable): "All Images", "Season 1", "Season 2", etc.
-- Inline toolbar: image count, tag filter chip, sort dropdown, view/select toggle
-- Full-width masonry image grid (7 columns at 4K, 2 on mobile)
-- NO left panel, NO entry tree, NO folder section
+- Clean header with breadcrumb, anime name, entry count, image count, action buttons
+- Compact entry tabs (underlined style, not pill shapes): "All", "Season 1", "Season 2", etc.
+- Inline toolbar: tag filter, sort dropdown, view/select toggle
+- Wall-to-wall masonry image grid (5 columns on desktop, 2 on mobile)
+- NO hero banner, NO left panel, NO entry tree, NO folder section
 
 **Layout Notes:**
-- AniList profile + Pinterest board inspired layout
-- Hero header fades to background via gradient overlay
-- Entry chips replace the old sidebar tree -- much simpler, horizontal scrollable
-- Masonry grid fills entire width minus icon rail (3760px usable at 4K)
-- Click entry chip to filter; "All Images" is default selected
-- Mobile: compact hero, horizontally scrollable entry chips, 2-column grid
+- Photo album approach: clean header, filter row, then wall-to-wall images
+- Entry tabs are compact text with underline indicator, not big colorful pills
+- Masonry grid fills entire width minus icon rail -- images are the hero
+- Click entry tab to filter; "All" is default selected
+- Mobile: compact header, horizontally scrollable entry tabs, 2-column grid
+- Minimal chrome to maximize image display area
 
 ### 3.3 Image Viewer
 
-**Desktop (3840x2160):** `wireframes/03-image-viewer-desktop.svg`
+**Desktop (1440x900):** `wireframes/03-image-viewer-desktop.svg`
 **Mobile (375x812):** `wireframes/03-image-viewer-mobile.svg`
 
 **Components:**
 - Full-screen dark overlay (`#0a0a0f`)
-- Main image with zoom/pan
-- Semi-transparent top bar: close button, image counter, filename, zoom controls, tag panel toggle
-- Left/right navigation arrows (large circular buttons)
-- Tag side panel (480px, desktop only -- slides in from right)
-- Bottom sheet for tags (mobile)
-- Bottom thumbnail strip for quick image jumping
-- Keyboard shortcut hint bar (bottom-left)
-- NO ML suggestions, NO confidence percentages
+- Full-screen image (fills the viewport)
+- Close button (X, top-left corner, always visible)
+- Subtle left/right navigation arrows (appear on hover)
+- That's it. Nothing else.
+
+**What's NOT in the viewer:**
+- No image counter
+- No filename display
+- No zoom controls (visible)
+- No tag sidebar or bottom sheet
+- No thumbnail strip
+- No keyboard hints
 
 **Layout Notes:**
-- UI elements auto-hide after 3 seconds, reappear on mouse move
-- Tag panel shows: assigned tags as colored chips, "Add tag" search field, image details (anime, entry, dimensions, size, date)
-- Thumbnail strip at bottom with current image highlighted with indigo border
-- Mobile: bottom sheet with drag handle for tag info
+- Inspired by Google Photos and Apple Photos -- just the image, clean and simple
+- Close button is always visible, navigation arrows appear on hover
+- Mobile: swipe left/right to navigate, tap X to close
+- Zoom via scroll/pinch still works, but no visible controls
 
 ### 3.4 Search
 
-**Desktop (3840x2160):** `wireframes/04-search-desktop.svg`
+**Desktop (1440x900):** `wireframes/04-search-desktop.svg`
 **Mobile (375x812):** `wireframes/04-search-mobile.svg`
 
 **Components:**
-- Large search bar at top (centered, prominent, 2880px wide on desktop)
+- Large search bar at top (centered, prominent)
 - Inline filter bar directly below search: Anime dropdown, Tag include/exclude pills, Sort dropdown
 - "+ Filter" button to add more filters
-- "Clear all filters" link
+- "Clear all" link
 - Results count with filter summary
 - View/Select mode toggle
-- Full-width masonry results grid (7 columns at 4K)
+- Full-width masonry results grid (5 columns on desktop)
 - Anime name overlay label on each result image
 - NO sidebar filter panel, NO folder filter, NO filename filter
 
@@ -384,26 +384,27 @@ flowchart TD
 
 ### 3.5 Tag Management
 
-**Desktop (3840x2160):** `wireframes/05-tag-management-desktop.svg`
+**Desktop (1440x900):** `wireframes/05-tag-management-desktop.svg`
 **Mobile (375x812):** `wireframes/05-tag-management-mobile.svg`
 
 **Components:**
 - Header with tag count, search bar, "+ New Tag" button
-- Tag cards organized by category (Characters, Scenes, Locations, Objects, Uncategorized)
+- Tag cards as a flat grid (no category grouping needed)
 - Each card: preview image strip (top), tag name, image count, anime count, edit button
-- Category headers with tag count
+- NO character names as tags. Tags are descriptive: Outdoor, Indoor, Action, Romance, Comedy, School, City, Forest, Battle, Sunset, Night, Rain, Fantasy, Slice of Life, Beach, etc.
+- Characters are metadata of anime series, not tags.
 - NO tree + detail panel split
 
 **Layout Notes:**
-- Pinterest board / Google Photos album inspired: visual cards with preview images
-- Cards are 560px wide at 4K, 6+ per row per category
+- Visual tag cards with preview images in a simple grid
+- Cards are 252px wide on desktop, 5 per row
 - Preview images show a horizontal strip of 4 sample images at the top of each card
-- Mobile: full-width list items with thumbnail + info + chevron, tap to navigate to detail
+- Mobile: full-width list items with thumbnail + info + chevron
 - Long-press on mobile for action sheet (Rename, Merge, Delete)
 
 ### 3.6 Image Tag Editor
 
-**Desktop (3840x2160):** `wireframes/06-image-tag-editor-desktop.svg`
+**Desktop (1440x900):** `wireframes/06-image-tag-editor-desktop.svg`
 **Mobile (375x812):** `wireframes/06-image-tag-editor-mobile.svg`
 
 **Components:**
@@ -411,55 +412,43 @@ flowchart TD
 - Selected images thumbnail strip (horizontal)
 - Tag search field
 - Pending changes summary bar (blue background, shows added/removed tags as chips)
-- Full-width tag tree with tri-state checkboxes organized in 3 columns by category
+- Full-width tag tree with tri-state checkboxes organized in 3 columns (Scenes, Locations, Mood/Weather)
 - Visual states: green highlight for adding, red highlight for removing, indeterminate dash
 - NO ML panel, NO confidence slider, NO suggestion cards
+- NO character names in the tag list -- tags are descriptive only
 
 **Layout Notes:**
-- Full-width layout, tags spread across 3 columns at 4K (Characters, Scenes, Locations)
+- Full-width layout, tags spread across 3 columns on desktop
 - Each row: checkbox + tag name + context info + image count
 - Added tags get green background + border, removed tags get red + strikethrough
 - Pending changes bar shows at-a-glance what will be applied
 - Mobile: single-column scrollable list with same visual states
 
-### 3.7 Backup / Restore
+### 3.7 Settings (includes Backup)
 
-**Desktop (3840x2160):** `wireframes/07-backup-restore-desktop.svg`
-**Mobile (375x812):** `wireframes/07-backup-restore-mobile.svg`
-
-**Components:**
-- Centered card layout (max-width 1200px on desktop)
-- Create Backup card: include images toggle, target directory selector, create button
-- Backup History table with date, images flag, size, type badge (auto/manual), actions
-- Auto-Backup settings card: enable toggle, idle minutes, retention count, include images toggle
-- Confirmation dialogs for restore and delete
-
-**Layout Notes:**
-- Centered, focused layout -- not full-width (backup is not a browsing experience)
-- "auto" badge in green, "manual" badge in indigo
-- Mobile: stacked full-width cards
-
-### 3.8 Settings
-
-**Desktop (3840x2160):** `wireframes/08-settings-desktop.svg`
+**Desktop (1440x900):** `wireframes/08-settings-desktop.svg`
 **Mobile (375x812):** `wireframes/08-settings-mobile.svg`
 
+Backup is NOT a separate page. It is a tab within Settings.
+
 **Components:**
-- Centered layout (max-width 1400px)
-- Horizontal section tabs (General, Appearance, Backup, About) -- NOT a left nav panel
+- Centered layout (max-width 800px)
+- Horizontal section tabs: **General, Appearance, Backup, About**
 - Warning banner for restart-required changes
 - Directory fields with Browse buttons
 - Save / Reset to Defaults buttons
-- Mobile: iOS-style grouped list with section headers
+- Mobile: iOS-style grouped list with sections for General, Appearance, Backup, About
 
 **Layout Notes:**
-- Horizontal pill tabs at top instead of sidebar section nav (breaks the "sidebar for everything" pattern)
+- Horizontal pill tabs at top (General, Appearance, Backup, About)
+- Backup tab contains: Create Backup, Restore from Backup, Auto-Backup toggle, Backup History
 - Warning banner is amber/yellow with border
 - Mobile uses native-feeling grouped list pattern with chevrons
+- No separate backup page or nav item -- it's all under Settings
 
-### 3.9 Select Mode
+### 3.8 Select Mode
 
-**Desktop (3840x2160):** `wireframes/09-select-mode-desktop.svg`
+**Desktop (1440x900):** `wireframes/09-select-mode-desktop.svg`
 
 **Components:**
 - Selection action bar (replaces normal toolbar, indigo background)
@@ -481,22 +470,22 @@ flowchart TD
 - **Esc**: Exit select mode
 - **Ctrl+A**: Select all images
 
-### 3.10 Navigation Pattern
+### 3.9 Navigation Pattern
 
 **Reference:** `wireframes/10-navigation-pattern.svg`
 
-**Desktop Icon Rail (80px):**
+**Desktop Icon Rail (64px):**
 - App logo at top
 - Primary: Home, Search, Tags (above divider)
-- Secondary: Backup, Settings (below divider)
-- Expands to 200px on hover with text labels
+- Settings (below divider)
+- Expands to 180px on hover with text labels
 - Ctrl+K command palette hint at bottom of expanded state
 
 **Mobile Bottom Bar (4 tabs):**
-- Home, Search, Tags, More
-- "More" opens a bottom sheet with: Backup and Restore, Settings, Theme toggle, About
+- Home, Search, Tags, Settings
 - Active tab: indigo text + pill background
 - Inactive: gray icon + text
+- No "More" menu -- Backup is under Settings
 
 ---
 
@@ -543,10 +532,10 @@ flowchart TD
 - Exclude filter: Red background, "-" prefix
 
 **Category Colors (Dark theme):**
-- Character: `#312e81` border `#818cf8` text `#818cf8`
-- Scene: `#1a3a2e` border `#6ee7b7` text `#6ee7b7`
+- Scene/Action: `#312e81` border `#818cf8` text `#818cf8`
+- Nature/Weather: `#1a3a2e` border `#6ee7b7` text `#6ee7b7`
 - Location: `#3b2600` border `#fcd34d` text `#fcd34d`
-- Object: `#3b1a1a` border `#fca5a5` text `#fca5a5`
+- Mood/Genre: `#3b1a1a` border `#fca5a5` text `#fca5a5`
 - Uncategorized: `#1e1e2e` border `#64748b` text `#94a3b8`
 
 ### 4.4 Tri-State Checkbox
@@ -736,21 +725,21 @@ flowchart TD
 ### 7.2 Navigation Transformation
 
 **Desktop (1024px+):**
-- 80px icon rail sidebar, expands to 200px on hover
-- No top bar (search is in hero sections)
+- 64px icon rail sidebar (Home, Search, Tags | Settings), expands to 180px on hover
+- Compact top bar with search
 - Breadcrumb navigation on detail pages
 
 **Tablet (640-1023px):**
-- Icon rail at 80px, no hover-expand
+- Icon rail at 64px, no hover-expand
 - Image grids: 3 columns
 - Filter chips horizontally scrollable
 
 **Mobile (< 640px):**
-- 4-tab bottom bar (Home, Search, Tags, More)
+- 4-tab bottom bar (Home, Search, Tags, Settings)
 - No sidebar
 - Full-width layouts
 - Image grids: 2 columns
-- Panels become full-page views or bottom sheets
+- Backup is accessed via Settings
 
 ### 7.3 Image Grid Adaptation
 
@@ -774,11 +763,11 @@ Grid uses `auto-fill, minmax(var(--min-card-width), 1fr)` for fluid column count
 
 | Element | Desktop | Tablet | Mobile |
 |---------|---------|--------|--------|
-| Sidebar nav | Icon rail (80px) | Icon rail (80px) | 4-tab bottom bar |
+| Sidebar nav | Icon rail (64px) | Icon rail (64px) | 4-tab bottom bar |
 | Search filters | Inline chips | Inline chips | Scrollable chips |
 | Anime entries | Horizontal chips | Horizontal chips | Horizontal chips |
 | Tag management | Card grid | Card grid | List view |
-| Image viewer tags | Right panel (480px) | Bottom panel | Bottom sheet |
+| Image viewer | Full-screen, no panels | Full-screen, no panels | Full-screen, no panels |
 
 ---
 
@@ -865,8 +854,7 @@ frontend/src/
     anime/        -- AnimeDetailPage
     search/       -- SearchPage
     tags/         -- TagListPage, ImageTagEditorPage
-    backup/       -- BackupPage
-    settings/     -- SettingsPage
+    settings/     -- SettingsPage (includes Backup tab)
   hooks/          -- useImageGrid, useSelection, useRubberBand, useSearch, useTags
   stores/         -- zustand stores for global state
   styles/         -- Tailwind config, global styles, theme tokens
@@ -880,21 +868,19 @@ All wireframes are in `docs/ux-redesign/wireframes/`:
 
 | File | Description |
 |------|-------------|
-| `01-home-desktop.svg` | Home with hero + collection grid (3840x2160) |
+| `01-home-desktop.svg` | Home with cover card grid (1440x900) |
 | `01-home-mobile.svg` | Home with bottom tabs (375x812) |
-| `02-anime-detail-desktop.svg` | Hero header + entry chips + masonry grid (3840x2160) |
-| `02-anime-detail-mobile.svg` | Compact hero + chips + 2-col grid (375x812) |
-| `03-image-viewer-desktop.svg` | Full-screen viewer with tag panel (3840x2160) |
-| `03-image-viewer-mobile.svg` | Full-screen viewer with bottom sheet (375x812) |
-| `04-search-desktop.svg` | Inline filters + full-width results (3840x2160) |
+| `02-anime-detail-desktop.svg` | Clean header + entry tabs + wall-to-wall image grid (1440x900) |
+| `02-anime-detail-mobile.svg` | Compact header + tabs + 2-col grid (375x812) |
+| `03-image-viewer-desktop.svg` | Minimal viewer: image + close + arrows (1440x900) |
+| `03-image-viewer-mobile.svg` | Minimal viewer: image + close + arrows (375x812) |
+| `04-search-desktop.svg` | Inline filters + full-width results (1440x900) |
 | `04-search-mobile.svg` | Search bar + filter chips + results (375x812) |
-| `05-tag-management-desktop.svg` | Tag cards by category with previews (3840x2160) |
-| `05-tag-management-mobile.svg` | Tag list with thumbnails (375x812) |
-| `06-image-tag-editor-desktop.svg` | Full-width tri-state checkboxes, no ML (3840x2160) |
+| `05-tag-management-desktop.svg` | Tag cards with real tags only, no characters (1440x900) |
+| `05-tag-management-mobile.svg` | Tag list with real tags only (375x812) |
+| `06-image-tag-editor-desktop.svg` | Full-width tri-state checkboxes, no ML (1440x900) |
 | `06-image-tag-editor-mobile.svg` | Single-column tag checkboxes (375x812) |
-| `07-backup-restore-desktop.svg` | Centered card layout (3840x2160) |
-| `07-backup-restore-mobile.svg` | Stacked cards (375x812) |
-| `08-settings-desktop.svg` | Horizontal section tabs + form (3840x2160) |
-| `08-settings-mobile.svg` | iOS-style settings list (375x812) |
-| `09-select-mode-desktop.svg` | Rubber band selection shown (3840x2160) |
-| `10-navigation-pattern.svg` | Icon rail + mobile bottom bar comparison |
+| `08-settings-desktop.svg` | Settings with Backup tab (1440x900) |
+| `08-settings-mobile.svg` | iOS-style settings with Backup section (375x812) |
+| `09-select-mode-desktop.svg` | Rubber band selection shown (1440x900) |
+| `10-navigation-pattern.svg` | 4-item icon rail + 4-tab mobile bottom bar (1440x600) |

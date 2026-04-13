@@ -2,8 +2,6 @@
   <defs>
     <style>
       text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
-      .body { font-size: 12px; fill: #94a3b8; }
-      .small { font-size: 10px; fill: #64748b; }
     </style>
   </defs>
 
@@ -12,83 +10,106 @@
   <text x="20" y="30" font-size="12" fill="#f1f5f9" font-weight="600">9:41</text>
 
   <!-- Header -->
-  <text x="20" y="72" font-size="22" fill="#f1f5f9" font-weight="700">Settings</text>
+  <text x="20" y="66" font-size="20" fill="#f1f5f9" font-weight="700">Settings</text>
 
   <!-- Settings list (iOS-style) -->
   <!-- General section -->
-  <text x="20" y="108" font-size="14" fill="#64748b" font-weight="500">GENERAL</text>
+  <text x="20" y="100" font-size="12" fill="#64748b" font-weight="500">GENERAL</text>
 
-  <rect x="20" y="118" width="335" height="192" rx="12" fill="#1e1e2e"/>
+  <rect x="20" y="110" width="335" height="168" rx="10" fill="#1e1e2e"/>
 
-  <g transform="translate(20, 118)">
-    <text x="16" y="32" font-size="14" fill="#f1f5f9">Image Root Directory</text>
-    <text x="304" y="32" font-size="12" fill="#64748b" text-anchor="end">&gt;</text>
-    <text x="16" y="50" font-size="10" fill="#475569">/home/user/anime-images/</text>
-    <line x1="16" y1="60" x2="319" y2="60" stroke="#2d2d3f" stroke-width="0.5"/>
+  <g transform="translate(20, 110)">
+    <text x="12" y="28" font-size="13" fill="#f1f5f9">Image Root Directory</text>
+    <text x="304" y="28" font-size="12" fill="#64748b" text-anchor="end">&gt;</text>
+    <text x="12" y="44" font-size="10" fill="#475569">/home/user/anime-images/</text>
+    <line x1="12" y1="52" x2="323" y2="52" stroke="#2d2d3f" stroke-width="0.5"/>
 
-    <text x="16" y="82" font-size="14" fill="#f1f5f9">Config Directory</text>
-    <text x="304" y="82" font-size="12" fill="#64748b" text-anchor="end">&gt;</text>
-    <line x1="16" y1="96" x2="319" y2="96" stroke="#2d2d3f" stroke-width="0.5"/>
+    <text x="12" y="72" font-size="13" fill="#f1f5f9">Config Directory</text>
+    <text x="304" y="72" font-size="12" fill="#64748b" text-anchor="end">&gt;</text>
+    <line x1="12" y1="84" x2="323" y2="84" stroke="#2d2d3f" stroke-width="0.5"/>
 
-    <text x="16" y="118" font-size="14" fill="#f1f5f9">Log Directory</text>
-    <text x="304" y="118" font-size="12" fill="#64748b" text-anchor="end">&gt;</text>
-    <line x1="16" y1="132" x2="319" y2="132" stroke="#2d2d3f" stroke-width="0.5"/>
+    <text x="12" y="104" font-size="13" fill="#f1f5f9">Log Directory</text>
+    <text x="304" y="104" font-size="12" fill="#64748b" text-anchor="end">&gt;</text>
+    <line x1="12" y1="116" x2="323" y2="116" stroke="#2d2d3f" stroke-width="0.5"/>
 
-    <text x="16" y="154" font-size="14" fill="#f1f5f9">Backup Directory</text>
-    <text x="304" y="154" font-size="12" fill="#64748b" text-anchor="end">&gt;</text>
+    <text x="12" y="136" font-size="13" fill="#f1f5f9">Backup Directory</text>
+    <text x="304" y="136" font-size="12" fill="#64748b" text-anchor="end">&gt;</text>
   </g>
 
   <!-- Appearance section -->
-  <text x="20" y="338" font-size="14" fill="#64748b" font-weight="500">APPEARANCE</text>
+  <text x="20" y="304" font-size="12" fill="#64748b" font-weight="500">APPEARANCE</text>
 
-  <rect x="20" y="348" width="335" height="104" rx="12" fill="#1e1e2e"/>
+  <rect x="20" y="314" width="335" height="88" rx="10" fill="#1e1e2e"/>
 
-  <g transform="translate(20, 348)">
-    <text x="16" y="32" font-size="14" fill="#f1f5f9">Theme</text>
-    <!-- Segmented control -->
-    <rect x="160" y="12" width="156" height="32" rx="8" fill="#0f0f14"/>
-    <rect x="162" y="14" width="50" height="28" rx="6" fill="#818cf8"/>
-    <text x="187" y="34" font-size="10" fill="#fff" text-anchor="middle">Light</text>
-    <text x="237" y="34" font-size="10" fill="#64748b" text-anchor="middle">Dark</text>
-    <text x="290" y="34" font-size="10" fill="#64748b" text-anchor="middle">System</text>
-    <line x1="16" y1="52" x2="319" y2="52" stroke="#2d2d3f" stroke-width="0.5"/>
+  <g transform="translate(20, 314)">
+    <text x="12" y="28" font-size="13" fill="#f1f5f9">Theme</text>
+    <rect x="160" y="10" width="156" height="28" rx="8" fill="#0f0f14"/>
+    <text x="192" y="30" font-size="10" fill="#64748b" text-anchor="middle">Light</text>
+    <rect x="214" y="12" width="50" height="24" rx="6" fill="#818cf8"/>
+    <text x="239" y="30" font-size="10" fill="#fff" text-anchor="middle">Dark</text>
+    <text x="290" y="30" font-size="10" fill="#64748b" text-anchor="middle">System</text>
+    <line x1="12" y1="44" x2="323" y2="44" stroke="#2d2d3f" stroke-width="0.5"/>
 
-    <text x="16" y="76" font-size="14" fill="#f1f5f9">Grid Columns</text>
-    <text x="304" y="76" font-size="13" fill="#94a3b8" text-anchor="end">Auto</text>
+    <text x="12" y="68" font-size="13" fill="#f1f5f9">Grid Columns</text>
+    <text x="304" y="68" font-size="12" fill="#94a3b8" text-anchor="end">Auto</text>
+  </g>
+
+  <!-- Backup section -->
+  <text x="20" y="428" font-size="12" fill="#64748b" font-weight="500">BACKUP</text>
+
+  <rect x="20" y="438" width="335" height="132" rx="10" fill="#1e1e2e"/>
+
+  <g transform="translate(20, 438)">
+    <text x="12" y="28" font-size="13" fill="#f1f5f9">Create Backup</text>
+    <text x="304" y="28" font-size="12" fill="#818cf8" text-anchor="end">&gt;</text>
+    <line x1="12" y1="40" x2="323" y2="40" stroke="#2d2d3f" stroke-width="0.5"/>
+
+    <text x="12" y="60" font-size="13" fill="#f1f5f9">Restore from Backup</text>
+    <text x="304" y="60" font-size="12" fill="#64748b" text-anchor="end">&gt;</text>
+    <line x1="12" y1="72" x2="323" y2="72" stroke="#2d2d3f" stroke-width="0.5"/>
+
+    <text x="12" y="92" font-size="13" fill="#f1f5f9">Auto-Backup</text>
+    <!-- Toggle -->
+    <rect x="268" y="78" width="44" height="24" rx="12" fill="#818cf8"/>
+    <circle cx="300" cy="90" r="9" fill="#fff"/>
+    <line x1="12" y1="104" x2="323" y2="104" stroke="#2d2d3f" stroke-width="0.5"/>
+
+    <text x="12" y="122" font-size="13" fill="#f1f5f9">Backup History</text>
+    <text x="304" y="122" font-size="12" fill="#64748b" text-anchor="end">3 backups &gt;</text>
   </g>
 
   <!-- About section -->
-  <text x="20" y="480" font-size="14" fill="#64748b" font-weight="500">ABOUT</text>
+  <text x="20" y="596" font-size="12" fill="#64748b" font-weight="500">ABOUT</text>
 
-  <rect x="20" y="490" width="335" height="104" rx="12" fill="#1e1e2e"/>
+  <rect x="20" y="606" width="335" height="76" rx="10" fill="#1e1e2e"/>
 
-  <g transform="translate(20, 490)">
-    <text x="16" y="32" font-size="14" fill="#f1f5f9">Version</text>
-    <text x="304" y="32" font-size="13" fill="#64748b" text-anchor="end">1.0.0</text>
-    <line x1="16" y1="48" x2="319" y2="48" stroke="#2d2d3f" stroke-width="0.5"/>
+  <g transform="translate(20, 606)">
+    <text x="12" y="26" font-size="13" fill="#f1f5f9">Version</text>
+    <text x="304" y="26" font-size="12" fill="#64748b" text-anchor="end">1.0.0</text>
+    <line x1="12" y1="38" x2="323" y2="38" stroke="#2d2d3f" stroke-width="0.5"/>
 
-    <text x="16" y="72" font-size="14" fill="#f1f5f9">GitHub</text>
-    <text x="304" y="72" font-size="12" fill="#818cf8" text-anchor="end">Open</text>
+    <text x="12" y="58" font-size="13" fill="#f1f5f9">GitHub</text>
+    <text x="304" y="58" font-size="12" fill="#818cf8" text-anchor="end">Open</text>
   </g>
 
   <!-- Danger zone -->
-  <text x="20" y="626" font-size="14" fill="#64748b" font-weight="500">DANGER ZONE</text>
-  <rect x="20" y="636" width="335" height="48" rx="12" fill="#1e1e2e"/>
-  <text x="36" y="666" font-size="14" fill="#fca5a5">Reset to Defaults</text>
+  <text x="20" y="710" font-size="12" fill="#64748b" font-weight="500">DANGER ZONE</text>
+  <rect x="20" y="720" width="335" height="36" rx="10" fill="#1e1e2e"/>
+  <text x="32" y="744" font-size="13" fill="#fca5a5">Reset to Defaults</text>
 
-  <!-- Bottom Tab Bar -->
-  <rect x="0" y="748" width="375" height="64" fill="#16161e" stroke="#2d2d3f" stroke-width="1"/>
-  <g transform="translate(30, 756)">
-    <text x="34" y="40" font-size="10" fill="#64748b" text-anchor="middle">Home</text>
+  <!-- Bottom Tab Bar (4 items) -->
+  <rect x="0" y="768" width="375" height="44" fill="#16161e" stroke="#2d2d3f" stroke-width="1"/>
+  <g transform="translate(18, 774)">
+    <text x="36" y="26" font-size="10" fill="#64748b" text-anchor="middle">Home</text>
   </g>
-  <g transform="translate(123, 756)">
-    <text x="34" y="40" font-size="10" fill="#64748b" text-anchor="middle">Search</text>
+  <g transform="translate(108, 774)">
+    <text x="36" y="26" font-size="10" fill="#64748b" text-anchor="middle">Search</text>
   </g>
-  <g transform="translate(216, 756)">
-    <text x="34" y="40" font-size="10" fill="#64748b" text-anchor="middle">Tags</text>
+  <g transform="translate(198, 774)">
+    <text x="36" y="26" font-size="10" fill="#64748b" text-anchor="middle">Tags</text>
   </g>
-  <g transform="translate(309, 756)">
-    <rect x="10" y="-2" width="48" height="28" rx="14" fill="#1e1e2e"/>
-    <text x="34" y="40" font-size="10" fill="#818cf8" text-anchor="middle">More</text>
+  <g transform="translate(288, 774)">
+    <rect x="10" y="-4" width="52" height="24" rx="12" fill="#1e1e2e"/>
+    <text x="36" y="26" font-size="10" fill="#818cf8" text-anchor="middle" font-weight="500">Settings</text>
   </g>
 </svg>

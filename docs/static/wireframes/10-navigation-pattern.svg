@@ -1,218 +1,143 @@
-<svg viewBox="0 0 3840 1200" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 1440 600" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <style>
       text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
-      .label { font-size: 22px; fill: #888; }
-      .heading { font-size: 36px; fill: #f1f5f9; font-weight: 700; }
-      .body { font-size: 24px; fill: #94a3b8; }
-      .small { font-size: 20px; fill: #64748b; }
+      .label { font-size: 11px; fill: #555; }
     </style>
   </defs>
 
   <!-- Background -->
-  <rect width="3840" height="1200" fill="#0f0f14"/>
+  <rect width="1440" height="600" fill="#0f0f14"/>
 
   <!-- Title -->
-  <text x="1920" y="60" class="heading" text-anchor="middle">Navigation Pattern: Desktop Icon Rail + Mobile Bottom Bar</text>
+  <text x="720" y="32" font-size="18" fill="#f1f5f9" font-weight="700" text-anchor="middle">Navigation Pattern: Desktop Icon Rail + Mobile Bottom Bar</text>
 
-  <!-- ==================== DESKTOP ICON RAIL (collapsed, left) ==================== -->
-  <text x="400" y="120" font-size="28" fill="#94a3b8" text-anchor="middle" font-weight="600">Desktop: 80px Icon Rail</text>
+  <!-- ==================== DESKTOP ICON RAIL (collapsed, 64px) ==================== -->
+  <text x="200" y="64" font-size="14" fill="#94a3b8" text-anchor="middle" font-weight="600">Desktop: 64px Icon Rail</text>
 
-  <rect x="200" y="150" width="80" height="800" rx="0" fill="#16161e" stroke="#2d2d3f" stroke-width="1"/>
+  <rect x="120" y="80" width="64" height="440" fill="#16161e" stroke="#2d2d3f" stroke-width="1"/>
 
   <!-- App logo -->
-  <rect x="216" y="170" width="48" height="48" rx="12" fill="#818cf8"/>
-  <text x="240" y="202" font-size="28" fill="#fff" font-weight="700" text-anchor="middle">A</text>
+  <rect x="132" y="94" width="40" height="40" rx="10" fill="#818cf8"/>
+  <text x="152" y="120" font-size="20" fill="#fff" font-weight="700" text-anchor="middle">A</text>
 
-  <!-- Primary nav -->
-  <!-- Home -->
-  <g transform="translate(200, 250)">
-    <rect x="8" y="0" width="64" height="64" rx="12" fill="#1e1e2e"/>
-    <rect x="24" y="12" width="32" height="24" rx="4" fill="none" stroke="#818cf8" stroke-width="2.5"/>
-    <text x="40" y="84" font-size="18" fill="#818cf8" text-anchor="middle" font-weight="500">Home</text>
+  <!-- Home (active) -->
+  <g transform="translate(120, 150)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="#1e1e2e"/>
+    <rect x="20" y="10" width="24" height="18" rx="3" fill="none" stroke="#818cf8" stroke-width="2"/>
+    <text x="32" y="68" font-size="11" fill="#818cf8" text-anchor="middle" font-weight="500">Home</text>
   </g>
 
   <!-- Search -->
-  <g transform="translate(200, 360)">
-    <rect x="8" y="0" width="64" height="64" rx="12" fill="transparent"/>
-    <circle cx="36" cy="28" r="12" fill="none" stroke="#64748b" stroke-width="2.5"/>
-    <line x1="44" y1="36" x2="54" y2="46" stroke="#64748b" stroke-width="2.5"/>
-    <text x="40" y="84" font-size="18" fill="#64748b" text-anchor="middle">Search</text>
+  <g transform="translate(120, 234)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="transparent"/>
+    <circle cx="29" cy="23" r="9" fill="none" stroke="#64748b" stroke-width="2"/>
+    <line x1="35" y1="29" x2="43" y2="37" stroke="#64748b" stroke-width="2"/>
+    <text x="32" y="68" font-size="11" fill="#64748b" text-anchor="middle">Search</text>
   </g>
 
   <!-- Tags -->
-  <g transform="translate(200, 470)">
-    <rect x="8" y="0" width="64" height="64" rx="12" fill="transparent"/>
-    <rect x="22" y="14" width="28" height="20" rx="6" fill="none" stroke="#64748b" stroke-width="2.5" transform="rotate(-8, 36, 24)"/>
-    <text x="40" y="84" font-size="18" fill="#64748b" text-anchor="middle">Tags</text>
+  <g transform="translate(120, 318)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="transparent"/>
+    <rect x="18" y="12" width="22" height="16" rx="5" fill="none" stroke="#64748b" stroke-width="2" transform="rotate(-8, 29, 20)"/>
+    <text x="32" y="68" font-size="11" fill="#64748b" text-anchor="middle">Tags</text>
   </g>
 
   <!-- Divider -->
-  <line x1="220" y1="580" x2="260" y2="580" stroke="#2d2d3f" stroke-width="1.5"/>
-
-  <!-- Secondary nav -->
-  <!-- Backup -->
-  <g transform="translate(200, 600)">
-    <rect x="8" y="0" width="64" height="64" rx="12" fill="transparent"/>
-    <circle cx="40" cy="28" r="14" fill="none" stroke="#64748b" stroke-width="2"/>
-    <path d="M32 28 L40 20 L48 28" fill="none" stroke="#64748b" stroke-width="2"/>
-    <text x="40" y="84" font-size="18" fill="#64748b" text-anchor="middle">Backup</text>
-  </g>
+  <line x1="136" y1="406" x2="168" y2="406" stroke="#2d2d3f" stroke-width="1"/>
 
   <!-- Settings -->
-  <g transform="translate(200, 710)">
-    <rect x="8" y="0" width="64" height="64" rx="12" fill="transparent"/>
-    <circle cx="40" cy="28" r="14" fill="none" stroke="#64748b" stroke-width="2"/>
-    <circle cx="40" cy="28" r="5" fill="#64748b"/>
-    <text x="40" y="84" font-size="18" fill="#64748b" text-anchor="middle">Settings</text>
+  <g transform="translate(120, 420)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="transparent"/>
+    <circle cx="32" cy="23" r="11" fill="none" stroke="#64748b" stroke-width="2"/>
+    <circle cx="32" cy="23" r="4" fill="#64748b"/>
+    <text x="32" y="68" font-size="11" fill="#64748b" text-anchor="middle">Settings</text>
   </g>
 
   <!-- Description -->
-  <text x="400" y="990" class="small" text-anchor="middle">Primary: Home, Search, Tags</text>
-  <text x="400" y="1020" class="small" text-anchor="middle">Secondary: Backup, Settings</text>
-  <text x="400" y="1050" class="small" text-anchor="middle">Expands to 200px on hover</text>
+  <text x="200" y="540" font-size="11" fill="#64748b" text-anchor="middle">Primary: Home, Search, Tags</text>
+  <text x="200" y="556" font-size="11" fill="#64748b" text-anchor="middle">Settings below divider</text>
 
   <!-- ==================== DESKTOP EXPANDED (middle) ==================== -->
-  <text x="1120" y="120" font-size="28" fill="#94a3b8" text-anchor="middle" font-weight="600">Desktop: Expanded on Hover (200px)</text>
+  <text x="500" y="64" font-size="14" fill="#94a3b8" text-anchor="middle" font-weight="600">Desktop: Expanded on Hover (180px)</text>
 
-  <rect x="820" y="150" width="200" height="800" rx="0" fill="#16161e" stroke="#2d2d3f" stroke-width="1"/>
+  <rect x="360" y="80" width="180" height="440" fill="#16161e" stroke="#2d2d3f" stroke-width="1"/>
 
   <!-- App logo + name -->
-  <rect x="836" y="170" width="48" height="48" rx="12" fill="#818cf8"/>
-  <text x="860" y="202" font-size="28" fill="#fff" font-weight="700" text-anchor="middle">A</text>
-  <text x="900" y="202" font-size="24" fill="#f1f5f9" font-weight="600">AnimeVault</text>
+  <rect x="372" y="94" width="40" height="40" rx="10" fill="#818cf8"/>
+  <text x="392" y="120" font-size="20" fill="#fff" font-weight="700" text-anchor="middle">A</text>
+  <text x="420" y="120" font-size="14" fill="#f1f5f9" font-weight="600">AnimeVault</text>
 
-  <!-- Primary nav with labels -->
-  <g transform="translate(820, 250)">
-    <rect x="8" y="0" width="184" height="52" rx="12" fill="#1e1e2e"/>
-    <rect x="24" y="12" width="28" height="20" rx="4" fill="none" stroke="#818cf8" stroke-width="2"/>
-    <text x="68" y="34" font-size="22" fill="#818cf8" font-weight="500">Home</text>
+  <!-- Nav with labels -->
+  <g transform="translate(360, 150)">
+    <rect x="6" y="0" width="168" height="36" rx="8" fill="#1e1e2e"/>
+    <rect x="18" y="8" width="20" height="14" rx="3" fill="none" stroke="#818cf8" stroke-width="1.5"/>
+    <text x="50" y="24" font-size="13" fill="#818cf8" font-weight="500">Home</text>
   </g>
 
-  <g transform="translate(820, 316)">
-    <rect x="8" y="0" width="184" height="52" rx="12" fill="transparent"/>
-    <circle cx="38" cy="24" r="10" fill="none" stroke="#64748b" stroke-width="2"/>
-    <text x="68" y="32" font-size="22" fill="#64748b">Search</text>
+  <g transform="translate(360, 196)">
+    <rect x="6" y="0" width="168" height="36" rx="8" fill="transparent"/>
+    <circle cx="28" cy="16" r="8" fill="none" stroke="#64748b" stroke-width="1.5"/>
+    <text x="50" y="22" font-size="13" fill="#64748b">Search</text>
   </g>
 
-  <g transform="translate(820, 382)">
-    <rect x="8" y="0" width="184" height="52" rx="12" fill="transparent"/>
-    <rect x="22" y="10" width="24" height="16" rx="4" fill="none" stroke="#64748b" stroke-width="2" transform="rotate(-8, 34, 18)"/>
-    <text x="68" y="32" font-size="22" fill="#64748b">Tags</text>
+  <g transform="translate(360, 242)">
+    <rect x="6" y="0" width="168" height="36" rx="8" fill="transparent"/>
+    <rect x="16" y="8" width="18" height="12" rx="3" fill="none" stroke="#64748b" stroke-width="1.5" transform="rotate(-8, 25, 14)"/>
+    <text x="50" y="22" font-size="13" fill="#64748b">Tags</text>
   </g>
 
-  <line x1="836" y1="454" x2="1004" y2="454" stroke="#2d2d3f" stroke-width="1"/>
+  <line x1="372" y1="290" x2="528" y2="290" stroke="#2d2d3f" stroke-width="1"/>
 
-  <g transform="translate(820, 470)">
-    <rect x="8" y="0" width="184" height="52" rx="12" fill="transparent"/>
-    <text x="68" y="32" font-size="22" fill="#64748b">Backup</text>
-  </g>
-
-  <g transform="translate(820, 536)">
-    <rect x="8" y="0" width="184" height="52" rx="12" fill="transparent"/>
-    <text x="68" y="32" font-size="22" fill="#64748b">Settings</text>
+  <g transform="translate(360, 302)">
+    <rect x="6" y="0" width="168" height="36" rx="8" fill="transparent"/>
+    <text x="50" y="22" font-size="13" fill="#64748b">Settings</text>
   </g>
 
   <!-- Ctrl+K hint -->
-  <rect x="836" y="880" width="168" height="40" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
-  <text x="920" y="906" font-size="18" fill="#64748b" text-anchor="middle">Ctrl+K Search</text>
+  <rect x="368" y="476" width="160" height="28" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="448" y="495" font-size="11" fill="#64748b" text-anchor="middle">Ctrl+K Search</text>
 
-  <!-- ==================== MOBILE BOTTOM BAR (right) ==================== -->
-  <text x="2200" y="120" font-size="28" fill="#94a3b8" text-anchor="middle" font-weight="600">Mobile: 4-Tab Bottom Bar</text>
+  <!-- ==================== MOBILE BOTTOM BAR (4 items) ==================== -->
+  <text x="850" y="64" font-size="14" fill="#94a3b8" text-anchor="middle" font-weight="600">Mobile: 4-Tab Bottom Bar</text>
 
   <!-- Phone frame -->
-  <rect x="1700" y="150" width="375" height="812" rx="24" fill="#0f0f14" stroke="#2d2d3f" stroke-width="2"/>
+  <rect x="660" y="80" width="375" height="440" rx="20" fill="#0f0f14" stroke="#2d2d3f" stroke-width="2"/>
 
-  <!-- Content area placeholder -->
-  <rect x="1720" y="170" width="335" height="668" rx="0" fill="#0f0f14"/>
-  <text x="1888" y="510" font-size="24" fill="#2d2d3f" text-anchor="middle">Page Content</text>
+  <!-- Content area -->
+  <text x="848" y="290" font-size="14" fill="#2d2d3f" text-anchor="middle">Page Content</text>
 
   <!-- Bottom tab bar -->
-  <rect x="1700" y="898" width="375" height="64" fill="#16161e" stroke="#2d2d3f" stroke-width="1"/>
+  <rect x="660" y="456" width="375" height="64" fill="#16161e" stroke="#2d2d3f" stroke-width="1"/>
 
   <!-- Home (active) -->
-  <g transform="translate(1730, 906)">
+  <g transform="translate(678, 464)">
     <rect x="10" y="-2" width="52" height="28" rx="14" fill="#1e1e2e"/>
     <rect x="24" y="4" width="24" height="16" rx="3" fill="none" stroke="#818cf8" stroke-width="1.5"/>
-    <text x="36" y="40" font-size="12" fill="#818cf8" text-anchor="middle" font-weight="500">Home</text>
+    <text x="36" y="40" font-size="10" fill="#818cf8" text-anchor="middle" font-weight="500">Home</text>
   </g>
 
   <!-- Search -->
-  <g transform="translate(1822, 906)">
-    <circle cx="36" cy="12" r="9" fill="none" stroke="#64748b" stroke-width="1.5"/>
+  <g transform="translate(768, 464)">
+    <circle cx="36" cy="12" r="8" fill="none" stroke="#64748b" stroke-width="1.5"/>
     <line x1="42" y1="18" x2="48" y2="24" stroke="#64748b" stroke-width="1.5"/>
-    <text x="36" y="40" font-size="12" fill="#64748b" text-anchor="middle">Search</text>
+    <text x="36" y="40" font-size="10" fill="#64748b" text-anchor="middle">Search</text>
   </g>
 
   <!-- Tags -->
-  <g transform="translate(1914, 906)">
+  <g transform="translate(858, 464)">
     <rect x="20" y="4" width="24" height="16" rx="5" fill="none" stroke="#64748b" stroke-width="1.5" transform="rotate(-8, 32, 12)"/>
-    <text x="36" y="40" font-size="12" fill="#64748b" text-anchor="middle">Tags</text>
+    <text x="36" y="40" font-size="10" fill="#64748b" text-anchor="middle">Tags</text>
   </g>
 
-  <!-- More -->
-  <g transform="translate(2006, 906)">
-    <circle cx="28" cy="12" r="2.5" fill="#64748b"/>
-    <circle cx="36" cy="12" r="2.5" fill="#64748b"/>
-    <circle cx="44" cy="12" r="2.5" fill="#64748b"/>
-    <text x="36" y="40" font-size="12" fill="#64748b" text-anchor="middle">More</text>
-  </g>
-
-  <!-- ==================== MORE MENU (bottom sheet) ==================== -->
-  <text x="2900" y="120" font-size="28" fill="#94a3b8" text-anchor="middle" font-weight="600">Mobile: "More" Bottom Sheet</text>
-
-  <!-- Phone frame 2 -->
-  <rect x="2500" y="150" width="375" height="812" rx="24" fill="#0f0f14" stroke="#2d2d3f" stroke-width="2"/>
-
-  <!-- Dimmed background -->
-  <rect x="2500" y="150" width="375" height="500" rx="24" fill="#0a0a0f" opacity="0.7"/>
-
-  <!-- Bottom sheet -->
-  <rect x="2500" y="650" width="375" height="312" rx="24" fill="#16161e"/>
-  <rect x="2664" y="660" width="48" height="4" rx="2" fill="#2d2d3f"/>
-
-  <!-- Sheet items -->
-  <g transform="translate(2520, 688)">
-    <rect width="335" height="52" rx="10" fill="transparent"/>
-    <circle cx="32" cy="26" r="14" fill="none" stroke="#94a3b8" stroke-width="1.5"/>
-    <path d="M24 26 L32 18 L40 26" fill="none" stroke="#94a3b8" stroke-width="1.5"/>
-    <text x="60" y="32" font-size="18" fill="#f1f5f9">Backup and Restore</text>
-  </g>
-
-  <line x1="2540" y1="740" x2="2856" y2="740" stroke="#2d2d3f" stroke-width="0.5"/>
-
-  <g transform="translate(2520, 750)">
-    <rect width="335" height="52" rx="10" fill="transparent"/>
-    <circle cx="32" cy="26" r="14" fill="none" stroke="#94a3b8" stroke-width="1.5"/>
-    <circle cx="32" cy="26" r="5" fill="#94a3b8"/>
-    <text x="60" y="32" font-size="18" fill="#f1f5f9">Settings</text>
-  </g>
-
-  <line x1="2540" y1="802" x2="2856" y2="802" stroke="#2d2d3f" stroke-width="0.5"/>
-
-  <g transform="translate(2520, 812)">
-    <rect width="335" height="52" rx="10" fill="transparent"/>
-    <text x="16" y="32" font-size="18" fill="#f1f5f9">Theme: Dark</text>
-    <!-- Toggle -->
-    <rect x="260" y="10" width="56" height="32" rx="16" fill="#818cf8"/>
-    <circle cx="300" cy="26" r="12" fill="#fff"/>
-  </g>
-
-  <line x1="2540" y1="864" x2="2856" y2="864" stroke="#2d2d3f" stroke-width="0.5"/>
-
-  <g transform="translate(2520, 874)">
-    <text x="16" y="28" font-size="18" fill="#f1f5f9">About</text>
-    <text x="304" y="28" font-size="16" fill="#64748b" text-anchor="end">v1.0.0</text>
-  </g>
-
-  <!-- Bottom tab bar (More active) -->
-  <rect x="2500" y="898" width="375" height="64" fill="#16161e" stroke="#2d2d3f" stroke-width="1"/>
-  <g transform="translate(2806, 906)">
-    <rect x="10" y="-2" width="52" height="28" rx="14" fill="#1e1e2e"/>
-    <text x="36" y="40" font-size="12" fill="#818cf8" text-anchor="middle" font-weight="500">More</text>
+  <!-- Settings -->
+  <g transform="translate(948, 464)">
+    <circle cx="36" cy="12" r="10" fill="none" stroke="#64748b" stroke-width="1.5"/>
+    <circle cx="36" cy="12" r="3.5" fill="#64748b"/>
+    <text x="36" y="40" font-size="10" fill="#64748b" text-anchor="middle">Settings</text>
   </g>
 
   <!-- Annotations -->
-  <text x="1920" y="1120" class="label" text-anchor="middle">Desktop: 80px icon rail expands to 200px on hover -- 3 primary + 2 secondary items -- Ctrl+K palette</text>
-  <text x="1920" y="1160" class="label" text-anchor="middle">Mobile: 4-tab bottom bar (Home, Search, Tags, More) -- "More" opens bottom sheet for Backup, Settings, Theme</text>
+  <text x="720" y="580" class="label" text-anchor="middle">Desktop: 64px icon rail (Home, Search, Tags | Settings) -- expands to 180px on hover</text>
+  <text x="720" y="594" class="label" text-anchor="middle">Mobile: 4-tab bottom bar (Home, Search, Tags, Settings) -- No "More" menu, Backup is under Settings</text>
 </svg>

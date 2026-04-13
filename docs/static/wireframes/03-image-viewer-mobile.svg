@@ -2,58 +2,28 @@
   <defs>
     <style>
       text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
-      .body { font-size: 12px; fill: #94a3b8; }
-      .small { font-size: 10px; fill: #64748b; }
     </style>
   </defs>
 
   <!-- Full-screen dark -->
   <rect width="375" height="812" fill="#0a0a0f"/>
 
-  <!-- Top bar -->
-  <rect x="0" y="0" width="375" height="60" fill="#0a0a0f" opacity="0.9"/>
-  <rect x="16" y="16" width="32" height="32" rx="16" fill="#1e1e2e"/>
-  <text x="32" y="38" font-size="18" fill="#f1f5f9" text-anchor="middle">X</text>
-  <text x="188" y="32" font-size="14" fill="#94a3b8" text-anchor="middle">12 / 342</text>
-  <rect x="310" y="16" width="52" height="32" rx="16" fill="#818cf8"/>
-  <text x="336" y="38" font-size="12" fill="#fff" text-anchor="middle">Tags</text>
+  <!-- ==================== MAIN IMAGE (fills screen) ==================== -->
+  <rect x="0" y="40" width="375" height="732" fill="#1a1a2e"/>
+  <text x="188" y="400" font-size="14" fill="#475569" text-anchor="middle">Image Content</text>
+  <text x="188" y="420" font-size="10" fill="#2d2d3f" text-anchor="middle">Swipe left/right to navigate</text>
 
-  <!-- Main image -->
-  <rect x="0" y="60" width="375" height="520" fill="#1a1a2e"/>
-  <text x="188" y="330" font-size="16" fill="#475569" text-anchor="middle">Image Content</text>
+  <!-- ==================== CLOSE BUTTON (top-left) ==================== -->
+  <rect x="12" y="12" width="32" height="32" rx="16" fill="rgba(30,30,46,0.8)"/>
+  <text x="28" y="34" font-size="16" fill="#f1f5f9" text-anchor="middle">X</text>
 
-  <!-- Swipe indicators -->
-  <rect x="8" y="310" width="28" height="28" rx="14" fill="#1e1e2e" opacity="0.7"/>
-  <text x="20" y="330" font-size="14" fill="#f1f5f9" text-anchor="middle">&lt;</text>
-  <rect x="339" y="310" width="28" height="28" rx="14" fill="#1e1e2e" opacity="0.7"/>
-  <text x="355" y="330" font-size="14" fill="#f1f5f9" text-anchor="middle">&gt;</text>
+  <!-- ==================== LEFT NAV ARROW (subtle) ==================== -->
+  <rect x="8" y="390" width="28" height="28" rx="14" fill="rgba(30,30,46,0.5)"/>
+  <text x="20" y="410" font-size="14" fill="#f1f5f9" text-anchor="middle" opacity="0.7">&lt;</text>
 
-  <!-- Thumbnail strip -->
-  <rect x="0" y="580" width="375" height="64" fill="#0a0a0f" opacity="0.9"/>
-  <rect x="110" y="588" width="48" height="48" rx="4" fill="#312e81"/>
-  <rect x="164" y="588" width="48" height="48" rx="4" fill="#831843"/>
-  <!-- Current -->
-  <rect x="218" y="586" width="52" height="52" rx="6" fill="#713f12" stroke="#818cf8" stroke-width="2"/>
-  <rect x="276" y="588" width="48" height="48" rx="4" fill="#14532d"/>
+  <!-- ==================== RIGHT NAV ARROW (subtle) ==================== -->
+  <rect x="339" y="390" width="28" height="28" rx="14" fill="rgba(30,30,46,0.5)"/>
+  <text x="355" y="410" font-size="14" fill="#f1f5f9" text-anchor="middle" opacity="0.7">&gt;</text>
 
-  <!-- Bottom sheet for tags (collapsed - drag handle) -->
-  <rect x="0" y="660" width="375" height="152" rx="20" fill="#16161e"/>
-  <rect x="164" y="668" width="48" height="4" rx="2" fill="#2d2d3f"/>
-
-  <text x="20" y="700" font-size="14" fill="#f1f5f9" font-weight="600">Tags</text>
-  <text x="340" y="700" font-size="12" fill="#818cf8" text-anchor="end">Edit</text>
-
-  <!-- Tag chips -->
-  <rect x="20" y="714" width="64" height="28" rx="14" fill="#312e81" stroke="#818cf8" stroke-width="1"/>
-  <text x="52" y="733" font-size="11" fill="#818cf8" text-anchor="middle">Action</text>
-  <rect x="92" y="714" width="56" height="28" rx="14" fill="#1a3a2e" stroke="#6ee7b7" stroke-width="1"/>
-  <text x="120" y="733" font-size="11" fill="#6ee7b7" text-anchor="middle">Eren</text>
-  <rect x="156" y="714" width="72" height="28" rx="14" fill="#3b1a1a" stroke="#fca5a5" stroke-width="1"/>
-  <text x="192" y="733" font-size="11" fill="#fca5a5" text-anchor="middle">Outdoor</text>
-  <rect x="236" y="714" width="72" height="28" rx="14" fill="#2d1a3b" stroke="#c4b5fd" stroke-width="1"/>
-  <text x="272" y="733" font-size="11" fill="#c4b5fd" text-anchor="middle">Mikasa</text>
-
-  <!-- Add tag -->
-  <rect x="20" y="752" width="335" height="36" rx="18" fill="#1e1e2e" stroke="#2d2d3f"/>
-  <text x="48" y="775" font-size="12" fill="#475569">Add tag...</text>
+  <!-- Minimal. No counter, no filename, no thumbnails, no tag panel. -->
 </svg>
