@@ -127,3 +127,45 @@ func TestImageService_ReadImagesByIDs_Error(t *testing.T) {
 	_, gotErr := service.ReadImagesByIDs(context.Background(), []uint{11})
 	assert.Error(t, gotErr, "should return error when parent directory is missing from DB")
 }
+
+func TestImageService_OpenImageInOS(t *testing.T) {
+	tester := newTester(t)
+	dbClient := tester.dbClient
+
+	fileBuilder := tester.newFileCreator(t)
+	for _, dir := range []image.Directory{
+		{ID: 1, Name: "Directory 1"},
+	} {
+		fileBuilder.CreateDirectory(dir)
+	}
+	for _, imageFile := range []image.ImageFile{
+		{ID: 11, Name: "image_file_11.jpg", ParentID: 1},
+	} {
+		fileBuilder.CreateImage(imageFile, image.TestImageFileJpeg)
+		fileBuilder.AddImageCreatedAt(imageFile.ID, time.Date(2021, 1, 1, 0, 0, int(imageFile.ID), 0, time.UTC))
+	}
+
+	t.Run("error when ReadImagesByIDs fails", func(t *testing.T) {
+		// Insert the image file into DB but NOT the parent directory,
+		// so ConvertImageFile will fail because the parent directory has ID 0.
+		dbClient.Truncate(t, &db.File{})
+		db.LoadTestData(t, dbClient, []db.File{
+			fileBuilder.BuildDBImageFile(11),
+		})
+
+		service := tester.getImageService()
+		gotErr := service.OpenImageInOS(context.Background(), 11)
+		assert.Error(t, gotErr)
+		assert.Contains(t, gotErr.Error(), "ReadImagesByIDs")
+	})
+
+	t.Run("error when image not found", func(t *testing.T) {
+		// Empty DB so no image is found for the given ID.
+		dbClient.Truncate(t, &db.File{})
+
+		service := tester.getImageService()
+		gotErr := service.OpenImageInOS(context.Background(), 999)
+		assert.Error(t, gotErr)
+		assert.Contains(t, gotErr.Error(), "image not found")
+	})
+}
