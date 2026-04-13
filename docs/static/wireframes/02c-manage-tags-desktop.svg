@@ -1,0 +1,224 @@
+<svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 11px; fill: #555; }
+    </style>
+  </defs>
+
+  <!-- Background (anime detail page, dimmed) -->
+  <rect width="1440" height="900" fill="#0f0f14"/>
+
+  <!-- Icon rail dimmed -->
+  <rect x="0" y="0" width="64" height="900" fill="#16161e" opacity="0.4"/>
+  <rect x="12" y="14" width="40" height="40" rx="10" fill="#818cf8" opacity="0.4"/>
+  <text x="32" y="40" font-size="20" fill="#fff" font-weight="700" text-anchor="middle" opacity="0.4">A</text>
+
+  <!-- Dimmed header -->
+  <rect x="64" y="0" width="1376" height="72" fill="#16161e" opacity="0.3"/>
+  <text x="84" y="46" font-size="20" fill="#f1f5f9" font-weight="700" opacity="0.3">Attack on Titan</text>
+
+  <!-- Dimmed image grid -->
+  <g opacity="0.15">
+    <rect x="84" y="120" width="260" height="174" rx="8" fill="#312e81"/>
+    <rect x="354" y="120" width="260" height="210" rx="8" fill="#831843"/>
+    <rect x="624" y="120" width="260" height="160" rx="8" fill="#14532d"/>
+    <rect x="894" y="120" width="260" height="194" rx="8" fill="#713f12"/>
+    <rect x="1164" y="120" width="260" height="174" rx="8" fill="#3b0764"/>
+  </g>
+
+  <!-- Dark overlay -->
+  <rect width="1440" height="900" fill="#000" opacity="0.55"/>
+
+  <!-- ==================== MANAGE DIALOG ==================== -->
+  <rect x="144" y="90" width="1152" height="720" rx="16" fill="#16161e" stroke="#2d2d3f" stroke-width="1"/>
+
+  <!-- Dialog header -->
+  <rect x="144" y="90" width="1152" height="56" rx="16" fill="#1a1a26"/>
+  <rect x="144" y="120" width="1152" height="26" fill="#1a1a26"/>
+
+  <text x="176" y="125" font-size="16" fill="#f1f5f9" font-weight="600">Manage Attack on Titan</text>
+
+  <!-- Close button -->
+  <rect x="1252" y="102" width="32" height="32" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <line x1="1262" y1="112" x2="1274" y2="124" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="1274" y1="112" x2="1262" y2="124" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- ==================== TAB BAR ==================== -->
+  <rect x="144" y="146" width="1152" height="38" fill="#16161e"/>
+  <line x1="144" y1="183" x2="1296" y2="183" stroke="#2d2d3f" stroke-width="1"/>
+
+  <!-- Entries tab -->
+  <text x="176" y="171" font-size="13" fill="#64748b">Entries</text>
+
+  <!-- Characters tab -->
+  <text x="246" y="171" font-size="13" fill="#64748b">Characters</text>
+
+  <!-- Tags tab (active) -->
+  <text x="336" y="171" font-size="13" fill="#818cf8" font-weight="600">Tags</text>
+  <rect x="336" y="176" width="32" height="2" rx="1" fill="#818cf8"/>
+
+  <!-- Info tab -->
+  <text x="396" y="171" font-size="13" fill="#64748b">Info</text>
+
+  <!-- ==================== TAGS TAB CONTENT ==================== -->
+
+  <!-- Search bar -->
+  <rect x="176" y="200" width="400" height="32" rx="8" fill="#0f0f14" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="196" y="221" font-size="12" fill="#475569">Search tags...</text>
+
+  <!-- Tag count -->
+  <text x="600" y="221" font-size="11" fill="#64748b">12 tags</text>
+
+  <!-- Column headers -->
+  <rect x="160" y="244" width="1120" height="28" fill="#1a1a26" rx="4"/>
+  <text x="184" y="263" font-size="11" fill="#64748b" font-weight="500">TAG NAME</text>
+  <text x="700" y="263" font-size="11" fill="#64748b" font-weight="500">TAGGED IMAGES</text>
+  <text x="1080" y="263" font-size="11" fill="#64748b" font-weight="500">ACTIONS</text>
+
+  <!-- ==================== Tag Row 1: Outdoor ==================== -->
+  <rect x="160" y="276" width="1120" height="40" fill="#16161e"/>
+  <line x1="160" y1="316" x2="1280" y2="316" stroke="#2d2d3f" stroke-width="0.5"/>
+
+  <!-- Tag icon -->
+  <rect x="184" y="288" width="16" height="16" rx="3" fill="#1a3a2e" stroke="#6ee7b7" stroke-width="1"/>
+
+  <text x="210" y="301" font-size="13" fill="#f1f5f9">Outdoor</text>
+  <text x="700" y="301" font-size="12" fill="#94a3b8">98</text>
+
+  <rect x="1020" y="283" width="68" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1054" y="301" font-size="11" fill="#94a3b8" text-anchor="middle">Rename</text>
+  <rect x="1096" y="283" width="56" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1124" y="301" font-size="11" fill="#ef4444" text-anchor="middle">Delete</text>
+
+  <!-- ==================== Tag Row 2: Indoor ==================== -->
+  <rect x="160" y="316" width="1120" height="40" fill="#16161e"/>
+  <line x1="160" y1="356" x2="1280" y2="356" stroke="#2d2d3f" stroke-width="0.5"/>
+
+  <rect x="184" y="328" width="16" height="16" rx="3" fill="#1a3a2e" stroke="#6ee7b7" stroke-width="1"/>
+
+  <text x="210" y="341" font-size="13" fill="#f1f5f9">Indoor</text>
+  <text x="700" y="341" font-size="12" fill="#94a3b8">76</text>
+
+  <rect x="1020" y="323" width="68" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1054" y="341" font-size="11" fill="#94a3b8" text-anchor="middle">Rename</text>
+  <rect x="1096" y="323" width="56" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1124" y="341" font-size="11" fill="#ef4444" text-anchor="middle">Delete</text>
+
+  <!-- ==================== Tag Row 3: Action ==================== -->
+  <rect x="160" y="356" width="1120" height="40" fill="#16161e"/>
+  <line x1="160" y1="396" x2="1280" y2="396" stroke="#2d2d3f" stroke-width="0.5"/>
+
+  <rect x="184" y="368" width="16" height="16" rx="3" fill="#312e81" stroke="#818cf8" stroke-width="1"/>
+
+  <text x="210" y="381" font-size="13" fill="#f1f5f9">Action</text>
+  <text x="700" y="381" font-size="12" fill="#94a3b8">145</text>
+
+  <rect x="1020" y="363" width="68" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1054" y="381" font-size="11" fill="#94a3b8" text-anchor="middle">Rename</text>
+  <rect x="1096" y="363" width="56" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1124" y="381" font-size="11" fill="#ef4444" text-anchor="middle">Delete</text>
+
+  <!-- ==================== Tag Row 4: Battle (INLINE EDITING) ==================== -->
+  <rect x="160" y="396" width="1120" height="40" fill="#1a1a26" stroke="#818cf8" stroke-width="1" rx="4"/>
+
+  <rect x="184" y="408" width="16" height="16" rx="3" fill="#312e81" stroke="#818cf8" stroke-width="1"/>
+
+  <!-- Inline edit field -->
+  <rect x="210" y="403" width="280" height="26" rx="6" fill="#0f0f14" stroke="#818cf8" stroke-width="1.5"/>
+  <text x="222" y="421" font-size="13" fill="#f1f5f9">Battle|</text>
+
+  <text x="700" y="421" font-size="12" fill="#94a3b8">112</text>
+
+  <rect x="1020" y="403" width="52" height="26" rx="6" fill="#818cf8"/>
+  <text x="1046" y="421" font-size="11" fill="#fff" text-anchor="middle" font-weight="500">Save</text>
+  <rect x="1080" y="403" width="60" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1110" y="421" font-size="11" fill="#94a3b8" text-anchor="middle">Cancel</text>
+
+  <!-- ==================== Tag Row 5: Romance ==================== -->
+  <rect x="160" y="440" width="1120" height="40" fill="#16161e"/>
+  <line x1="160" y1="480" x2="1280" y2="480" stroke="#2d2d3f" stroke-width="0.5"/>
+
+  <rect x="184" y="452" width="16" height="16" rx="3" fill="#3b1a1a" stroke="#fca5a5" stroke-width="1"/>
+
+  <text x="210" y="465" font-size="13" fill="#f1f5f9">Romance</text>
+  <text x="700" y="465" font-size="12" fill="#94a3b8">34</text>
+
+  <rect x="1020" y="447" width="68" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1054" y="465" font-size="11" fill="#94a3b8" text-anchor="middle">Rename</text>
+  <rect x="1096" y="447" width="56" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1124" y="465" font-size="11" fill="#ef4444" text-anchor="middle">Delete</text>
+
+  <!-- ==================== Tag Row 6: School ==================== -->
+  <rect x="160" y="480" width="1120" height="40" fill="#16161e"/>
+  <line x1="160" y1="520" x2="1280" y2="520" stroke="#2d2d3f" stroke-width="0.5"/>
+
+  <rect x="184" y="492" width="16" height="16" rx="3" fill="#3b2600" stroke="#fcd34d" stroke-width="1"/>
+
+  <text x="210" y="505" font-size="13" fill="#f1f5f9">School</text>
+  <text x="700" y="505" font-size="12" fill="#94a3b8">28</text>
+
+  <rect x="1020" y="487" width="68" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1054" y="505" font-size="11" fill="#94a3b8" text-anchor="middle">Rename</text>
+  <rect x="1096" y="487" width="56" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1124" y="505" font-size="11" fill="#ef4444" text-anchor="middle">Delete</text>
+
+  <!-- ==================== Tag Row 7: Forest ==================== -->
+  <rect x="160" y="520" width="1120" height="40" fill="#16161e"/>
+  <line x1="160" y1="560" x2="1280" y2="560" stroke="#2d2d3f" stroke-width="0.5"/>
+
+  <rect x="184" y="532" width="16" height="16" rx="3" fill="#1a3a2e" stroke="#6ee7b7" stroke-width="1"/>
+
+  <text x="210" y="545" font-size="13" fill="#f1f5f9">Forest</text>
+  <text x="700" y="545" font-size="12" fill="#94a3b8">41</text>
+
+  <rect x="1020" y="527" width="68" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1054" y="545" font-size="11" fill="#94a3b8" text-anchor="middle">Rename</text>
+  <rect x="1096" y="527" width="56" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1124" y="545" font-size="11" fill="#ef4444" text-anchor="middle">Delete</text>
+
+  <!-- ==================== Tag Row 8: Sunset ==================== -->
+  <rect x="160" y="560" width="1120" height="40" fill="#16161e"/>
+  <line x1="160" y1="600" x2="1280" y2="600" stroke="#2d2d3f" stroke-width="0.5"/>
+
+  <rect x="184" y="572" width="16" height="16" rx="3" fill="#1a3a2e" stroke="#6ee7b7" stroke-width="1"/>
+
+  <text x="210" y="585" font-size="13" fill="#f1f5f9">Sunset</text>
+  <text x="700" y="585" font-size="12" fill="#94a3b8">19</text>
+
+  <rect x="1020" y="567" width="68" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1054" y="585" font-size="11" fill="#94a3b8" text-anchor="middle">Rename</text>
+  <rect x="1096" y="567" width="56" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1124" y="585" font-size="11" fill="#ef4444" text-anchor="middle">Delete</text>
+
+  <!-- ==================== Tag Row 9: Night ==================== -->
+  <rect x="160" y="600" width="1120" height="40" fill="#16161e"/>
+  <line x1="160" y1="640" x2="1280" y2="640" stroke="#2d2d3f" stroke-width="0.5"/>
+
+  <rect x="184" y="612" width="16" height="16" rx="3" fill="#1e1e2e" stroke="#64748b" stroke-width="1"/>
+
+  <text x="210" y="625" font-size="13" fill="#f1f5f9">Night</text>
+  <text x="700" y="625" font-size="12" fill="#94a3b8">22</text>
+
+  <rect x="1020" y="607" width="68" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1054" y="625" font-size="11" fill="#94a3b8" text-anchor="middle">Rename</text>
+  <rect x="1096" y="607" width="56" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1124" y="625" font-size="11" fill="#ef4444" text-anchor="middle">Delete</text>
+
+  <!-- ==================== ADD TAG ==================== -->
+  <rect x="160" y="650" width="1120" height="44" rx="6" fill="#1a1a26" stroke="#2d2d3f" stroke-width="1" stroke-dasharray="4,4"/>
+
+  <rect x="184" y="661" width="320" height="26" rx="6" fill="#0f0f14" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="196" y="679" font-size="12" fill="#475569">Enter tag name...</text>
+
+  <rect x="516" y="661" width="80" height="26" rx="6" fill="#818cf8"/>
+  <text x="556" y="679" font-size="11" fill="#fff" text-anchor="middle" font-weight="500">+ Add Tag</text>
+
+  <!-- ==================== DIALOG FOOTER ==================== -->
+  <rect x="144" y="770" width="1152" height="40" fill="#1a1a26"/>
+  <rect x="144" y="786" width="1152" height="24" rx="16" fill="#1a1a26"/>
+  <text x="176" y="796" font-size="11" fill="#64748b">12 tags -- 575 tagged images (some images have multiple tags)</text>
+
+  <!-- Annotation -->
+  <text x="720" y="893" class="label" text-anchor="middle">Manage Dialog -- Tags tab: descriptive tags with color-coded icons, inline rename (row 4), add form at bottom</text>
+</svg>

@@ -1,0 +1,240 @@
+<svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 11px; fill: #555; }
+    </style>
+  </defs>
+
+  <!-- Background (anime detail page, dimmed) -->
+  <rect width="1440" height="900" fill="#0f0f14"/>
+
+  <!-- Icon rail dimmed -->
+  <rect x="0" y="0" width="64" height="900" fill="#16161e" opacity="0.4"/>
+  <rect x="12" y="14" width="40" height="40" rx="10" fill="#818cf8" opacity="0.4"/>
+  <text x="32" y="40" font-size="20" fill="#fff" font-weight="700" text-anchor="middle" opacity="0.4">A</text>
+
+  <!-- Dimmed header -->
+  <rect x="64" y="0" width="1376" height="72" fill="#16161e" opacity="0.3"/>
+  <text x="84" y="46" font-size="20" fill="#f1f5f9" font-weight="700" opacity="0.3">Attack on Titan</text>
+
+  <!-- Dimmed image grid -->
+  <g opacity="0.15">
+    <rect x="84" y="120" width="260" height="174" rx="8" fill="#312e81"/>
+    <rect x="354" y="120" width="260" height="210" rx="8" fill="#831843"/>
+    <rect x="624" y="120" width="260" height="160" rx="8" fill="#14532d"/>
+    <rect x="894" y="120" width="260" height="194" rx="8" fill="#713f12"/>
+    <rect x="1164" y="120" width="260" height="174" rx="8" fill="#3b0764"/>
+  </g>
+
+  <!-- Dark overlay -->
+  <rect width="1440" height="900" fill="#000" opacity="0.55"/>
+
+  <!-- ==================== MANAGE DIALOG ==================== -->
+  <rect x="144" y="90" width="1152" height="720" rx="16" fill="#16161e" stroke="#2d2d3f" stroke-width="1"/>
+
+  <!-- Dialog header -->
+  <rect x="144" y="90" width="1152" height="56" rx="16" fill="#1a1a26"/>
+  <rect x="144" y="120" width="1152" height="26" fill="#1a1a26"/>
+
+  <text x="176" y="125" font-size="16" fill="#f1f5f9" font-weight="600">Manage Attack on Titan</text>
+
+  <!-- Close button -->
+  <rect x="1252" y="102" width="32" height="32" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <line x1="1262" y1="112" x2="1274" y2="124" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="1274" y1="112" x2="1262" y2="124" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- ==================== TAB BAR ==================== -->
+  <rect x="144" y="146" width="1152" height="38" fill="#16161e"/>
+  <line x1="144" y1="183" x2="1296" y2="183" stroke="#2d2d3f" stroke-width="1"/>
+
+  <!-- Entries tab -->
+  <text x="176" y="171" font-size="13" fill="#64748b">Entries</text>
+
+  <!-- Characters tab (active) -->
+  <text x="246" y="171" font-size="13" fill="#818cf8" font-weight="600">Characters</text>
+  <rect x="246" y="176" width="74" height="2" rx="1" fill="#818cf8"/>
+
+  <!-- Tags tab -->
+  <text x="336" y="171" font-size="13" fill="#64748b">Tags</text>
+
+  <!-- Info tab -->
+  <text x="396" y="171" font-size="13" fill="#64748b">Info</text>
+
+  <!-- ==================== CHARACTERS TAB CONTENT ==================== -->
+
+  <!-- Search bar -->
+  <rect x="176" y="200" width="400" height="32" rx="8" fill="#0f0f14" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="196" y="221" font-size="12" fill="#475569">Search characters...</text>
+
+  <!-- Character count -->
+  <text x="600" y="221" font-size="11" fill="#64748b">8 characters</text>
+
+  <!-- Column headers -->
+  <rect x="160" y="244" width="1120" height="28" fill="#1a1a26" rx="4"/>
+  <text x="184" y="263" font-size="11" fill="#64748b" font-weight="500">CHARACTER NAME</text>
+  <text x="700" y="263" font-size="11" fill="#64748b" font-weight="500">TAGGED IMAGES</text>
+  <text x="1080" y="263" font-size="11" fill="#64748b" font-weight="500">ACTIONS</text>
+
+  <!-- ==================== Character Row 1: Eren Yeager ==================== -->
+  <rect x="160" y="276" width="1120" height="44" fill="#16161e"/>
+  <line x1="160" y1="320" x2="1280" y2="320" stroke="#2d2d3f" stroke-width="0.5"/>
+
+  <!-- Character icon (person silhouette placeholder) -->
+  <circle cx="192" cy="298" r="12" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <circle cx="192" cy="294" r="4" fill="#64748b"/>
+  <ellipse cx="192" cy="306" rx="6" ry="4" fill="#64748b"/>
+
+  <text x="216" y="303" font-size="13" fill="#f1f5f9">Eren Yeager</text>
+
+  <!-- Image count -->
+  <text x="700" y="303" font-size="12" fill="#94a3b8">156</text>
+
+  <!-- Rename button -->
+  <rect x="1020" y="285" width="68" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1054" y="303" font-size="11" fill="#94a3b8" text-anchor="middle">Rename</text>
+
+  <!-- Delete button -->
+  <rect x="1096" y="285" width="56" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1124" y="303" font-size="11" fill="#ef4444" text-anchor="middle">Delete</text>
+
+  <!-- ==================== Character Row 2: Mikasa (INLINE EDITING) ==================== -->
+  <rect x="160" y="320" width="1120" height="44" fill="#1a1a26" stroke="#818cf8" stroke-width="1" rx="4"/>
+
+  <!-- Character icon -->
+  <circle cx="192" cy="342" r="12" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <circle cx="192" cy="338" r="4" fill="#64748b"/>
+  <ellipse cx="192" cy="350" rx="6" ry="4" fill="#64748b"/>
+
+  <!-- Inline edit field (active) -->
+  <rect x="216" y="329" width="300" height="26" rx="6" fill="#0f0f14" stroke="#818cf8" stroke-width="1.5"/>
+  <text x="228" y="347" font-size="13" fill="#f1f5f9">Mikasa Ackerman|</text>
+
+  <!-- Image count -->
+  <text x="700" y="347" font-size="12" fill="#94a3b8">142</text>
+
+  <!-- Save / Cancel -->
+  <rect x="1020" y="329" width="52" height="26" rx="6" fill="#818cf8"/>
+  <text x="1046" y="347" font-size="11" fill="#fff" text-anchor="middle" font-weight="500">Save</text>
+  <rect x="1080" y="329" width="60" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1110" y="347" font-size="11" fill="#94a3b8" text-anchor="middle">Cancel</text>
+
+  <!-- Editing badge -->
+  <rect x="1150" y="329" width="72" height="26" rx="6" fill="#312e81"/>
+  <text x="1186" y="347" font-size="10" fill="#818cf8" text-anchor="middle">Editing</text>
+
+  <!-- ==================== Character Row 3: Armin ==================== -->
+  <rect x="160" y="368" width="1120" height="44" fill="#16161e"/>
+  <line x1="160" y1="412" x2="1280" y2="412" stroke="#2d2d3f" stroke-width="0.5"/>
+
+  <circle cx="192" cy="390" r="12" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <circle cx="192" cy="386" r="4" fill="#64748b"/>
+  <ellipse cx="192" cy="398" rx="6" ry="4" fill="#64748b"/>
+
+  <text x="216" y="395" font-size="13" fill="#f1f5f9">Armin Arlert</text>
+  <text x="700" y="395" font-size="12" fill="#94a3b8">89</text>
+
+  <rect x="1020" y="377" width="68" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1054" y="395" font-size="11" fill="#94a3b8" text-anchor="middle">Rename</text>
+  <rect x="1096" y="377" width="56" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1124" y="395" font-size="11" fill="#ef4444" text-anchor="middle">Delete</text>
+
+  <!-- ==================== Character Row 4: Levi ==================== -->
+  <rect x="160" y="412" width="1120" height="44" fill="#16161e"/>
+  <line x1="160" y1="456" x2="1280" y2="456" stroke="#2d2d3f" stroke-width="0.5"/>
+
+  <circle cx="192" cy="434" r="12" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <circle cx="192" cy="430" r="4" fill="#64748b"/>
+  <ellipse cx="192" cy="442" rx="6" ry="4" fill="#64748b"/>
+
+  <text x="216" y="439" font-size="13" fill="#f1f5f9">Levi Ackerman</text>
+  <text x="700" y="439" font-size="12" fill="#94a3b8">124</text>
+
+  <rect x="1020" y="421" width="68" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1054" y="439" font-size="11" fill="#94a3b8" text-anchor="middle">Rename</text>
+  <rect x="1096" y="421" width="56" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1124" y="439" font-size="11" fill="#ef4444" text-anchor="middle">Delete</text>
+
+  <!-- ==================== Character Row 5: Historia ==================== -->
+  <rect x="160" y="456" width="1120" height="44" fill="#16161e"/>
+  <line x1="160" y1="500" x2="1280" y2="500" stroke="#2d2d3f" stroke-width="0.5"/>
+
+  <circle cx="192" cy="478" r="12" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <circle cx="192" cy="474" r="4" fill="#64748b"/>
+  <ellipse cx="192" cy="486" rx="6" ry="4" fill="#64748b"/>
+
+  <text x="216" y="483" font-size="13" fill="#f1f5f9">Historia Reiss</text>
+  <text x="700" y="483" font-size="12" fill="#94a3b8">67</text>
+
+  <rect x="1020" y="465" width="68" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1054" y="483" font-size="11" fill="#94a3b8" text-anchor="middle">Rename</text>
+  <rect x="1096" y="465" width="56" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1124" y="483" font-size="11" fill="#ef4444" text-anchor="middle">Delete</text>
+
+  <!-- ==================== Character Row 6: Hange ==================== -->
+  <rect x="160" y="500" width="1120" height="44" fill="#16161e"/>
+  <line x1="160" y1="544" x2="1280" y2="544" stroke="#2d2d3f" stroke-width="0.5"/>
+
+  <circle cx="192" cy="522" r="12" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <circle cx="192" cy="518" r="4" fill="#64748b"/>
+  <ellipse cx="192" cy="530" rx="6" ry="4" fill="#64748b"/>
+
+  <text x="216" y="527" font-size="13" fill="#f1f5f9">Hange Zoe</text>
+  <text x="700" y="527" font-size="12" fill="#94a3b8">45</text>
+
+  <rect x="1020" y="509" width="68" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1054" y="527" font-size="11" fill="#94a3b8" text-anchor="middle">Rename</text>
+  <rect x="1096" y="509" width="56" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1124" y="527" font-size="11" fill="#ef4444" text-anchor="middle">Delete</text>
+
+  <!-- ==================== Character Row 7: Erwin ==================== -->
+  <rect x="160" y="544" width="1120" height="44" fill="#16161e"/>
+  <line x1="160" y1="588" x2="1280" y2="588" stroke="#2d2d3f" stroke-width="0.5"/>
+
+  <circle cx="192" cy="566" r="12" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <circle cx="192" cy="562" r="4" fill="#64748b"/>
+  <ellipse cx="192" cy="574" rx="6" ry="4" fill="#64748b"/>
+
+  <text x="216" y="571" font-size="13" fill="#f1f5f9">Erwin Smith</text>
+  <text x="700" y="571" font-size="12" fill="#94a3b8">38</text>
+
+  <rect x="1020" y="553" width="68" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1054" y="571" font-size="11" fill="#94a3b8" text-anchor="middle">Rename</text>
+  <rect x="1096" y="553" width="56" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1124" y="571" font-size="11" fill="#ef4444" text-anchor="middle">Delete</text>
+
+  <!-- ==================== Character Row 8: Annie ==================== -->
+  <rect x="160" y="588" width="1120" height="44" fill="#16161e"/>
+  <line x1="160" y1="632" x2="1280" y2="632" stroke="#2d2d3f" stroke-width="0.5"/>
+
+  <circle cx="192" cy="610" r="12" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <circle cx="192" cy="606" r="4" fill="#64748b"/>
+  <ellipse cx="192" cy="618" rx="6" ry="4" fill="#64748b"/>
+
+  <text x="216" y="615" font-size="13" fill="#f1f5f9">Annie Leonhart</text>
+  <text x="700" y="615" font-size="12" fill="#94a3b8">31</text>
+
+  <rect x="1020" y="597" width="68" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1054" y="615" font-size="11" fill="#94a3b8" text-anchor="middle">Rename</text>
+  <rect x="1096" y="597" width="56" height="26" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1124" y="615" font-size="11" fill="#ef4444" text-anchor="middle">Delete</text>
+
+  <!-- ==================== ADD CHARACTER ==================== -->
+  <rect x="160" y="644" width="1120" height="44" rx="6" fill="#1a1a26" stroke="#2d2d3f" stroke-width="1" stroke-dasharray="4,4"/>
+
+  <!-- Add character inline input -->
+  <rect x="184" y="655" width="320" height="26" rx="6" fill="#0f0f14" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="196" y="673" font-size="12" fill="#475569">Enter character name...</text>
+
+  <!-- Add button -->
+  <rect x="516" y="655" width="100" height="26" rx="6" fill="#818cf8"/>
+  <text x="566" y="673" font-size="11" fill="#fff" text-anchor="middle" font-weight="500">+ Add Character</text>
+
+  <!-- ==================== DIALOG FOOTER ==================== -->
+  <rect x="144" y="770" width="1152" height="40" fill="#1a1a26"/>
+  <rect x="144" y="786" width="1152" height="24" rx="16" fill="#1a1a26"/>
+  <text x="176" y="796" font-size="11" fill="#64748b">8 characters -- 692 tagged images</text>
+
+  <!-- Annotation -->
+  <text x="720" y="893" class="label" text-anchor="middle">Manage Dialog -- Characters tab: simple list with inline rename (row 2), person icons, image counts, add form at bottom</text>
+</svg>

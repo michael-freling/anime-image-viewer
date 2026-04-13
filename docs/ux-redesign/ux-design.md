@@ -332,6 +332,67 @@ flowchart TD
 - Mobile: compact header, horizontally scrollable entry tabs, 2-column grid
 - Minimal chrome to maximize image display area
 
+### 3.2.1 Anime Manage Dialog
+
+The Manage Dialog is a large centered modal (80% viewport width, 80% height) accessed by clicking the "Manage" button in the anime detail header. It groups ALL editing operations into one organized place, keeping the browse page clean and focused on images.
+
+**Desktop -- Entries Tab (1440x900):** `wireframes/02a-manage-entries-desktop.svg`
+**Desktop -- Characters Tab (1440x900):** `wireframes/02b-manage-characters-desktop.svg`
+**Desktop -- Tags Tab (1440x900):** `wireframes/02c-manage-tags-desktop.svg`
+**Desktop -- Info Tab (1440x900):** `wireframes/02d-manage-info-desktop.svg`
+**Mobile (375x812):** `wireframes/02e-manage-mobile.svg`
+**Entry Context Menu (1440x900):** `wireframes/02f-entry-context-menu-desktop.svg`
+
+**Dialog Structure:**
+The dialog has 4 tabs across the top:
+
+1. **Entries** -- List of all entries (seasons, movies, etc.) as rows with type badges (S1/S2/M/O), entry name, airing info, image count, and per-entry actions (Upload, Delete). Entries are editable inline: click the name to edit, use dropdowns for airing season and year. Sub-entries are shown indented under parent entries with tree-connector lines. An "Add New Entry" form at the bottom provides type selector (Season/Movie/Other) with conditional fields.
+
+2. **Characters** -- Simple list of character names with person icons, tagged image counts, and per-row Rename/Delete buttons. Inline editing: click Rename to convert the name to an editable text field with Save/Cancel. An add form at the bottom provides an inline text input for new character names.
+
+3. **Tags** -- Same layout as Characters but for descriptive tags. Tags are color-coded by category (Scene/Action, Nature/Weather, Location, Mood/Genre). Each row shows tag name, tagged image count, and Rename/Delete actions. Inline editing supported.
+
+4. **Info** -- Anime name (editable with Save/Reset), AniList integration section (link status, search field, results list with anime title/format/year), and a Danger Zone at the bottom with "Delete Anime" button in red styling.
+
+**Entry Context Menu:**
+Right-clicking (or clicking "...") on an entry tab in the main anime detail page shows a floating context menu with:
+- Upload Images
+- Edit Entry (keyboard shortcut: E)
+- Add Sub-entry
+- Delete Entry (danger styling)
+
+**Components:**
+- Modal backdrop: `#000` at 55% opacity over the dimmed anime detail page
+- Dialog surface: `#16161e` with `#2d2d3f` border, 16px border radius
+- Tab bar: underlined active tab style matching the entry tabs on the detail page
+- Inline edit fields: `#0f0f14` background with `#818cf8` border when focused
+- Type badges: color-coded rectangles (Season: indigo `#312e81`, Movie: red `#3b1a1a`, Other: surface `#1e1e2e`)
+- Add forms: dashed border containers at the bottom of each tab's list
+- Context menu: `#1e1e2e` surface with `#2d2d3f` border, 10px border radius, shadow
+
+**Interaction Patterns:**
+- Click entry name or Rename button to enter inline edit mode (row highlights with indigo border)
+- Save/Cancel buttons appear during inline editing, replacing the normal action buttons
+- Click type badge selector (Season/Movie/Other) as radio-style toggle buttons
+- Expand arrow on entries reveals indented sub-entries with tree-connector lines
+- Upload button opens native file picker
+- Delete buttons use `#ef4444` danger color
+- Close dialog with X button or Escape key
+- Mobile: full-screen modal with Close text button, action sheet for entry actions (slide-up bottom sheet)
+
+**States:**
+- Default row: dark surface, normal text
+- Editing row: highlighted border (`#818cf8`), inline input fields visible, Save/Cancel buttons
+- Hover row: subtle background change
+- Add form: dashed border, muted placeholder text
+- Linked (AniList): green status bar with checkmark
+- Danger zone: red border on section container
+
+**Responsive:**
+- Desktop: 80% x 80% centered modal with column headers and inline actions
+- Mobile: full-screen modal, card-style rows instead of table rows, "..." overflow triggers action sheet
+- Entry actions on mobile: bottom action sheet (Upload, Edit, Delete, Cancel)
+
 ### 3.3 Image Viewer
 
 **Desktop (1440x900):** `wireframes/03-image-viewer-desktop.svg`
@@ -872,6 +933,12 @@ All wireframes are in `docs/ux-redesign/wireframes/`:
 | `01-home-mobile.svg` | Home with bottom tabs (375x812) |
 | `02-anime-detail-desktop.svg` | Clean header + entry tabs + wall-to-wall image grid (1440x900) |
 | `02-anime-detail-mobile.svg` | Compact header + tabs + 2-col grid (375x812) |
+| `02a-manage-entries-desktop.svg` | Manage dialog -- Entries tab with inline editing + sub-entries (1440x900) |
+| `02b-manage-characters-desktop.svg` | Manage dialog -- Characters tab with inline rename (1440x900) |
+| `02c-manage-tags-desktop.svg` | Manage dialog -- Tags tab with color-coded tags (1440x900) |
+| `02d-manage-info-desktop.svg` | Manage dialog -- Info tab with AniList + danger zone (1440x900) |
+| `02e-manage-mobile.svg` | Manage dialog -- Mobile full-screen with action sheet (375x812) |
+| `02f-entry-context-menu-desktop.svg` | Entry tab right-click context menu (1440x900) |
 | `03-image-viewer-desktop.svg` | Minimal viewer: image + close + arrows (1440x900) |
 | `03-image-viewer-mobile.svg` | Minimal viewer: image + close + arrows (375x812) |
 | `04-search-desktop.svg` | Inline filters + full-width results (1440x900) |
