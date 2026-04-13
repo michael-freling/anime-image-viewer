@@ -2,8 +2,10 @@ package frontend
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/michael-freling/anime-image-viewer/internal/image"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 type ImageService struct {
@@ -22,6 +24,19 @@ func (service *ImageService) ReadImagesByIDs(ctx context.Context, imageIDs []uin
 		return nil, err
 	}
 	return list.ToMap(), nil
+}
+
+func (service *ImageService) OpenImageInOS(ctx context.Context, imageID uint) error {
+	imageFiles, err := service.imageReader.ReadImagesByIDs([]uint{imageID})
+	if err != nil {
+		return fmt.Errorf("ReadImagesByIDs: %w", err)
+	}
+	if len(imageFiles) == 0 {
+		return fmt.Errorf("image not found: %d", imageID)
+	}
+
+	app := application.Get()
+	return app.BrowserOpenFile(imageFiles[0].LocalFilePath)
 }
 
 type Image struct {
