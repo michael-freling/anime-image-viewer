@@ -2,6 +2,7 @@
   <defs>
     <style>
       text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 11px; fill: #555; }
     </style>
   </defs>
 
@@ -11,76 +12,103 @@
   <!-- Status bar -->
   <text x="20" y="30" font-size="12" fill="#f1f5f9" font-weight="600">9:41</text>
 
-  <!-- Compact header -->
-  <text x="20" y="58" font-size="12" fill="#818cf8">Home</text>
-  <text x="60" y="58" font-size="12" fill="#475569">/</text>
+  <!-- ==================== HEADER ==================== -->
+  <!-- Breadcrumb -->
+  <text x="20" y="54" font-size="12" fill="#818cf8">Home</text>
+  <text x="60" y="54" font-size="12" fill="#475569">/</text>
 
-  <text x="20" y="82" font-size="20" fill="#f1f5f9" font-weight="700">Attack on Titan</text>
-  <text x="20" y="100" font-size="11" fill="#64748b">4 entries -- 342 images</text>
+  <!-- Anime title and metadata -->
+  <text x="20" y="76" font-size="18" fill="#f1f5f9" font-weight="700">Attack on Titan</text>
+  <text x="20" y="94" font-size="11" fill="#64748b">4 entries · 342 images</text>
 
-  <!-- Action buttons (compact, right aligned) -->
-  <rect x="240" y="68" width="56" height="26" rx="7" fill="#818cf8"/>
-  <text x="268" y="86" font-size="10" fill="#fff" text-anchor="middle">+ Entry</text>
-  <rect x="302" y="68" width="56" height="26" rx="7" fill="#1e1e2e" stroke="#2d2d3f"/>
-  <text x="330" y="86" font-size="10" fill="#94a3b8" text-anchor="middle">Upload</text>
+  <!-- Action buttons (right aligned) -->
+  <rect x="282" y="62" width="56" height="26" rx="7" fill="#818cf8"/>
+  <text x="310" y="80" font-size="10" fill="#fff" text-anchor="middle">Upload</text>
+  <rect x="344" y="62" width="24" height="26" rx="7" fill="#1e1e2e" stroke="#2d2d3f"/>
+  <text x="356" y="80" font-size="10" fill="#94a3b8" text-anchor="middle">...</text>
 
-  <!-- Entry tabs (horizontal scroll, compact) -->
-  <rect x="0" y="112" width="375" height="34" fill="#0f0f14"/>
-  <text x="20" y="135" font-size="13" fill="#818cf8" font-weight="600">All</text>
-  <rect x="20" y="139" width="16" height="2" rx="1" fill="#818cf8"/>
-  <text x="52" y="135" font-size="13" fill="#94a3b8">S1</text>
-  <text x="84" y="135" font-size="13" fill="#94a3b8">S2</text>
-  <text x="112" y="135" font-size="13" fill="#94a3b8">S3</text>
-  <text x="140" y="135" font-size="13" fill="#94a3b8">S4 (Final)</text>
-  <text x="216" y="135" font-size="13" fill="#2d2d3f">|</text>
-  <text x="230" y="135" font-size="11" fill="#64748b">Sort</text>
+  <!-- ==================== PRIMARY TAB BAR (scrollable horizontal) ==================== -->
+  <rect x="0" y="104" width="375" height="34" fill="#0f0f14"/>
+  <line x1="0" y1="137" x2="375" y2="137" stroke="#2d2d3f" stroke-width="1"/>
+
+  <!-- Images tab (active) -->
+  <text x="20" y="127" font-size="13" fill="#818cf8" font-weight="600">Images</text>
+  <rect x="20" y="131" width="46" height="2" rx="1" fill="#818cf8"/>
+
+  <!-- Entries tab -->
+  <text x="82" y="127" font-size="13" fill="#64748b">Entries</text>
+
+  <!-- Characters tab -->
+  <text x="140" y="127" font-size="13" fill="#64748b">Characters</text>
+
+  <!-- Tags tab -->
+  <text x="224" y="127" font-size="13" fill="#64748b">Tags</text>
+
+  <!-- Info tab -->
+  <text x="268" y="127" font-size="13" fill="#64748b">Info</text>
+
+  <!-- Scroll indicator (fade on right edge) -->
+  <rect x="340" y="104" width="35" height="34" fill="url(#fadeRight)" opacity="0.5"/>
+  <defs>
+    <linearGradient id="fadeRight" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0f0f14" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#0f0f14" stop-opacity="1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ==================== ENTRY SUB-FILTER TABS ==================== -->
+  <rect x="0" y="138" width="375" height="32" fill="#0f0f14"/>
+
+  <!-- All (active) -->
+  <text x="20" y="160" font-size="12" fill="#818cf8" font-weight="600">All</text>
+  <rect x="20" y="164" width="16" height="2" rx="1" fill="#818cf8"/>
+
+  <text x="50" y="160" font-size="12" fill="#94a3b8">S1</text>
+  <text x="76" y="160" font-size="12" fill="#94a3b8">S2</text>
+  <text x="102" y="160" font-size="12" fill="#94a3b8">S3</text>
+  <text x="128" y="160" font-size="12" fill="#94a3b8">S4 (Final)</text>
+  <text x="206" y="160" font-size="12" fill="#2d2d3f">|</text>
+  <text x="220" y="160" font-size="10" fill="#64748b">Sort</text>
 
   <!-- View/Select -->
-  <rect x="292" y="118" width="36" height="22" rx="5" fill="#818cf8"/>
-  <text x="310" y="133" font-size="9" fill="#fff" text-anchor="middle">View</text>
-  <rect x="330" y="118" width="30" height="22" rx="5" fill="#1e1e2e" stroke="#2d2d3f"/>
-  <text x="345" y="133" font-size="9" fill="#64748b" text-anchor="middle">Sel</text>
+  <rect x="292" y="146" width="36" height="22" rx="5" fill="#818cf8"/>
+  <text x="310" y="161" font-size="9" fill="#fff" text-anchor="middle">View</text>
+  <rect x="330" y="146" width="30" height="22" rx="5" fill="#1e1e2e" stroke="#2d2d3f"/>
+  <text x="345" y="161" font-size="9" fill="#64748b" text-anchor="middle">Sel</text>
 
   <!-- Image count -->
-  <text x="20" y="160" font-size="10" fill="#475569">342 images</text>
+  <text x="20" y="184" font-size="10" fill="#475569">342 images</text>
 
-  <!-- Image grid (2 columns, masonry) -->
-  <g transform="translate(20, 170)">
+  <!-- ==================== IMAGE GRID (2 columns, masonry) ==================== -->
+  <g transform="translate(20, 194)">
     <rect width="166" height="120" rx="6" fill="#312e81"/>
   </g>
-  <g transform="translate(194, 170)">
+  <g transform="translate(194, 194)">
     <rect width="166" height="140" rx="6" fill="#831843"/>
   </g>
 
-  <g transform="translate(20, 298)">
+  <g transform="translate(20, 322)">
     <rect width="166" height="140" rx="6" fill="#14532d"/>
   </g>
-  <g transform="translate(194, 318)">
+  <g transform="translate(194, 342)">
     <rect width="166" height="110" rx="6" fill="#713f12"/>
   </g>
 
-  <g transform="translate(20, 446)">
+  <g transform="translate(20, 470)">
     <rect width="166" height="110" rx="6" fill="#3b0764"/>
   </g>
-  <g transform="translate(194, 436)">
+  <g transform="translate(194, 460)">
     <rect width="166" height="130" rx="6" fill="#1c1917"/>
   </g>
 
-  <g transform="translate(20, 564)">
+  <g transform="translate(20, 588)">
     <rect width="166" height="130" rx="6" fill="#881337"/>
   </g>
-  <g transform="translate(194, 574)">
+  <g transform="translate(194, 598)">
     <rect width="166" height="110" rx="6" fill="#134e4a"/>
   </g>
 
-  <g transform="translate(20, 702)">
-    <rect width="166" height="40" rx="6" fill="#7f1d1d"/>
-  </g>
-  <g transform="translate(194, 692)">
-    <rect width="166" height="50" rx="6" fill="#1e3a5f"/>
-  </g>
-
-  <!-- Bottom Tab Bar -->
+  <!-- ==================== BOTTOM TAB BAR ==================== -->
   <rect x="0" y="748" width="375" height="64" fill="#16161e" stroke="#2d2d3f" stroke-width="1"/>
   <g transform="translate(18, 756)">
     <rect x="10" y="-2" width="52" height="28" rx="14" fill="#1e1e2e"/>

@@ -9,7 +9,7 @@
   <!-- Background -->
   <rect width="1440" height="900" fill="#0f0f14"/>
 
-  <!-- Icon rail (64px) -->
+  <!-- ==================== ICON RAIL (64px) ==================== -->
   <rect x="0" y="0" width="64" height="900" fill="#16161e"/>
   <rect x="12" y="14" width="40" height="40" rx="10" fill="#818cf8"/>
   <text x="32" y="40" font-size="20" fill="#fff" font-weight="700" text-anchor="middle">A</text>
@@ -17,148 +17,172 @@
     <rect x="6" y="0" width="52" height="52" rx="10" fill="#1e1e2e"/>
     <text x="32" y="68" font-size="11" fill="#818cf8" text-anchor="middle" font-weight="500">Home</text>
   </g>
+  <g transform="translate(0, 148)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="transparent"/>
+    <text x="32" y="68" font-size="11" fill="#64748b" text-anchor="middle">Search</text>
+  </g>
+  <g transform="translate(0, 224)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="transparent"/>
+    <text x="32" y="68" font-size="11" fill="#64748b" text-anchor="middle">Tags</text>
+  </g>
+  <g transform="translate(0, 300)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="transparent"/>
+    <text x="32" y="68" font-size="11" fill="#64748b" text-anchor="middle">Settings</text>
+  </g>
 
-  <!-- ==================== CLEAN HEADER (not a hero -- just info) ==================== -->
-  <rect x="64" y="0" width="1376" height="72" fill="#16161e"/>
+  <!-- ==================== HEADER (52px) ==================== -->
+  <rect x="64" y="0" width="1376" height="52" fill="#16161e"/>
 
   <!-- Breadcrumb -->
-  <text x="84" y="20" font-size="12" fill="#818cf8">Home</text>
-  <text x="118" y="20" font-size="12" fill="#475569">/</text>
+  <text x="84" y="18" font-size="12" fill="#818cf8">Home</text>
+  <text x="118" y="18" font-size="12" fill="#475569">/</text>
 
   <!-- Anime title and metadata -->
-  <text x="84" y="46" font-size="20" fill="#f1f5f9" font-weight="700">Attack on Titan</text>
-  <text x="290" y="46" font-size="12" fill="#64748b">4 entries</text>
-  <text x="290" y="60" font-size="11" fill="#475569">342 images</text>
+  <text x="84" y="40" font-size="18" fill="#f1f5f9" font-weight="700">Attack on Titan</text>
+  <text x="270" y="40" font-size="12" fill="#64748b">4 entries · 342 images</text>
 
-  <!-- Action buttons (right) -->
-  <rect x="1116" y="14" width="80" height="28" rx="8" fill="#818cf8"/>
-  <text x="1156" y="33" font-size="12" fill="#fff" text-anchor="middle" font-weight="500">+ Entry</text>
+  <!-- Action buttons (right side of header) -->
+  <rect x="1286" y="12" width="70" height="28" rx="8" fill="#818cf8"/>
+  <text x="1321" y="31" font-size="12" fill="#fff" text-anchor="middle" font-weight="500">Upload</text>
 
-  <rect x="1206" y="14" width="70" height="28" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
-  <text x="1241" y="33" font-size="12" fill="#94a3b8" text-anchor="middle">Upload</text>
+  <rect x="1366" y="12" width="36" height="28" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1384" y="31" font-size="12" fill="#94a3b8" text-anchor="middle">...</text>
 
-  <rect x="1286" y="14" width="48" height="28" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
-  <text x="1310" y="33" font-size="12" fill="#94a3b8" text-anchor="middle">Edit</text>
+  <!-- ==================== PRIMARY TAB BAR (38px) ==================== -->
+  <rect x="64" y="52" width="1376" height="38" fill="#0f0f14"/>
+  <line x1="64" y1="89" x2="1440" y2="89" stroke="#2d2d3f" stroke-width="1"/>
 
-  <rect x="1344" y="14" width="36" height="28" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
-  <text x="1362" y="33" font-size="12" fill="#94a3b8" text-anchor="middle">...</text>
+  <!-- Images tab (active) -->
+  <text x="84" y="77" font-size="13" fill="#818cf8" font-weight="600">Images</text>
+  <rect x="84" y="82" width="46" height="2" rx="1" fill="#818cf8"/>
 
-  <!-- ==================== ENTRY FILTER ROW (compact tabs, not big pills) ==================== -->
-  <rect x="64" y="72" width="1376" height="38" fill="#0f0f14"/>
+  <!-- Entries tab -->
+  <text x="152" y="77" font-size="13" fill="#64748b">Entries</text>
+
+  <!-- Characters tab -->
+  <text x="220" y="77" font-size="13" fill="#64748b">Characters</text>
+
+  <!-- Tags tab -->
+  <text x="310" y="77" font-size="13" fill="#64748b">Tags</text>
+
+  <!-- Info tab -->
+  <text x="364" y="77" font-size="13" fill="#64748b">Info</text>
+
+  <!-- ==================== ENTRY SUB-FILTER BAR (38px) ==================== -->
+  <rect x="64" y="90" width="1376" height="38" fill="#0f0f14"/>
 
   <!-- Entry tabs (compact, underlined style) -->
-  <text x="84" y="97" font-size="13" fill="#818cf8" font-weight="600">All</text>
-  <rect x="84" y="102" width="20" height="2" rx="1" fill="#818cf8"/>
+  <text x="84" y="115" font-size="13" fill="#818cf8" font-weight="600">All</text>
+  <rect x="84" y="120" width="20" height="2" rx="1" fill="#818cf8"/>
 
-  <text x="120" y="97" font-size="13" fill="#94a3b8">Season 1</text>
-  <text x="190" y="97" font-size="13" fill="#94a3b8">Season 2</text>
-  <text x="260" y="97" font-size="13" fill="#94a3b8">Season 3</text>
-  <text x="340" y="97" font-size="13" fill="#94a3b8">Season 4 (Final)</text>
+  <text x="120" y="115" font-size="13" fill="#94a3b8">Season 1</text>
+  <text x="190" y="115" font-size="13" fill="#94a3b8">Season 2</text>
+  <text x="260" y="115" font-size="13" fill="#94a3b8">Season 3</text>
+  <text x="340" y="115" font-size="13" fill="#94a3b8">Season 4 (Final)</text>
 
   <!-- Divider before toolbar -->
-  <text x="460" y="97" font-size="13" fill="#2d2d3f">|</text>
+  <text x="460" y="115" font-size="13" fill="#2d2d3f">|</text>
 
-  <!-- Toolbar: tag filter, sort, view/select toggle -->
-  <rect x="480" y="82" width="100" height="24" rx="12" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
-  <text x="496" y="98" font-size="11" fill="#64748b">Tag filter +</text>
+  <!-- Toolbar: tag filter, sort -->
+  <rect x="480" y="100" width="100" height="24" rx="12" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="496" y="116" font-size="11" fill="#64748b">Tag filter +</text>
 
-  <rect x="590" y="82" width="120" height="24" rx="12" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
-  <text x="606" y="98" font-size="11" fill="#64748b">Sort: Date added</text>
-
-  <!-- View/Select toggle (right) -->
-  <rect x="1302" y="82" width="54" height="24" rx="6" fill="#818cf8"/>
-  <text x="1329" y="98" font-size="11" fill="#fff" text-anchor="middle">View</text>
-  <rect x="1356" y="82" width="54" height="24" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
-  <text x="1383" y="98" font-size="11" fill="#64748b" text-anchor="middle">Select</text>
+  <rect x="590" y="100" width="120" height="24" rx="12" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="606" y="116" font-size="11" fill="#64748b">Sort: Date added</text>
 
   <!-- Image count -->
-  <text x="1240" y="98" font-size="11" fill="#475569" text-anchor="end">342 images</text>
+  <text x="1240" y="116" font-size="11" fill="#475569" text-anchor="end">342 images</text>
+
+  <!-- View/Select toggle (right) -->
+  <rect x="1302" y="100" width="54" height="24" rx="6" fill="#818cf8"/>
+  <text x="1329" y="116" font-size="11" fill="#fff" text-anchor="middle">View</text>
+  <rect x="1356" y="100" width="54" height="24" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1383" y="116" font-size="11" fill="#64748b" text-anchor="middle">Select</text>
 
   <!-- ==================== WALL-TO-WALL IMAGE GRID (5 columns) ==================== -->
   <!-- Row 1 -->
-  <g transform="translate(84, 120)">
+  <g transform="translate(84, 138)">
     <rect width="260" height="174" rx="8" fill="#312e81"/>
     <text x="130" y="92" font-size="12" fill="#818cf8" text-anchor="middle" opacity="0.7">Image</text>
   </g>
-  <g transform="translate(354, 120)">
+  <g transform="translate(354, 138)">
     <rect width="260" height="210" rx="8" fill="#831843"/>
     <text x="130" y="110" font-size="12" fill="#f9a8d4" text-anchor="middle" opacity="0.7">Image</text>
   </g>
-  <g transform="translate(624, 120)">
+  <g transform="translate(624, 138)">
     <rect width="260" height="160" rx="8" fill="#14532d"/>
     <text x="130" y="84" font-size="12" fill="#6ee7b7" text-anchor="middle" opacity="0.7">Image</text>
   </g>
-  <g transform="translate(894, 120)">
+  <g transform="translate(894, 138)">
     <rect width="260" height="194" rx="8" fill="#713f12"/>
     <text x="130" y="102" font-size="12" fill="#fcd34d" text-anchor="middle" opacity="0.7">Image</text>
   </g>
-  <g transform="translate(1164, 120)">
+  <g transform="translate(1164, 138)">
     <rect width="260" height="174" rx="8" fill="#3b0764"/>
     <text x="130" y="92" font-size="12" fill="#c4b5fd" text-anchor="middle" opacity="0.7">Image</text>
   </g>
 
   <!-- Row 2 (masonry offset) -->
-  <g transform="translate(84, 304)">
+  <g transform="translate(84, 322)">
     <rect width="260" height="200" rx="8" fill="#1c1917"/>
     <text x="130" y="104" font-size="12" fill="#a8a29e" text-anchor="middle" opacity="0.7">Image</text>
   </g>
-  <g transform="translate(354, 340)">
+  <g transform="translate(354, 358)">
     <rect width="260" height="174" rx="8" fill="#881337"/>
     <text x="130" y="92" font-size="12" fill="#fb7185" text-anchor="middle" opacity="0.7">Image</text>
   </g>
-  <g transform="translate(624, 290)">
+  <g transform="translate(624, 308)">
     <rect width="260" height="220" rx="8" fill="#134e4a"/>
     <text x="130" y="114" font-size="12" fill="#5eead4" text-anchor="middle" opacity="0.7">Image</text>
   </g>
-  <g transform="translate(894, 324)">
+  <g transform="translate(894, 342)">
     <rect width="260" height="180" rx="8" fill="#7f1d1d"/>
     <text x="130" y="94" font-size="12" fill="#fca5a5" text-anchor="middle" opacity="0.7">Image</text>
   </g>
-  <g transform="translate(1164, 304)">
+  <g transform="translate(1164, 322)">
     <rect width="260" height="200" rx="8" fill="#1e3a5f"/>
     <text x="130" y="104" font-size="12" fill="#7dd3fc" text-anchor="middle" opacity="0.7">Image</text>
   </g>
 
   <!-- Row 3 -->
-  <g transform="translate(84, 514)">
+  <g transform="translate(84, 532)">
     <rect width="260" height="174" rx="8" fill="#4a1d96"/>
     <text x="130" y="92" font-size="12" fill="#a78bfa" text-anchor="middle" opacity="0.7">Image</text>
   </g>
-  <g transform="translate(354, 524)">
+  <g transform="translate(354, 542)">
     <rect width="260" height="194" rx="8" fill="#365314"/>
     <text x="130" y="102" font-size="12" fill="#a3e635" text-anchor="middle" opacity="0.7">Image</text>
   </g>
-  <g transform="translate(624, 520)">
+  <g transform="translate(624, 538)">
     <rect width="260" height="174" rx="8" fill="#312e81"/>
     <text x="130" y="92" font-size="12" fill="#818cf8" text-anchor="middle" opacity="0.7">Image</text>
   </g>
-  <g transform="translate(894, 514)">
+  <g transform="translate(894, 532)">
     <rect width="260" height="210" rx="8" fill="#831843"/>
     <text x="130" y="110" font-size="12" fill="#f9a8d4" text-anchor="middle" opacity="0.7">Image</text>
   </g>
-  <g transform="translate(1164, 514)">
+  <g transform="translate(1164, 532)">
     <rect width="260" height="160" rx="8" fill="#78350f"/>
     <text x="130" y="84" font-size="12" fill="#fbbf24" text-anchor="middle" opacity="0.7">Image</text>
   </g>
 
   <!-- Row 4 (partial) -->
-  <g transform="translate(84, 698)">
-    <rect width="260" height="194" rx="8" fill="#14532d"/>
-    <text x="130" y="102" font-size="12" fill="#6ee7b7" text-anchor="middle" opacity="0.7">Image</text>
+  <g transform="translate(84, 716)">
+    <rect width="260" height="180" rx="8" fill="#14532d"/>
   </g>
-  <g transform="translate(354, 728)">
-    <rect width="260" height="174" rx="8" fill="#713f12"/>
+  <g transform="translate(354, 746)">
+    <rect width="260" height="154" rx="8" fill="#713f12"/>
   </g>
-  <g transform="translate(624, 704)">
-    <rect width="260" height="194" rx="8" fill="#1c1917"/>
+  <g transform="translate(624, 722)">
+    <rect width="260" height="178" rx="8" fill="#1c1917"/>
   </g>
-  <g transform="translate(894, 734)">
-    <rect width="260" height="170" rx="8" fill="#3b0764"/>
+  <g transform="translate(894, 752)">
+    <rect width="260" height="148" rx="8" fill="#3b0764"/>
   </g>
-  <g transform="translate(1164, 684)">
-    <rect width="260" height="210" rx="8" fill="#881337"/>
+  <g transform="translate(1164, 702)">
+    <rect width="260" height="198" rx="8" fill="#881337"/>
   </g>
 
   <!-- Annotation -->
-  <text x="752" y="893" class="label" text-anchor="middle">Clean header with anime name -- Compact entry tabs -- Wall-to-wall masonry image grid -- Minimal chrome, images are the hero</text>
+  <text x="752" y="893" class="label" text-anchor="middle">Anime detail page -- Images tab (default) -- Primary tabs replace modal dialog -- Entry sub-filter below -- Wall-to-wall masonry grid</text>
 </svg>
