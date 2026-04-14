@@ -6,8 +6,7 @@ bookCollapseSection: false
 
 ## Design Documents
 
-- [UX Redesign](/development/ux-redesign/) -- User flows, wireframes, and screen specs for the redesign
-- [Frontend Design](/development/frontend-design/) -- Component architecture, state management, and implementation plan
+- [UX Redesign](/development/ux-redesign/) -- Grouping for the redesign effort, including UI Design (user flows, wireframes, screen specs) and Frontend Design (component architecture, state management, implementation plan).
 
 ## Design
 ### Architecture

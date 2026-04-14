@@ -1,3 +1,8 @@
+---
+title: "Frontend Design"
+weight: 2
+---
+
 # Frontend Implementation Design: UX Redesign v2
 
 ## 1. Design Overview
