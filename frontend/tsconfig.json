@@ -33,15 +33,19 @@
     "src/app",
     "src/stores",
     "src/lib",
+    "src/hooks/**/*",
     "src/types/**/*",
     "src/styles",
-    "src/vite-env.d.ts"
+    "src/vite-env.d.ts",
+    "src/components/layout/**/*",
+    "src/components/selection/**/*",
+    "src/components/shared/**/*",
+    "src/components/ui/**/*",
+    "src/RootErrorPage.tsx"
   ],
   "exclude": [
     "src/main.tsx",
     "src/Layout.tsx",
-    "src/RootErrorPage.tsx",
-    "src/components",
     "src/pages"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
