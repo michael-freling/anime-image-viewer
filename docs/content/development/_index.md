@@ -4,6 +4,11 @@ weight: 10
 bookCollapseSection: false
 ---
 
+## Design Documents
+
+- [UX Redesign](/development/ux-redesign/) -- User flows, wireframes, and screen specs for the redesign
+- [Frontend Design](/development/frontend-design/) -- Component architecture, state management, and implementation plan
+
 ## Design
 ### Architecture
 
