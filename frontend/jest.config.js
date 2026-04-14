@@ -1,6 +1,8 @@
 /** @type {import('ts-jest').JestConfigWithTsJest} **/
 export default {
-  testEnvironment: "node",
+  // jsdom so tests that touch window/localStorage (e.g. zustand persist) work;
+  // node-only tests don't care either way.
+  testEnvironment: "jsdom",
 
   transform: {
     "^.+.tsx?$": ["ts-jest",{

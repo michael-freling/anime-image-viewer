@@ -19,8 +19,30 @@
     "noUnusedLocals": true,
     "noUnusedParameters": false,
     "noImplicitAny": false,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* Type path for the Wails bindings folder that is generated at build time
+       and intentionally not checked in. */
+    "paths": {
+      "@bindings/*": [
+        "./bindings/github.com/michael-freling/anime-image-viewer/internal/*"
+      ]
+    }
   },
-  "include": ["src"],
+  "include": [
+    "src/app",
+    "src/stores",
+    "src/lib",
+    "src/types/**/*",
+    "src/styles",
+    "src/vite-env.d.ts"
+  ],
+  "exclude": [
+    "src/main.tsx",
+    "src/Layout.tsx",
+    "src/RootErrorPage.tsx",
+    "src/components",
+    "src/pages"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
