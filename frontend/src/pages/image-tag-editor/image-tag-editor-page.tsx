@@ -124,7 +124,6 @@ async function dispatchTagMutation(
   // TODO(backend): expose TagService.BatchUpdateTagsForFiles once the canonical
   // binding is wired. Until then the editor is read-only beyond the pending
   // state and we log a warning so the gap is visible during development.
-  // eslint-disable-next-line no-console
   console.warn(
     "[image-tag-editor] TagService.BatchUpdateTagsForFiles is not available; skipping mutation.",
     { imageIds, addIds, removeIds },

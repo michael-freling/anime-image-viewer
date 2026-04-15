@@ -148,7 +148,6 @@ export function ImagesTab(): JSX.Element {
     // TODO(phase-e1): open the ImageViewer overlay. For now we log so the
     // integration test confirms the click path exists without depending on
     // the viewer shipping.
-    // eslint-disable-next-line no-console
     console.debug("[ImagesTab] open viewer for", image.id);
   };
 

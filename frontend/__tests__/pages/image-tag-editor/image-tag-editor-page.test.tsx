@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
 /**
  * Integration tests for `ImageTagEditorPage` (route `/images/edit/tags`).
  *
