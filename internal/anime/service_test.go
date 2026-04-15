@@ -922,6 +922,23 @@ func TestService_DeriveTagsForAnime(t *testing.T) {
 		require.NoError(t, err)
 		assert.Nil(t, derived)
 	})
+
+	t.Run("includes anime-assigned tag with zero images", func(t *testing.T) {
+		animeWithTag, err := svc.Create(ctx, "AnimeWithAssignedTag")
+		require.NoError(t, err)
+
+		// Create a tag assigned directly to the anime via AnimeID
+		animeID := animeWithTag.ID
+		assignedTag := db.Tag{Name: "assigned-char", Category: "character", AnimeID: &animeID}
+		require.NoError(t, db.Create(te.dbClient.Client, &assignedTag))
+
+		derived, err := svc.DeriveTagsForAnime(animeWithTag.ID)
+		require.NoError(t, err)
+		require.Len(t, derived, 1)
+		assert.Equal(t, assignedTag.ID, derived[0].TagID)
+		assert.Equal(t, "assigned-char", derived[0].TagName)
+		assert.Equal(t, uint(0), derived[0].ImageCount)
+	})
 }
 
 func TestService_GetFolderImageIDs(t *testing.T) {
