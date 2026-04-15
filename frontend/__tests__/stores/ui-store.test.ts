@@ -92,4 +92,41 @@ describe("ui-store", () => {
 
     expect(rehydrated.getState().theme).toBe("light");
   });
+
+  test("falls back to a noop storage when window.localStorage is missing", async () => {
+    // Simulate an environment (SSR, stripped jsdom) where localStorage is
+    // unreachable. We remove the descriptor so the `typeof` + truthy check
+    // inside `safeStorage` falls into the noop branch (lines 35–38).
+    const originalDescriptor = Object.getOwnPropertyDescriptor(
+      window,
+      "localStorage",
+    );
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      get: () => undefined,
+    });
+
+    let storeModule!: typeof UseUIStore;
+    let didThrow = false;
+    try {
+      await jest.isolateModulesAsync(async () => {
+        const mod = await import("../../src/stores/ui-store");
+        storeModule = mod.useUIStore;
+        // Exercise the persist write path so the noop setItem/removeItem
+        // getters run at least once.
+        storeModule.getState().setTheme("light");
+        storeModule.getState().setTheme("dark");
+      });
+    } catch {
+      didThrow = true;
+    } finally {
+      if (originalDescriptor) {
+        Object.defineProperty(window, "localStorage", originalDescriptor);
+      }
+    }
+    expect(didThrow).toBe(false);
+    // The in-memory store still reflects our updates even though nothing
+    // was persisted externally.
+    expect(storeModule.getState().theme).toBe("dark");
+  });
 });

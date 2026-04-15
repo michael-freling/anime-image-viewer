@@ -251,6 +251,167 @@ describe("InfoTab", () => {
     }
   });
 
+  test("Retry button refetches the details query", async () => {
+    let calls = 0;
+    getAnimeDetailsMock.mockImplementation(() => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.reject(new Error("temp"));
+      }
+      return Promise.resolve(makeDetail());
+    });
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/info"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[role='alert']") !== null,
+      );
+      const retry = Array.from(container.querySelectorAll("button")).find(
+        (b) => (b.textContent ?? "").trim() === "Retry",
+      ) as HTMLButtonElement | undefined;
+      expect(retry).toBeDefined();
+      retry!.click();
+      // After retry, the InfoTab eventually reaches success state.
+      await waitFor(
+        () => container.querySelector("[data-testid='info-tab']") !== null,
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("child entries contribute their imageCount to the total", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        entries: [
+          makeEntry({
+            id: 1,
+            imageCount: 4,
+            children: [
+              makeEntry({ id: 2, imageCount: 5 }),
+              makeEntry({ id: 3, imageCount: 6 }),
+            ],
+          }),
+        ],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/info"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='info-field-images']") !==
+          null,
+      );
+      const field = container.querySelector(
+        "[data-testid='info-field-images']",
+      );
+      // parent 4 + children 5 + 6 = 15
+      expect(field?.textContent).toContain("15 images");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("error state surfaces a non-Error rejection via String()", async () => {
+    // Reject with a non-Error value — the ternary
+    // `error instanceof Error ? ... : String(error ?? "")` falls into the
+    // String() branch.
+    getAnimeDetailsMock.mockRejectedValue("string-failure");
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/info"],
+    });
+    try {
+      await waitFor(() => container.querySelector("[role='alert']") !== null);
+      const alert = container.querySelector("[role='alert']");
+      expect(alert?.textContent ?? "").toContain("string-failure");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("non-numeric animeId in the URL keeps the query disabled", async () => {
+    // /anime/0/info → parseAnimeId returns 0 → useAnimeDetail is disabled
+    // and the network call never fires. The tab is still mounted (loading
+    // skeleton or empty state).
+    getAnimeDetailsMock.mockResolvedValue(makeDetail());
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/0/info"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='info-tab']") !== null ||
+          container.querySelector("[data-testid='info-tab-loading']") !== null,
+        { timeout: 200 },
+      ).catch(() => undefined);
+      expect(getAnimeDetailsMock).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("entries with no children array still total correctly", async () => {
+    // entries[].children explicitly null/undefined exercises the
+    // `(entry.children ?? []).reduce(...)` fallback.
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        entries: [
+          // children undefined → ?? [] kicks in.
+          { ...makeEntry({ id: 1, imageCount: 7 }), children: undefined as unknown as Entry[] },
+        ],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/info"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='info-field-images']") !==
+          null,
+      );
+      const field = container.querySelector(
+        "[data-testid='info-field-images']",
+      );
+      expect(field?.textContent).toContain("7 images");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("entry with no imageCount uses 0 as the fallback", async () => {
+    // entry.imageCount undefined → `(entry.imageCount ?? 0)` returns 0.
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        entries: [
+          {
+            ...makeEntry({ id: 1 }),
+            imageCount: undefined as unknown as number,
+          },
+        ],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/info"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='info-field-images']") !==
+          null,
+      );
+      const field = container.querySelector(
+        "[data-testid='info-field-images']",
+      );
+      expect(field?.textContent).toContain("0 images");
+    } finally {
+      unmount();
+    }
+  });
+
   test("onDelete prop is called when provided (direct mount)", async () => {
     getAnimeDetailsMock.mockResolvedValue(makeDetail());
     const onDelete = jest.fn();

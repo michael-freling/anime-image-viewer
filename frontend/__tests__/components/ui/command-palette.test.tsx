@@ -221,4 +221,240 @@ describe("CommandPalette", () => {
     ).toBe(false);
     r.unmount();
   });
+
+  test("renders default actions when the actions prop is omitted", async () => {
+    listAnimeMock.mockResolvedValue([]);
+    getAllTagsMock.mockResolvedValue([]);
+    const r = renderWithClient(<CommandPalette />);
+    act(() => {
+      useUIStore.setState({ commandPaletteOpen: true });
+    });
+    await waitFor(() => document.querySelector("[cmdk-root]") !== null);
+    await waitFor(
+      () => document.querySelectorAll("[cmdk-item]").length >= 4,
+    );
+    const labels = Array.from(
+      document.querySelectorAll("[cmdk-item]"),
+    ).map((el) => el.textContent?.trim());
+    // The four default actions all surface their labels.
+    expect(labels).toEqual(
+      expect.arrayContaining([
+        "Create anime",
+        "Import folders",
+        "Open settings",
+      ]),
+    );
+    // Theme toggle label flips per current theme; default ui-store theme is "dark".
+    expect(labels.some((l) => l?.includes("Switch to light theme"))).toBe(true);
+    r.unmount();
+  });
+
+  test("default theme toggle label flips when current theme is light", async () => {
+    listAnimeMock.mockResolvedValue([]);
+    getAllTagsMock.mockResolvedValue([]);
+    act(() => {
+      useUIStore.setState({ theme: "light" });
+    });
+    const r = renderWithClient(<CommandPalette />);
+    act(() => {
+      useUIStore.setState({ commandPaletteOpen: true });
+    });
+    await waitFor(() => document.querySelector("[cmdk-root]") !== null);
+    await waitFor(
+      () => document.querySelectorAll("[cmdk-item]").length >= 4,
+    );
+    const labels = Array.from(
+      document.querySelectorAll("[cmdk-item]"),
+    ).map((el) => el.textContent?.trim());
+    expect(labels.some((l) => l?.includes("Switch to dark theme"))).toBe(true);
+    r.unmount();
+  });
+
+  test("selecting a default Action invokes its onSelect and closes the palette", async () => {
+    listAnimeMock.mockResolvedValue([]);
+    getAllTagsMock.mockResolvedValue([]);
+    const r = renderWithClient(<CommandPalette />);
+    act(() => {
+      useUIStore.setState({ commandPaletteOpen: true });
+    });
+    await waitFor(() => document.querySelector("[cmdk-root]") !== null);
+    await waitFor(
+      () => document.querySelectorAll("[cmdk-item]").length >= 4,
+    );
+    // Click "Open settings" → navigate("/settings") + palette closes.
+    const settingsItem = Array.from(
+      document.querySelectorAll("[cmdk-item]"),
+    ).find((el) => el.textContent?.includes("Open settings")) as HTMLElement;
+    act(() => {
+      settingsItem.click();
+    });
+    expect(navigateMock).toHaveBeenCalledWith("/settings");
+    expect(useUIStore.getState().commandPaletteOpen).toBe(false);
+    r.unmount();
+  });
+
+  test("custom actions prop overrides the defaults", async () => {
+    listAnimeMock.mockResolvedValue([]);
+    getAllTagsMock.mockResolvedValue([]);
+    const customSelect = jest.fn();
+    const r = renderWithClient(
+      <CommandPalette
+        actions={[
+          {
+            id: "custom-action",
+            label: "Do something custom",
+            onSelect: customSelect,
+          },
+        ]}
+      />,
+    );
+    act(() => {
+      useUIStore.setState({ commandPaletteOpen: true });
+    });
+    await waitFor(() => document.querySelector("[cmdk-root]") !== null);
+    await waitFor(
+      () =>
+        Array.from(document.querySelectorAll("[cmdk-item]")).some((el) =>
+          el.textContent?.includes("Do something custom"),
+        ),
+    );
+    // Default actions are NOT rendered.
+    const labels = Array.from(
+      document.querySelectorAll("[cmdk-item]"),
+    ).map((el) => el.textContent?.trim());
+    expect(labels.some((l) => l?.includes("Open settings"))).toBe(false);
+    // Click the custom action.
+    const item = Array.from(
+      document.querySelectorAll("[cmdk-item]"),
+    ).find((el) => el.textContent?.includes("Do something custom")) as HTMLElement;
+    act(() => {
+      item.click();
+    });
+    expect(customSelect).toHaveBeenCalledTimes(1);
+    expect(useUIStore.getState().commandPaletteOpen).toBe(false);
+    r.unmount();
+  });
+
+  test("selecting 'Create anime' navigates to /?create=1 and closes the palette", async () => {
+    // Drives the `navigate("/?create=1")` onSelect callback inside
+    // defaultActions (otherwise uncovered branch).
+    listAnimeMock.mockResolvedValue([]);
+    getAllTagsMock.mockResolvedValue([]);
+    const r = renderWithClient(<CommandPalette />);
+    act(() => {
+      useUIStore.setState({ commandPaletteOpen: true });
+    });
+    await waitFor(() => document.querySelector("[cmdk-root]") !== null);
+    await waitFor(
+      () => document.querySelectorAll("[cmdk-item]").length >= 4,
+    );
+    const item = Array.from(
+      document.querySelectorAll("[cmdk-item]"),
+    ).find((el) => el.textContent?.includes("Create anime")) as HTMLElement;
+    act(() => {
+      item.click();
+    });
+    expect(navigateMock).toHaveBeenCalledWith("/?create=1");
+    expect(useUIStore.getState().commandPaletteOpen).toBe(false);
+    r.unmount();
+  });
+
+  test("selecting 'Import folders' navigates to /?import=1 and closes the palette", async () => {
+    // Drives the `navigate("/?import=1")` onSelect callback inside
+    // defaultActions (otherwise uncovered branch).
+    listAnimeMock.mockResolvedValue([]);
+    getAllTagsMock.mockResolvedValue([]);
+    const r = renderWithClient(<CommandPalette />);
+    act(() => {
+      useUIStore.setState({ commandPaletteOpen: true });
+    });
+    await waitFor(() => document.querySelector("[cmdk-root]") !== null);
+    await waitFor(
+      () => document.querySelectorAll("[cmdk-item]").length >= 4,
+    );
+    const item = Array.from(
+      document.querySelectorAll("[cmdk-item]"),
+    ).find((el) => el.textContent?.includes("Import folders")) as HTMLElement;
+    act(() => {
+      item.click();
+    });
+    expect(navigateMock).toHaveBeenCalledWith("/?import=1");
+    expect(useUIStore.getState().commandPaletteOpen).toBe(false);
+    r.unmount();
+  });
+
+  test("selecting the theme toggle action flips the ui-store theme to light", async () => {
+    // Drives the `setTheme(currentTheme === 'dark' ? 'light' : 'dark')`
+    // onSelect callback. Default theme is "dark" → expect "light" after click.
+    listAnimeMock.mockResolvedValue([]);
+    getAllTagsMock.mockResolvedValue([]);
+    const r = renderWithClient(<CommandPalette />);
+    act(() => {
+      useUIStore.setState({ commandPaletteOpen: true });
+    });
+    await waitFor(() => document.querySelector("[cmdk-root]") !== null);
+    await waitFor(
+      () => document.querySelectorAll("[cmdk-item]").length >= 4,
+    );
+    const item = Array.from(
+      document.querySelectorAll("[cmdk-item]"),
+    ).find((el) =>
+      el.textContent?.includes("Switch to light theme"),
+    ) as HTMLElement;
+    act(() => {
+      item.click();
+    });
+    expect(useUIStore.getState().theme).toBe("light");
+    expect(useUIStore.getState().commandPaletteOpen).toBe(false);
+    r.unmount();
+  });
+
+  test("selecting the theme toggle action flips the ui-store theme to dark when current is light", async () => {
+    // Drives the inverse branch of the theme toggle (light → dark).
+    listAnimeMock.mockResolvedValue([]);
+    getAllTagsMock.mockResolvedValue([]);
+    act(() => {
+      useUIStore.setState({ theme: "light" });
+    });
+    const r = renderWithClient(<CommandPalette />);
+    act(() => {
+      useUIStore.setState({ commandPaletteOpen: true });
+    });
+    await waitFor(() => document.querySelector("[cmdk-root]") !== null);
+    await waitFor(
+      () => document.querySelectorAll("[cmdk-item]").length >= 4,
+    );
+    const item = Array.from(
+      document.querySelectorAll("[cmdk-item]"),
+    ).find((el) =>
+      el.textContent?.includes("Switch to dark theme"),
+    ) as HTMLElement;
+    act(() => {
+      item.click();
+    });
+    expect(useUIStore.getState().theme).toBe("dark");
+    r.unmount();
+  });
+
+  test("Esc / overlay close (open=false branch) clears the search input", async () => {
+    listAnimeMock.mockResolvedValue([]);
+    getAllTagsMock.mockResolvedValue([]);
+    const r = renderWithClient(<CommandPalette />);
+    act(() => {
+      useUIStore.setState({ commandPaletteOpen: true });
+    });
+    await waitFor(() => document.querySelector("[cmdk-input]") !== null);
+    const input = document.querySelector("[cmdk-input]") as HTMLInputElement;
+    typeIntoInput(input, "naru");
+    // Drive Esc on the input — cmdk maps it to onOpenChange(false).
+    act(() => {
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+    });
+    // Wait for the dialog to unmount.
+    await waitFor(() => document.querySelector("[cmdk-input]") === null);
+    expect(useUIStore.getState().commandPaletteOpen).toBe(false);
+    r.unmount();
+  });
 });

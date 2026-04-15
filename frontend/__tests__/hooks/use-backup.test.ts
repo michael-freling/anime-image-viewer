@@ -120,4 +120,13 @@ describe("use-backup", () => {
     // different shape the mutations would no longer invalidate the list.
     expect(qk.backup.list()).toEqual(["backup", "list"]);
   });
+
+  test("useBackupList coerces a null/undefined ListBackups response to []", async () => {
+    // Drives the `list ?? []` fallback branch.
+    listBackupsMock.mockResolvedValue(null);
+    const { result, unmount } = renderHookWithClient(() => useBackupList());
+    await waitFor(() => result.current.isSuccess);
+    expect(result.current.data).toEqual([]);
+    unmount();
+  });
 });

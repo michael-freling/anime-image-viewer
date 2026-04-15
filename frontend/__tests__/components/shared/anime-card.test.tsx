@@ -98,6 +98,42 @@ describe("AnimeCard", () => {
     }
   });
 
+  test("img onError flips to the gradient placeholder", () => {
+    // Drives the `onError={() => setImageError(true)}` branch on the <img>:
+    // once the image fires an error event, the component re-renders without
+    // the <img> and surfaces the initial-letter placeholder instead.
+    const { container, unmount } = renderWithClient(
+      <AnimeCard anime={ANIME} coverFileId={100} />,
+    );
+    try {
+      const img = container.querySelector("img");
+      expect(img).not.toBeNull();
+      act(() => {
+        img!.dispatchEvent(new Event("error", { bubbles: true }));
+      });
+      // After the error the <img> is removed and the placeholder appears.
+      expect(container.querySelector("img")).toBeNull();
+      // The first letter ("A") of "Attack on Titan" surfaces in the placeholder.
+      expect(container.textContent).toContain("A");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("title with leading whitespace falls back to '?' initial", () => {
+    // Drives the `|| "?"` fallback branch: when the trimmed first character
+    // resolves to an empty string the placeholder shows the question mark.
+    const { container, unmount } = renderWithClient(
+      <AnimeCard anime={{ ...ANIME, name: "   " }} />,
+    );
+    try {
+      // Without a coverFileId the placeholder div renders the initial.
+      expect(container.textContent).toContain("?");
+    } finally {
+      unmount();
+    }
+  });
+
   test("fires onClick when the card is clicked", () => {
     const onClick = jest.fn();
     const { container, unmount } = renderWithClient(

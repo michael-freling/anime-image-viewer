@@ -83,4 +83,15 @@ describe("import-progress-store", () => {
 
     expect(after).not.toBe(before);
   });
+
+  test("dismiss is a no-op for unknown ids (early-return branch)", () => {
+    // Drives the `if (!state.imports.has(id)) return state;` short-circuit
+    // inside `dismiss`. The map identity must not change because the early
+    // return reuses the existing state object.
+    const before = useImportProgressStore.getState().imports;
+    useImportProgressStore.getState().dismiss("ghost");
+    const after = useImportProgressStore.getState().imports;
+    expect(after).toBe(before);
+    expect(after.size).toBe(0);
+  });
 });

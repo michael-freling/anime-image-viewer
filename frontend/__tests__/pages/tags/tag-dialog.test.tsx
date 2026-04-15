@@ -5,10 +5,34 @@
  * The chakra stub's `Dialog.Root` renders children only when `open=true`, so
  * we can drive open/closed state via prop and assert the dialog mounts /
  * unmounts accordingly.
+ *
+ * We also capture `Dialog.Root`'s received props on each render via a
+ * shared ref (`lastDialogRootProps`) so tests can exercise the
+ * `onOpenChange` handler — that's the only way to cover the
+ * `handleOpenChange` branch in tag-dialog.tsx under the chakra stub (the
+ * stub never dispatches open-change events on its own).
  */
-jest.mock("@chakra-ui/react", () =>
-  require("../../components/chakra-stub").chakraStubFactory(),
-);
+const lastDialogRootProps: {
+  value: { open: boolean; onOpenChange?: (d: { open: boolean }) => void } | null;
+} = { value: null };
+
+jest.mock("@chakra-ui/react", () => {
+  const stub = require("../../components/chakra-stub").chakraStubFactory();
+  const originalRoot = stub.Dialog.Root;
+  // Wrap Dialog.Root to also record the latest set of props the wrapper
+  // received so tests can fire the open-change callback.
+  const WrappedRoot = (props: Record<string, unknown>) => {
+    lastDialogRootProps.value = props as typeof lastDialogRootProps.value;
+    return originalRoot(props);
+  };
+  return {
+    ...stub,
+    Dialog: {
+      ...stub.Dialog,
+      Root: WrappedRoot,
+    },
+  };
+});
 jest.mock("lucide-react", () =>
   require("../../components/chakra-stub").lucideStubFactory(),
 );
@@ -128,5 +152,102 @@ describe("TagDialog", () => {
       r.container.querySelector("[data-testid='tag-dialog']"),
     ).not.toBeNull();
     r.unmount();
+  });
+
+  test("firing onOpenChange({open:false}) calls onClose when not submitting", () => {
+    const onClose = jest.fn();
+    const r = render(
+      createElement(TagDialog, {
+        open: true,
+        onClose,
+        title: "New tag",
+        values: VALUES,
+        onChange: jest.fn(),
+        submitLabel: "Create",
+        onSubmit: jest.fn(),
+      }),
+    );
+    expect(lastDialogRootProps.value).not.toBeNull();
+    const { onOpenChange } = lastDialogRootProps.value!;
+    expect(typeof onOpenChange).toBe("function");
+    act(() => {
+      onOpenChange!({ open: false });
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    r.unmount();
+  });
+
+  test("onOpenChange is a no-op while the form is submitting", () => {
+    const onClose = jest.fn();
+    const r = render(
+      createElement(TagDialog, {
+        open: true,
+        onClose,
+        title: "New tag",
+        values: VALUES,
+        onChange: jest.fn(),
+        submitLabel: "Create",
+        submitting: true,
+        onSubmit: jest.fn(),
+      }),
+    );
+    const { onOpenChange } = lastDialogRootProps.value!;
+    act(() => {
+      onOpenChange!({ open: false });
+    });
+    expect(onClose).not.toHaveBeenCalled();
+    // And opening doesn't call onClose either (guard against bogus branch
+    // that fires close when details.open=true).
+    act(() => {
+      onOpenChange!({ open: true });
+    });
+    expect(onClose).not.toHaveBeenCalled();
+    r.unmount();
+  });
+
+  test("closeOnEscape + closeOnInteractOutside flip off while submitting", () => {
+    const { rerender, unmount } = render(
+      createElement(TagDialog, {
+        open: true,
+        onClose: jest.fn(),
+        title: "New tag",
+        values: VALUES,
+        onChange: jest.fn(),
+        submitLabel: "Create",
+        submitting: false,
+        onSubmit: jest.fn(),
+      }),
+    );
+    // Defaults: both gated on !submitting, so both true when not submitting.
+    expect(
+      (lastDialogRootProps.value as unknown as Record<string, unknown>)
+        .closeOnEscape,
+    ).toBe(true);
+    expect(
+      (lastDialogRootProps.value as unknown as Record<string, unknown>)
+        .closeOnInteractOutside,
+    ).toBe(true);
+
+    rerender(
+      createElement(TagDialog, {
+        open: true,
+        onClose: jest.fn(),
+        title: "New tag",
+        values: VALUES,
+        onChange: jest.fn(),
+        submitLabel: "Create",
+        submitting: true,
+        onSubmit: jest.fn(),
+      }),
+    );
+    expect(
+      (lastDialogRootProps.value as unknown as Record<string, unknown>)
+        .closeOnEscape,
+    ).toBe(false);
+    expect(
+      (lastDialogRootProps.value as unknown as Record<string, unknown>)
+        .closeOnInteractOutside,
+    ).toBe(false);
+    unmount();
   });
 });

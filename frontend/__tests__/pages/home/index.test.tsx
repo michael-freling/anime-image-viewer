@@ -376,4 +376,75 @@ describe("HomePage", () => {
       r.unmount();
     }
   });
+
+  test("closing the import dialog strips ?create=1 from the URL", async () => {
+    listAnimeMock.mockResolvedValue(ANIME);
+    listUnassignedMock.mockResolvedValue([]);
+    const r = renderWithClient(<HomePage />, {
+      routerInitialEntries: ["/?create=1"],
+    });
+    try {
+      // Dialog mounts from the query param.
+      await waitFor(
+        () =>
+          document.body.querySelector(
+            "[data-testid='import-folders-dialog']",
+          ) !== null,
+      );
+      // Close button lives inside the dialog; both the Cancel button and
+      // the overlay's close wire up to `onClose`. The dialog exposes a
+      // cancel button we can click to drive the `closeImportDialog` branch.
+      const cancelBtn = document.body.querySelector<HTMLElement>(
+        "[data-testid='import-folders-cancel']",
+      );
+      expect(cancelBtn).not.toBeNull();
+      act(() => {
+        cancelBtn!.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector(
+            "[data-testid='import-folders-dialog']",
+          ) === null,
+      );
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("Retry button on the ErrorAlert refetches the anime list", async () => {
+    let calls = 0;
+    listAnimeMock.mockImplementation(() => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.reject(new Error("network off"));
+      }
+      return Promise.resolve(ANIME);
+    });
+    const r = renderWithClient(<HomePage />);
+    try {
+      await waitFor(
+        () => (r.container.textContent ?? "").includes("network off"),
+      );
+      const retry = Array.from(
+        r.container.querySelectorAll("button"),
+      ).find((b) => (b.textContent ?? "").trim() === "Retry") as
+        | HTMLButtonElement
+        | undefined;
+      expect(retry).toBeDefined();
+      act(() => {
+        retry!.click();
+      });
+      await waitFor(
+        () =>
+          r.container.querySelectorAll("[data-testid='anime-card']").length ===
+          ANIME.length,
+      );
+      expect(
+        r.container.querySelectorAll("[data-testid='anime-card']").length,
+      ).toBe(ANIME.length);
+    } finally {
+      r.unmount();
+    }
+  });
 });

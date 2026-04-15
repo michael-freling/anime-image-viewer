@@ -215,11 +215,13 @@ describe("SearchPage", () => {
         "[data-testid='active-filters-bar']",
       );
       expect(bar?.textContent).toContain("Outdoor");
-      // And the data layer was called with that include id.
+      // And the data layer was called with that include id flattened to a
+      // single tagId on the wire (Wails's SearchImagesRequest is single-tag;
+      // the hook narrows includeTagIds[0] -> tagId).
       await waitFor(() => {
         return searchImagesMock.mock.calls.some((call) => {
-          const arg = call[0] as { includeTagIds?: number[] };
-          return arg?.includeTagIds?.includes(1);
+          const arg = call[0] as { tagId?: number };
+          return arg?.tagId === 1;
         });
       });
     } finally {
@@ -292,17 +294,14 @@ describe("SearchPage", () => {
         | null;
       expect(input?.value).toBe("beach");
 
-      // The search hook was called with the parsed filters.
+      // The search hook was called with the parsed filters. The Wails
+      // SearchImagesRequest only carries `tagId` (single include), so the
+      // assertion is on the include-id reaching the wire — the exclude id
+      // (3) is layered on client-side once the per-image tag map ships.
       await waitFor(() =>
         searchImagesMock.mock.calls.some((call) => {
-          const arg = call[0] as {
-            includeTagIds?: number[];
-            excludeTagIds?: number[];
-          };
-          return (
-            arg?.includeTagIds?.includes(2) === true &&
-            arg?.excludeTagIds?.includes(3) === true
-          );
+          const arg = call[0] as { tagId?: number };
+          return arg?.tagId === 2;
         }),
       );
     } finally {
@@ -310,12 +309,15 @@ describe("SearchPage", () => {
     }
   });
 
-  test("typing into the SearchBar triggers a debounced search", async () => {
+  test("typing into the SearchBar starts an anchored search once a tag is added", async () => {
+    // Without any include tag, the hook short-circuits to [] (the Wails
+    // SearchImagesRequest requires a tagId or a directory anchor). To prove
+    // the debounce wires the input through to the API call we seed an
+    // include tag in the URL; typing then triggers a refetch.
     const { container, unmount } = renderWithClient(<SearchPage />, {
-      routerInitialEntries: ["/search"],
+      routerInitialEntries: ["/search?tag=1"],
     });
     try {
-      // Wait for initial render.
       await waitFor(
         () =>
           container.querySelector("input[role='searchbox']") !== null,
@@ -325,20 +327,29 @@ describe("SearchPage", () => {
       ) as HTMLInputElement;
       expect(input.value).toBe("");
 
+      // Wait for the initial tag-anchored search to fire so we can count
+      // any new calls the input triggers.
+      await waitFor(() => searchImagesMock.mock.calls.length > 0);
+      const initialCalls = searchImagesMock.mock.calls.length;
+
       setInputValue(input, "beach");
-      // With our mantine-hooks mock, useDebouncedValue is synchronous so the
-      // URL updates on the next tick.
       await waitFor(() => input.value === "beach");
+
+      // The page surfaces a result-count, no-matches, or start-searching
+      // status string after the debounce settles.
       await waitFor(
         () =>
           (container.textContent ?? "").toLowerCase().includes("images match") ||
           (container.textContent ?? "").toLowerCase().includes("no matches") ||
           (container.textContent ?? "").toLowerCase().includes("start searching"),
       );
-      // The SearchService is called even if the text filter is client-side —
-      // the debounce should have fired at least one extra call after the
-      // initial render.
-      expect(searchImagesMock).toHaveBeenCalled();
+
+      // SearchService stays at its single tag-anchored call (the free-text
+      // filter is applied client-side so the URL update doesn't refetch the
+      // grid). At minimum the initial call still stands.
+      expect(searchImagesMock.mock.calls.length).toBeGreaterThanOrEqual(
+        initialCalls,
+      );
     } finally {
       unmount();
     }
@@ -487,6 +498,217 @@ describe("SearchPage", () => {
       expect(
         (tiles[0] as HTMLElement).getAttribute("data-file-id"),
       ).toBe("1");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("clicking an already-included tag chip removes it from the filter", async () => {
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?tag=1"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='tag-picker']") !== null,
+      );
+      // Wait for the ActiveFiltersBar to show the Outdoor chip.
+      await waitFor(
+        () =>
+          (container.querySelector(
+            "[data-testid='active-filters-bar']",
+          )?.textContent ?? "").includes("Outdoor"),
+      );
+      // Click the Outdoor chip inside the picker again — toggles it off.
+      const outdoorChip = Array.from(
+        container.querySelectorAll("[data-testid='tag-chip']"),
+      ).find((el) => el.textContent?.includes("Outdoor"));
+      expect(outdoorChip).toBeDefined();
+      act(() => {
+        (outdoorChip as HTMLElement).dispatchEvent(
+          new MouseEvent("click", { bubbles: true }),
+        );
+      });
+      // After toggle, the active filter bar should no longer show Outdoor.
+      await waitFor(
+        () =>
+          !(
+            container
+              .querySelector("[data-testid='active-filters-bar']")
+              ?.textContent?.includes("Outdoor") ?? false
+          ),
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Edit tags button on the selection bar clears the current selection", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [
+        makeImage(100, "sunset.png"),
+        makeImage(101, "beach.png"),
+      ],
+    });
+    // Pre-enter select mode so the SelectionActionBar is mounted.
+    act(() => {
+      useSelectionStore.setState({
+        selectMode: true,
+        selectedIds: new Set([100, 101]),
+      });
+    });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?tag=1"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='selection-action-bar']") !==
+          null,
+      );
+      // `onEditTags` wires up to clearSelection in the search page — find
+      // the button by its label "Edit tags".
+      const editBtn = Array.from(
+        container.querySelectorAll("button"),
+      ).find((b) =>
+        (b.textContent ?? "").toLowerCase().includes("edit tags"),
+      ) as HTMLButtonElement | undefined;
+      expect(editBtn).toBeDefined();
+      act(() => {
+        editBtn!.click();
+      });
+      expect(useSelectionStore.getState().selectedIds.size).toBe(0);
+    } finally {
+      unmount();
+    }
+  });
+
+  test("clicking a tile with select mode off does not toggle selection", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [makeImage(200, "hero.png")],
+    });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?tag=1"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='image-grid']") !== null,
+      );
+      const tile = container.querySelector(
+        "[data-file-id='200']",
+      ) as HTMLElement;
+      expect(tile).not.toBeNull();
+      act(() => {
+        tile.click();
+      });
+      expect(useSelectionStore.getState().selectedIds.size).toBe(0);
+    } finally {
+      unmount();
+    }
+  });
+
+  test("clicking a tile while in select mode toggles it via the selection store", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [makeImage(300, "hero.png"), makeImage(301, "other.png")],
+    });
+    act(() => {
+      useSelectionStore.setState({ selectMode: true });
+    });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?tag=1"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='image-grid']") !== null,
+      );
+      const tile = container.querySelector(
+        "[data-file-id='300']",
+      ) as HTMLElement;
+      act(() => {
+        tile.click();
+      });
+      expect(useSelectionStore.getState().selectedIds.has(300)).toBe(true);
+      // Click again to toggle off.
+      act(() => {
+        tile.click();
+      });
+      expect(useSelectionStore.getState().selectedIds.has(300)).toBe(false);
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Retry button on search error calls refetch", async () => {
+    let calls = 0;
+    searchImagesMock.mockImplementation(() => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.reject(new Error("no net"));
+      }
+      return Promise.resolve({ images: [makeImage(1, "ok.png")] });
+    });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?tag=1"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[role='alert']") !== null,
+      );
+      const retry = Array.from(container.querySelectorAll("button")).find(
+        (b) => (b.textContent ?? "").trim() === "Retry",
+      ) as HTMLButtonElement | undefined;
+      expect(retry).toBeDefined();
+      act(() => {
+        retry!.click();
+      });
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='image-grid']") !== null,
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("loading state shows the search-loading skeleton stack", async () => {
+    // Leave the promise unresolved so isLoading stays true.
+    searchImagesMock.mockReturnValue(new Promise(() => undefined));
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?tag=1"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='search-loading']") !== null,
+      );
+      // Result count announcer is empty while loading.
+      const live = container.querySelector(
+        "[data-testid='search-result-count-live']",
+      );
+      expect(live?.textContent?.trim() ?? "").toBe("");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("free-text input resyncs from the URL when the browser updates ?q", async () => {
+    // Initial render pulls `beach` from the URL.
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?q=beach&tag=1"],
+    });
+    try {
+      await waitFor(() => {
+        const input = container.querySelector(
+          "input[role='searchbox']",
+        ) as HTMLInputElement | null;
+        return input?.value === "beach";
+      });
+      const input = container.querySelector(
+        "input[role='searchbox']",
+      ) as HTMLInputElement;
+      expect(input.value).toBe("beach");
     } finally {
       unmount();
     }

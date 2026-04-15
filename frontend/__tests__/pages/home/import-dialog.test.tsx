@@ -279,4 +279,47 @@ describe("HomeImportDialog", () => {
     expect(listUnassignedMock).toHaveBeenCalledTimes(1);
     r.unmount();
   });
+
+  test("under StrictMode the open->open guard prevents a duplicate fetch", async () => {
+    // React.StrictMode mounts effects twice in development. The dialog's
+    // `lastOpenRef` guard exists specifically so the second mount short-
+    // circuits the fetch. Verify by wrapping the dialog in <StrictMode>.
+    const { StrictMode } = jest.requireActual<typeof import("react")>("react");
+    listUnassignedMock.mockResolvedValue(FOLDERS);
+    const onClose = jest.fn();
+    const r = render(
+      createElement(
+        StrictMode,
+        null,
+        createElement(HomeImportDialog, { open: true, onClose }),
+      ),
+    );
+    await flush();
+    // Only ONE fetch despite the double-mount.
+    expect(listUnassignedMock).toHaveBeenCalledTimes(1);
+    r.unmount();
+  });
+
+  test("rejects with a string error and the dialog renders that string verbatim", async () => {
+    // The extractErrorMessage helper has three branches: Error instance,
+    // bare string, and the catch-all "Unexpected error". Throwing a bare
+    // string from the listing mock proves the second branch works.
+    listUnassignedMock.mockRejectedValue("plain-string-error");
+    const r = render(
+      createElement(HomeImportDialog, { open: true, onClose: jest.fn() }),
+    );
+    await flush();
+    expect(r.container.textContent).toContain("plain-string-error");
+    r.unmount();
+  });
+
+  test("rejects with a plain object — error message falls back to 'Unexpected error'", async () => {
+    listUnassignedMock.mockRejectedValue({ unhelpful: true });
+    const r = render(
+      createElement(HomeImportDialog, { open: true, onClose: jest.fn() }),
+    );
+    await flush();
+    expect(r.container.textContent).toContain("Unexpected error");
+    r.unmount();
+  });
 });

@@ -27,6 +27,7 @@ jest.mock("react-photo-album", () => {
   const ReactModule = jest.requireActual<typeof import("react")>("react");
   interface StubProps {
     photos: readonly { key?: string; width?: number; height?: number }[];
+    columns?: number | ((containerWidth: number) => number);
     render?: {
       image?: (
         props: unknown,
@@ -39,10 +40,20 @@ jest.mock("react-photo-album", () => {
       ) => React.ReactNode;
     };
   }
-  const renderPhotos = (props: StubProps) =>
-    ReactModule.createElement(
+  const renderPhotos = (props: StubProps) => {
+    // When `columns` is a function, evaluate it across our four canonical
+    // breakpoints and surface the results as data-* attributes so tests can
+    // assert against `breakpointsToColumns`'s mapping.
+    const columnAttrs: Record<string, string> = {};
+    if (typeof props.columns === "function") {
+      columnAttrs["data-columns-mobile"] = String(props.columns(320));
+      columnAttrs["data-columns-tablet"] = String(props.columns(800));
+      columnAttrs["data-columns-desktop"] = String(props.columns(1440));
+      columnAttrs["data-columns-wide"] = String(props.columns(3000));
+    }
+    return ReactModule.createElement(
       "div",
-      { "data-testid": "photo-album-stub" },
+      { "data-testid": "photo-album-stub", ...columnAttrs },
       props.photos.map((photo, index) =>
         ReactModule.createElement(
           "div",
@@ -59,6 +70,7 @@ jest.mock("react-photo-album", () => {
         ),
       ),
     );
+  };
   return {
     __esModule: true,
     MasonryPhotoAlbum: renderPhotos,
@@ -160,6 +172,37 @@ describe("ImageGrid", () => {
       const unmarked = container.querySelector("[data-file-id='101']");
       expect(unmarked?.getAttribute("data-selected")).toBeNull();
       expect(unmarked?.getAttribute("data-pending")).toBeNull();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("breakpointsToColumns picks the right column count per width", () => {
+    // Drives every branch of `breakpointsToColumns`:
+    //   width <  640 → mobile
+    //   width <  1024 → tablet
+    //   width <  2560 → desktop
+    //   else         → wide
+    const images = makeImages(2);
+    const { container, unmount } = renderWithClient(
+      <ImageGrid
+        images={images}
+        columnsByBreakpoint={{
+          mobile: 2,
+          tablet: 4,
+          desktop: 5,
+          wide: 6,
+        }}
+      />,
+    );
+    try {
+      const stub = container.querySelector(
+        "[data-testid='photo-album-stub']",
+      );
+      expect(stub?.getAttribute("data-columns-mobile")).toBe("2");
+      expect(stub?.getAttribute("data-columns-tablet")).toBe("4");
+      expect(stub?.getAttribute("data-columns-desktop")).toBe("5");
+      expect(stub?.getAttribute("data-columns-wide")).toBe("6");
     } finally {
       unmount();
     }

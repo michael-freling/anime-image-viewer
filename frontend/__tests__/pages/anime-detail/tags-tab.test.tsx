@@ -169,4 +169,72 @@ describe("TagsTab", () => {
       unmount();
     }
   });
+
+  test("error state surfaces a non-Error rejection via String()", async () => {
+    // The ternary `error instanceof Error ? ... : String(error ?? "")` selects
+    // the String() branch; the alert text contains the coerced value.
+    getAnimeDetailsMock.mockRejectedValue("string-failure");
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/tags"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[role='alert']") !== null,
+      );
+      const alert = container.querySelector("[role='alert']");
+      expect(alert?.textContent ?? "").toContain("string-failure");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Retry on the error state refetches the anime details", async () => {
+    let calls = 0;
+    getAnimeDetailsMock.mockImplementation(() => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.reject(new Error("boom"));
+      }
+      return Promise.resolve(
+        makeDetail({ tags: [makeDerivedTag(1, "Outdoor", "scene", 1)] }),
+      );
+    });
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/tags"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[role='alert']") !== null,
+      );
+      const retry = Array.from(container.querySelectorAll("button")).find(
+        (b) => (b.textContent ?? "").trim() === "Retry",
+      ) as HTMLButtonElement | undefined;
+      expect(retry).toBeDefined();
+      retry!.click();
+      await waitFor(
+        () =>
+          container.querySelectorAll("[data-testid='tag-chip']").length === 1,
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("non-numeric animeId in the URL keeps the query disabled", async () => {
+    getAnimeDetailsMock.mockResolvedValue(makeDetail({ tags: [] }));
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/0/tags"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='tags-tab']") !== null ||
+          container.querySelector("[data-testid='tags-tab-loading']") !== null,
+        { timeout: 200 },
+      ).catch(() => undefined);
+      expect(getAnimeDetailsMock).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+    }
+  });
 });

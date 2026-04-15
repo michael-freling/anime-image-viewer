@@ -1,15 +1,24 @@
 /**
  * Tests for `useSearchImages`.
  *
- * Verifies key stability (tag arrays in different orders share a cache slot)
- * and `placeholderData: keepPreviousData` semantics (the old data is visible
- * while the new query loads).
+ * Verifies key stability (tag arrays in different orders share a cache slot),
+ * `placeholderData: keepPreviousData` semantics (the old data is visible
+ * while the new query loads), and that the hook routes to the correct Wails
+ * endpoint based on the filter shape:
+ *   - anime-only filter   -> `AnimeService.SearchImagesByAnime(animeId)`
+ *   - include-tag filter  -> `SearchService.SearchImages({ tagId })`
+ *   - empty filter        -> short-circuit to []
  */
 const searchImagesMock = jest.fn();
+const searchImagesByAnimeMock = jest.fn();
 jest.mock("../../src/lib/api", () => ({
   __esModule: true,
   SearchService: {
     SearchImages: (...args: unknown[]) => searchImagesMock(...args),
+  },
+  AnimeService: {
+    SearchImagesByAnime: (...args: unknown[]) =>
+      searchImagesByAnimeMock(...args),
   },
 }));
 
@@ -25,12 +34,14 @@ import type { SearchFilters } from "../../src/types";
 describe("useSearchImages", () => {
   beforeEach(() => {
     searchImagesMock.mockReset();
+    searchImagesByAnimeMock.mockReset();
   });
 
-  test("fetches with the given filters", async () => {
-    searchImagesMock.mockResolvedValue({ images: [{ id: 1, name: "a", path: "a" }] });
+  test("fetches by tag when includeTagIds are provided", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [{ id: 1, name: "a", path: "a" }],
+    });
     const filters: SearchFilters = {
-      animeId: 3,
       includeTagIds: [1, 2],
       excludeTagIds: [],
       sort: "recent",
@@ -39,7 +50,37 @@ describe("useSearchImages", () => {
       useSearchImages(filters),
     );
     await waitFor(() => result.current.isSuccess);
+    // First include tag drives the backend call (extra tags filtered client
+    // side once the tag-map join is wired in).
+    expect(searchImagesMock).toHaveBeenCalledWith({ tagId: 1 });
     expect(result.current.data).toHaveLength(1);
+    unmount();
+  });
+
+  test("fetches anime-scoped images when only animeId is set", async () => {
+    searchImagesByAnimeMock.mockResolvedValue({
+      images: [{ id: 9, name: "x", path: "x" }],
+    });
+    const filters: SearchFilters = { animeId: 7 };
+    const { result, unmount } = renderHookWithClient(() =>
+      useSearchImages(filters),
+    );
+    await waitFor(() => result.current.isSuccess);
+    expect(searchImagesByAnimeMock).toHaveBeenCalledWith(7);
+    expect(searchImagesMock).not.toHaveBeenCalled();
+    expect(result.current.data?.[0]?.id).toBe(9);
+    unmount();
+  });
+
+  test("returns empty when no anime anchor and no include tags", async () => {
+    const filters: SearchFilters = { excludeTagIds: [3] };
+    const { result, unmount } = renderHookWithClient(() =>
+      useSearchImages(filters),
+    );
+    await waitFor(() => result.current.isSuccess);
+    expect(result.current.data).toEqual([]);
+    expect(searchImagesMock).not.toHaveBeenCalled();
+    expect(searchImagesByAnimeMock).not.toHaveBeenCalled();
     unmount();
   });
 
@@ -72,7 +113,7 @@ describe("useSearchImages", () => {
     // First filter resolves with data; the same observer then re-renders with
     // a new filter whose fetcher never resolves. `placeholderData:
     // keepPreviousData` should keep the old data visible while loading.
-    searchImagesMock.mockResolvedValue({
+    searchImagesByAnimeMock.mockResolvedValue({
       images: [{ id: 1, name: "old", path: "old" }],
     });
     let currentFilters: SearchFilters = { animeId: 1 };
@@ -86,7 +127,7 @@ describe("useSearchImages", () => {
     // query key triggers a new fetch — but keepPreviousData keeps showing
     // the previous result while the new one is pending.
     let resolveSecond: (v: { images: unknown[] }) => void = () => undefined;
-    searchImagesMock.mockImplementation(
+    searchImagesByAnimeMock.mockImplementation(
       () =>
         new Promise((resolve) => {
           resolveSecond = resolve;

@@ -121,4 +121,47 @@ describe("CharactersTab", () => {
       unmount();
     }
   });
+
+  test("character without a role falls back to 'Character' label", () => {
+    // Exercises the `character.role || \"Character\"` ternary branch.
+    const { container, unmount } = renderWithClient(
+      <CharactersTab
+        characters={[makeCharacter(1, "Nameless", { role: "" })]}
+      />,
+    );
+    try {
+      const card = container.querySelector(
+        "[data-testid='character-card']",
+      ) as HTMLElement;
+      expect(card.textContent).toContain("Character");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("empty filter input keeps the full list visible", () => {
+    // Exercises the `filter.trim().length === 0` short-circuit branch.
+    const { container, unmount } = renderWithClient(
+      <CharactersTab
+        characters={[
+          makeCharacter(1, "Spike"),
+          makeCharacter(2, "Jet"),
+        ]}
+      />,
+    );
+    try {
+      const input = container.querySelector(
+        "input[role='searchbox']",
+      ) as HTMLInputElement;
+      // Type then clear → empty filter branch fires.
+      setInputValue(input, "spike");
+      setInputValue(input, "");
+      const cards = container.querySelectorAll(
+        "[data-testid='character-card']",
+      );
+      expect(cards.length).toBe(2);
+    } finally {
+      unmount();
+    }
+  });
 });

@@ -338,4 +338,94 @@ describe("RubberBandOverlay", () => {
     expect(rectEl(r.container)).toBeNull();
     r.unmount();
   });
+
+  test("fallback hit-test (no getIdAtPoint): clicking on a [data-image-id] tile bails", () => {
+    // Without `getIdAtPoint`, the overlay falls back to the DOM-walk path:
+    // `event.target !== container && targetEl.closest('[data-image-id]')`.
+    const r = mount();
+    const tile = r.grid().querySelector(
+      "[data-image-id='1']",
+    ) as HTMLElement;
+    act(() => {
+      // Dispatch on the tile so event.target is the tile, not the container.
+      const evt = new MouseEvent("mousedown", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 20,
+        clientY: 20,
+        button: 0,
+      });
+      tile.dispatchEvent(evt);
+    });
+    act(() => {
+      fireMouse(window, "mousemove", { clientX: 60, clientY: 60 });
+    });
+    // The fallback bail kept the rect from rendering.
+    expect(rectEl(r.container)).toBeNull();
+    r.unmount();
+  });
+
+  test("fallback hit-test: clicking on the container itself starts a drag", () => {
+    // event.target === container short-circuits the fallback bail; the
+    // overlay starts a drag because the click landed on bare container.
+    const r = mount();
+    act(() => {
+      fireMouse(r.grid(), "mousedown", { clientX: 0, clientY: 0 });
+    });
+    act(() => {
+      fireMouse(window, "mousemove", { clientX: 60, clientY: 60 });
+    });
+    expect(rectEl(r.container)).not.toBeNull();
+    r.unmount();
+  });
+
+  test("debounced live region announces the pending count after the delay", async () => {
+    jest.useFakeTimers();
+    try {
+      const r = mount({ getIdAtPoint: () => null });
+      act(() => {
+        fireMouse(r.grid(), "mousedown", { clientX: 0, clientY: 0 });
+      });
+      act(() => {
+        fireMouse(window, "mousemove", { clientX: 100, clientY: 100 });
+      });
+      // Advance fake timers past the debounce window.
+      act(() => {
+        jest.advanceTimersByTime(200);
+      });
+      const live = r.container.querySelector(
+        '[data-testid="rubber-band-live-region"]',
+      );
+      expect((live?.textContent ?? "").length).toBeGreaterThan(0);
+      // Ends with " pending" suffix per the announcer template.
+      expect(live?.textContent ?? "").toMatch(/pending$/);
+      r.unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test("live region announces '1 image pending' (singular form) for one match", async () => {
+    jest.useFakeTimers();
+    try {
+      const r = mount({ getIdAtPoint: () => null });
+      act(() => {
+        fireMouse(r.grid(), "mousedown", { clientX: 0, clientY: 0 });
+      });
+      // Drag covers only tile 1 → 1 pending id.
+      act(() => {
+        fireMouse(window, "mousemove", { clientX: 90, clientY: 90 });
+      });
+      act(() => {
+        jest.advanceTimersByTime(200);
+      });
+      const live = r.container.querySelector(
+        '[data-testid="rubber-band-live-region"]',
+      );
+      expect(live?.textContent).toBe("1 image pending");
+      r.unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });

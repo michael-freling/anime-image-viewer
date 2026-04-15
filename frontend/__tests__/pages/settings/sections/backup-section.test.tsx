@@ -248,4 +248,365 @@ describe("BackupSection", () => {
       r.unmount();
     }
   });
+
+  test("Create Backup failure surfaces an error toast", async () => {
+    listBackupsMock.mockResolvedValue([]);
+    createBackupMock.mockRejectedValue(new Error("disk full"));
+
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () => r.container.querySelector("[data-testid='create-backup']") !== null,
+      );
+      const createBtn = r.container.querySelector(
+        "[data-testid='create-backup']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        createBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(() => toastError.mock.calls.length > 0);
+      expect(toastError).toHaveBeenCalledWith(
+        "Couldn't create backup",
+        "disk full",
+      );
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("Restore failure surfaces an error toast", async () => {
+    listBackupsMock.mockResolvedValue(sampleBackups);
+    restoreBackupMock.mockRejectedValue(new Error("bad archive"));
+
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () => r.container.querySelector("[data-testid='backup-list']") !== null,
+      );
+      const restoreBtn = r.container.querySelector(
+        `[data-testid="backup-restore-${sampleBackups[0].path}"]`,
+      ) as HTMLButtonElement;
+      await act(async () => {
+        restoreBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () => document.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      const confirmBtn = document.querySelector(
+        "[data-testid='confirm-dialog-confirm']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        confirmBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(() => toastError.mock.calls.length > 0);
+      expect(toastError).toHaveBeenCalledWith(
+        "Couldn't restore backup",
+        "bad archive",
+      );
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("Delete failure surfaces an error toast", async () => {
+    listBackupsMock.mockResolvedValue(sampleBackups);
+    deleteBackupMock.mockRejectedValue(new Error("permission denied"));
+
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () => r.container.querySelector("[data-testid='backup-list']") !== null,
+      );
+      const deleteBtn = r.container.querySelector(
+        `[data-testid="backup-delete-${sampleBackups[0].path}"]`,
+      ) as HTMLButtonElement;
+      await act(async () => {
+        deleteBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () => document.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      const confirmBtn = document.querySelector(
+        "[data-testid='confirm-dialog-confirm']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        confirmBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(() => toastError.mock.calls.length > 0);
+      expect(toastError).toHaveBeenCalledWith(
+        "Couldn't delete backup",
+        "permission denied",
+      );
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("ErrorAlert surfaces when the list query rejects", async () => {
+    listBackupsMock.mockRejectedValue(new Error("service off"));
+
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () => r.container.querySelector("[role='alert']") !== null,
+      );
+      const alert = r.container.querySelector("[role='alert']");
+      expect(alert?.textContent).toContain("Couldn't load backups");
+      expect(alert?.textContent).toContain("service off");
+      // Clicking Retry triggers a refetch (line 140 of backup-section.tsx).
+      const retry = Array.from(
+        r.container.querySelectorAll("button"),
+      ).find((btn) => (btn.textContent ?? "").trim() === "Retry") as
+        | HTMLButtonElement
+        | undefined;
+      expect(retry).toBeDefined();
+      const callsBefore = listBackupsMock.mock.calls.length;
+      await act(async () => {
+        retry!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(() => listBackupsMock.mock.calls.length > callsBefore);
+      expect(listBackupsMock.mock.calls.length).toBeGreaterThan(callsBefore);
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("closing the Restore dialog without confirming does not fire a mutation", async () => {
+    listBackupsMock.mockResolvedValue(sampleBackups);
+
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () => r.container.querySelector("[data-testid='backup-list']") !== null,
+      );
+      const restoreBtn = r.container.querySelector(
+        `[data-testid="backup-restore-${sampleBackups[0].path}"]`,
+      ) as HTMLButtonElement;
+      await act(async () => {
+        restoreBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () => document.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      const cancelBtn = document.querySelector(
+        "[data-testid='confirm-dialog-cancel']",
+      ) as HTMLButtonElement;
+      expect(cancelBtn).not.toBeNull();
+      await act(async () => {
+        cancelBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      expect(restoreBackupMock).not.toHaveBeenCalled();
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("closing the Delete dialog without confirming does not fire a mutation", async () => {
+    listBackupsMock.mockResolvedValue(sampleBackups);
+
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () => r.container.querySelector("[data-testid='backup-list']") !== null,
+      );
+      const deleteBtn = r.container.querySelector(
+        `[data-testid="backup-delete-${sampleBackups[0].path}"]`,
+      ) as HTMLButtonElement;
+      await act(async () => {
+        deleteBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () => document.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      const cancelBtn = document.querySelector(
+        "[data-testid='confirm-dialog-cancel']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        cancelBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      // setDeleteTarget(null) closes the dialog and never fires the mutation.
+      expect(deleteBackupMock).not.toHaveBeenCalled();
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("destination falls back to '(default)' when config has no backupDirectory", async () => {
+    getConfigMock.mockReset();
+    getConfigMock.mockResolvedValue({ ...sampleConfig, backupDirectory: "" });
+    listBackupsMock.mockResolvedValue([]);
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () =>
+          r.container.querySelector("[data-testid='backup-destination']") !==
+          null,
+      );
+      const destination = r.container.querySelector(
+        "[data-testid='backup-destination']",
+      ) as HTMLElement;
+      // When backupDirectory is empty, the `(default)` placeholder is shown.
+      await waitFor(() => destination.textContent === "(default)");
+      expect(destination.textContent).toBe("(default)");
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("Create Backup failure with non-Error rejection coerces via String()", async () => {
+    listBackupsMock.mockResolvedValue([]);
+    createBackupMock.mockRejectedValue("plain-string-error");
+
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () =>
+          r.container.querySelector("[data-testid='create-backup']") !== null,
+      );
+      const createBtn = r.container.querySelector(
+        "[data-testid='create-backup']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        createBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(() => toastError.mock.calls.length > 0);
+      expect(toastError).toHaveBeenCalledWith(
+        "Couldn't create backup",
+        "plain-string-error",
+      );
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("Restore failure with non-Error rejection coerces via String()", async () => {
+    listBackupsMock.mockResolvedValue(sampleBackups);
+    restoreBackupMock.mockRejectedValue("rest-string");
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () => r.container.querySelector("[data-testid='backup-list']") !== null,
+      );
+      const restoreBtn = r.container.querySelector(
+        `[data-testid="backup-restore-${sampleBackups[0].path}"]`,
+      ) as HTMLButtonElement;
+      await act(async () => {
+        restoreBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () => document.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      const confirmBtn = document.querySelector(
+        "[data-testid='confirm-dialog-confirm']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        confirmBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(() => toastError.mock.calls.length > 0);
+      expect(toastError).toHaveBeenCalledWith(
+        "Couldn't restore backup",
+        "rest-string",
+      );
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("Delete failure with non-Error rejection coerces via String()", async () => {
+    listBackupsMock.mockResolvedValue(sampleBackups);
+    deleteBackupMock.mockRejectedValue("del-string");
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () => r.container.querySelector("[data-testid='backup-list']") !== null,
+      );
+      const deleteBtn = r.container.querySelector(
+        `[data-testid="backup-delete-${sampleBackups[0].path}"]`,
+      ) as HTMLButtonElement;
+      await act(async () => {
+        deleteBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () => document.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      const confirmBtn = document.querySelector(
+        "[data-testid='confirm-dialog-confirm']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        confirmBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(() => toastError.mock.calls.length > 0);
+      expect(toastError).toHaveBeenCalledWith(
+        "Couldn't delete backup",
+        "del-string",
+      );
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("formatBackupDate falls back to the raw value for an unparseable date", async () => {
+    // Drive formatBackupDate via a backup whose createdAt is non-ISO string.
+    const weirdBackups = [
+      {
+        createdAt: "not-a-real-date",
+        includesImages: false,
+        path: "/backup/weird.tar.gz",
+      },
+    ];
+    listBackupsMock.mockResolvedValue(weirdBackups);
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () => r.container.querySelector("[data-testid='backup-list']") !== null,
+      );
+      const row = r.container.querySelector(
+        "[data-testid^='backup-row-']",
+      ) as HTMLElement;
+      // Falls back to the raw value verbatim when Date(...) is NaN.
+      expect(row.textContent).toContain("not-a-real-date");
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("formatBackupDate returns empty for an empty string createdAt", async () => {
+    // Drive the empty-string short-circuit branch.
+    const weirdBackups = [
+      {
+        createdAt: "",
+        includesImages: false,
+        path: "/backup/empty-date.tar.gz",
+      },
+    ];
+    listBackupsMock.mockResolvedValue(weirdBackups);
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () => r.container.querySelector("[data-testid='backup-list']") !== null,
+      );
+      const row = r.container.querySelector(
+        "[data-testid^='backup-row-']",
+      ) as HTMLElement;
+      // The path is still rendered; the date field is just empty.
+      expect(row.textContent).toContain("/backup/empty-date.tar.gz");
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("ErrorAlert with a non-Error rejection shows 'Unknown error'", async () => {
+    listBackupsMock.mockRejectedValue("string-rejection");
+
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () => r.container.querySelector("[role='alert']") !== null,
+      );
+      const alert = r.container.querySelector("[role='alert']");
+      expect(alert?.textContent ?? "").toContain("Unknown error");
+    } finally {
+      r.unmount();
+    }
+  });
 });

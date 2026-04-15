@@ -64,15 +64,20 @@ jest.mock("react-photo-album", () => {
 });
 
 const getAnimeDetailsMock = jest.fn();
-const getAnimeImagesMock = jest.fn();
-const getAnimeImagesByEntryMock = jest.fn();
+// `useAnimeImages` calls SearchImagesByAnime for the all-anime grid and
+// GetFolderImages(folderId, true) for the entry-filtered case (an entry IS
+// a folder in the anime's tree). Mock those two specifically; the legacy
+// GetAnimeImages / GetAnimeImagesByEntry methods don't exist on the real
+// Wails AnimeService surface.
+const searchImagesByAnimeMock = jest.fn();
+const getFolderImagesMock = jest.fn();
 jest.mock("../../../src/lib/api", () => ({
   __esModule: true,
   AnimeService: {
     GetAnimeDetails: (...args: unknown[]) => getAnimeDetailsMock(...args),
-    GetAnimeImages: (...args: unknown[]) => getAnimeImagesMock(...args),
-    GetAnimeImagesByEntry: (...args: unknown[]) =>
-      getAnimeImagesByEntryMock(...args),
+    SearchImagesByAnime: (...args: unknown[]) =>
+      searchImagesByAnimeMock(...args),
+    GetFolderImages: (...args: unknown[]) => getFolderImagesMock(...args),
     GetAnimeList: () => Promise.resolve([]),
   },
   TagService: {
@@ -146,10 +151,10 @@ describe("ImagesTab", () => {
   beforeEach(() => {
     getAnimeDetailsMock.mockReset();
     getAnimeDetailsMock.mockResolvedValue(makeDetail());
-    getAnimeImagesMock.mockReset();
-    getAnimeImagesMock.mockResolvedValue({ images: [] });
-    getAnimeImagesByEntryMock.mockReset();
-    getAnimeImagesByEntryMock.mockResolvedValue({ images: [] });
+    searchImagesByAnimeMock.mockReset();
+    searchImagesByAnimeMock.mockResolvedValue({ images: [] });
+    getFolderImagesMock.mockReset();
+    getFolderImagesMock.mockResolvedValue({ images: [] });
     resetSelectionStore();
   });
 
@@ -158,7 +163,7 @@ describe("ImagesTab", () => {
     const resolveRef: { resolve: ((v: unknown) => void) | null } = {
       resolve: null,
     };
-    getAnimeImagesMock.mockImplementation(
+    searchImagesByAnimeMock.mockImplementation(
       () =>
         new Promise((r) => {
           resolveRef.resolve = r;
@@ -183,7 +188,7 @@ describe("ImagesTab", () => {
   });
 
   test("renders the grid when images are returned", async () => {
-    getAnimeImagesMock.mockResolvedValue({
+    searchImagesByAnimeMock.mockResolvedValue({
       images: [
         makeImage(1, "a.png"),
         makeImage(2, "b.png"),
@@ -208,7 +213,7 @@ describe("ImagesTab", () => {
   });
 
   test("renders an empty state with Upload action when no images", async () => {
-    getAnimeImagesMock.mockResolvedValue({ images: [] });
+    searchImagesByAnimeMock.mockResolvedValue({ images: [] });
     const { container, unmount } = renderRoutes(routes, {
       initialEntries: ["/anime/42/images"],
     });
@@ -225,7 +230,7 @@ describe("ImagesTab", () => {
   });
 
   test("surfaces an ErrorAlert on query failure with a retry button", async () => {
-    getAnimeImagesMock.mockRejectedValue(new Error("boom"));
+    searchImagesByAnimeMock.mockRejectedValue(new Error("boom"));
     const { container, unmount } = renderRoutes(routes, {
       initialEntries: ["/anime/42/images"],
     });
@@ -239,7 +244,7 @@ describe("ImagesTab", () => {
     }
   });
 
-  test("entry filter in URL calls GetAnimeImagesByEntry", async () => {
+  test("entry filter in URL calls GetFolderImages with the entry id", async () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
         entries: [
@@ -248,7 +253,7 @@ describe("ImagesTab", () => {
         ],
       }),
     );
-    getAnimeImagesByEntryMock.mockResolvedValue({
+    getFolderImagesMock.mockResolvedValue({
       images: [makeImage(500, "s1-ep1.png")],
     });
     const { container, unmount } = renderRoutes(routes, {
@@ -256,10 +261,12 @@ describe("ImagesTab", () => {
     });
     try {
       await waitFor(
-        () => getAnimeImagesByEntryMock.mock.calls.length > 0,
+        () => getFolderImagesMock.mock.calls.length > 0,
       );
-      expect(getAnimeImagesByEntryMock).toHaveBeenCalledWith(42, 10);
-      expect(getAnimeImagesMock).not.toHaveBeenCalled();
+      // Entry id is treated as a folder id; recursive=true so sub-entries
+      // contribute their images too.
+      expect(getFolderImagesMock).toHaveBeenCalledWith(10, true);
+      expect(searchImagesByAnimeMock).not.toHaveBeenCalled();
       await waitFor(
         () => container.querySelector("[data-testid='image-grid']") !== null,
       );
@@ -278,7 +285,7 @@ describe("ImagesTab", () => {
         entries: [makeEntry({ id: 20, name: "Movie", imageCount: 4 })],
       }),
     );
-    getAnimeImagesByEntryMock.mockResolvedValue({
+    getFolderImagesMock.mockResolvedValue({
       images: [makeImage(600, "movie-clip.png")],
     });
     const { container, unmount } = renderRoutes(routes, {
@@ -304,16 +311,16 @@ describe("ImagesTab", () => {
         movieChip!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       });
       await waitFor(
-        () => getAnimeImagesByEntryMock.mock.calls.length > 0,
+        () => getFolderImagesMock.mock.calls.length > 0,
       );
-      expect(getAnimeImagesByEntryMock).toHaveBeenCalledWith(42, 20);
+      expect(getFolderImagesMock).toHaveBeenCalledWith(20, true);
     } finally {
       unmount();
     }
   });
 
   test("SearchBar filters images by filename client-side", async () => {
-    getAnimeImagesMock.mockResolvedValue({
+    searchImagesByAnimeMock.mockResolvedValue({
       images: [
         makeImage(1, "beach-sunset.png"),
         makeImage(2, "forest-morning.png"),
@@ -348,7 +355,7 @@ describe("ImagesTab", () => {
   });
 
   test("filter with no matches renders the filter-aware empty state (no Upload button)", async () => {
-    getAnimeImagesMock.mockResolvedValue({
+    searchImagesByAnimeMock.mockResolvedValue({
       images: [makeImage(1, "apple.png")],
     });
     const { container, unmount } = renderRoutes(routes, {
@@ -377,7 +384,7 @@ describe("ImagesTab", () => {
   });
 
   test("toggling select mode mounts the SelectionActionBar", async () => {
-    getAnimeImagesMock.mockResolvedValue({
+    searchImagesByAnimeMock.mockResolvedValue({
       images: [makeImage(1, "a.png")],
     });
     const { container, unmount } = renderRoutes(routes, {
@@ -410,7 +417,7 @@ describe("ImagesTab", () => {
   });
 
   test("clicking a tile while in select mode toggles selection in the store", async () => {
-    getAnimeImagesMock.mockResolvedValue({
+    searchImagesByAnimeMock.mockResolvedValue({
       images: [makeImage(1, "a.png"), makeImage(2, "b.png")],
     });
     // Pre-enter select mode so the click handler routes through selection.
@@ -449,7 +456,7 @@ describe("ImagesTab", () => {
   });
 
   test("rubber band overlay is mounted only when select mode is active", async () => {
-    getAnimeImagesMock.mockResolvedValue({
+    searchImagesByAnimeMock.mockResolvedValue({
       images: [makeImage(1, "a.png")],
     });
     const { container, unmount } = renderRoutes(routes, {
@@ -478,6 +485,189 @@ describe("ImagesTab", () => {
         ),
       ).not.toBeNull();
     } finally {
+      unmount();
+    }
+  });
+
+  test("'All episodes' EntryTab clears the ?entry= URL param", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        entries: [makeEntry({ id: 20, name: "Movie", imageCount: 4 })],
+      }),
+    );
+    getFolderImagesMock.mockResolvedValue({
+      images: [makeImage(600, "movie-clip.png")],
+    });
+    searchImagesByAnimeMock.mockResolvedValue({
+      images: [makeImage(601, "any.png"), makeImage(602, "other.png")],
+    });
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/images?entry=20"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='entry-filter-row']") !==
+          null,
+      );
+      // Entry-scoped fetch ran once.
+      await waitFor(() => getFolderImagesMock.mock.calls.length > 0);
+      // Click the "All episodes" tab to reset the filter.
+      const tabs = container.querySelectorAll(
+        "[data-testid='entry-filter-row'] [role='tab']",
+      );
+      const allTab = Array.from(tabs).find((el) =>
+        el.textContent?.includes("All"),
+      ) as HTMLElement | undefined;
+      expect(allTab).toBeDefined();
+      act(() => {
+        allTab!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      // Now the anime-wide fetcher fires.
+      await waitFor(() => searchImagesByAnimeMock.mock.calls.length > 0);
+      expect(searchImagesByAnimeMock).toHaveBeenCalledWith(42);
+    } finally {
+      unmount();
+    }
+  });
+
+  test("falls back to a synthetic label when the entry has no name", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        entries: [
+          // season with no name and a numbered entry -> "Season 3"
+          makeEntry({ id: 10, name: "", type: "season", entryNumber: 3, imageCount: 1 }),
+          // movie with no name -> "Movie (7)"
+          makeEntry({ id: 11, name: "", type: "movie", entryNumber: 7, imageCount: 1 }),
+          // other without a number -> "Entry #12"
+          makeEntry({
+            id: 12,
+            name: "",
+            type: "other",
+            entryNumber: null,
+            imageCount: 1,
+          }),
+        ],
+      }),
+    );
+    searchImagesByAnimeMock.mockResolvedValue({ images: [] });
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/images"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='entry-filter-row']") !==
+          null,
+      );
+      const row = container.querySelector(
+        "[data-testid='entry-filter-row']",
+      ) as HTMLElement;
+      expect(row.textContent ?? "").toContain("Season 3");
+      expect(row.textContent ?? "").toContain("Movie (7)");
+      expect(row.textContent ?? "").toContain("Entry #12");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("entry with children surfaces each child as its own filter chip", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        entries: [
+          makeEntry({
+            id: 100,
+            name: "Season 1",
+            imageCount: 10,
+            children: [
+              makeEntry({ id: 101, name: "S1 Part 1", imageCount: 5 }),
+              makeEntry({ id: 102, name: "S1 Part 2", imageCount: 5 }),
+            ],
+          }),
+        ],
+      }),
+    );
+    searchImagesByAnimeMock.mockResolvedValue({ images: [] });
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/images"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='entry-filter-row']") !==
+          null,
+      );
+      const row = container.querySelector(
+        "[data-testid='entry-filter-row']",
+      );
+      expect(row?.textContent).toContain("Season 1");
+      expect(row?.textContent).toContain("S1 Part 1");
+      expect(row?.textContent).toContain("S1 Part 2");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Retry button on ErrorAlert refetches the image list", async () => {
+    let calls = 0;
+    searchImagesByAnimeMock.mockImplementation(() => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.reject(new Error("boom"));
+      }
+      return Promise.resolve({ images: [makeImage(1, "ok.png")] });
+    });
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/images"],
+    });
+    try {
+      await waitFor(() => container.querySelector("[role='alert']") !== null);
+      const retry = Array.from(container.querySelectorAll("button")).find(
+        (b) => (b.textContent ?? "").trim() === "Retry",
+      ) as HTMLButtonElement | undefined;
+      expect(retry).toBeDefined();
+      act(() => {
+        retry!.click();
+      });
+      await waitFor(
+        () => container.querySelector("[data-testid='image-grid']") !== null,
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("clicking a tile with select mode off logs a viewer-intent debug message", async () => {
+    const debugSpy = jest
+      .spyOn(console, "debug")
+      .mockImplementation(() => undefined);
+    searchImagesByAnimeMock.mockResolvedValue({
+      images: [makeImage(1, "hero.png")],
+    });
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/images"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='image-grid']") !== null,
+      );
+      const tile = container.querySelector(
+        "[data-file-id='1']",
+      ) as HTMLElement;
+      expect(tile).not.toBeNull();
+      act(() => {
+        tile.click();
+      });
+      // Without select mode, the click falls through to the viewer stub.
+      expect(debugSpy).toHaveBeenCalledWith(
+        "[ImagesTab] open viewer for",
+        1,
+      );
+      // And the selection store is untouched.
+      expect(useSelectionStore.getState().selectedIds.size).toBe(0);
+    } finally {
+      debugSpy.mockRestore();
       unmount();
     }
   });

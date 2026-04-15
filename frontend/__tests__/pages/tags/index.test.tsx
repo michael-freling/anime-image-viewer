@@ -450,4 +450,249 @@ describe("TagManagementPage", () => {
       unmount();
     }
   });
+
+  test("submitting the dialog with an empty name surfaces a validation error", async () => {
+    getAllTagsMock.mockResolvedValue(TAGS);
+    const { container, unmount } = renderWithClient(<TagManagementPage />);
+    try {
+      await waitFor(() =>
+        container.querySelector("[data-testid='tag-management-new']") !== null,
+      );
+      const btn = container.querySelector<HTMLButtonElement>(
+        "[data-testid='tag-management-new']",
+      )!;
+      act(() => {
+        btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () => document.querySelector("[data-testid='tag-dialog']") !== null,
+      );
+      // The submit button is disabled while the name is empty (UI guard).
+      // The Enter-key handler bypasses the disabled button and routes
+      // straight to `onSubmit`, which exercises the validation gate inside
+      // `submitDialog` (sets the inline error and bails before the
+      // mutation fires).
+      const nameInput = document.querySelector<HTMLInputElement>(
+        "[data-testid='tag-form-name']",
+      )!;
+      act(() => {
+        nameInput.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      });
+      await waitFor(
+        () =>
+          (document.querySelector("[data-testid='tag-form-error']")
+            ?.textContent ?? "").includes("required"),
+      );
+      // The mutation never fires.
+      expect(createTagMock).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("editing a tag and submitting calls TagService.UpdateTag and refreshes", async () => {
+    getAllTagsMock
+      .mockResolvedValueOnce(TAGS)
+      .mockResolvedValueOnce([
+        { id: 1, name: "Outdoor renamed", category: "scene" },
+        ...TAGS.filter((t) => t.id !== 1),
+      ]);
+    updateTagMock.mockResolvedValue({
+      id: 1,
+      name: "Outdoor renamed",
+      category: "scene",
+    });
+    const { container, unmount } = renderWithClient(<TagManagementPage />);
+    try {
+      await waitFor(() =>
+        container.querySelector("[data-testid='tag-management-categories']") !==
+          null,
+      );
+      const outdoor = Array.from(
+        container.querySelectorAll<HTMLElement>("[data-testid='tag-row']"),
+      ).find((row) => row.textContent?.includes("Outdoor"))!;
+      const edit = outdoor.querySelector<HTMLButtonElement>(
+        "[data-testid='tag-row-edit']",
+      )!;
+      act(() => {
+        edit.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () => document.querySelector("[data-testid='tag-dialog']") !== null,
+      );
+      const nameInput = document.querySelector<HTMLInputElement>(
+        "[data-testid='tag-form-name']",
+      )!;
+      setInputValue(nameInput, "Outdoor renamed");
+      const submit = document.querySelector<HTMLButtonElement>(
+        "[data-testid='tag-form-submit']",
+      )!;
+      await act(async () => {
+        submit.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await Promise.resolve();
+      });
+      expect(updateTagMock).toHaveBeenCalledWith(1, {
+        name: "Outdoor renamed",
+        category: "scene",
+        parentId: undefined,
+      });
+      expect(toastSuccessMock).toHaveBeenCalled();
+      await waitFor(() => getAllTagsMock.mock.calls.length >= 2);
+    } finally {
+      unmount();
+    }
+  });
+
+  test("delete failure surfaces an error toast and keeps the confirm dialog open", async () => {
+    getAllTagsMock.mockResolvedValue(TAGS);
+    getTagFileCountMock.mockResolvedValue(0);
+    deleteTagMock.mockRejectedValue(new Error("delete-failed"));
+    const { container, unmount } = renderWithClient(<TagManagementPage />);
+    try {
+      await waitFor(() =>
+        container.querySelector("[data-testid='tag-management-categories']") !==
+          null,
+      );
+      const rain = Array.from(
+        container.querySelectorAll<HTMLElement>("[data-testid='tag-row']"),
+      ).find((row) => row.textContent?.includes("Rain"))!;
+      const del = rain.querySelector<HTMLButtonElement>(
+        "[data-testid='tag-row-delete']",
+      )!;
+      act(() => {
+        del.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () => document.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      const confirmBtn = document.querySelector<HTMLButtonElement>(
+        "[data-testid='confirm-dialog-confirm']",
+      )!;
+      await act(async () => {
+        confirmBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        "Could not delete tag",
+        "delete-failed",
+      );
+      // Dialog stays mounted.
+      expect(document.querySelector("[data-testid='confirm-dialog']")).not.toBeNull();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Retry on the error state refetches the tag list", async () => {
+    let calls = 0;
+    getAllTagsMock.mockImplementation(() => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.reject(new Error("first-fail"));
+      }
+      return Promise.resolve(TAGS);
+    });
+    const { container, unmount } = renderWithClient(<TagManagementPage />);
+    try {
+      await waitFor(() =>
+        (container.textContent ?? "").includes("Couldn't load tags"),
+      );
+      const retry = Array.from(
+        container.querySelectorAll("button"),
+      ).find((b) => (b.textContent ?? "").trim() === "Retry") as
+        | HTMLButtonElement
+        | undefined;
+      expect(retry).toBeDefined();
+      act(() => {
+        retry!.click();
+      });
+      await waitFor(() =>
+        container.querySelector("[data-testid='tag-management-categories']") !==
+          null,
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("empty-state '+ New tag' CTA opens the create dialog", async () => {
+    getAllTagsMock.mockResolvedValue([]);
+    const { container, unmount } = renderWithClient(<TagManagementPage />);
+    try {
+      await waitFor(
+        () =>
+          container.querySelector(
+            "[data-testid='tag-management-empty-create']",
+          ) !== null,
+      );
+      const cta = container.querySelector<HTMLButtonElement>(
+        "[data-testid='tag-management-empty-create']",
+      )!;
+      act(() => {
+        cta.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () => document.querySelector("[data-testid='tag-dialog']") !== null,
+      );
+      // Dialog opens in create mode.
+      const dialog = document.querySelector("[data-testid='tag-dialog']");
+      expect(dialog?.textContent).toContain("New tag");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("delete confirm cancels mid-fetch — fileCount lookup is ignored", async () => {
+    getAllTagsMock.mockResolvedValue(TAGS);
+    let resolveCount!: (n: number) => void;
+    const countPromise = new Promise<number>((resolve) => {
+      resolveCount = resolve;
+    });
+    getTagFileCountMock.mockReturnValue(countPromise);
+    const { container, unmount } = renderWithClient(<TagManagementPage />);
+    try {
+      await waitFor(() =>
+        container.querySelector("[data-testid='tag-management-categories']") !==
+          null,
+      );
+      const rain = Array.from(
+        container.querySelectorAll<HTMLElement>("[data-testid='tag-row']"),
+      ).find((row) => row.textContent?.includes("Rain"))!;
+      const del = rain.querySelector<HTMLButtonElement>(
+        "[data-testid='tag-row-delete']",
+      )!;
+      act(() => {
+        del.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () => document.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      // Cancel the dialog BEFORE the file-count promise resolves.
+      const cancel = document.querySelector<HTMLButtonElement>(
+        "[data-testid='confirm-dialog-cancel']",
+      )!;
+      act(() => {
+        cancel.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () =>
+          document.querySelector("[data-testid='confirm-dialog']") === null,
+      );
+      // Now resolve — the late count must NOT reopen the dialog.
+      await act(async () => {
+        resolveCount(7);
+        await Promise.resolve();
+      });
+      expect(document.querySelector("[data-testid='confirm-dialog']")).toBeNull();
+    } finally {
+      unmount();
+    }
+  });
 });

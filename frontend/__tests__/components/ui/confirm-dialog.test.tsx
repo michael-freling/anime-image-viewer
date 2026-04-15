@@ -6,10 +6,31 @@
  * "renders nothing" case is just the absence of the dialog. We verify the
  * danger variant via the data-variant attribute, and the loading-while-
  * confirming flow via a promise that resolves on a trigger we control.
+ *
+ * The `lastDialogRootProps` capture lets tests fire the
+ * `onOpenChange({open:false})` callback that cmdk/Chakra would normally
+ * dispatch via Esc + outside-click. The chakra-stub's Dialog.Root never
+ * fires it on its own.
  */
-jest.mock("@chakra-ui/react", () =>
-  require("../chakra-stub").chakraStubFactory(),
-);
+const lastDialogRootProps: {
+  value: { open: boolean; onOpenChange?: (d: { open: boolean }) => void } | null;
+} = { value: null };
+
+jest.mock("@chakra-ui/react", () => {
+  const stub = require("../chakra-stub").chakraStubFactory();
+  const originalRoot = stub.Dialog.Root;
+  const WrappedRoot = (props: Record<string, unknown>) => {
+    lastDialogRootProps.value = props as typeof lastDialogRootProps.value;
+    return originalRoot(props);
+  };
+  return {
+    ...stub,
+    Dialog: {
+      ...stub.Dialog,
+      Root: WrappedRoot,
+    },
+  };
+});
 jest.mock("lucide-react", () =>
   require("../chakra-stub").lucideStubFactory(),
 );
@@ -168,6 +189,122 @@ describe("ConfirmDialog", () => {
     );
     expect(r.container.textContent).toContain("Delete forever");
     expect(r.container.textContent).toContain("Keep it");
+    r.unmount();
+  });
+
+  test("onOpenChange({open:false}) calls onClose when not loading", () => {
+    const onClose = jest.fn();
+    const r = render(
+      createElement(ConfirmDialog, {
+        open: true,
+        onClose,
+        onConfirm: jest.fn(),
+        title: "t",
+      }),
+    );
+    expect(lastDialogRootProps.value).not.toBeNull();
+    const { onOpenChange } = lastDialogRootProps.value!;
+    expect(typeof onOpenChange).toBe("function");
+    act(() => {
+      onOpenChange!({ open: false });
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    r.unmount();
+  });
+
+  test("onOpenChange({open:true}) is a no-op for onClose", () => {
+    const onClose = jest.fn();
+    const r = render(
+      createElement(ConfirmDialog, {
+        open: true,
+        onClose,
+        onConfirm: jest.fn(),
+        title: "t",
+      }),
+    );
+    const { onOpenChange } = lastDialogRootProps.value!;
+    act(() => {
+      onOpenChange!({ open: true });
+    });
+    expect(onClose).not.toHaveBeenCalled();
+    r.unmount();
+  });
+
+  test("onOpenChange is gated off while a confirm is pending (loading)", async () => {
+    let resolveConfirm!: () => void;
+    const confirmPromise = new Promise<void>((resolve) => {
+      resolveConfirm = resolve;
+    });
+    const onConfirm = jest.fn().mockReturnValue(confirmPromise);
+    const onClose = jest.fn();
+    const r = render(
+      createElement(ConfirmDialog, {
+        open: true,
+        onClose,
+        onConfirm,
+        title: "t",
+      }),
+    );
+    // Click confirm to put us in loading state.
+    const confirm = r.container.querySelector(
+      "[data-testid='confirm-dialog-confirm']",
+    ) as HTMLButtonElement;
+    await act(async () => {
+      confirm.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    // Loading is true: the open-change callback must NOT call onClose.
+    const { onOpenChange } = lastDialogRootProps.value!;
+    act(() => {
+      onOpenChange!({ open: false });
+    });
+    expect(onClose).not.toHaveBeenCalled();
+    // Cleanup: resolve so the loading state can settle.
+    await act(async () => {
+      resolveConfirm();
+      await confirmPromise;
+    });
+    r.unmount();
+  });
+
+  test("closeOnEscape and closeOnInteractOutside flip off while loading", async () => {
+    let resolveConfirm!: () => void;
+    const confirmPromise = new Promise<void>((resolve) => {
+      resolveConfirm = resolve;
+    });
+    const onConfirm = jest.fn().mockReturnValue(confirmPromise);
+    const r = render(
+      createElement(ConfirmDialog, {
+        open: true,
+        onClose: jest.fn(),
+        onConfirm,
+        title: "t",
+      }),
+    );
+    // Defaults: both true when not loading.
+    const props = lastDialogRootProps.value as unknown as Record<
+      string,
+      unknown
+    >;
+    expect(props.closeOnEscape).toBe(true);
+    expect(props.closeOnInteractOutside).toBe(true);
+    // Click confirm to enter loading state.
+    const confirm = r.container.querySelector(
+      "[data-testid='confirm-dialog-confirm']",
+    ) as HTMLButtonElement;
+    await act(async () => {
+      confirm.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    const propsLoading = lastDialogRootProps.value as unknown as Record<
+      string,
+      unknown
+    >;
+    expect(propsLoading.closeOnEscape).toBe(false);
+    expect(propsLoading.closeOnInteractOutside).toBe(false);
+    // Resolve to settle.
+    await act(async () => {
+      resolveConfirm();
+      await confirmPromise;
+    });
     r.unmount();
   });
 
