@@ -65,9 +65,30 @@ export {
 
 export {
   BatchImportImageService,
-  type ImportProgressEvent,
-  type ImportProgressEventFailure,
 } from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
+
+/**
+ * Wails event payload emitted by `BatchImportImageService.ImportImages` over
+ * the `ImportImages:progress` channel.
+ *
+ * Mirrors `internal/frontend/import.go` (`ImportProgressEvent` /
+ * `ImportProgressEventFailure`). Wails3's `generate bindings` only emits
+ * types reachable from a service method signature — the import progress
+ * struct is only emitted via `app.EmitEvent`, so it isn't present in the
+ * generated module. We declare a hand-mirrored shape here and keep the
+ * field names in sync with the Go side.
+ */
+export interface ImportProgressEventFailure {
+  path: string;
+  error: string;
+}
+
+export interface ImportProgressEvent {
+  total: number;
+  completed: number;
+  failed: number;
+  failures: ImportProgressEventFailure[];
+}
 
 export {
   DirectoryService,
