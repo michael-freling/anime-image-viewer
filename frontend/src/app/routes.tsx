@@ -15,9 +15,20 @@
  *      Phase B wrote.
  */
 import { Box, Heading, Text } from "@chakra-ui/react";
-import { createBrowserRouter, Navigate, Outlet } from "react-router";
+import { createBrowserRouter, Navigate } from "react-router";
 import RootErrorPage from "../RootErrorPage";
 import { AppShell } from "../components/layout/app-shell";
+import { AnimeDetailLayout } from "../pages/anime-detail";
+import { CharactersTab } from "../pages/anime-detail/characters-tab";
+import { EntriesTab } from "../pages/anime-detail/entries-tab";
+import { ImagesTab } from "../pages/anime-detail/images-tab";
+import { InfoTab } from "../pages/anime-detail/info-tab";
+import { TagsTab } from "../pages/anime-detail/tags-tab";
+import { HomePage } from "../pages/home";
+import { ImageTagEditorPage } from "../pages/image-tag-editor";
+import { SearchPage } from "../pages/search";
+import { SettingsPage } from "../pages/settings";
+import { TagManagementPage } from "../pages/tags";
 
 /**
  * Temporary placeholder rendered by every not-yet-built page. Phase D
@@ -35,23 +46,6 @@ export function Placeholder({ name }: { name: string }): JSX.Element {
     </Box>
   );
 }
-
-/* ---------- placeholder pages (Phase D replaces these) ---------- */
-
-const HomePage = () => <Placeholder name="Home" />;
-/** Anime detail is a layout page: the shell + tabs render here, and the
- *  active tab renders inside <Outlet />. Phase D will wrap this with its
- *  own tab bar; for now we just pass through. */
-const AnimeDetailPage = () => <Outlet />;
-const ImagesTab = () => <Placeholder name="Images tab" />;
-const EntriesTab = () => <Placeholder name="Entries tab" />;
-const CharactersTab = () => <Placeholder name="Characters tab" />;
-const TagsTab = () => <Placeholder name="Tags tab" />;
-const InfoTab = () => <Placeholder name="Info tab" />;
-const SearchPage = () => <Placeholder name="Search" />;
-const TagManagementPage = () => <Placeholder name="Tag Management" />;
-const ImageTagEditorPage = () => <Placeholder name="Image Tag Editor" />;
-const SettingsPage = () => <Placeholder name="Settings" />;
 
 /* ---------- route path constants (stable API for tests & nav) ---------- */
 
@@ -82,7 +76,7 @@ export const routes = [
       { index: true, element: <HomePage /> },
       {
         path: "anime/:animeId",
-        element: <AnimeDetailPage />,
+        element: <AnimeDetailLayout />,
         children: [
           { index: true, element: <Navigate to="images" replace /> },
           { path: "images", element: <ImagesTab /> },
