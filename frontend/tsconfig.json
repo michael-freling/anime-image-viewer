@@ -37,33 +37,11 @@
     "src/types/**/*",
     "src/styles",
     "src/vite-env.d.ts",
-    "src/components/image-viewer/**/*",
-    "src/components/layout/**/*",
-    "src/components/selection/**/*",
-    "src/components/shared/**/*",
-    "src/components/ui/**/*",
-    "src/pages/home/**/*",
-    "src/pages/anime-detail/**/*",
-    "src/pages/image-tag-editor/**/*",
-    "src/pages/search/index.tsx",
-    "src/pages/tags/index.tsx",
-    "src/pages/settings/index.tsx",
-    "src/pages/settings/sections/**/*",
-    "src/RootErrorPage.tsx"
+    "src/components/**/*",
+    "src/pages/**/*",
+    "src/RootErrorPage.tsx",
+    "src/main.tsx"
   ],
-  "exclude": [
-    "src/main.tsx",
-    "src/Layout.tsx",
-    "src/pages/anime",
-    "src/pages/backup",
-    "src/pages/directories",
-    "src/pages/search/SearchPage.tsx",
-    "src/pages/settings/SettingsPage.tsx",
-    "src/pages/tags/AnimeTagEditPage.tsx",
-    "src/pages/tags/DirectoryTagEditPage.tsx",
-    "src/pages/tags/ImageTagEditPage.tsx",
-    "src/pages/tags/ImageTagSuggestionPage.tsx",
-    "src/pages/tags/TagsListPage.tsx"
-  ],
+  "exclude": [],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
