@@ -7,7 +7,7 @@
  * filmstrip, or anywhere else a thumbnail is needed.
  *
  * Every `<img>` must carry `loading="lazy"`, `decoding="async"` and a
- * `srcSet` built from the shared `thumbnailSrcSet` helper per
+ * `srcSet` built from the shared `fileResizeSrcSet` helper per
  * frontend-design.md §4. The outer wrapper gets the `.tile` class so the
  * global `content-visibility: auto` utility applies.
  */
@@ -15,7 +15,7 @@ import { Box, Flex } from "@chakra-ui/react";
 import { Check, ImageOff } from "lucide-react";
 import { useState } from "react";
 
-import { thumbnailSrcSet, thumbnailUrl } from "../../lib/image-urls";
+import { fileResizeSrcSet, fileResizeUrl } from "../../lib/image-urls";
 import type { ImageFile } from "../../types";
 
 export interface ImageThumbnailProps {
@@ -115,8 +115,8 @@ export function ImageThumbnail({
     >
       {status !== "error" && (
         <img
-          src={thumbnailUrl(image.id, 520)}
-          srcSet={thumbnailSrcSet(image.id)}
+          src={fileResizeUrl(image.path, 520)}
+          srcSet={fileResizeSrcSet(image.path)}
           sizes={sizes}
           alt={image.name}
           loading="lazy"

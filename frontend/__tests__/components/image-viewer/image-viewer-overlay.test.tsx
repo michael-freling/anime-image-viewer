@@ -125,7 +125,7 @@ describe("ImageViewerOverlay", () => {
         | HTMLImageElement
         | null;
       expect(img).not.toBeNull();
-      expect(img!.getAttribute("src")).toBe(`/_/images/20?width=1920`);
+      expect(img!.getAttribute("src")).toBe(`/files/anime/second.png?width=1920`);
       // alt text falls back to the file name when present.
       expect(img!.getAttribute("alt")).toBe("second.png");
       expect(img!.getAttribute("decoding")).toBe("async");
@@ -568,7 +568,7 @@ describe("ImageViewerOverlay", () => {
         | null;
       expect(img).not.toBeNull();
       // Clamped to the last image (index 2 -> id 30).
-      expect(img!.getAttribute("src")).toBe("/_/images/30?width=1920");
+      expect(img!.getAttribute("src")).toBe("/files/anime/third.png?width=1920");
       // Prev arrow present, Next arrow hidden (we're at last).
       expect(byTestId(r.container, "image-viewer-prev")).not.toBeNull();
       expect(byTestId(r.container, "image-viewer-next")).toBeNull();
@@ -592,7 +592,7 @@ describe("ImageViewerOverlay", () => {
       const img = byTestId(r.container, "image-viewer-image") as
         | HTMLImageElement
         | null;
-      expect(img!.getAttribute("src")).toBe("/_/images/10?width=1920");
+      expect(img!.getAttribute("src")).toBe("/files/anime/first.png?width=1920");
       expect(byTestId(r.container, "image-viewer-prev")).toBeNull();
     } finally {
       r.unmount();

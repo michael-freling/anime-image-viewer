@@ -39,7 +39,7 @@ describe("ImageThumbnail", () => {
       expect(img!.getAttribute("decoding")).toBe("async");
       const srcset =
         img!.getAttribute("srcset") ?? img!.getAttribute("srcSet");
-      expect(srcset).toContain(`/_/images/${IMAGE.id}?width=520`);
+      expect(srcset).toContain(`/files/${IMAGE.path}?width=520`);
       expect(srcset).toContain("1920w");
       // Outer wrapper uses the `.tile` utility class.
       expect(container.querySelector(".tile")).not.toBeNull();

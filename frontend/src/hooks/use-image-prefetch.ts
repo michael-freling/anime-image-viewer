@@ -13,7 +13,7 @@
  * the .src of pending Image objects so they can be GC'd without completing.
  */
 import { useEffect } from "react";
-import { thumbnailUrl } from "../lib/image-urls";
+import { fileResizeUrl } from "../lib/image-urls";
 import type { ImageFile } from "../types";
 
 /** Full-size preview width as specified in frontend-design §4. */
@@ -66,6 +66,6 @@ function createPrefetchImage(file: ImageFile): HTMLImageElement | null {
   const img = new Image();
   img.decoding = "async";
   img.loading = "eager";
-  img.src = thumbnailUrl(file.id, PREFETCH_WIDTH);
+  img.src = fileResizeUrl(file.path, PREFETCH_WIDTH);
   return img;
 }

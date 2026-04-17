@@ -7,48 +7,21 @@
  *   1040  — grid @2x (retina)
  *   1920  — full-bleed preview
  *
- * TODO(backend): The resize endpoint lives at `/files/<relative-path>?width=N`
- * today, but the new route in the proposal is a content-addressed
- * `/_/images/<fileId>?width=N`. Until the backend ships a by-ID resolver,
- * downstream code should pass the image's relative path (the current
- * `Image.path` field) and wrap it with `fileResizeUrl(path, width)` instead
- * of `thumbnailUrl(id, width)`.
+ * The current Wails static file service mounts at `/files/` and keys by the
+ * image's relative path (see `internal/frontend/file.go` and
+ * `internal/image/files.go`). The redesigned backend is expected to expose a
+ * content-addressed `/_/images/<fileId>?width=N` route, but that by-ID
+ * resolver has not shipped yet. Call sites therefore pass the image's
+ * `path` field and use `fileResizeUrl` / `fileResizeSrcSet`.
  */
 
 import { THUMBNAIL_WIDTHS } from "./constants";
 
 /**
- * Build a thumbnail URL from a file id.
- *
- * This is the forward-looking shape the redesigned backend will expose; the
- * current Wails static file service keys by relative path, not id. Until the
- * bridge is updated, call sites should prefer `fileResizeUrl`.
- */
-export function thumbnailUrl(fileId: number, width: number): string {
-  return `/_/images/${fileId}?width=${Math.round(width)}`;
-}
-
-/**
- * Build a DPR-aware srcset string for a file id across the given widths.
- *
- * Example:
- *   thumbnailSrcSet(42) ->
- *     "/_/images/42?width=520 520w, /_/images/42?width=1040 1040w, ..."
- */
-export function thumbnailSrcSet(
-  fileId: number,
-  widths: readonly number[] = THUMBNAIL_WIDTHS,
-): string {
-  return widths
-    .map((w) => `${thumbnailUrl(fileId, w)} ${Math.round(w)}w`)
-    .join(", ");
-}
-
-/**
  * Build a resize URL from the image's relative path (current backend shape).
  *
- * The current static file service mounts at `/files/` and accepts a
- * `?width=N` query parameter.
+ * The static file service accepts a `?width=N` query parameter and serves
+ * a resized WebP variant. Omitting the query returns the original bytes.
  */
 export function fileResizeUrl(relativePath: string, width: number): string {
   const base = relativePath.startsWith("/") ? relativePath : `/${relativePath}`;
@@ -56,7 +29,11 @@ export function fileResizeUrl(relativePath: string, width: number): string {
 }
 
 /**
- * Build a srcset string from a relative path across the given widths.
+ * Build a DPR-aware srcset string from a relative path across the given widths.
+ *
+ * Example:
+ *   fileResizeSrcSet("/a.jpg") ->
+ *     "/files/a.jpg?width=520 520w, /files/a.jpg?width=1040 1040w, ..."
  */
 export function fileResizeSrcSet(
   relativePath: string,

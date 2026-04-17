@@ -65,10 +65,10 @@ describe("useImagePrefetch", () => {
     const initial = assignedSrcs.slice(0, 4);
     expect(initial).toEqual(
       expect.arrayContaining([
-        expect.stringMatching(/\/_\/images\/1\?width=1920$/),
-        expect.stringMatching(/\/_\/images\/2\?width=1920$/),
-        expect.stringMatching(/\/_\/images\/4\?width=1920$/),
-        expect.stringMatching(/\/_\/images\/5\?width=1920$/),
+        expect.stringMatching(/\/files\/a\.png\?width=1920$/),
+        expect.stringMatching(/\/files\/b\.png\?width=1920$/),
+        expect.stringMatching(/\/files\/d\.png\?width=1920$/),
+        expect.stringMatching(/\/files\/e\.png\?width=1920$/),
       ]),
     );
     unmount();
@@ -83,8 +83,8 @@ describe("useImagePrefetch", () => {
     const initial = assignedSrcs.slice(0, 2);
     expect(initial).toEqual(
       expect.arrayContaining([
-        expect.stringMatching(/\/_\/images\/2\?width=1920$/),
-        expect.stringMatching(/\/_\/images\/3\?width=1920$/),
+        expect.stringMatching(/\/files\/b\.png\?width=1920$/),
+        expect.stringMatching(/\/files\/c\.png\?width=1920$/),
       ]),
     );
     unmount();
@@ -104,7 +104,7 @@ describe("useImagePrefetch", () => {
     );
     // After setup, instances have their original src.
     const realSrcs = instances.map((i) => i.src);
-    expect(realSrcs.every((s) => s.includes("/_/images/"))).toBe(true);
+    expect(realSrcs.every((s) => s.includes("/files/"))).toBe(true);
 
     unmount();
     // Cleanup nulled each src — the assigned-srcs log records the clear.

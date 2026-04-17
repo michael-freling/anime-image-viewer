@@ -8,12 +8,17 @@
  *  - `NewAnimeCard`  -- dashed-border "+ New anime" placeholder used at the
  *                       end of the grid.
  *
+ * Cover art: the Wails backend (`internal/frontend/anime.AnimeListItem`) does
+ * not currently surface a cover file id or path, so every card falls back to
+ * the gradient placeholder (ui-design.md §4.1 "Empty: Gradient placeholder").
+ * When the backend ships a cover resolver the card can be extended to render
+ * a thumbnail via `fileResizeUrl` / `fileResizeSrcSet`.
+ *
  * Both wrap their contents in a `<div class="tile">` so the global
  * content-visibility utility (frontend-design.md §4) applies.
  */
 import { Box, Skeleton, Text, chakra } from "@chakra-ui/react";
 import { Plus } from "lucide-react";
-import { useState } from "react";
 
 /**
  * `chakra.button` gives us a `<button>` element that accepts the full Chakra
@@ -22,7 +27,6 @@ import { useState } from "react";
 const CardButton = chakra("button");
 
 import { formatCount } from "../../lib/format";
-import { thumbnailSrcSet, thumbnailUrl } from "../../lib/image-urls";
 import type { AnimeSummary } from "../../types";
 
 interface AnimeCardProps {
@@ -32,12 +36,6 @@ interface AnimeCardProps {
    * so it is keyboard-focusable and announces its role to screen readers.
    */
   onClick?: () => void;
-  /**
-   * Optional cover image file id. When omitted the card renders a gradient
-   * placeholder with the first letter of the title (ui-design.md §4.1
-   * "Empty: Gradient placeholder").
-   */
-  coverFileId?: number;
 }
 
 /**
@@ -56,10 +54,7 @@ function hashHue(input: string): number {
 export function AnimeCard({
   anime,
   onClick,
-  coverFileId,
 }: AnimeCardProps): JSX.Element {
-  const [imageError, setImageError] = useState(false);
-  const showCover = coverFileId !== undefined && !imageError;
   const initial = anime.name.trim().charAt(0).toUpperCase() || "?";
   const hue = hashHue(anime.name);
 
@@ -98,37 +93,19 @@ export function AnimeCard({
     >
       {/* `.tile` opts the cover into content-visibility (frontend-design §4). */}
       <Box className="tile" position="absolute" inset="0">
-        {showCover ? (
-          <img
-            src={thumbnailUrl(coverFileId!, 520)}
-            srcSet={thumbnailSrcSet(coverFileId!)}
-            sizes="(max-width: 640px) 50vw, (max-width: 1023px) 33vw, 20vw"
-            alt=""
-            loading="lazy"
-            decoding="async"
-            onError={() => setImageError(true)}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              display: "block",
-            }}
-          />
-        ) : (
-          <Box
-            width="100%"
-            height="100%"
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-            backgroundImage={`linear-gradient(135deg, hsl(${hue} 55% 32%), hsl(${(hue + 40) % 360} 65% 18%))`}
-            color="fg"
-          >
-            <Text fontSize="48px" fontWeight="700" opacity="0.7">
-              {initial}
-            </Text>
-          </Box>
-        )}
+        <Box
+          width="100%"
+          height="100%"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          backgroundImage={`linear-gradient(135deg, hsl(${hue} 55% 32%), hsl(${(hue + 40) % 360} 65% 18%))`}
+          color="fg"
+        >
+          <Text fontSize="48px" fontWeight="700" opacity="0.7">
+            {initial}
+          </Text>
+        </Box>
       </Box>
 
       {/* Image-count badge (top-right). */}

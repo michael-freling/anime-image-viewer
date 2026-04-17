@@ -17,9 +17,11 @@
  * (built-in `doubleClick.mode="toggle"`). Users can also scroll-wheel zoom
  * and pan by drag.
  *
- * Image source: `thumbnailUrl(id, 1920)` — the "full-bleed preview" tier from
- * frontend-design.md §4. The original is not served here; only the sized
- * WebP preview, which is ~10x smaller than the raw PNG.
+ * Image source: `fileResizeUrl(path, 1920)` — the "full-bleed preview" tier
+ * from frontend-design.md §4. The original is not served here; only the
+ * sized WebP preview, which is ~10x smaller than the raw PNG. The URL is
+ * path-keyed because the current Wails static file service mounts at
+ * `/files/<relative-path>`; see `frontend/src/lib/image-urls.ts`.
  *
  * Prefetch: `useImagePrefetch(images, currentIndex, 2)` warms the two nearest
  * forward and backward neighbours so arrow navigation is seamless
@@ -44,7 +46,7 @@ import { useHotkeys } from "@mantine/hooks";
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch";
 
 import { useImagePrefetch } from "../../hooks/use-image-prefetch";
-import { thumbnailUrl } from "../../lib/image-urls";
+import { fileResizeUrl } from "../../lib/image-urls";
 import type { ImageFile } from "../../types";
 
 import { ImageViewerControls } from "./image-viewer-controls";
@@ -222,7 +224,7 @@ export function ImageViewerOverlay({
   // the browser image cache to reuse the prefetched response.
   const currentImage = images[safeIndex];
   const imgSrc = useMemo(
-    () => (currentImage ? thumbnailUrl(currentImage.id, PREVIEW_WIDTH) : ""),
+    () => (currentImage ? fileResizeUrl(currentImage.path, PREVIEW_WIDTH) : ""),
     [currentImage],
   );
 

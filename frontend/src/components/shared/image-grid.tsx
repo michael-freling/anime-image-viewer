@@ -28,7 +28,7 @@ import "react-photo-album/columns.css";
 import "react-photo-album/rows.css";
 
 import { THUMBNAIL_WIDTHS } from "../../lib/constants";
-import { thumbnailUrl } from "../../lib/image-urls";
+import { fileResizeUrl } from "../../lib/image-urls";
 import type { ImageFile } from "../../types";
 
 import { ImageThumbnail } from "./image-thumbnail";
@@ -99,7 +99,7 @@ export interface ImageGridProps {
  * uses the ratio, not the absolute numbers, to pack tiles.
  */
 function toPhoto(image: ImageFile): ImageFilePhoto {
-  const src = thumbnailUrl(image.id, THUMBNAIL_WIDTHS[0]);
+  const src = fileResizeUrl(image.path, THUMBNAIL_WIDTHS[0]);
   return {
     key: String(image.id),
     src,
@@ -108,7 +108,7 @@ function toPhoto(image: ImageFile): ImageFilePhoto {
     alt: image.name,
     file: image,
     srcSet: THUMBNAIL_WIDTHS.map((w) => ({
-      src: thumbnailUrl(image.id, w),
+      src: fileResizeUrl(image.path, w),
       width: w,
       // Square assumption keeps the declared srcSet dimensions consistent.
       height: w,
