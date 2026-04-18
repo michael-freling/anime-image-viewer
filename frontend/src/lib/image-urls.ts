@@ -25,7 +25,10 @@ import { THUMBNAIL_WIDTHS } from "./constants";
  */
 export function fileResizeUrl(relativePath: string, width: number): string {
   const base = relativePath.startsWith("/") ? relativePath : `/${relativePath}`;
-  return `/files${base}?width=${Math.round(width)}`;
+  // The backend already includes the /files prefix in Image.Path, so avoid
+  // doubling it. Only prepend /files when the path does not start with it.
+  const url = base.startsWith("/files/") ? base : `/files${base}`;
+  return `${url}?width=${Math.round(width)}`;
 }
 
 /**

@@ -48,11 +48,11 @@ import { useImagePrefetch } from "../../src/hooks/use-image-prefetch";
 
 describe("useImagePrefetch", () => {
   const images = [
-    { id: 1, name: "a.png", path: "a.png" },
-    { id: 2, name: "b.png", path: "b.png" },
-    { id: 3, name: "c.png", path: "c.png" },
-    { id: 4, name: "d.png", path: "d.png" },
-    { id: 5, name: "e.png", path: "e.png" },
+    { id: 1, name: "a.png", path: "/files/a.png" },
+    { id: 2, name: "b.png", path: "/files/b.png" },
+    { id: 3, name: "c.png", path: "/files/c.png" },
+    { id: 4, name: "d.png", path: "/files/d.png" },
+    { id: 5, name: "e.png", path: "/files/e.png" },
   ];
 
   test("prefetches N adjacent images around the current index", () => {

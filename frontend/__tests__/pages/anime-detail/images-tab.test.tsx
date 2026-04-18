@@ -123,7 +123,7 @@ function makeDetail(overrides: Partial<AnimeDetail> = {}): AnimeDetail {
 }
 
 function makeImage(id: number, name: string): ImageFile {
-  return { id, name, path: `bebop/${name}` };
+  return { id, name, path: `/files/bebop/${name}` };
 }
 
 function resetSelectionStore() {

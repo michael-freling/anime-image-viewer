@@ -17,7 +17,7 @@ import { renderWithClient } from "../../test-utils";
 const IMAGE: ImageFile = {
   id: 77,
   name: "ep01-frame-012.png",
-  path: "Attack on Titan/S1/ep01-frame-012.png",
+  path: "/files/Attack on Titan/S1/ep01-frame-012.png",
 };
 
 function fireEvent(node: Element, type: "load" | "error") {
@@ -39,8 +39,14 @@ describe("ImageThumbnail", () => {
       expect(img!.getAttribute("decoding")).toBe("async");
       const srcset =
         img!.getAttribute("srcset") ?? img!.getAttribute("srcSet");
-      expect(srcset).toContain(`/files/${IMAGE.path}?width=520`);
+      expect(srcset).toContain(`${IMAGE.path}?width=520`);
       expect(srcset).toContain("1920w");
+      // Must NOT have double /files/files/ prefix
+      expect(srcset).not.toContain("/files/files/");
+      // src must also have single /files/ prefix
+      const src = img!.getAttribute("src");
+      expect(src).toBe("/files/Attack on Titan/S1/ep01-frame-012.png?width=520");
+      expect(src).not.toContain("/files/files/");
       // Outer wrapper uses the `.tile` utility class.
       expect(container.querySelector(".tile")).not.toBeNull();
     } finally {

@@ -107,7 +107,7 @@ function makeTag(id: number, name: string, category: string): Tag {
 }
 
 function makeImage(id: number, name: string): ImageFile {
-  return { id, name, path: `anime/${name}` };
+  return { id, name, path: `/files/anime/${name}` };
 }
 
 const TAGS: Tag[] = [

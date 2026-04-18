@@ -87,7 +87,7 @@ function makeImages(n: number): ImageFile[] {
   return Array.from({ length: n }, (_, i) => ({
     id: 100 + i,
     name: `image-${i}.png`,
-    path: `anime/folder/image-${i}.png`,
+    path: `/files/anime/folder/image-${i}.png`,
   }));
 }
 
