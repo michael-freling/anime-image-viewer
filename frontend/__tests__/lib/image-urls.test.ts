@@ -26,6 +26,16 @@ describe("fileResizeUrl (current backend shape)", () => {
   test("rounds fractional widths to integers", () => {
     expect(fileResizeUrl("/files/a.jpg", 520.7)).toBe("/files/a.jpg?width=521");
   });
+
+  test("Windows backslash path (Go TrimPrefix on Windows) produces forward-slash URL", () => {
+    // On Windows, Go's strings.TrimPrefix preserves backslashes:
+    // Path = "/files" + "\Oshi No Ko\Season 2\image.png" = "/files\Oshi No Ko\Season 2\image.png"
+    const windowsPath = "/files\\Oshi No Ko\\Season 2\\image.png";
+    const result = fileResizeUrl(windowsPath, 520);
+    expect(result).toBe("/files/Oshi No Ko/Season 2/image.png?width=520");
+    expect(result).not.toContain("\\");
+    expect(result).not.toContain("/files/files/");
+  });
 });
 
 describe("fileResizeSrcSet", () => {
