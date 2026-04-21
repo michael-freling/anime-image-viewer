@@ -60,6 +60,7 @@ jest.mock("../../../src/components/ui/toaster", () => ({
   },
 }));
 
+import { toast } from "../../../src/components/ui/toaster";
 import { act } from "react-dom/test-utils";
 
 import { routes } from "../../../src/app/routes";
@@ -912,9 +913,7 @@ describe("EntriesTab", () => {
 
   test("submitting the edit form with a changed name calls RenameEntry", async () => {
     renameEntryMock.mockResolvedValue(undefined);
-    let callCount = 0;
     getAnimeDetailsMock.mockImplementation(() => {
-      callCount += 1;
       return Promise.resolve(
         makeDetail({
           entries: [
@@ -1203,8 +1202,7 @@ describe("EntriesTab", () => {
   // -----------------------------------------------------------------------
 
   test("edit form shows error toast when an update mutation rejects", async () => {
-    const { toast } = require("../../../src/components/ui/toaster");
-    toast.error.mockClear();
+    (toast.error as jest.Mock).mockClear();
     renameEntryMock.mockRejectedValue(new Error("rename boom"));
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
@@ -1262,7 +1260,7 @@ describe("EntriesTab", () => {
           ) as HTMLElement
         ).click();
       });
-      await waitFor(() => toast.error.mock.calls.length > 0);
+      await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
       expect(toast.error).toHaveBeenCalledWith(
         "Failed to update entry",
         "rename boom",
@@ -1273,8 +1271,7 @@ describe("EntriesTab", () => {
   });
 
   test("create form shows error toast when CreateAnimeEntry rejects with non-Error", async () => {
-    const { toast } = require("../../../src/components/ui/toaster");
-    toast.error.mockClear();
+    (toast.error as jest.Mock).mockClear();
     createAnimeEntryMock.mockRejectedValue("string-error");
     getAnimeDetailsMock.mockResolvedValue(makeDetail({ entries: [] }));
     const { container, unmount } = renderRoutes(routes, {
@@ -1304,7 +1301,7 @@ describe("EntriesTab", () => {
           ) as HTMLElement
         ).click();
       });
-      await waitFor(() => toast.error.mock.calls.length > 0);
+      await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
       expect(toast.error).toHaveBeenCalledWith(
         "Failed to create entry",
         "string-error",
@@ -1315,8 +1312,7 @@ describe("EntriesTab", () => {
   });
 
   test("delete error toast when DeleteEntry rejects", async () => {
-    const { toast } = require("../../../src/components/ui/toaster");
-    toast.error.mockClear();
+    (toast.error as jest.Mock).mockClear();
     deleteEntryMock.mockRejectedValue(new Error("delete boom"));
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
@@ -1352,7 +1348,7 @@ describe("EntriesTab", () => {
           ) as HTMLElement
         ).click();
       });
-      await waitFor(() => toast.error.mock.calls.length > 0);
+      await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
       expect(toast.error).toHaveBeenCalledWith(
         "Failed to delete entry",
         "delete boom",
@@ -1363,8 +1359,7 @@ describe("EntriesTab", () => {
   });
 
   test("delete error toast coerces non-Error rejection to string", async () => {
-    const { toast } = require("../../../src/components/ui/toaster");
-    toast.error.mockClear();
+    (toast.error as jest.Mock).mockClear();
     deleteEntryMock.mockRejectedValue("flat-string");
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
@@ -1400,7 +1395,7 @@ describe("EntriesTab", () => {
           ) as HTMLElement
         ).click();
       });
-      await waitFor(() => toast.error.mock.calls.length > 0);
+      await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
       expect(toast.error).toHaveBeenCalledWith(
         "Failed to delete entry",
         "flat-string",
