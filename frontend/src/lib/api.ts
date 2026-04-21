@@ -67,6 +67,10 @@ export {
   BatchImportImageService,
 } from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 
+export {
+  TagFrontendService,
+} from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/tag";
+
 /**
  * Wails event payload emitted by `BatchImportImageService.ImportImages` over
  * the `ImportImages:progress` channel.

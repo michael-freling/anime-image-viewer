@@ -1,81 +1,44 @@
 /**
- * Tests for `ImageGrid` (ui-design §3.2 / §3.4, frontend-design §4).
+ * Tests for the virtualized `ImageGrid` (react-window + AutoSizer).
  *
  * Proves:
- *   - Renders the correct number of thumbnails.
+ *   - Renders the correct number of thumbnails for the visible viewport.
  *   - Forwards the underlying MouseEvent alongside the clicked ImageFile.
  *   - Shows the `emptyState` node when the image list is empty.
  *   - Passes selectedIds / pendingIds down so thumbnails mark themselves
  *     selected / pending appropriately.
+ *   - Outer container has the expected data-testid and layout attribute.
  *
- * `react-photo-album` ships as pure ESM and its CSS imports are not
- * transformable by ts-jest, so we replace the module with a lightweight
- * stub that calls the `render.image` prop for every photo. Our wrapper's
- * responsibility (composing `photos`, wiring selection, event-forwarding)
- * is still fully exercised.
+ * AutoSizer is mocked to provide fixed dimensions (1000x800) since jsdom
+ * has no real layout engine. react-window's FixedSizeGrid is used directly
+ * (not mocked) so that the Cell render function is exercised.
  */
 import * as React from "react";
 import { act } from "react-dom/test-utils";
 
-jest.mock("react-photo-album/masonry.css", () => ({}), { virtual: true });
-jest.mock("react-photo-album/columns.css", () => ({}), { virtual: true });
-jest.mock("react-photo-album/rows.css", () => ({}), { virtual: true });
-jest.mock("react-photo-album", () => {
-  // `require` is necessary inside this factory because `jest.mock` is hoisted
-  // above all imports; the top-level `React` binding is not yet initialised
-  // when the factory executes.
+// Mock AutoSizer to provide a fixed width/height in jsdom.
+// react-virtualized-auto-sizer v2 uses a `renderProp` API rather than
+// children-as-function.
+jest.mock("react-virtualized-auto-sizer", () => {
   const ReactModule = jest.requireActual<typeof import("react")>("react");
-  interface StubProps {
-    photos: readonly { key?: string; width?: number; height?: number }[];
-    columns?: number | ((containerWidth: number) => number);
-    render?: {
-      image?: (
-        props: unknown,
-        context: {
-          photo: { key?: string; width?: number; height?: number };
-          index: number;
-          width: number;
-          height: number;
-        },
-      ) => React.ReactNode;
-    };
-  }
-  const renderPhotos = (props: StubProps) => {
-    // When `columns` is a function, evaluate it across our four canonical
-    // breakpoints and surface the results as data-* attributes so tests can
-    // assert against `breakpointsToColumns`'s mapping.
-    const columnAttrs: Record<string, string> = {};
-    if (typeof props.columns === "function") {
-      columnAttrs["data-columns-mobile"] = String(props.columns(320));
-      columnAttrs["data-columns-tablet"] = String(props.columns(800));
-      columnAttrs["data-columns-desktop"] = String(props.columns(1440));
-      columnAttrs["data-columns-wide"] = String(props.columns(3000));
-    }
-    return ReactModule.createElement(
-      "div",
-      { "data-testid": "photo-album-stub", ...columnAttrs },
-      props.photos.map((photo, index) =>
-        ReactModule.createElement(
-          "div",
-          { key: photo.key ?? String(index), "data-photo-key": photo.key },
-          props.render?.image?.(
-            {},
-            {
-              photo,
-              index,
-              width: photo.width ?? 0,
-              height: photo.height ?? 0,
-            },
-          ),
-        ),
-      ),
-    );
-  };
   return {
     __esModule: true,
-    MasonryPhotoAlbum: renderPhotos,
-    ColumnsPhotoAlbum: renderPhotos,
-    RowsPhotoAlbum: renderPhotos,
+    AutoSizer: ({
+      renderProp,
+    }: {
+      renderProp: (size: {
+        height: number | undefined;
+        width: number | undefined;
+      }) => React.ReactNode;
+    }) =>
+      ReactModule.createElement(
+        "div",
+        {
+          "data-testid": "auto-sizer-mock",
+          style: { width: 1000, height: 800 },
+        },
+        renderProp({ height: 800, width: 1000 }),
+      ),
   };
 });
 
@@ -92,7 +55,11 @@ function makeImages(n: number): ImageFile[] {
 }
 
 describe("ImageGrid", () => {
-  test("renders one thumbnail per image", () => {
+  test("renders thumbnails for visible images", () => {
+    // With width=1000 and TARGET_CELL_WIDTH=200, we get 5 columns.
+    // With height=800 and rowHeight=208, we get ~3.8 visible rows.
+    // react-window with overscanRowCount=3 will render more rows.
+    // 6 images with 5 columns = 2 rows, all should be rendered.
     const images = makeImages(6);
     const { container, unmount } = renderWithClient(
       <ImageGrid images={images} />,
@@ -177,37 +144,6 @@ describe("ImageGrid", () => {
     }
   });
 
-  test("breakpointsToColumns picks the right column count per width", () => {
-    // Drives every branch of `breakpointsToColumns`:
-    //   width <  640 → mobile
-    //   width <  1024 → tablet
-    //   width <  2560 → desktop
-    //   else         → wide
-    const images = makeImages(2);
-    const { container, unmount } = renderWithClient(
-      <ImageGrid
-        images={images}
-        columnsByBreakpoint={{
-          mobile: 2,
-          tablet: 4,
-          desktop: 5,
-          wide: 6,
-        }}
-      />,
-    );
-    try {
-      const stub = container.querySelector(
-        "[data-testid='photo-album-stub']",
-      );
-      expect(stub?.getAttribute("data-columns-mobile")).toBe("2");
-      expect(stub?.getAttribute("data-columns-tablet")).toBe("4");
-      expect(stub?.getAttribute("data-columns-desktop")).toBe("5");
-      expect(stub?.getAttribute("data-columns-wide")).toBe("6");
-    } finally {
-      unmount();
-    }
-  });
-
   test("outer container has data-testid='image-grid' with the layout attribute", () => {
     const images = makeImages(2);
     const { container, unmount } = renderWithClient(
@@ -215,7 +151,30 @@ describe("ImageGrid", () => {
     );
     try {
       const grid = container.querySelector("[data-testid='image-grid']");
+      expect(grid).not.toBeNull();
       expect(grid?.getAttribute("data-layout")).toBe("columns");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("renders many images without crashing (virtualization test)", () => {
+    // 100 images should not blow up - only a subset should be in the DOM
+    // due to virtualization.
+    const images = makeImages(100);
+    const { container, unmount } = renderWithClient(
+      <ImageGrid images={images} />,
+    );
+    try {
+      const tiles = container.querySelectorAll(
+        "[data-testid='image-thumbnail']",
+      );
+      // With 5 columns, 100 images = 20 rows. Viewport fits ~3.8 rows,
+      // plus 3 overscan rows = ~7 rows visible = ~35 thumbnails rendered.
+      // The exact count depends on react-window internals, but it should
+      // be significantly fewer than 100.
+      expect(tiles.length).toBeGreaterThan(0);
+      expect(tiles.length).toBeLessThan(100);
     } finally {
       unmount();
     }

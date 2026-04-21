@@ -30,6 +30,7 @@ import {
 } from "react";
 import { useSearchParams } from "react-router";
 
+import { ImageViewerOverlay } from "../../components/image-viewer";
 import { PageHeader } from "../../components/layout/page-header";
 import { EmptyState } from "../../components/shared/empty-state";
 import { ErrorAlert } from "../../components/shared/error-alert";
@@ -172,6 +173,19 @@ export function SearchPage(): JSX.Element {
   );
   const { handleClick } = useImageSelection(visibleIds);
 
+  // Image viewer overlay state.
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(0);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+
+  const handleViewerClose = useCallback(() => {
+    setViewerOpen(false);
+  }, []);
+
+  const handleViewerIndexChange = useCallback((nextIndex: number) => {
+    setViewerIndex(nextIndex);
+  }, []);
+
   // Rubber band wiring.
   const gridRef = useRef<HTMLDivElement | null>(null);
   const [pendingIds, setPendingIds] = useState<Set<number>>(
@@ -217,13 +231,19 @@ export function SearchPage(): JSX.Element {
   const handleImageClick = useCallback(
     (image: ImageFile, event: React.MouseEvent) => {
       if (!selectMode) {
-        // Out of select mode the thumbnail would normally open the viewer;
-        // we leave that to Phase D (image-viewer). Plain click is a no-op.
+        // Open the full-screen image viewer at the clicked image's position.
+        const clickedIndex = filteredImages.findIndex(
+          (img) => img.id === image.id,
+        );
+        if (clickedIndex < 0) return;
+        returnFocusRef.current = event.currentTarget as HTMLElement;
+        setViewerIndex(clickedIndex);
+        setViewerOpen(true);
         return;
       }
       handleClick(event, image.id);
     },
-    [handleClick, selectMode],
+    [handleClick, selectMode, filteredImages],
   );
 
   const handleToggleSelectMode = useCallback(() => {
@@ -423,6 +443,15 @@ export function SearchPage(): JSX.Element {
           ? formatResultCount(filteredImages.length)
           : ""}
       </Text>
+
+      <ImageViewerOverlay
+        open={viewerOpen}
+        images={filteredImages}
+        currentIndex={viewerIndex}
+        onIndexChange={handleViewerIndexChange}
+        onClose={handleViewerClose}
+        returnFocusRef={returnFocusRef}
+      />
     </Box>
   );
 }

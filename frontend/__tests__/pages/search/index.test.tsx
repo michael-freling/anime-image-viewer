@@ -31,50 +31,27 @@ jest.mock("@mantine/hooks", () => ({
   useHotkeys: () => undefined,
 }));
 
-jest.mock("react-photo-album/masonry.css", () => ({}), { virtual: true });
-jest.mock("react-photo-album/columns.css", () => ({}), { virtual: true });
-jest.mock("react-photo-album/rows.css", () => ({}), { virtual: true });
-jest.mock("react-photo-album", () => {
+// Mock AutoSizer to provide fixed dimensions in jsdom (react-virtualized-auto-sizer v2 API).
+jest.mock("react-virtualized-auto-sizer", () => {
   const ReactModule = jest.requireActual<typeof import("react")>("react");
-  interface StubProps {
-    photos: readonly { key?: string; width?: number; height?: number }[];
-    render?: {
-      image?: (
-        props: unknown,
-        context: {
-          photo: { key?: string; width?: number; height?: number };
-          index: number;
-          width: number;
-          height: number;
-        },
-      ) => React.ReactNode;
-    };
-  }
-  const renderPhotos = (props: StubProps) =>
-    ReactModule.createElement(
-      "div",
-      { "data-testid": "photo-album-stub" },
-      props.photos.map((photo, index) =>
-        ReactModule.createElement(
-          "div",
-          { key: photo.key ?? String(index), "data-photo-key": photo.key },
-          props.render?.image?.(
-            {},
-            {
-              photo,
-              index,
-              width: photo.width ?? 0,
-              height: photo.height ?? 0,
-            },
-          ),
-        ),
-      ),
-    );
   return {
     __esModule: true,
-    MasonryPhotoAlbum: renderPhotos,
-    ColumnsPhotoAlbum: renderPhotos,
-    RowsPhotoAlbum: renderPhotos,
+    AutoSizer: ({
+      renderProp,
+    }: {
+      renderProp: (size: {
+        height: number | undefined;
+        width: number | undefined;
+      }) => React.ReactNode;
+    }) =>
+      ReactModule.createElement(
+        "div",
+        {
+          "data-testid": "auto-sizer-mock",
+          style: { width: 1000, height: 800 },
+        },
+        renderProp({ height: 800, width: 1000 }),
+      ),
   };
 });
 

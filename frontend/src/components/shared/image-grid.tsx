@@ -1,34 +1,23 @@
 /**
- * Wrapper around `react-photo-album`'s responsive photo albums (ui-design
- * §3.2 / §3.4, frontend-design §4).
+ * Virtualized image grid using `react-window` FixedSizeGrid + AutoSizer.
+ *
+ * Replaces the previous `react-photo-album` implementation which rendered all
+ * DOM nodes at once and became unresponsive at 500+ images. Uses
+ * `react-virtualized-auto-sizer` to fill the available space and
+ * `react-window`'s `FixedSizeGrid` to only render visible cells.
  *
  * Responsibilities:
- *   - Compose `ImageFile` objects into the shape `react-photo-album`
- *     expects, embedding our `srcSet` and `sizes` so the browser always
- *     picks the right thumbnail width.
- *   - Render each photo with `<ImageThumbnail>` via the `render.image` prop
- *     so selection / rubber-band / error states work.
- *   - Forward the original `MouseEvent` back to the caller on click.
- *   - Show an `emptyState` node when there are no photos.
- *
- * Per frontend-design.md §4 we deliberately do NOT virtualise here — the
- * grid renders all tiles and relies on `loading="lazy"` +
- * `content-visibility: auto` on `.tile` wrappers to keep memory low.
+ *   - Fill available container space via AutoSizer.
+ *   - Calculate columns based on container width (~200px per thumbnail,
+ *     min 2, max 6).
+ *   - Render each cell with `<ImageThumbnail>` with selection/pending states.
+ *   - Forward click events back to the caller.
+ *   - Show `emptyState` when there are no images.
  */
 import { Box } from "@chakra-ui/react";
-import {
-  ColumnsPhotoAlbum,
-  MasonryPhotoAlbum,
-  RowsPhotoAlbum,
-  type Photo,
-  type Render,
-} from "react-photo-album";
-import "react-photo-album/masonry.css";
-import "react-photo-album/columns.css";
-import "react-photo-album/rows.css";
+import { AutoSizer } from "react-virtualized-auto-sizer";
+import { FixedSizeGrid, type GridChildComponentProps } from "react-window";
 
-import { THUMBNAIL_WIDTHS } from "../../lib/constants";
-import { fileResizeUrl } from "../../lib/image-urls";
 import type { ImageFile } from "../../types";
 
 import { ImageThumbnail } from "./image-thumbnail";
@@ -42,31 +31,12 @@ export interface ColumnsByBreakpoint {
   wide: number;
 }
 
-/**
- * Default column counts per ui-design §6.1.
- *
- *   mobile   (0-639)      : 2
- *   tablet   (640-1023)   : 4
- *   desktop  (1024-2559)  : 5
- *   wide     (2560+)      : 6
- *
- * `react-photo-album` selects the largest breakpoint `<= containerWidth`,
- * so we key the returned counts by the minimum container width.
- */
 export const DEFAULT_COLUMNS_BY_BREAKPOINT: ColumnsByBreakpoint = {
   mobile: 2,
   tablet: 4,
   desktop: 5,
   wide: 6,
 };
-
-/**
- * Extended Photo shape that lets us round-trip back to the original
- * `ImageFile` inside the render callback.
- */
-interface ImageFilePhoto extends Photo {
-  file: ImageFile;
-}
 
 export interface ImageGridProps {
   images: ImageFile[];
@@ -82,7 +52,10 @@ export interface ImageGridProps {
   /** Click handler for a single image. Receives the native event. */
   onImageClick?: (image: ImageFile, event: React.MouseEvent) => void;
   columnsByBreakpoint?: ColumnsByBreakpoint;
-  /** Layout variant. Defaults to `"masonry"`. */
+  /**
+   * Layout variant. Kept for API compatibility with callers that pass it,
+   * but the virtualized grid always renders a fixed-size grid layout.
+   */
   layout?: ImageGridLayout;
   /** Shown when `images.length === 0`. Receives no props. */
   emptyState?: React.ReactNode;
@@ -93,36 +66,102 @@ export interface ImageGridProps {
   sizes?: string;
 }
 
+/** Spacing between cells in pixels. */
+const CELL_GAP = 8;
+
+/** Target width for each thumbnail cell. */
+const TARGET_CELL_WIDTH = 200;
+
+/** Minimum columns. */
+const MIN_COLUMNS = 2;
+
+/** Maximum columns. */
+const MAX_COLUMNS = 6;
+
+/** Row height includes the cell plus gap. */
+const CELL_HEIGHT = 200;
+
 /**
- * Fall back to a reasonable 1:1 aspect-ratio box (520x520) when the backend
- * hasn't provided pixel dimensions. `react-photo-album`'s masonry layout
- * uses the ratio, not the absolute numbers, to pack tiles.
+ * Calculate the number of columns based on the container width.
+ * Targets ~200px per cell, clamped between 2 and 6.
  */
-function toPhoto(image: ImageFile): ImageFilePhoto {
-  const src = fileResizeUrl(image.path, THUMBNAIL_WIDTHS[0]);
-  return {
-    key: String(image.id),
-    src,
-    width: 520,
-    height: 520,
-    alt: image.name,
-    file: image,
-    srcSet: THUMBNAIL_WIDTHS.map((w) => ({
-      src: fileResizeUrl(image.path, w),
-      width: w,
-      // Square assumption keeps the declared srcSet dimensions consistent.
-      height: w,
-    })),
-  };
+function calculateColumnCount(containerWidth: number): number {
+  const raw = Math.floor(containerWidth / TARGET_CELL_WIDTH);
+  return Math.max(MIN_COLUMNS, Math.min(MAX_COLUMNS, raw));
 }
 
-function breakpointsToColumns(columns: ColumnsByBreakpoint) {
-  return (containerWidth: number): number => {
-    if (containerWidth < 640) return columns.mobile;
-    if (containerWidth < 1024) return columns.tablet;
-    if (containerWidth < 2560) return columns.desktop;
-    return columns.wide;
+/** Data passed to each grid cell via react-window's itemData. */
+interface CellData {
+  images: ImageFile[];
+  columnCount: number;
+  selectedIds?: ReadonlySet<number>;
+  pendingIds?: ReadonlySet<number>;
+  selectMode: boolean;
+  onImageClick?: (image: ImageFile, event: React.MouseEvent) => void;
+  sizes?: string;
+  columnWidth: number;
+}
+
+/** A single cell in the virtualized grid. */
+function Cell({
+  columnIndex,
+  rowIndex,
+  style,
+  data,
+}: GridChildComponentProps<CellData>): JSX.Element | null {
+  const {
+    images,
+    columnCount,
+    selectedIds,
+    pendingIds,
+    selectMode,
+    onImageClick,
+    sizes,
+    columnWidth,
+  } = data;
+
+  const index = rowIndex * columnCount + columnIndex;
+  if (index >= images.length) {
+    return <div style={style} />;
+  }
+
+  const image = images[index];
+  const selected = selectedIds?.has(image.id) ?? false;
+  const pending = pendingIds?.has(image.id) ?? false;
+
+  // The cell style from react-window positions the cell absolutely. We add
+  // padding inside to create the gap between cells.
+  const innerStyle: React.CSSProperties = {
+    ...style,
+    // Shrink the inner content by the gap amount to create spacing.
+    paddingRight: CELL_GAP,
+    paddingBottom: CELL_GAP,
+    boxSizing: "border-box",
   };
+
+  // The thumbnail size should account for the gap padding.
+  const thumbSize = columnWidth - CELL_GAP;
+
+  return (
+    <div style={innerStyle}>
+      <ImageThumbnail
+        image={image}
+        width={thumbSize}
+        height={thumbSize}
+        selected={selected}
+        rubberBandPending={pending}
+        selectMode={selectMode}
+        sizes={sizes}
+        onClick={
+          onImageClick
+            ? (event) => {
+                onImageClick(image, event as React.MouseEvent);
+              }
+            : undefined
+        }
+      />
+    </div>
+  );
 }
 
 export function ImageGrid({
@@ -131,7 +170,6 @@ export function ImageGrid({
   pendingIds,
   selectMode = false,
   onImageClick,
-  columnsByBreakpoint = DEFAULT_COLUMNS_BY_BREAKPOINT,
   layout = "masonry",
   emptyState,
   sizes,
@@ -144,55 +182,54 @@ export function ImageGrid({
     );
   }
 
-  const photos = images.map(toPhoto);
-  const columns = breakpointsToColumns(columnsByBreakpoint);
-
-  const renderImage: Render<ImageFilePhoto>["image"] = (_props, context) => {
-    const { photo } = context;
-    const file = photo.file;
-    const selected = selectedIds?.has(file.id) ?? false;
-    const pending = pendingIds?.has(file.id) ?? false;
-    return (
-      <ImageThumbnail
-        image={file}
-        selected={selected}
-        rubberBandPending={pending}
-        selectMode={selectMode}
-        sizes={sizes}
-        onClick={
-          onImageClick
-            ? (event) => {
-                // ImageThumbnail may forward KeyboardEvent too; MasonryPhotoAlbum
-                // only triggers image clicks via pointer, so re-narrowing to
-                // MouseEvent is safe here.
-                onImageClick(file, event as React.MouseEvent);
-              }
-            : undefined
-        }
-      />
-    );
-  };
-
-  const albumProps = {
-    photos,
-    spacing: 8,
-    padding: 0,
-    columns,
-    render: { image: renderImage },
-  } as const;
-
   return (
-    <Box data-testid="image-grid" data-layout={layout} width="100%">
-      {layout === "masonry" && <MasonryPhotoAlbum {...albumProps} />}
-      {layout === "columns" && <ColumnsPhotoAlbum {...albumProps} />}
-      {layout === "rows" && (
-        <RowsPhotoAlbum
-          photos={photos}
-          spacing={8}
-          padding={0}
-          render={{ image: renderImage }}
-        />
-      )}
+    <Box
+      data-testid="image-grid"
+      data-layout={layout}
+      width="100%"
+      height="100%"
+      minHeight="400px"
+      // AutoSizer needs a parent with explicit dimensions to measure.
+      // flex: 1 makes this fill remaining space in flex layouts.
+      flex="1"
+    >
+      <AutoSizer
+        renderProp={({ height, width }) => {
+          if (!width || !height) return null;
+
+          const columnCount = calculateColumnCount(width);
+          const columnWidth = Math.floor(width / columnCount);
+          const rowCount = Math.ceil(images.length / columnCount);
+          // Row height: square cells plus gap.
+          const rowHeight = CELL_HEIGHT + CELL_GAP;
+
+          const itemData: CellData = {
+            images,
+            columnCount,
+            selectedIds,
+            pendingIds,
+            selectMode,
+            onImageClick,
+            sizes,
+            columnWidth,
+          };
+
+          return (
+            <FixedSizeGrid
+              columnCount={columnCount}
+              columnWidth={columnWidth}
+              height={height}
+              width={width}
+              rowCount={rowCount}
+              rowHeight={rowHeight}
+              overscanRowCount={3}
+              itemData={itemData}
+            >
+              {Cell}
+            </FixedSizeGrid>
+          );
+        }}
+      />
     </Box>
   );
 }

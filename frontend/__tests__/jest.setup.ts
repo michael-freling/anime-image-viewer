@@ -20,6 +20,12 @@ import { TextDecoder, TextEncoder } from "util";
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean })
   .IS_REACT_ACT_ENVIRONMENT = true;
 
+// Vite injects `__APP_VERSION__` via `define` at build time. In the Jest
+// environment we supply a fixed string so component tests that render the
+// About section see a deterministic value.
+(globalThis as unknown as { __APP_VERSION__: string }).__APP_VERSION__ =
+  "0.1.0";
+
 if (typeof globalThis.TextEncoder === "undefined") {
   // Node's util TextEncoder matches the Web API shape for our needs.
   globalThis.TextEncoder = TextEncoder as unknown as typeof globalThis.TextEncoder;

@@ -32,6 +32,8 @@ jest.mock("../../../src/lib/api", () => ({
     GetAll: (...args: unknown[]) => getAllTagsMock(...args),
     ReadTagsByFileIDs: (...args: unknown[]) =>
       readTagsByFileIDsMock(...args),
+  },
+  TagFrontendService: {
     BatchUpdateTagsForFiles: (...args: unknown[]) =>
       batchUpdateTagsMock(...args),
   },

@@ -15,9 +15,8 @@ import { ExternalLink } from "lucide-react";
 const ChakraAnchor = chakra("a");
 
 const APP_NAME = "AnimeVault";
-// TODO: expose a real version string from the Wails bindings once
-// `ConfigFrontendService.GetVersion` / equivalent lands.
-const APP_VERSION = "Dev";
+const APP_VERSION =
+  typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "Dev";
 const REPO_URL = "https://github.com/michael-freling/anime-image-viewer";
 
 async function openRepo(event: React.MouseEvent<HTMLAnchorElement>): Promise<void> {

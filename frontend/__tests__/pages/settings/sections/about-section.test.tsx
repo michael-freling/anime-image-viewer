@@ -56,7 +56,7 @@ describe("AboutSection", () => {
       const version = r.container.querySelector(
         "[data-testid='about-version']",
       );
-      expect(version?.textContent).toBe("Dev");
+      expect(version?.textContent).toBe("0.1.0");
       const link = r.container.querySelector(
         "[data-testid='about-github-link']",
       );

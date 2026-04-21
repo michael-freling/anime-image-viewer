@@ -20,9 +20,10 @@
  */
 import { Box, Button, Flex, Stack } from "@chakra-ui/react";
 import { ImageOff, Upload, CheckSquare } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 
+import { ImageViewerOverlay } from "../../components/image-viewer";
 import { EmptyState } from "../../components/shared/empty-state";
 import { EntryTab } from "../../components/shared/entry-tab";
 import { ErrorAlert } from "../../components/shared/error-alert";
@@ -95,6 +96,19 @@ export function ImagesTab(): JSX.Element {
 
   const [filterText, setFilterText] = useState("");
 
+  // Image viewer overlay state.
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(0);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+
+  const handleViewerClose = useCallback(() => {
+    setViewerOpen(false);
+  }, []);
+
+  const handleViewerIndexChange = useCallback((nextIndex: number) => {
+    setViewerIndex(nextIndex);
+  }, []);
+
   // Filter images client-side by filename.
   const filteredImages = useMemo<ImageFile[]>(() => {
     const all = imagesQuery.data ?? [];
@@ -145,10 +159,13 @@ export function ImagesTab(): JSX.Element {
       );
       return;
     }
-    // TODO(phase-e1): open the ImageViewer overlay. For now we log so the
-    // integration test confirms the click path exists without depending on
-    // the viewer shipping.
-    console.debug("[ImagesTab] open viewer for", image.id);
+    // Open the full-screen image viewer at the clicked image's position.
+    const clickedIndex = filteredImages.findIndex((img) => img.id === image.id);
+    if (clickedIndex < 0) return;
+    // Capture the clicked element so focus can return to it on close.
+    returnFocusRef.current = event.currentTarget as HTMLElement;
+    setViewerIndex(clickedIndex);
+    setViewerOpen(true);
   };
 
   const handleRubberBandCommit = (
@@ -318,6 +335,15 @@ export function ImagesTab(): JSX.Element {
           ) : null}
         </Box>
       )}
+
+      <ImageViewerOverlay
+        open={viewerOpen}
+        images={filteredImages}
+        currentIndex={viewerIndex}
+        onIndexChange={handleViewerIndexChange}
+        onClose={handleViewerClose}
+        returnFocusRef={returnFocusRef}
+      />
     </Box>
   );
 }
