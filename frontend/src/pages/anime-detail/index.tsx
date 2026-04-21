@@ -55,7 +55,16 @@ export function AnimeDetailLayout(): JSX.Element {
       data-anime-id={animeId}
       display="flex"
       flexDirection="column"
-      minHeight="100vh"
+      overflow="hidden"
+      css={{
+        // Definite height so flex: 1 children get real space for
+        // AutoSizer to measure. The grid scrolls internally.
+        height: "100vh",
+        "@media (max-width: 639px)": {
+          // Account for the fixed bottom tab bar on mobile.
+          height: "calc(100vh - 72px)",
+        },
+      }}
     >
       <AnimeDetailHeader
         detail={data}
@@ -85,6 +94,7 @@ export function AnimeDetailLayout(): JSX.Element {
         minHeight="0"
         display="flex"
         flexDirection="column"
+        overflow="auto"
         role="tabpanel"
       >
         <Outlet />
