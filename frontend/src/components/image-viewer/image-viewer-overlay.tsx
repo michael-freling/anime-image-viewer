@@ -249,7 +249,7 @@ export function ImageViewerOverlay({
         right={0}
         bottom={0}
         bg="rgba(0, 0, 0, 0.95)"
-        zIndex={1000}
+        zIndex="modal"
         // Allow Tab/keyboard interaction within the dialog.
         tabIndex={-1}
       >

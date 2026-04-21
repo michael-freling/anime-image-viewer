@@ -76,6 +76,7 @@ export function AppShell(): JSX.Element {
         as="main"
         minW={0}
         minH="100vh"
+        overflow="hidden"
         css={{
           // Leave room for the fixed bottom bar on mobile so sticky page
           // headers and content bottoms don't disappear behind it.

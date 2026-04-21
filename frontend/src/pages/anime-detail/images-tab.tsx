@@ -194,6 +194,10 @@ export function ImagesTab(): JSX.Element {
       data-anime-id={animeId}
       px={{ base: "3", md: "4" }}
       py={{ base: "3", md: "4" }}
+      display="flex"
+      flexDirection="column"
+      flex="1"
+      minHeight="0"
     >
       <SelectionActionBar
         visibleIds={visibleIds}
@@ -317,7 +321,8 @@ export function ImagesTab(): JSX.Element {
           ref={gridContainerRef}
           data-testid="images-tab-grid-container"
           position="relative"
-          minHeight="200px"
+          flex="1"
+          minHeight="0"
         >
           <ImageGrid
             images={filteredImages}

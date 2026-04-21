@@ -188,10 +188,10 @@ export function ImageGrid({
       data-layout={layout}
       width="100%"
       height="100%"
-      minHeight="400px"
       // AutoSizer needs a parent with explicit dimensions to measure.
       // flex: 1 makes this fill remaining space in flex layouts.
       flex="1"
+      minHeight="0"
     >
       <AutoSizer
         renderProp={({ height, width }) => {
@@ -214,16 +214,27 @@ export function ImageGrid({
             columnWidth,
           };
 
+          // Subtract the vertical scrollbar width from the available
+          // space so column widths don't overflow when the scrollbar
+          // appears. 16px is a safe cross-platform estimate.
+          const scrollbarWidth = 16;
+          const usableWidth = width - scrollbarWidth;
+          const safeColumnWidth = Math.floor(usableWidth / columnCount);
+
           return (
             <FixedSizeGrid
               columnCount={columnCount}
-              columnWidth={columnWidth}
+              columnWidth={safeColumnWidth}
               height={height}
               width={width}
               rowCount={rowCount}
               rowHeight={rowHeight}
               overscanRowCount={3}
-              itemData={itemData}
+              itemData={{
+                ...itemData,
+                columnWidth: safeColumnWidth,
+              }}
+              style={{ overflowX: "hidden" }}
             >
               {Cell}
             </FixedSizeGrid>
