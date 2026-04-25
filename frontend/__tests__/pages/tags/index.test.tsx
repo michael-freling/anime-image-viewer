@@ -147,12 +147,12 @@ describe("TagManagementPage", () => {
         container.querySelector("[data-testid='tag-management-categories']") !==
           null,
       );
-      // Each of the 5 category sections renders a CategorySection header;
+      // Each of the 6 category sections renders a CategorySection header;
       // the badge count shows tag count for that bucket.
       const headers = container.querySelectorAll(
         "[data-testid='category-section-header']",
       );
-      expect(headers.length).toBe(5);
+      expect(headers.length).toBe(6);
       // At least one row renders for every seeded tag.
       expect(container.textContent).toContain("Outdoor");
       expect(container.textContent).toContain("Rain");
@@ -443,7 +443,7 @@ describe("TagManagementPage", () => {
     const { container, unmount } = renderWithClient(<TagManagementPage />);
     try {
       await waitFor(() =>
-        (container.textContent ?? "").includes("across 5 categories"),
+        (container.textContent ?? "").includes("across 6 categories"),
       );
       expect(container.textContent).toContain("4 tags");
     } finally {

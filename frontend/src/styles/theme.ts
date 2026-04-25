@@ -85,6 +85,8 @@ const appConfig = defineConfig({
         tagLocationDarkFg: { value: "#fcd34d" },
         tagMoodDarkBg: { value: "#3b1a1a" },
         tagMoodDarkFg: { value: "#fca5a5" },
+        tagCharacterDarkBg: { value: "#2e1065" },
+        tagCharacterDarkFg: { value: "#c084fc" },
         tagUncategorizedDarkBg: { value: "#1e1e2e" },
         tagUncategorizedDarkFg: { value: "#94a3b8" },
 
@@ -99,6 +101,8 @@ const appConfig = defineConfig({
         tagLocationLightFg: { value: "#b45309" },
         tagMoodLightBg: { value: "#fef2f2" },
         tagMoodLightFg: { value: "#b91c1c" },
+        tagCharacterLightBg: { value: "#f5f3ff" },
+        tagCharacterLightFg: { value: "#7c3aed" },
         tagUncategorizedLightBg: { value: "#f1f5f9" },
         tagUncategorizedLightFg: { value: "#475569" },
       },
@@ -190,6 +194,12 @@ const appConfig = defineConfig({
         },
         "tag.mood.fg": {
           value: { base: "{colors.tagMoodLightFg}", _dark: "{colors.tagMoodDarkFg}" },
+        },
+        "tag.character.bg": {
+          value: { base: "{colors.tagCharacterLightBg}", _dark: "{colors.tagCharacterDarkBg}" },
+        },
+        "tag.character.fg": {
+          value: { base: "{colors.tagCharacterLightFg}", _dark: "{colors.tagCharacterDarkFg}" },
         },
         "tag.uncategorized.bg": {
           value: {

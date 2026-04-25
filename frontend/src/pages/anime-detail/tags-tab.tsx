@@ -13,7 +13,7 @@
  */
 import { Box, Button, Flex, IconButton, Stack, Text } from "@chakra-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Search, Tag as TagIcon } from "lucide-react";
+import { ArrowLeftRight, Pencil, Plus, Search, Tag as TagIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
@@ -49,6 +49,7 @@ const CATEGORY_LABELS: Record<TagCategoryKey, string> = {
   nature: "Nature/Weather",
   location: "Location",
   mood: "Mood/Genre",
+  character: "Character",
   uncategorized: "Uncategorized",
 };
 
@@ -126,6 +127,23 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
   };
 
   const closeEdit = () => setDialog(INITIAL_EDIT);
+
+  const convertCategory = async (t: AnimeDerivedTag) => {
+    const isCharacter = tagCategoryKey(t.category) === "character";
+    const newCategory = isCharacter ? "uncategorized" : "character";
+    const label = isCharacter ? "tag" : "character";
+    try {
+      await updateTag(t.id, { name: t.name, category: newCategory });
+      toast.success("Category changed", `"${t.name}" converted to ${label}.`);
+      await queryClient.invalidateQueries({ queryKey: qk.tags.list() });
+      await queryClient.invalidateQueries({
+        queryKey: qk.anime.detail(animeId),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error("Could not convert tag", message);
+    }
+  };
 
   const submitEdit = async () => {
     if (!dialog.editing) return;
@@ -264,6 +282,22 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
                     _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
                   >
                     <Pencil size={12} aria-hidden="true" />
+                  </IconButton>
+                  <IconButton
+                    type="button"
+                    size="xs"
+                    variant="ghost"
+                    aria-label={
+                      tagCategoryKey(t.category) === "character"
+                        ? `Convert ${t.name} to tag`
+                        : `Convert ${t.name} to character`
+                    }
+                    data-testid="tags-tab-tag-convert"
+                    onClick={() => void convertCategory(t)}
+                    color="fg.secondary"
+                    _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
+                  >
+                    <ArrowLeftRight size={12} aria-hidden="true" />
                   </IconButton>
                   <IconButton
                     type="button"

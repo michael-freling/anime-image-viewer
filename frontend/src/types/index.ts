@@ -15,6 +15,7 @@ export type TagCategoryKey =
   | "nature"
   | "location"
   | "mood"
+  | "character"
   | "uncategorized";
 
 /** Entry kind, matching db.EntryType{Season,Movie,Other}. */

@@ -33,6 +33,7 @@ const CATEGORY_LABELS: Record<TagCategoryKey, string> = {
   nature: "Nature / Weather",
   location: "Location",
   mood: "Mood / Genre",
+  character: "Character",
   uncategorized: "Uncategorized",
 };
 
