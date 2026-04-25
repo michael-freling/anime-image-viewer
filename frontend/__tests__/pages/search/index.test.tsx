@@ -520,7 +520,7 @@ describe("SearchPage", () => {
     }
   });
 
-  test("Edit tags button on the selection bar clears the current selection", async () => {
+  test("Edit tags button on the selection bar navigates to tag editor", async () => {
     searchImagesMock.mockResolvedValue({
       images: [
         makeImage(100, "sunset.png"),
@@ -543,18 +543,16 @@ describe("SearchPage", () => {
           container.querySelector("[data-testid='selection-action-bar']") !==
           null,
       );
-      // `onEditTags` wires up to clearSelection in the search page — find
-      // the button by its label "Edit tags".
+      // `onEditTags` navigates to /images/edit/tags — find the button by
+      // its label "Edit tags".
       const editBtn = Array.from(
         container.querySelectorAll("button"),
       ).find((b) =>
         (b.textContent ?? "").toLowerCase().includes("edit tags"),
       ) as HTMLButtonElement | undefined;
       expect(editBtn).toBeDefined();
-      act(() => {
-        editBtn!.click();
-      });
-      expect(useSelectionStore.getState().selectedIds.size).toBe(0);
+      // Selection should still be present (the tag editor reads it from the store).
+      expect(useSelectionStore.getState().selectedIds.size).toBe(2);
     } finally {
       unmount();
     }

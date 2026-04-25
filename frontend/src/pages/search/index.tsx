@@ -28,7 +28,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 
 import { ImageViewerOverlay } from "../../components/image-viewer";
 import { PageHeader } from "../../components/layout/page-header";
@@ -76,6 +76,7 @@ function formatResultCount(count: number): string {
 }
 
 export function SearchPage(): JSX.Element {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Decode URL -> state on every render; React Router guarantees a stable
@@ -165,7 +166,7 @@ export function SearchPage(): JSX.Element {
   const selectedIds = useSelectionStore((s) => s.selectedIds);
   const toggleSelectMode = useSelectionStore((s) => s.toggleSelectMode);
   const setSelected = useSelectionStore((s) => s.setSelected);
-  const clearSelection = useSelectionStore((s) => s.clearSelection);
+
 
   const visibleIds = useMemo(
     () => filteredImages.map((img) => img.id),
@@ -294,12 +295,7 @@ export function SearchPage(): JSX.Element {
         <SelectionActionBar
           visibleIds={visibleIds}
           totalVisible={filteredImages.length}
-          onEditTags={() => {
-            // Hook point for Phase D (image-tag-editor). We keep the
-            // callback wired so the bar doesn't hide the button; the actual
-            // navigation belongs to that page.
-            clearSelection();
-          }}
+          onEditTags={() => navigate("/images/edit/tags")}
         />
       )}
 

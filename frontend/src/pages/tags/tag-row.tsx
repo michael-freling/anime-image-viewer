@@ -9,7 +9,7 @@
  * the chip click — the wireframe shows them as separate affordances.
  */
 import { Box, IconButton } from "@chakra-ui/react";
-import { Pencil, X } from "lucide-react";
+import { Pencil, Search, X } from "lucide-react";
 
 import { TagChip } from "../../components/shared/tag-chip";
 import { formatCount } from "../../lib/format";
@@ -21,6 +21,8 @@ export interface TagRowProps {
   usageCount?: number | null;
   onEdit: (tag: Tag) => void;
   onDelete: (tag: Tag) => void;
+  /** Navigate to search filtered by this tag. */
+  onSearch?: (tag: Tag) => void;
 }
 
 export function TagRow({
@@ -28,9 +30,11 @@ export function TagRow({
   usageCount,
   onEdit,
   onDelete,
+  onSearch,
 }: TagRowProps): JSX.Element {
   const handleEdit = () => onEdit(tag);
   const handleDelete = () => onDelete(tag);
+  const handleSearch = () => onSearch?.(tag);
 
   return (
     <Box
@@ -62,6 +66,23 @@ export function TagRow({
         >
           {formatCount(usageCount, "image")}
         </Box>
+      )}
+      {onSearch && (
+        <IconButton
+          type="button"
+          size="xs"
+          variant="ghost"
+          aria-label={`Search images with tag ${tag.name}`}
+          data-testid="tag-row-search"
+          onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
+            event.stopPropagation();
+            handleSearch();
+          }}
+          color="fg.secondary"
+          _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
+        >
+          <Search size={12} aria-hidden="true" />
+        </IconButton>
       )}
       <IconButton
         type="button"

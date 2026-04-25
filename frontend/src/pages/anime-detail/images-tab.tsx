@@ -21,7 +21,7 @@
 import { Box, Button, Flex, Stack } from "@chakra-ui/react";
 import { ImageOff, Upload, CheckSquare } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { useParams, useSearchParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 
 import { ImageViewerOverlay } from "../../components/image-viewer";
 import { EmptyState } from "../../components/shared/empty-state";
@@ -75,6 +75,7 @@ function entryLabel(entry: Entry): string {
 }
 
 export function ImagesTab(): JSX.Element {
+  const navigate = useNavigate();
   const { animeId: rawId } = useParams<{ animeId: string }>();
   const animeId = parseAnimeId(rawId);
 
@@ -202,6 +203,7 @@ export function ImagesTab(): JSX.Element {
       <SelectionActionBar
         visibleIds={visibleIds}
         totalVisible={filteredImages.length}
+        onEditTags={() => navigate("/images/edit/tags")}
       />
 
       {/* Entry sub-filter row (ui-design §3.2.1). */}

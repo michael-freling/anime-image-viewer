@@ -28,6 +28,7 @@ export interface CategoryPanelProps {
   onAddInCategory: (key: TagCategoryKey) => void;
   onEditTag: (tag: Tag) => void;
   onDeleteTag: (tag: Tag) => void;
+  onSearchTag?: (tag: Tag) => void;
 }
 
 export function CategoryPanel({
@@ -38,6 +39,7 @@ export function CategoryPanel({
   onAddInCategory,
   onEditTag,
   onDeleteTag,
+  onSearchTag,
 }: CategoryPanelProps): JSX.Element {
   const label = CATEGORY_LABELS[categoryKey];
   const color = TAG_CATEGORY_TOKENS[categoryKey].fg;
@@ -91,6 +93,7 @@ export function CategoryPanel({
               usageCount={usageByTagId.get(tag.id) ?? null}
               onEdit={onEditTag}
               onDelete={onDeleteTag}
+              onSearch={onSearchTag}
             />
           ))}
         </Flex>

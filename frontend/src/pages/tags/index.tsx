@@ -23,6 +23,7 @@ import { Box, Button, Stack } from "@chakra-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, TagIcon } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 
 import { PageHeader } from "../../components/layout/page-header";
 import { EmptyState } from "../../components/shared/empty-state";
@@ -95,6 +96,7 @@ function bucketByCategory(tags: Tag[]): Map<TagCategoryKey, Tag[]> {
 }
 
 export function TagManagementPage(): JSX.Element {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const tagsQuery = useTags();
 
@@ -318,6 +320,7 @@ export function TagManagementPage(): JSX.Element {
             onAddInCategory={openCreate}
             onEditTag={openEdit}
             onDeleteTag={openDelete}
+            onSearchTag={(tag) => navigate(`/search?tag=${tag.id}`)}
           />
         ))}
       </Stack>

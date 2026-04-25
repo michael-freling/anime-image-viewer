@@ -26,7 +26,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
 import { EmptyState } from "../../components/shared/empty-state";
@@ -121,8 +121,13 @@ function EntryFormDialog({
   const updateType = useUpdateEntryType();
   const updateAiring = useUpdateEntryAiring();
 
-  // Reset form state when the dialog opens with a different entry.
-  // We rely on the parent re-mounting this component with a key.
+  // Reset form state when the dialog opens or the entry changes.
+  useEffect(() => {
+    if (open) {
+      setForm(isEdit ? formStateFromEntry(editingEntry) : emptyFormState());
+      setSaving(false);
+    }
+  }, [open, editingEntry, isEdit]);
 
   const handleChange = (field: keyof EntryFormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));

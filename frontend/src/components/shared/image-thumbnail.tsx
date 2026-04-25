@@ -91,6 +91,7 @@ export function ImageThumbnail({
       height={height !== undefined ? `${height}px` : "auto"}
       borderRadius="12px"
       overflow="hidden"
+      bg="bg.surfaceAlt"
       cursor={onClick ? "pointer" : "default"}
       // Selected and pending variants layer their tints on top of the img.
       boxShadow={
@@ -126,7 +127,7 @@ export function ImageThumbnail({
           style={{
             width: "100%",
             height: "100%",
-            objectFit: "cover",
+            objectFit: "contain",
             display: "block",
           }}
         />
