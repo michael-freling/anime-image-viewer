@@ -288,7 +288,18 @@ export function SearchPage(): JSX.Element {
   );
 
   return (
-    <Box data-testid="search-page">
+    <Box
+      data-testid="search-page"
+      display="flex"
+      flexDirection="column"
+      overflow="hidden"
+      css={{
+        height: "100vh",
+        "@media (max-width: 639px)": {
+          height: "calc(100vh - 72px)",
+        },
+      }}
+    >
       <PageHeader title="Search" actions={selectToggleButton} />
 
       {selectMode && (
@@ -346,6 +357,10 @@ export function SearchPage(): JSX.Element {
         px={{ base: "4", md: "6" }}
         py="4"
         ref={gridRef}
+        flex="1"
+        minHeight="0"
+        display="flex"
+        flexDirection="column"
       >
         {hasError && (
           <ErrorAlert
