@@ -10,8 +10,9 @@
 import { ChakraProvider } from "@chakra-ui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { ThemeProvider } from "next-themes";
-import { ReactNode, useState } from "react";
+import { ThemeProvider, useTheme } from "next-themes";
+import { ReactNode, useEffect, useState } from "react";
+import { useUIStore } from "../stores/ui-store";
 import system from "../styles/theme";
 
 interface AppProvidersProps {
@@ -35,6 +36,19 @@ function createQueryClient(): QueryClient {
   });
 }
 
+/**
+ * Syncs the Zustand theme preference to next-themes so the actual DOM
+ * class/attribute updates when the user switches appearance in Settings.
+ */
+function ThemeSync(): null {
+  const theme = useUIStore((s) => s.theme);
+  const { setTheme } = useTheme();
+  useEffect(() => {
+    setTheme(theme);
+  }, [theme, setTheme]);
+  return null;
+}
+
 export function AppProviders({ children }: AppProvidersProps): JSX.Element {
   // useState ensures the QueryClient is stable across renders without making
   // it a module-level singleton (friendlier for tests and React strict mode).
@@ -42,6 +56,7 @@ export function AppProviders({ children }: AppProvidersProps): JSX.Element {
 
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+      <ThemeSync />
       <ChakraProvider value={system}>
         <QueryClientProvider client={queryClient}>
           {children}
