@@ -628,7 +628,7 @@ describe("EntriesTab", () => {
             name: "Season 1",
             type: "season",
             entryNumber: 1,
-            airingSeason: "Spring",
+            airingSeason: "SPRING",
             airingYear: 2024,
             imageCount: 5,
           }),
@@ -1093,7 +1093,7 @@ describe("EntriesTab", () => {
           window.HTMLSelectElement.prototype,
           "value",
         )!.set!;
-        nativeSelectSetter.call(airingSeasonSelect, "Spring");
+        nativeSelectSetter.call(airingSeasonSelect, "SPRING");
         airingSeasonSelect.dispatchEvent(
           new Event("change", { bubbles: true }),
         );
@@ -1122,7 +1122,7 @@ describe("EntriesTab", () => {
       await waitFor(() => updateEntryAiringInfoMock.mock.calls.length > 0);
       expect(updateEntryAiringInfoMock).toHaveBeenCalledWith(
         1,
-        "Spring",
+        "SPRING",
         2025,
       );
       expect(renameEntryMock).not.toHaveBeenCalled();

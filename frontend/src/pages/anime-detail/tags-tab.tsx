@@ -11,10 +11,10 @@
  * "Add tag" opens a picker dialog in a later phase; for Phase D2 the button
  * is wired to call `onAddTag?.()` which consumers can pass in.
  */
-import { Box, Button, Flex, Stack, Text } from "@chakra-ui/react";
-import { Plus, Tag as TagIcon } from "lucide-react";
+import { Box, Button, Flex, IconButton, Stack, Text } from "@chakra-ui/react";
+import { Plus, Search, Tag as TagIcon } from "lucide-react";
 import { useMemo } from "react";
-import { useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 
 import { CategorySection } from "../../components/shared/category-section";
 import { EmptyState } from "../../components/shared/empty-state";
@@ -79,6 +79,7 @@ export interface TagsTabProps {
 }
 
 export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
+  const navigate = useNavigate();
   const { animeId: rawId } = useParams<{ animeId: string }>();
   const animeId = parseAnimeId(rawId);
   const { data, isLoading, isError, error, refetch } = useAnimeDetail(animeId);
@@ -170,13 +171,32 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
                 <Flex
                   key={t.id}
                   align="center"
-                  gap="2"
+                  gap="8px"
+                  px="2"
+                  py="1"
+                  borderRadius="md"
+                  bg="bg.surface"
+                  borderWidth="1px"
+                  borderColor="border"
+                  _hover={{ borderColor: "primary" }}
                   data-testid="tags-tab-tag-row"
                 >
                   <TagChip tag={asTag(t)} active />
                   <Text fontSize="xs" color="fg.muted">
                     {t.imageCount}
                   </Text>
+                  <IconButton
+                    type="button"
+                    size="xs"
+                    variant="ghost"
+                    aria-label={`Search images with tag ${t.name}`}
+                    data-testid="tags-tab-tag-search"
+                    onClick={() => navigate(`/search?tag=${t.id}`)}
+                    color="fg.secondary"
+                    _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
+                  >
+                    <Search size={12} aria-hidden="true" />
+                  </IconButton>
                 </Flex>
               ))}
             </Flex>

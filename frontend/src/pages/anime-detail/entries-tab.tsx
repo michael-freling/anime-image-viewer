@@ -62,7 +62,13 @@ const ENTRY_TYPE_OPTIONS: { value: EntryType; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
-const AIRING_SEASON_OPTIONS = ["", "Spring", "Summer", "Fall", "Winter"];
+const AIRING_SEASON_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "(none)" },
+  { value: "SPRING", label: "Spring" },
+  { value: "SUMMER", label: "Summer" },
+  { value: "FALL", label: "Fall" },
+  { value: "WINTER", label: "Winter" },
+];
 
 // ---------------------------------------------------------------------------
 // EntryFormDialog -- shared dialog for create and edit
@@ -250,8 +256,9 @@ function EntryFormDialog({
                       borderStyle: "solid",
                       borderRadius: "6px",
                       fontSize: "14px",
-                      background: "inherit",
-                      color: "inherit",
+                      background: "var(--chakra-colors-bg-surface, #1e1e2e)",
+                      color: "var(--chakra-colors-fg, #e0e0e0)",
+                      borderColor: "var(--chakra-colors-border, #333)",
                     }}
                   >
                     {ENTRY_TYPE_OPTIONS.map((opt) => (
@@ -309,13 +316,14 @@ function EntryFormDialog({
                       borderStyle: "solid",
                       borderRadius: "6px",
                       fontSize: "14px",
-                      background: "inherit",
-                      color: "inherit",
+                      background: "var(--chakra-colors-bg-surface, #1e1e2e)",
+                      color: "var(--chakra-colors-fg, #e0e0e0)",
+                      borderColor: "var(--chakra-colors-border, #333)",
                     }}
                   >
-                    {AIRING_SEASON_OPTIONS.map((s) => (
-                      <option key={s} value={s}>
-                        {s || "(none)"}
+                    {AIRING_SEASON_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
                       </option>
                     ))}
                   </select>
