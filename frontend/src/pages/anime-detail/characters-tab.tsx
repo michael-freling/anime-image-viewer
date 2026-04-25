@@ -1,28 +1,63 @@
 /**
- * CharactersTab — grid of AniList-linked characters for this anime.
+ * CharactersTab — characters (tags with category="character") for this anime.
  *
- * Spec: ui-design.md §3.2.3 "Characters tab".
- *
- * NOTE ON DATA SOURCE: the backend does not yet expose a first-class
- * `AnimeService.GetAnimeCharacters(animeId)` endpoint. Until one lands we
- * render an informational empty state with an "Add character" action so the
- * surface ships and testability stays sharp. Reads live behind a safe
- * default (empty list) so renders stay side-effect free.
+ * Characters are stored as regular tags with `category: "character"`. They
+ * are fetched via `useAnimeDetail` (same as the Tags tab) and filtered by
+ * category. Each character card shows the name, image count, and actions
+ * to search images, edit, or convert back to a regular tag.
  */
-import { Box, Button, Flex, SimpleGrid, Text } from "@chakra-ui/react";
-import { Film, UserPlus } from "lucide-react";
-import { useState } from "react";
+import { Box, Button, Flex, IconButton, SimpleGrid, Text } from "@chakra-ui/react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ArrowLeftRight, Pencil, Search, UserPlus, Users } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router";
 
 import { EmptyState } from "../../components/shared/empty-state";
+import { ErrorAlert } from "../../components/shared/error-alert";
+import { RowSkeleton } from "../../components/shared/loading-skeleton";
 import { SearchBar } from "../../components/shared/search-bar";
-import type { Character } from "../../types";
+import { toast } from "../../components/ui/toaster";
+import { useAnimeDetail } from "../../hooks/use-anime-detail";
+import { tagCategoryKey } from "../../lib/constants";
+import { qk } from "../../lib/query-keys";
+import type { AnimeDerivedTag } from "../../types";
+import { TagDialog } from "../tags/tag-dialog";
+import type { TagFormValues } from "../tags/tag-form";
+import { updateTag } from "../tags/tag-mutations";
 
-export interface CharactersTabProps {
-  /** Optional override used by tests; defaults to an empty list. */
-  characters?: Character[];
+function parseAnimeId(raw: string | undefined): number {
+  if (!raw) return 0;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-function CharacterCard({ character }: { character: Character }): JSX.Element {
+interface EditDialogState {
+  open: boolean;
+  editing: AnimeDerivedTag | null;
+  values: TagFormValues;
+  error: string | null;
+  submitting: boolean;
+}
+
+const INITIAL_EDIT: EditDialogState = {
+  open: false,
+  editing: null,
+  values: { name: "", category: "character", parentId: null },
+  error: null,
+  submitting: false,
+};
+
+function CharacterCard({
+  character,
+  onEdit,
+  onSearch,
+  onConvertToTag,
+}: {
+  character: AnimeDerivedTag;
+  onEdit: () => void;
+  onSearch: () => void;
+  onConvertToTag: () => void;
+}): JSX.Element {
   return (
     <Box
       data-testid="character-card"
@@ -43,27 +78,75 @@ function CharacterCard({ character }: { character: Character }): JSX.Element {
         alignItems="center"
         justifyContent="center"
       >
-        <Film size={32} aria-hidden="true" />
+        <Users size={32} aria-hidden="true" />
       </Box>
       <Box p="3">
         <Text fontSize="sm" fontWeight="600" color="fg" lineClamp={1}>
           {character.name}
         </Text>
-        <Text fontSize="xs" color="fg.secondary" mt="1">
-          {character.role || "Character"}
-        </Text>
         <Text fontSize="xs" color="fg.muted" mt="1">
           {character.imageCount} image{character.imageCount === 1 ? "" : "s"}
         </Text>
+        <Flex mt="2" gap="1">
+          <IconButton
+            type="button"
+            size="xs"
+            variant="ghost"
+            aria-label={`Edit ${character.name}`}
+            data-testid="character-card-edit"
+            onClick={onEdit}
+            color="fg.secondary"
+            _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
+          >
+            <Pencil size={12} aria-hidden="true" />
+          </IconButton>
+          <IconButton
+            type="button"
+            size="xs"
+            variant="ghost"
+            aria-label={`Convert ${character.name} to tag`}
+            data-testid="character-card-convert"
+            onClick={onConvertToTag}
+            color="fg.secondary"
+            _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
+          >
+            <ArrowLeftRight size={12} aria-hidden="true" />
+          </IconButton>
+          <IconButton
+            type="button"
+            size="xs"
+            variant="ghost"
+            aria-label={`Search images with ${character.name}`}
+            data-testid="character-card-search"
+            onClick={onSearch}
+            color="fg.secondary"
+            _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
+          >
+            <Search size={12} aria-hidden="true" />
+          </IconButton>
+        </Flex>
       </Box>
     </Box>
   );
 }
 
-export function CharactersTab({
-  characters = [],
-}: CharactersTabProps = {}): JSX.Element {
+export function CharactersTab(): JSX.Element {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { animeId: rawId } = useParams<{ animeId: string }>();
+  const animeId = parseAnimeId(rawId);
+  const { data, isLoading, isError, error, refetch } = useAnimeDetail(animeId);
+
+  const characters = useMemo(
+    () =>
+      (data?.tags ?? []).filter(
+        (t) => tagCategoryKey(t.category) === "character",
+      ),
+    [data],
+  );
+
   const [filter, setFilter] = useState("");
+  const [dialog, setDialog] = useState<EditDialogState>(INITIAL_EDIT);
 
   const filtered =
     filter.trim().length === 0
@@ -72,24 +155,104 @@ export function CharactersTab({
           c.name.toLowerCase().includes(filter.trim().toLowerCase()),
         );
 
+  const openEdit = (t: AnimeDerivedTag) => {
+    setDialog({
+      open: true,
+      editing: t,
+      values: {
+        name: t.name,
+        category: tagCategoryKey(t.category),
+        parentId: null,
+      },
+      error: null,
+      submitting: false,
+    });
+  };
+
+  const closeEdit = () => setDialog(INITIAL_EDIT);
+
+  const submitEdit = async () => {
+    if (!dialog.editing) return;
+    const values = dialog.values;
+    if (values.name.trim() === "") {
+      setDialog((s) => ({ ...s, error: "Name is required." }));
+      return;
+    }
+    setDialog((s) => ({ ...s, submitting: true, error: null }));
+    try {
+      await updateTag(dialog.editing.id, {
+        name: values.name.trim(),
+        category: values.category,
+        parentId: values.parentId ?? undefined,
+      });
+      toast.success("Character updated", `"${values.name.trim()}" saved.`);
+      await queryClient.invalidateQueries({ queryKey: qk.tags.list() });
+      await queryClient.invalidateQueries({
+        queryKey: qk.anime.detail(animeId),
+      });
+      closeEdit();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setDialog((s) => ({ ...s, submitting: false, error: message }));
+      toast.error("Could not save", message);
+    }
+  };
+
+  const convertToTag = async (t: AnimeDerivedTag) => {
+    try {
+      await updateTag(t.id, { name: t.name, category: "uncategorized" });
+      toast.success("Converted to tag", `"${t.name}" moved to Tags.`);
+      await queryClient.invalidateQueries({ queryKey: qk.tags.list() });
+      await queryClient.invalidateQueries({
+        queryKey: qk.anime.detail(animeId),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error("Could not convert", message);
+    }
+  };
+
+  if (isError) {
+    return (
+      <Box p="4" data-testid="characters-tab">
+        <ErrorAlert
+          title="Could not load characters"
+          message={error instanceof Error ? error.message : String(error ?? "")}
+          onRetry={() => {
+            void refetch();
+          }}
+        />
+      </Box>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <Box p="4" data-testid="characters-tab-loading">
+        <RowSkeleton lines={3} />
+      </Box>
+    );
+  }
+
   if (characters.length === 0) {
     return (
       <Box p="4" data-testid="characters-tab">
         <EmptyState
-          icon={Film}
-          title="No characters linked yet"
-          description="Link this anime to AniList or manually add characters to populate this tab."
+          icon={Users}
+          title="No characters yet"
+          description="Convert a tag to a character on the Tags tab, or import from AniList."
           action={
             <Button
               type="button"
               size="sm"
               variant="solid"
-              data-testid="characters-tab-add-action"
+              onClick={() => navigate("../tags", { relative: "path" })}
+              data-testid="characters-tab-go-tags"
             >
               <Box as="span" aria-hidden="true" display="inline-flex" mr="2">
                 <UserPlus size={14} />
               </Box>
-              Add character
+              Go to Tags
             </Button>
           }
         />
@@ -108,17 +271,6 @@ export function CharactersTab({
             size="md"
           />
         </Box>
-        <Button
-          type="button"
-          size="sm"
-          variant="solid"
-          data-testid="characters-tab-add-action"
-        >
-          <Box as="span" aria-hidden="true" display="inline-flex" mr="2">
-            <UserPlus size={14} />
-          </Box>
-          Add character
-        </Button>
       </Flex>
       <SimpleGrid
         columns={{ base: 2, sm: 3, md: 4, lg: 5 }}
@@ -126,9 +278,32 @@ export function CharactersTab({
         data-testid="characters-grid"
       >
         {filtered.map((character) => (
-          <CharacterCard key={character.id} character={character} />
+          <CharacterCard
+            key={character.id}
+            character={character}
+            onEdit={() => openEdit(character)}
+            onSearch={() => navigate(`/search?tag=${character.id}`)}
+            onConvertToTag={() => void convertToTag(character)}
+          />
         ))}
       </SimpleGrid>
+
+      <TagDialog
+        open={dialog.open}
+        onClose={closeEdit}
+        title={
+          dialog.editing
+            ? `Edit character — ${dialog.editing.name}`
+            : "Edit character"
+        }
+        values={dialog.values}
+        onChange={(values) => setDialog((s) => ({ ...s, values }))}
+        parentOptions={[]}
+        submitLabel="Save"
+        onSubmit={submitEdit}
+        submitting={dialog.submitting}
+        error={dialog.error}
+      />
     </Box>
   );
 }

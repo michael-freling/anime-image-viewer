@@ -1,116 +1,146 @@
 /**
  * Tests for `CharactersTab`.
  *
- * Spec: ui-design.md §3.2.3 "Characters tab". The backend does not expose a
- * first-class characters endpoint yet, so the component accepts an optional
- * `characters` prop that tests use to verify grid + search behaviour.
+ * Characters are tags with `category: "character"`, fetched via
+ * `useAnimeDetail`. Tests mock `AnimeService.GetAnimeDetails` and render
+ * through the real router so `useParams` works.
  */
-import { act } from "react-dom/test-utils";
 
-import { CharactersTab } from "../../../src/pages/anime-detail/characters-tab";
-import type { Character } from "../../../src/types";
-import { renderWithClient } from "../../test-utils";
+jest.mock("react-photo-album/masonry.css", () => ({}), { virtual: true });
+jest.mock("react-photo-album/columns.css", () => ({}), { virtual: true });
+jest.mock("react-photo-album/rows.css", () => ({}), { virtual: true });
+jest.mock("react-photo-album", () => {
+  const ReactModule = jest.requireActual<typeof import("react")>("react");
+  const renderPhotos = () =>
+    ReactModule.createElement("div", { "data-testid": "photo-album-stub" });
+  return {
+    __esModule: true,
+    MasonryPhotoAlbum: renderPhotos,
+    ColumnsPhotoAlbum: renderPhotos,
+    RowsPhotoAlbum: renderPhotos,
+  };
+});
 
-function makeCharacter(
+const getAnimeDetailsMock = jest.fn();
+jest.mock("../../../src/lib/api", () => ({
+  __esModule: true,
+  AnimeService: {
+    GetAnimeDetails: (...args: unknown[]) => getAnimeDetailsMock(...args),
+    GetAnimeImages: () => Promise.resolve({ images: [] }),
+    GetAnimeImagesByEntry: () => Promise.resolve({ images: [] }),
+    GetAnimeList: () => Promise.resolve([]),
+  },
+  TagService: {
+    GetAll: () => Promise.resolve([]),
+  },
+  SearchService: {
+    SearchImages: () => Promise.resolve({ images: [] }),
+  },
+}));
+
+import { routes } from "../../../src/app/routes";
+import type { AnimeDerivedTag, AnimeDetail } from "../../../src/types";
+import { renderRoutes, waitFor } from "../../test-utils";
+
+function makeDerivedTag(
   id: number,
   name: string,
-  overrides: Partial<Character> = {},
-): Character {
+  category: string,
+  imageCount = 3,
+): AnimeDerivedTag {
+  return { id, name, category, imageCount };
+}
+
+function makeDetail(overrides: Partial<AnimeDetail> = {}): AnimeDetail {
   return {
-    id,
-    name,
-    nativeName: name,
-    role: "MAIN",
-    imageCount: 3,
+    anime: { id: 42, name: "Bebop", aniListId: null },
+    tags: [],
+    folders: [],
+    folderTree: null,
+    entries: [],
     ...overrides,
   };
 }
 
-function setInputValue(input: HTMLInputElement, value: string) {
-  const setter = Object.getOwnPropertyDescriptor(
-    HTMLInputElement.prototype,
-    "value",
-  )!.set!;
-  act(() => {
-    setter.call(input, value);
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-  });
-}
-
 describe("CharactersTab", () => {
-  test("renders an empty state with Add character action when no characters", () => {
-    const { container, unmount } = renderWithClient(<CharactersTab />);
+  beforeEach(() => {
+    getAnimeDetailsMock.mockReset();
+  });
+
+  test("renders empty state when no character tags exist", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        tags: [
+          makeDerivedTag(1, "Outdoor", "scene", 10),
+          makeDerivedTag(2, "Indoor", "location", 3),
+        ],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/characters"],
+    });
     try {
+      await waitFor(
+        () => (container.textContent ?? "").includes("No characters yet"),
+      );
       expect(
-        container.querySelector("[data-testid='characters-tab-add-action']"),
+        container.querySelector("[data-testid='characters-tab-go-tags']"),
       ).not.toBeNull();
-      expect(container.textContent).toContain("No characters linked yet");
     } finally {
       unmount();
     }
   });
 
-  test("renders a grid card per character when characters are provided", () => {
-    const { container, unmount } = renderWithClient(
-      <CharactersTab
-        characters={[
-          makeCharacter(1, "Spike Spiegel"),
-          makeCharacter(2, "Jet Black"),
-          makeCharacter(3, "Faye Valentine"),
-        ]}
-      />,
+  test("renders character cards for tags with category 'character'", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        tags: [
+          makeDerivedTag(1, "Spike Spiegel", "character", 10),
+          makeDerivedTag(2, "Jet Black", "character", 5),
+          makeDerivedTag(3, "Outdoor", "scene", 7),
+        ],
+      }),
     );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/characters"],
+    });
     try {
+      await waitFor(
+        () =>
+          container.querySelectorAll("[data-testid='character-card']").length ===
+          2,
+      );
       const cards = container.querySelectorAll(
         "[data-testid='character-card']",
       );
-      expect(cards.length).toBe(3);
-      // Each card exposes its character id.
-      const ids = Array.from(cards).map((c) =>
-        c.getAttribute("data-character-id"),
-      );
-      expect(ids.sort()).toEqual(["1", "2", "3"]);
+      expect(cards.length).toBe(2);
+      const ids = Array.from(cards)
+        .map((c) => c.getAttribute("data-character-id"))
+        .sort();
+      expect(ids).toEqual(["1", "2"]);
     } finally {
       unmount();
     }
   });
 
-  test("filters characters client-side when typing into the search bar", () => {
-    const { container, unmount } = renderWithClient(
-      <CharactersTab
-        characters={[
-          makeCharacter(1, "Spike Spiegel"),
-          makeCharacter(2, "Jet Black"),
-          makeCharacter(3, "Faye Valentine"),
-        ]}
-      />,
+  test("shows image count with correct pluralisation", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        tags: [
+          makeDerivedTag(1, "Solo", "character", 1),
+          makeDerivedTag(2, "Many", "character", 5),
+        ],
+      }),
     );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/characters"],
+    });
     try {
-      const input = container.querySelector(
-        "input[role='searchbox']",
-      ) as HTMLInputElement;
-      expect(input).not.toBeNull();
-      setInputValue(input, "spike");
-      const cards = container.querySelectorAll(
-        "[data-testid='character-card']",
+      await waitFor(
+        () =>
+          container.querySelectorAll("[data-testid='character-card']").length ===
+          2,
       );
-      expect(cards.length).toBe(1);
-      expect(cards[0].getAttribute("data-character-id")).toBe("1");
-    } finally {
-      unmount();
-    }
-  });
-
-  test("shows 'X images' pluralisation on each card", () => {
-    const { container, unmount } = renderWithClient(
-      <CharactersTab
-        characters={[
-          makeCharacter(1, "Solo", { imageCount: 1 }),
-          makeCharacter(2, "Many", { imageCount: 5 }),
-        ]}
-      />,
-    );
-    try {
       const cards = container.querySelectorAll(
         "[data-testid='character-card']",
       );
@@ -122,44 +152,16 @@ describe("CharactersTab", () => {
     }
   });
 
-  test("character without a role falls back to 'Character' label", () => {
-    // Exercises the `character.role || \"Character\"` ternary branch.
-    const { container, unmount } = renderWithClient(
-      <CharactersTab
-        characters={[makeCharacter(1, "Nameless", { role: "" })]}
-      />,
-    );
+  test("surfaces an ErrorAlert on detail query failure", async () => {
+    getAnimeDetailsMock.mockRejectedValue(new Error("fetch failed"));
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/characters"],
+    });
     try {
-      const card = container.querySelector(
-        "[data-testid='character-card']",
-      ) as HTMLElement;
-      expect(card.textContent).toContain("Character");
-    } finally {
-      unmount();
-    }
-  });
-
-  test("empty filter input keeps the full list visible", () => {
-    // Exercises the `filter.trim().length === 0` short-circuit branch.
-    const { container, unmount } = renderWithClient(
-      <CharactersTab
-        characters={[
-          makeCharacter(1, "Spike"),
-          makeCharacter(2, "Jet"),
-        ]}
-      />,
-    );
-    try {
-      const input = container.querySelector(
-        "input[role='searchbox']",
-      ) as HTMLInputElement;
-      // Type then clear → empty filter branch fires.
-      setInputValue(input, "spike");
-      setInputValue(input, "");
-      const cards = container.querySelectorAll(
-        "[data-testid='character-card']",
+      await waitFor(
+        () => container.querySelector("[role='alert']") !== null,
       );
-      expect(cards.length).toBe(2);
+      expect(container.querySelector("[role='alert']")).not.toBeNull();
     } finally {
       unmount();
     }

@@ -97,7 +97,8 @@ describe("app routes", () => {
       {
         url: "/anime/42/characters",
         check: (el) =>
-          el.querySelector("[data-testid='characters-tab']") !== null,
+          el.querySelector("[data-testid='characters-tab']") !== null ||
+          el.querySelector("[data-testid='characters-tab-loading']") !== null,
       },
       {
         url: "/anime/42/tags",
