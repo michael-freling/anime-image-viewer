@@ -57,7 +57,7 @@ function Harness(props: HarnessProps) {
     ];
     for (const [id, left, top, w, h] of rects) {
       const node = container.querySelector(
-        `[data-image-id="${id}"]`,
+        `[data-file-id="${id}"]`,
       ) as HTMLElement;
       node.getBoundingClientRect = () =>
         ({
@@ -77,9 +77,9 @@ function Harness(props: HarnessProps) {
 
   return (
     <div ref={containerRef} data-testid="grid">
-      <div data-image-id="1">img1</div>
-      <div data-image-id="2">img2</div>
-      <div data-image-id="3">img3</div>
+      <div data-file-id="1">img1</div>
+      <div data-file-id="2">img2</div>
+      <div data-file-id="3">img3</div>
       <RubberBandOverlay
         containerRef={containerRef}
         onSelectionChange={props.onSelectionChange ?? (() => undefined)}
@@ -339,12 +339,12 @@ describe("RubberBandOverlay", () => {
     r.unmount();
   });
 
-  test("fallback hit-test (no getIdAtPoint): clicking on a [data-image-id] tile bails", () => {
+  test("fallback hit-test (no getIdAtPoint): clicking on a [data-file-id] tile bails", () => {
     // Without `getIdAtPoint`, the overlay falls back to the DOM-walk path:
-    // `event.target !== container && targetEl.closest('[data-image-id]')`.
+    // `event.target !== container && targetEl.closest('[data-file-id]')`.
     const r = mount();
     const tile = r.grid().querySelector(
-      "[data-image-id='1']",
+      "[data-file-id='1']",
     ) as HTMLElement;
     act(() => {
       // Dispatch on the tile so event.target is the tile, not the container.

@@ -138,9 +138,9 @@ export function RubberBandOverlay({
     const container = containerRef.current;
     if (!container) return;
     const next = new Map<number, HTMLElement>();
-    const nodes = container.querySelectorAll<HTMLElement>("[data-image-id]");
+    const nodes = container.querySelectorAll<HTMLElement>("[data-file-id]");
     nodes.forEach((node) => {
-      const raw = node.getAttribute("data-image-id");
+      const raw = node.getAttribute("data-file-id");
       if (!raw) return;
       const id = Number(raw);
       if (Number.isFinite(id)) next.set(id, node);
@@ -163,7 +163,7 @@ export function RubberBandOverlay({
         // Fallback: treat anything except the container itself as a tile.
         if (event.target !== container) {
           const targetEl = event.target as HTMLElement | null;
-          if (targetEl && targetEl.closest("[data-image-id]")) return;
+          if (targetEl && targetEl.closest("[data-file-id]")) return;
         }
       }
 

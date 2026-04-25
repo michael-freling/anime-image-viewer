@@ -86,7 +86,7 @@ const METHOD_HANDLERS: Record<number, MockHandler> = {
   // TagService.GetAll
   3891498849: () => [],
   // SearchService.SearchImages
-  1851088456: () => ({ images: [] }),
+  2245933281: () => MOCK_IMAGES,
   // ConfigFrontendService.GetConfig
   2615979430: () => ({ imageRootDirectory: "/mock/images" }),
   // BackupFrontendService.ListBackups

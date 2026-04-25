@@ -12,8 +12,9 @@
  * is wired to call `onAddTag?.()` which consumers can pass in.
  */
 import { Box, Button, Flex, IconButton, Stack, Text } from "@chakra-ui/react";
-import { Plus, Search, Tag as TagIcon } from "lucide-react";
-import { useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Pencil, Plus, Search, Tag as TagIcon } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
 import { CategorySection } from "../../components/shared/category-section";
@@ -21,12 +22,17 @@ import { EmptyState } from "../../components/shared/empty-state";
 import { ErrorAlert } from "../../components/shared/error-alert";
 import { TagChipSkeleton } from "../../components/shared/loading-skeleton";
 import { TagChip } from "../../components/shared/tag-chip";
+import { toast } from "../../components/ui/toaster";
 import { useAnimeDetail } from "../../hooks/use-anime-detail";
 import {
   TAG_CATEGORY_ORDER,
   tagCategoryKey,
 } from "../../lib/constants";
+import { qk } from "../../lib/query-keys";
 import type { AnimeDerivedTag, Tag, TagCategoryKey } from "../../types";
+import { TagDialog } from "../tags/tag-dialog";
+import type { TagFormValues } from "../tags/tag-form";
+import { updateTag } from "../tags/tag-mutations";
 
 function parseAnimeId(raw: string | undefined): number {
   if (!raw) return 0;
@@ -78,13 +84,75 @@ export interface TagsTabProps {
   onAddTag?: () => void;
 }
 
+interface EditDialogState {
+  open: boolean;
+  editing: AnimeDerivedTag | null;
+  values: TagFormValues;
+  error: string | null;
+  submitting: boolean;
+}
+
+const INITIAL_EDIT: EditDialogState = {
+  open: false,
+  editing: null,
+  values: { name: "", category: "uncategorized", parentId: null },
+  error: null,
+  submitting: false,
+};
+
 export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { animeId: rawId } = useParams<{ animeId: string }>();
   const animeId = parseAnimeId(rawId);
   const { data, isLoading, isError, error, refetch } = useAnimeDetail(animeId);
 
   const grouped = useMemo(() => groupTags(data?.tags ?? []), [data]);
+
+  const [dialog, setDialog] = useState<EditDialogState>(INITIAL_EDIT);
+
+  const openEdit = (t: AnimeDerivedTag) => {
+    setDialog({
+      open: true,
+      editing: t,
+      values: {
+        name: t.name,
+        category: tagCategoryKey(t.category),
+        parentId: null,
+      },
+      error: null,
+      submitting: false,
+    });
+  };
+
+  const closeEdit = () => setDialog(INITIAL_EDIT);
+
+  const submitEdit = async () => {
+    if (!dialog.editing) return;
+    const values = dialog.values;
+    if (values.name.trim() === "") {
+      setDialog((s) => ({ ...s, error: "Tag name is required." }));
+      return;
+    }
+    setDialog((s) => ({ ...s, submitting: true, error: null }));
+    try {
+      await updateTag(dialog.editing.id, {
+        name: values.name.trim(),
+        category: values.category,
+        parentId: values.parentId ?? undefined,
+      });
+      toast.success("Tag updated", `"${values.name.trim()}" saved.`);
+      await queryClient.invalidateQueries({ queryKey: qk.tags.list() });
+      await queryClient.invalidateQueries({
+        queryKey: qk.anime.detail(animeId),
+      });
+      closeEdit();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setDialog((s) => ({ ...s, submitting: false, error: message }));
+      toast.error("Could not save tag", message);
+    }
+  };
 
   if (isError) {
     return (
@@ -189,6 +257,18 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
                     type="button"
                     size="xs"
                     variant="ghost"
+                    aria-label={`Edit tag ${t.name}`}
+                    data-testid="tags-tab-tag-edit"
+                    onClick={() => openEdit(t)}
+                    color="fg.secondary"
+                    _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
+                  >
+                    <Pencil size={12} aria-hidden="true" />
+                  </IconButton>
+                  <IconButton
+                    type="button"
+                    size="xs"
+                    variant="ghost"
                     aria-label={`Search images with tag ${t.name}`}
                     data-testid="tags-tab-tag-search"
                     onClick={() => navigate(`/search?tag=${t.id}`)}
@@ -203,6 +283,23 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
           </CategorySection>
         ))}
       </Stack>
+
+      <TagDialog
+        open={dialog.open}
+        onClose={closeEdit}
+        title={
+          dialog.editing
+            ? `Edit tag — ${dialog.editing.name}`
+            : "Edit tag"
+        }
+        values={dialog.values}
+        onChange={(values) => setDialog((s) => ({ ...s, values }))}
+        parentOptions={[]}
+        submitLabel="Save"
+        onSubmit={submitEdit}
+        submitting={dialog.submitting}
+        error={dialog.error}
+      />
     </Box>
   );
 }
