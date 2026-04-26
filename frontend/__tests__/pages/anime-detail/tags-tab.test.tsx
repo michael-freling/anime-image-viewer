@@ -476,62 +476,32 @@ describe("TagsTab", () => {
     }
   });
 
-  test("convert button toggles character to uncategorized", async () => {
+  test("character tags are not shown on the Tags tab", async () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
-        tags: [makeDerivedTag(1, "Spike", "character", 3)],
+        tags: [
+          makeDerivedTag(1, "Spike", "character", 3),
+          makeDerivedTag(2, "Outdoor", "scene", 5),
+        ],
       }),
     );
-    updateTagMock.mockResolvedValue({
-      id: 1,
-      name: "Spike",
-      category: "uncategorized",
-    });
     const { container, unmount } = renderRoutes(routes, {
       initialEntries: ["/anime/42/tags"],
     });
     try {
       await waitFor(
         () =>
-          container.querySelector("[data-testid='tags-tab-tag-convert']") !==
-          null,
+          container.querySelectorAll("[data-testid='tag-chip']").length === 1,
       );
-      const convertBtn = container.querySelector(
-        "[data-testid='tags-tab-tag-convert']",
-      ) as HTMLButtonElement;
-      await act(async () => {
-        convertBtn.click();
-      });
-      // Confirm dialog should appear
-      await waitFor(
-        () =>
-          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
-      );
-      expect(
-        document.body.querySelector("[data-testid='confirm-dialog']"),
-      ).not.toBeNull();
-      // Click confirm
-      const confirmBtn = document.body.querySelector(
-        "[data-testid='confirm-dialog-confirm']",
-      ) as HTMLButtonElement;
-      await act(async () => {
-        confirmBtn.click();
-      });
-      await waitFor(() => updateTagMock.mock.calls.length > 0);
-      expect(updateTagMock).toHaveBeenCalledWith(1, {
-        name: "Spike",
-        category: "uncategorized",
-      });
-      expect(toast.success).toHaveBeenCalledWith(
-        "Moved to Tags",
-        expect.stringContaining("regular tag"),
-      );
+      // Only the scene tag should appear — character tags belong on the Characters tab.
+      expect(container.textContent).toContain("Outdoor");
+      expect(container.textContent).not.toContain("Spike");
     } finally {
       unmount();
     }
   });
 
-  test("convert button toggles uncategorized to character", async () => {
+  test("convert button promotes uncategorized to character", async () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
         tags: [makeDerivedTag(1, "Loose", "uncategorized", 2)],
@@ -586,7 +556,7 @@ describe("TagsTab", () => {
   test("convert cancel does not call updateTag", async () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
-        tags: [makeDerivedTag(1, "Spike", "character", 3)],
+        tags: [makeDerivedTag(1, "Outdoor", "scene", 3)],
       }),
     );
     const { container, unmount } = renderRoutes(routes, {

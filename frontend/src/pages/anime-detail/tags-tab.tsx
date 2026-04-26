@@ -64,6 +64,8 @@ function groupTags(tags: readonly AnimeDerivedTag[]): GroupedTags[] {
   const buckets = new Map<TagCategoryKey, AnimeDerivedTag[]>();
   for (const tag of tags) {
     const key = tagCategoryKey(tag.category);
+    // Characters have their own dedicated tab — skip them here.
+    if (key === "character") continue;
     const bucket = buckets.get(key) ?? [];
     bucket.push(tag);
     buckets.set(key, bucket);
@@ -114,8 +116,6 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
   const [dialog, setDialog] = useState<EditDialogState>(INITIAL_EDIT);
   const [confirmTarget, setConfirmTarget] = useState<AnimeDerivedTag | null>(null);
 
-  const confirmIsCharacter = confirmTarget ? tagCategoryKey(confirmTarget.category) === "character" : false;
-
   const openEdit = (t: AnimeDerivedTag) => {
     setDialog({
       open: true,
@@ -132,14 +132,12 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
 
   const closeEdit = () => setDialog(INITIAL_EDIT);
 
-  const convertCategory = async (t: AnimeDerivedTag) => {
-    const isCharacter = tagCategoryKey(t.category) === "character";
-    const newCategory = isCharacter ? "uncategorized" : "character";
+  const convertToCharacter = async (t: AnimeDerivedTag) => {
     try {
-      await updateTag(t.id, { name: t.name, category: newCategory });
+      await updateTag(t.id, { name: t.name, category: "character" });
       toast.success(
-        isCharacter ? "Moved to Tags" : "Moved to Characters",
-        `"${t.name}" ${isCharacter ? "is now a regular tag" : "is now a character"}.`,
+        "Moved to Characters",
+        `"${t.name}" is now a character.`,
       );
       await queryClient.invalidateQueries({ queryKey: qk.tags.list() });
       await queryClient.invalidateQueries({
@@ -299,17 +297,8 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
                     _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
                     fontSize="xs"
                   >
-                    {tagCategoryKey(t.category) === "character" ? (
-                      <>
-                        <TagIcon size={12} aria-hidden="true" />
-                        Make Tag
-                      </>
-                    ) : (
-                      <>
-                        <Users size={12} aria-hidden="true" />
-                        Make Character
-                      </>
-                    )}
+                    <Users size={12} aria-hidden="true" />
+                    Make Character
                   </Button>
                   <IconButton
                     type="button"
@@ -352,17 +341,13 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
         onClose={() => setConfirmTarget(null)}
         onConfirm={async () => {
           if (confirmTarget) {
-            await convertCategory(confirmTarget);
+            await convertToCharacter(confirmTarget);
             setConfirmTarget(null);
           }
         }}
-        title={confirmIsCharacter ? "Move to Tags?" : "Make Character?"}
-        description={
-          confirmIsCharacter
-            ? `"${confirmTarget?.name ?? ""}" will move from Characters to Tags.`
-            : `"${confirmTarget?.name ?? ""}" will move to the Characters tab.`
-        }
-        confirmLabel={confirmIsCharacter ? "Move to Tags" : "Make Character"}
+        title="Make Character?"
+        description={`"${confirmTarget?.name ?? ""}" will move to the Characters tab.`}
+        confirmLabel="Make Character"
       />
     </Box>
   );
