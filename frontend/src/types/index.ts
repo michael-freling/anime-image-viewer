@@ -29,6 +29,8 @@ export interface AnimeSummary {
   name: string;
   /** Count of images across the anime's folder tree. */
   imageCount: number;
+  /** Relative path (e.g. "/files/...") to a representative cover image, if available. */
+  coverImagePath?: string;
 }
 
 /**

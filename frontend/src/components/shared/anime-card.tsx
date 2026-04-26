@@ -20,6 +20,8 @@
 import { Box, Skeleton, Text, chakra } from "@chakra-ui/react";
 import { Plus } from "lucide-react";
 
+import { fileResizeUrl, fileResizeSrcSet } from "../../lib/image-urls";
+
 /**
  * `chakra.button` gives us a `<button>` element that accepts the full Chakra
  * style-prop surface while preserving HTML button attributes like `type`.
@@ -93,24 +95,37 @@ export function AnimeCard({
     >
       {/* `.tile` opts the cover into content-visibility (frontend-design §4). */}
       <Box className="tile" position="absolute" inset="0">
-        <Box
-          width="100%"
-          height="100%"
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-          css={{
-            backgroundImage: `linear-gradient(135deg, hsl(${hue} 50% 68%), hsl(${(hue + 40) % 360} 55% 58%))`,
-            ".dark &": {
-              backgroundImage: `linear-gradient(135deg, hsl(${hue} 55% 32%), hsl(${(hue + 40) % 360} 65% 18%))`,
-            },
-          }}
-          color="whiteAlpha.800"
-        >
-          <Text fontSize="48px" fontWeight="700" opacity="0.7">
-            {initial}
-          </Text>
-        </Box>
+        {anime.coverImagePath ? (
+          <chakra.img
+            src={fileResizeUrl(anime.coverImagePath, 520)}
+            srcSet={fileResizeSrcSet(anime.coverImagePath)}
+            sizes="(min-width: 1920px) 16vw, (min-width: 1024px) 20vw, (min-width: 640px) 33vw, 50vw"
+            alt={anime.name}
+            width="100%"
+            height="100%"
+            objectFit="cover"
+            loading="lazy"
+          />
+        ) : (
+          <Box
+            width="100%"
+            height="100%"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            css={{
+              backgroundImage: `linear-gradient(135deg, hsl(${hue} 50% 68%), hsl(${(hue + 40) % 360} 55% 58%))`,
+              ".dark &": {
+                backgroundImage: `linear-gradient(135deg, hsl(${hue} 55% 32%), hsl(${(hue + 40) % 360} 65% 18%))`,
+              },
+            }}
+            color="whiteAlpha.800"
+          >
+            <Text fontSize="48px" fontWeight="700" opacity="0.7">
+              {initial}
+            </Text>
+          </Box>
+        )}
       </Box>
 
       {/* Image-count badge (top-right). */}

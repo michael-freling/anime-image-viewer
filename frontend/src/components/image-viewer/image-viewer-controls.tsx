@@ -26,7 +26,7 @@
  */
 import type { ReactElement, RefObject } from "react";
 import { Box, IconButton } from "@chakra-ui/react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, X } from "lucide-react";
 
 export interface ImageViewerControlsProps {
   /** Whether a previous image exists. Hide Prev when false. */
@@ -39,6 +39,8 @@ export interface ImageViewerControlsProps {
   onNext: () => void;
   /** Fired by Close button. */
   onClose: () => void;
+  /** Fired by "Open in default application" button. Only rendered when provided. */
+  onOpenInOS?: () => void;
   /**
    * Ref surfaced to the parent so it can move focus to the close button on
    * open (ui-design.md §7 "All interactive elements keyboard-focusable").
@@ -84,6 +86,7 @@ export function ImageViewerControls({
   onPrev,
   onNext,
   onClose,
+  onOpenInOS,
   closeButtonRef,
 }: ImageViewerControlsProps): ReactElement {
   return (
@@ -115,6 +118,33 @@ export function ImageViewerControls({
           <X size={24} aria-hidden="true" />
         </IconButton>
       </Box>
+
+      {/* Open in OS button — top-right, only rendered when handler provided. */}
+      {onOpenInOS && (
+        <Box position="absolute" top="16px" right="16px" zIndex={2}>
+          <IconButton
+            aria-label="Open in default application"
+            data-testid="image-viewer-open-in-os"
+            onClick={onOpenInOS}
+            size="lg"
+            variant="ghost"
+            width="48px"
+            height="48px"
+            minW="48px"
+            borderRadius="pill"
+            bg="rgba(30, 30, 46, 0.8)"
+            color="#f1f5f9"
+            _hover={{ bg: "rgba(30, 30, 46, 0.95)" }}
+            _focusVisible={{
+              outline: "2px solid",
+              outlineColor: "primary",
+              outlineOffset: "2px",
+            }}
+          >
+            <ExternalLink size={24} aria-hidden="true" />
+          </IconButton>
+        </Box>
+      )}
 
       {/* Prev arrow — vertically centred, left edge. Hidden at list start. */}
       {hasPrev && (

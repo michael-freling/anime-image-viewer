@@ -21,9 +21,10 @@ type Anime struct {
 
 // AnimeListItem is an anime row plus its image count for the list page.
 type AnimeListItem struct {
-	ID         uint   `json:"id"`
-	Name       string `json:"name"`
-	ImageCount uint   `json:"imageCount"`
+	ID             uint   `json:"id"`
+	Name           string `json:"name"`
+	ImageCount     uint   `json:"imageCount"`
+	CoverImagePath string `json:"coverImagePath"`
 }
 
 // AnimeTagInfo is a derived tag computed from the images in the anime's folder
@@ -133,12 +134,17 @@ func (s *AnimeService) ListAnime(ctx context.Context) ([]AnimeListItem, error) {
 	if err != nil {
 		return nil, fmt.Errorf("CountImagesForAnimeFolders: %w", err)
 	}
+
+	// Resolve one cover image per anime from the folder tree.
+	coverPaths := s.resolveCoverImages(rows)
+
 	result := make([]AnimeListItem, len(rows))
 	for i, r := range rows {
 		result[i] = AnimeListItem{
-			ID:         r.ID,
-			Name:       r.Name,
-			ImageCount: imageCounts[r.ID],
+			ID:             r.ID,
+			Name:           r.Name,
+			ImageCount:     imageCounts[r.ID],
+			CoverImagePath: coverPaths[r.ID],
 		}
 	}
 	sort.SliceStable(result, func(i, j int) bool {
@@ -347,6 +353,79 @@ func (s *AnimeService) SearchImagesUnassigned(ctx context.Context) (SearchImages
 		results = append(results, newImageConverterFromImageFiles(f).Convert())
 	}
 	return SearchImagesResponse{Images: results}, nil
+}
+
+// resolveCoverImages returns a map from anime ID to the /files/... path of
+// one representative image. It silently returns an empty map on any error so
+// the list page degrades gracefully to gradient placeholders.
+func (s *AnimeService) resolveCoverImages(animeRows []anime.Anime) map[uint]string {
+	resolved, err := s.core.ResolveFolderAnimeMap()
+	if err != nil || len(resolved) == 0 {
+		return nil
+	}
+	tree, err := s.directoryReader.ReadDirectoryTree()
+	if err != nil {
+		return nil
+	}
+
+	// Collect first image ID per anime.
+	animeFirstImage := make(map[uint]uint, len(animeRows))
+	for _, a := range animeRows {
+		id := firstImageIDForAnime(&tree, a.ID, resolved)
+		if id != 0 {
+			animeFirstImage[a.ID] = id
+		}
+	}
+	if len(animeFirstImage) == 0 {
+		return nil
+	}
+
+	// Deduplicate image IDs for a single batch read.
+	imageIDs := make([]uint, 0, len(animeFirstImage))
+	for _, imgID := range animeFirstImage {
+		imageIDs = append(imageIDs, imgID)
+	}
+	imageFiles, err := s.imageReader.ReadImagesByIDs(imageIDs)
+	if err != nil {
+		return nil
+	}
+	imageFileMap := imageFiles.ToMap()
+
+	coverPaths := make(map[uint]string, len(animeFirstImage))
+	for animeID, imgID := range animeFirstImage {
+		if f, ok := imageFileMap[imgID]; ok {
+			coverPaths[animeID] = f.Path
+		}
+	}
+	return coverPaths
+}
+
+// firstImageIDForAnime walks the directory tree and returns the ID of the
+// first image file that belongs to the given anime, or 0 if none is found.
+func firstImageIDForAnime(
+	dir *image.Directory,
+	animeID uint,
+	resolved map[uint]anime.FolderAnimeAssignment,
+) uint {
+	if dir.ID != db.RootDirectoryID {
+		if a, ok := resolved[dir.ID]; ok && a.AnimeID == animeID {
+			if len(dir.ChildImageFiles) > 0 {
+				return dir.ChildImageFiles[0].ID
+			}
+			for _, child := range dir.Children {
+				if id := firstImageIDForAnime(child, animeID, resolved); id != 0 {
+					return id
+				}
+			}
+			return 0
+		}
+	}
+	for _, child := range dir.Children {
+		if id := firstImageIDForAnime(child, animeID, resolved); id != 0 {
+			return id
+		}
+	}
+	return 0
 }
 
 func collectImageIDsForAnime(

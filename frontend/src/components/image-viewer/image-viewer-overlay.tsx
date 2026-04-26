@@ -40,12 +40,13 @@
  * `<style>` block.
  */
 import type { ReactElement } from "react";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Box } from "@chakra-ui/react";
 import { useHotkeys } from "@mantine/hooks";
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch";
 
 import { useImagePrefetch } from "../../hooks/use-image-prefetch";
+import { ImageService } from "../../lib/api";
 import { fileResizeUrl } from "../../lib/image-urls";
 import type { ImageFile } from "../../types";
 
@@ -219,10 +220,19 @@ export function ImageViewerOverlay({
     }
   };
 
+  const currentImage = images[safeIndex];
+
+  // Open-in-OS handler: delegates to the Wails backend via ImageService.
+  const handleOpenInOS = useCallback(() => {
+    if (!currentImage) return;
+    ImageService.OpenImageInOS(currentImage.id).catch((err: unknown) => {
+      console.error("Failed to open image in OS:", err);
+    });
+  }, [currentImage]);
+
   // `useMemo` keeps the img src stable across unrelated re-renders; this
   // matters because the React Query HTTP cache is keyed by URL and we want
   // the browser image cache to reuse the prefetched response.
-  const currentImage = images[safeIndex];
   const imgSrc = useMemo(
     () => (currentImage ? fileResizeUrl(currentImage.path, PREVIEW_WIDTH) : ""),
     [currentImage],
@@ -312,6 +322,7 @@ export function ImageViewerOverlay({
             if (hasNext) onIndexChange(safeIndex + 1);
           }}
           onClose={onClose}
+          onOpenInOS={handleOpenInOS}
           closeButtonRef={closeButtonRef}
         />
       </Box>

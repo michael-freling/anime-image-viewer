@@ -181,6 +181,69 @@ describe("ImageViewerControls", () => {
     }
   });
 
+  test("renders the 'Open in default application' button when onOpenInOS is provided", () => {
+    const onOpenInOS = jest.fn();
+    const r = renderWithClient(
+      <ImageViewerControls
+        hasPrev
+        hasNext
+        onPrev={jest.fn()}
+        onNext={jest.fn()}
+        onClose={jest.fn()}
+        onOpenInOS={onOpenInOS}
+      />,
+    );
+    try {
+      const btn = byTestId(r.container, "image-viewer-open-in-os");
+      expect(btn).not.toBeNull();
+      expect(btn!.getAttribute("aria-label")).toBe(
+        "Open in default application",
+      );
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("does not render 'Open in default application' button when onOpenInOS is not provided", () => {
+    const r = renderWithClient(
+      <ImageViewerControls
+        hasPrev
+        hasNext
+        onPrev={jest.fn()}
+        onNext={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+    try {
+      expect(byTestId(r.container, "image-viewer-open-in-os")).toBeNull();
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("clicking 'Open in default application' fires onOpenInOS", () => {
+    const onOpenInOS = jest.fn();
+    const r = renderWithClient(
+      <ImageViewerControls
+        hasPrev
+        hasNext
+        onPrev={jest.fn()}
+        onNext={jest.fn()}
+        onClose={jest.fn()}
+        onOpenInOS={onOpenInOS}
+      />,
+    );
+    try {
+      const btn = byTestId(r.container, "image-viewer-open-in-os")!;
+      act(() => {
+        btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      expect(onOpenInOS).toHaveBeenCalledTimes(1);
+    } finally {
+      r.unmount();
+    }
+  });
+
   test("renders both edges hidden when hasPrev and hasNext are both false", () => {
     const r = renderWithClient(
       <ImageViewerControls
