@@ -58,7 +58,10 @@ func (service *ImageService) ShowImageInExplorer(ctx context.Context, imageID ui
 
 	switch runtime.GOOS {
 	case "windows":
-		return exec.Command("explorer", "/select,"+filePath).Start()
+		// Go's exec.Command quotes arguments containing spaces, which breaks
+		// explorer's /select, parsing. Routing through cmd /c with explicit
+		// quoting around the path avoids this issue.
+		return exec.Command("cmd", "/c", `explorer /select,"`+filePath+`"`).Start()
 	case "darwin":
 		return exec.Command("open", "-R", filePath).Start()
 	default:
