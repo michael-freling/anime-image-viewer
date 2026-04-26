@@ -759,12 +759,12 @@ describe("SearchPage", () => {
         });
       });
 
-      // The tag picker should show the anime's non-character tags (Space)
-      // rather than the global tags (Outdoor, Sunny, Indoor). Character tags
-      // (Spike) are excluded from the tag picker.
+      // The tag picker should show the anime's scoped tags (Space, Spike)
+      // rather than the global tags (Outdoor, Sunny, Indoor). Characters
+      // are included in the search picker so users can filter/exclude by them.
       const picker = container.querySelector("[data-testid='tag-picker']");
       expect(picker?.textContent).toContain("Space");
-      expect(picker?.textContent).not.toContain("Spike");
+      expect(picker?.textContent).toContain("Spike");
       // Global tags should NOT appear.
       expect(picker?.textContent).not.toContain("Outdoor");
       expect(picker?.textContent).not.toContain("Sunny");
