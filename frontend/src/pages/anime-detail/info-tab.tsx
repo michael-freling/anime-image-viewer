@@ -5,16 +5,20 @@
  *
  * Renders the anime's core metadata (title, AniList link, folder list, entry
  * counts, image counts) inside a centred max-width form. Danger Zone action
- * (delete anime) is surfaced but its wiring lives in a later phase — the
- * button fires an `onDelete?.()` callback.
+ * (delete anime) is self-contained: ConfirmDialog → AnimeService.DeleteAnime
+ * → navigate to home.
  */
 import { Box, Button, Flex, Stack, Text } from "@chakra-ui/react";
 import { ExternalLink, Trash2 } from "lucide-react";
-import { useParams } from "react-router";
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router";
 
 import { ErrorAlert } from "../../components/shared/error-alert";
 import { RowSkeleton } from "../../components/shared/loading-skeleton";
+import { ConfirmDialog } from "../../components/ui/confirm-dialog";
+import { toast } from "../../components/ui/toaster";
 import { useAnimeDetail } from "../../hooks/use-anime-detail";
+import { AnimeService } from "../../lib/api";
 import { formatCount } from "../../lib/format";
 
 function parseAnimeId(raw: string | undefined): number {
@@ -44,15 +48,12 @@ function InfoField({
   );
 }
 
-export interface InfoTabProps {
-  /** Handler for the Danger Zone "Delete anime" action. */
-  onDelete?: () => void;
-}
-
-export function InfoTab({ onDelete }: InfoTabProps = {}): JSX.Element {
+export function InfoTab(): JSX.Element {
   const { animeId: rawId } = useParams<{ animeId: string }>();
   const animeId = parseAnimeId(rawId);
+  const navigate = useNavigate();
   const { data, isLoading, isError, error, refetch } = useAnimeDetail(animeId);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   if (isError) {
     return (
@@ -189,7 +190,7 @@ export function InfoTab({ onDelete }: InfoTabProps = {}): JSX.Element {
             variant="outline"
             borderColor="danger"
             color="danger"
-            onClick={onDelete}
+            onClick={() => setConfirmOpen(true)}
             data-testid="info-delete-anime"
             aria-label="Delete this anime"
           >
@@ -200,6 +201,28 @@ export function InfoTab({ onDelete }: InfoTabProps = {}): JSX.Element {
           </Button>
         </Box>
       </Stack>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={async () => {
+          try {
+            await AnimeService.DeleteAnime(animeId);
+            toast.success("Anime deleted", `"${anime.name}" has been removed.`);
+            navigate("/");
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            toast.error("Could not delete anime", message);
+          } finally {
+            setConfirmOpen(false);
+          }
+        }}
+        title={`Delete "${anime.name}"?`}
+        description="This will remove the anime, all of its entries, and associated metadata. Image files on disk are not affected."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+      />
     </Box>
   );
 }

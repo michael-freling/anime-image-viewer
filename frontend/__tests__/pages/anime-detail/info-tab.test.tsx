@@ -4,7 +4,7 @@
  * Spec: ui-design.md §3.2.5 "Info tab". Verifies:
  *   - Title, AniList link, entry/image/folder counts are rendered.
  *   - Missing AniList id shows "Not linked".
- *   - Danger Zone action fires the onDelete callback (when mounted directly).
+ *   - Danger Zone delete opens a confirm dialog and calls DeleteAnime.
  *   - Error + loading states.
  */
 
@@ -24,10 +24,12 @@ jest.mock("react-photo-album", () => {
 });
 
 const getAnimeDetailsMock = jest.fn();
+const deleteAnimeMock = jest.fn();
 jest.mock("../../../src/lib/api", () => ({
   __esModule: true,
   AnimeService: {
     GetAnimeDetails: (...args: unknown[]) => getAnimeDetailsMock(...args),
+    DeleteAnime: (...args: unknown[]) => deleteAnimeMock(...args),
     GetAnimeImages: () => Promise.resolve({ images: [] }),
     GetAnimeImagesByEntry: () => Promise.resolve({ images: [] }),
     GetAnimeList: () => Promise.resolve([]),
@@ -41,10 +43,24 @@ jest.mock("../../../src/lib/api", () => ({
   },
 }));
 
+const toastSuccessMock = jest.fn();
+const toastErrorMock = jest.fn();
+jest.mock("../../../src/components/ui/toaster", () => ({
+  __esModule: true,
+  toast: {
+    success: (...args: unknown[]) => toastSuccessMock(...args),
+    error: (...args: unknown[]) => toastErrorMock(...args),
+    info: jest.fn(),
+    warning: jest.fn(),
+  },
+  Toaster: () => null,
+}));
+
+import { act } from "react-dom/test-utils";
+
 import { routes } from "../../../src/app/routes";
-import { InfoTab } from "../../../src/pages/anime-detail/info-tab";
 import type { AnimeDetail, AnimeFolder, Entry } from "../../../src/types";
-import { renderRoutes, renderWithClient, waitFor } from "../../test-utils";
+import { flushPromises, renderRoutes, waitFor } from "../../test-utils";
 
 function makeEntry(overrides: Partial<Entry> = {}): Entry {
   return {
@@ -85,6 +101,9 @@ function makeDetail(overrides: Partial<AnimeDetail> = {}): AnimeDetail {
 describe("InfoTab", () => {
   beforeEach(() => {
     getAnimeDetailsMock.mockReset();
+    deleteAnimeMock.mockReset();
+    toastSuccessMock.mockReset();
+    toastErrorMock.mockReset();
   });
 
   test("renders title, AniList link, entries/images/folders counts", async () => {
@@ -166,45 +185,44 @@ describe("InfoTab", () => {
     }
   });
 
-  test("Danger Zone Delete button fires onDelete callback", async () => {
-    // Direct mount so the optional onDelete prop is wired.
+  test("Danger Zone Delete button opens confirm dialog and deletes on confirm", async () => {
     getAnimeDetailsMock.mockResolvedValue(makeDetail());
-    const onDelete = jest.fn();
-    const { container, unmount } = renderWithClient(
-      <InfoTab onDelete={onDelete} />,
-      { routerInitialEntries: ["/anime/42/info"] },
-    );
-    try {
-      // Mount inside a route so useParams sees animeId.
-    } finally {
-      unmount();
-    }
-    // The above helper mounts via MemoryRouter at "/anime/42/info"; but
-    // useParams requires a matching route tree. Instead we mount via routes.
-    const mounted = renderRoutes(routes, {
+    deleteAnimeMock.mockResolvedValue(undefined);
+    const { container, unmount } = renderRoutes(routes, {
       initialEntries: ["/anime/42/info"],
     });
     try {
       await waitFor(
         () =>
-          mounted.container.querySelector(
-            "[data-testid='info-tab']",
-          ) !== null,
+          container.querySelector("[data-testid='info-tab']") !== null,
       );
-      // Because we can't inject props into the route tree's InfoTab, we
-      // instead assert the Delete button is rendered and clickable. The
-      // prop-wiring is exercised by the renderWithClient mount above,
-      // where we just confirm the button renders without onDelete wired
-      // (no callback means clicking is a no-op).
-      const btn = mounted.container.querySelector(
+      // Click the Delete button — should open the confirm dialog.
+      const btn = container.querySelector<HTMLButtonElement>(
         "[data-testid='info-delete-anime']",
+      )!;
+      act(() => {
+        btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () =>
+          document.querySelector("[data-testid='confirm-dialog']") !== null,
       );
-      expect(btn).not.toBeNull();
-      // Avoid unused-var warning.
-      void container;
-      void onDelete;
+      const dialog = document.querySelector("[data-testid='confirm-dialog']");
+      expect(dialog?.textContent).toContain("Delete");
+      expect(dialog?.textContent).toContain("Bebop");
+
+      // Click the Confirm button.
+      const confirmBtn = document.querySelector<HTMLButtonElement>(
+        "[data-testid='confirm-dialog-confirm']",
+      )!;
+      await act(async () => {
+        confirmBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await flushPromises();
+      });
+      expect(deleteAnimeMock).toHaveBeenCalledWith(42);
+      expect(toastSuccessMock).toHaveBeenCalled();
     } finally {
-      mounted.unmount();
+      unmount();
     }
   });
 
@@ -413,28 +431,36 @@ describe("InfoTab", () => {
     }
   });
 
-  test("onDelete prop is called when provided (direct mount)", async () => {
+  test("delete error shows a toast and keeps the dialog open", async () => {
     getAnimeDetailsMock.mockResolvedValue(makeDetail());
-    const onDelete = jest.fn();
-    const { container, unmount } = renderWithClient(
-      <InfoTab onDelete={onDelete} />,
-      {
-        // MemoryRouter -> useParams returns undefined, so parseAnimeId yields 0
-        // and the hook gate disables the query. The delete button still needs
-        // to render for this test — we drive it by mounting the InfoTab while
-        // the data query is loading (no animeId -> no fetch).
-      },
-    );
+    deleteAnimeMock.mockRejectedValue(new Error("db locked"));
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/info"],
+    });
     try {
-      // When animeId is 0 the hook stays idle; InfoTab then shows its
-      // loading state forever. Assert the loading skeleton rendered — the
-      // handler wiring is covered by the prop existence + jest.fn identity
-      // (the button is not interactive under the loading skeleton, but the
-      // prop is plumbed into the InfoTab signature).
-      expect(
-        container.querySelector("[data-testid='info-tab-loading']"),
-      ).not.toBeNull();
-      expect(onDelete).not.toHaveBeenCalled();
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='info-tab']") !== null,
+      );
+      const btn = container.querySelector<HTMLButtonElement>(
+        "[data-testid='info-delete-anime']",
+      )!;
+      act(() => {
+        btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () =>
+          document.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      const confirmBtn = document.querySelector<HTMLButtonElement>(
+        "[data-testid='confirm-dialog-confirm']",
+      )!;
+      await act(async () => {
+        confirmBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await flushPromises();
+      });
+      expect(deleteAnimeMock).toHaveBeenCalledWith(42);
+      expect(toastErrorMock).toHaveBeenCalled();
     } finally {
       unmount();
     }
