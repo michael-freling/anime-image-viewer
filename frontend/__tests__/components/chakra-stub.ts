@@ -198,7 +198,7 @@ export function chakraStubFactory() {
   };
   const DialogContext = createContextTyped<DialogCtx>(null);
   const DialogRoot = function DialogRoot(props: any) {
-    const { open, children, onOpenChange } = props;
+    const { open, children, onOpenChange, closeOnEscape } = props;
     const ctx = React.useMemo(
       () => ({
         open: !!open,
@@ -206,6 +206,17 @@ export function chakraStubFactory() {
       }),
       [open, onOpenChange],
     );
+    // Mirror real Chakra: listen for Escape key to trigger onOpenChange.
+    React.useEffect(() => {
+      if (!open || closeOnEscape === false) return;
+      const handler = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          onOpenChange?.({ open: false });
+        }
+      };
+      document.addEventListener("keydown", handler);
+      return () => document.removeEventListener("keydown", handler);
+    }, [open, closeOnEscape, onOpenChange]);
     if (!open) return null;
     return React.createElement(DialogContext.Provider, { value: ctx }, children);
   };

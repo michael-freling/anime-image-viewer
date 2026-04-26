@@ -570,4 +570,378 @@ describe("CreateAnimeDialog", () => {
       r.unmount();
     }
   });
+
+  test("string error from CreateAnime is shown inline in the dialog", async () => {
+    createAnimeMock.mockRejectedValue("duplicate name");
+    const onClose = jest.fn();
+    const r = render(
+      createElement(CreateAnimeDialog, { open: true, onClose }),
+    );
+    try {
+      const input = r.container.querySelector<HTMLInputElement>(
+        "[data-testid='create-anime-name']",
+      );
+      setInputValue(input!, "Some Anime");
+      await flush();
+
+      const submit = r.container.querySelector<HTMLButtonElement>(
+        "[data-testid='create-anime-submit']",
+      );
+      await act(async () => {
+        submit!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(createAnimeMock).toHaveBeenCalledWith("Some Anime");
+      expect(onClose).not.toHaveBeenCalled();
+      const errorEl = r.container.querySelector(
+        "[data-testid='create-anime-error']",
+      );
+      expect(errorEl).not.toBeNull();
+      expect(errorEl!.textContent).toContain("duplicate name");
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("closing the dialog via Escape calls onClose when not submitting", async () => {
+    const onClose = jest.fn();
+    const r = render(
+      createElement(CreateAnimeDialog, { open: true, onClose }),
+    );
+    try {
+      // Simulate pressing Escape (triggers onOpenChange({ open: false }))
+      act(() => {
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+      });
+      await flush();
+
+      expect(onClose).toHaveBeenCalledTimes(1);
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("pressing Enter in the name input triggers creation", async () => {
+    createAnimeMock.mockResolvedValue({ id: 60, name: "Enter Anime" });
+    const onClose = jest.fn();
+    const r = render(
+      createElement(CreateAnimeDialog, { open: true, onClose }),
+    );
+    try {
+      const input = r.container.querySelector<HTMLInputElement>(
+        "[data-testid='create-anime-name']",
+      );
+      setInputValue(input!, "Enter Anime");
+      await flush();
+
+      // Press Enter on the input
+      await act(async () => {
+        input!.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(createAnimeMock).toHaveBeenCalledWith("Enter Anime");
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(navigateMock).toHaveBeenCalledWith("/anime/60");
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("non-string, non-Error rejection shows 'Unexpected error'", async () => {
+    createAnimeMock.mockRejectedValue(42); // neither Error nor string
+    const onClose = jest.fn();
+    const r = render(
+      createElement(CreateAnimeDialog, { open: true, onClose }),
+    );
+    try {
+      const input = r.container.querySelector<HTMLInputElement>(
+        "[data-testid='create-anime-name']",
+      );
+      setInputValue(input!, "Test");
+      await flush();
+
+      const submit = r.container.querySelector<HTMLButtonElement>(
+        "[data-testid='create-anime-submit']",
+      );
+      await act(async () => {
+        submit!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      const errorEl = r.container.querySelector(
+        "[data-testid='create-anime-error']",
+      );
+      expect(errorEl).not.toBeNull();
+      expect(errorEl!.textContent).toContain("Unexpected error");
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("selecting result with no titleRomaji falls back to titleEnglish", async () => {
+    const resultsNoRomaji = [
+      {
+        id: 200,
+        titleRomaji: "",
+        titleEnglish: "English Title",
+        titleNative: "Native Title",
+        format: "",
+        status: "FINISHED",
+        season: "SPRING",
+        seasonYear: 0,
+        episodes: 12,
+        coverImageUrl: "",
+      },
+    ];
+    useAniListSearchMock.mockImplementation((query: string) => {
+      if (query.trim().length > 0) {
+        return mockAniListResult(resultsNoRomaji);
+      }
+      return mockAniListResult();
+    });
+
+    const r = render(
+      createElement(CreateAnimeDialog, { open: true, onClose: jest.fn() }),
+    );
+    try {
+      const input = r.container.querySelector<HTMLInputElement>(
+        "[data-testid='create-anime-name']",
+      );
+      setInputValue(input!, "test");
+      await flush();
+
+      const resultItems = r.container.querySelectorAll<HTMLElement>(
+        "[data-testid='anilist-result-item']",
+      );
+      expect(resultItems.length).toBe(1);
+      // Display should fall back to titleEnglish
+      expect(resultItems[0].textContent).toContain("English Title");
+
+      // Click to select — name should be set to titleEnglish (fallback)
+      act(() => {
+        resultItems[0].dispatchEvent(
+          new MouseEvent("click", { bubbles: true }),
+        );
+      });
+      await flush();
+
+      expect(input!.value).toBe("English Title");
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("handles null aniListQuery.data via nullish coalescing", async () => {
+    useAniListSearchMock.mockReturnValue({
+      data: null,
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    const r = render(
+      createElement(CreateAnimeDialog, { open: true, onClose: jest.fn() }),
+    );
+    try {
+      const input = r.container.querySelector<HTMLInputElement>(
+        "[data-testid='create-anime-name']",
+      );
+      setInputValue(input!, "test");
+      await flush();
+
+      // Should not render any result items
+      const resultItems = r.container.querySelectorAll(
+        "[data-testid='anilist-result-item']",
+      );
+      expect(resultItems.length).toBe(0);
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("shows loading indicator when aniListQuery.isLoading is true", async () => {
+    useAniListSearchMock.mockReturnValue({
+      data: [],
+      isLoading: true,
+      isError: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    const r = render(
+      createElement(CreateAnimeDialog, { open: true, onClose: jest.fn() }),
+    );
+    try {
+      const input = r.container.querySelector<HTMLInputElement>(
+        "[data-testid='create-anime-name']",
+      );
+      setInputValue(input!, "searching");
+      await flush();
+
+      const loadingEl = r.container.querySelector(
+        "[data-testid='anilist-loading']",
+      );
+      expect(loadingEl).not.toBeNull();
+      expect(loadingEl!.textContent).toContain("Searching AniList");
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("selecting result with no titleRomaji or titleEnglish falls back to titleNative", async () => {
+    const resultsNativeOnly = [
+      {
+        id: 300,
+        titleRomaji: "",
+        titleEnglish: "",
+        titleNative: "Native Only Title",
+        format: "TV",
+        status: "FINISHED",
+        season: "SPRING",
+        seasonYear: 2020,
+        episodes: 12,
+        coverImageUrl: "",
+      },
+    ];
+    useAniListSearchMock.mockImplementation((query: string) => {
+      if (query.trim().length > 0) {
+        return mockAniListResult(resultsNativeOnly);
+      }
+      return mockAniListResult();
+    });
+
+    const r = render(
+      createElement(CreateAnimeDialog, { open: true, onClose: jest.fn() }),
+    );
+    try {
+      const input = r.container.querySelector<HTMLInputElement>(
+        "[data-testid='create-anime-name']",
+      );
+      setInputValue(input!, "test");
+      await flush();
+
+      const resultItems = r.container.querySelectorAll<HTMLElement>(
+        "[data-testid='anilist-result-item']",
+      );
+      expect(resultItems.length).toBe(1);
+
+      // Click to select — name should be set to titleNative (last fallback)
+      act(() => {
+        resultItems[0].dispatchEvent(
+          new MouseEvent("click", { bubbles: true }),
+        );
+      });
+      await flush();
+
+      expect(input!.value).toBe("Native Only Title");
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("handleCreate does nothing when name is empty after trim", async () => {
+    const onClose = jest.fn();
+    const r = render(
+      createElement(CreateAnimeDialog, { open: true, onClose }),
+    );
+    try {
+      const input = r.container.querySelector<HTMLInputElement>(
+        "[data-testid='create-anime-name']",
+      );
+      // Set name to only whitespace
+      setInputValue(input!, "   ");
+      await flush();
+
+      // The submit button should be disabled, but let's also test via Enter key
+      // (handleKeyDown guards on name.trim() !== "")
+      await act(async () => {
+        input!.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        await Promise.resolve();
+      });
+
+      expect(createAnimeMock).not.toHaveBeenCalled();
+      expect(onClose).not.toHaveBeenCalled();
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("editing the name after selecting an AniList result clears the selection", async () => {
+    useAniListSearchMock.mockImplementation((query: string) => {
+      if (query.trim().length > 0) {
+        return mockAniListResult(ANILIST_RESULTS);
+      }
+      return mockAniListResult();
+    });
+    createAnimeMock.mockResolvedValue({ id: 70, name: "Custom Name" });
+
+    const onClose = jest.fn();
+    const r = render(
+      createElement(CreateAnimeDialog, { open: true, onClose }),
+    );
+    try {
+      const input = r.container.querySelector<HTMLInputElement>(
+        "[data-testid='create-anime-name']",
+      );
+
+      // Type to trigger search results
+      setInputValue(input!, "Shingeki");
+      await flush();
+
+      // Select an AniList result (sets selectedResult)
+      const resultItems = r.container.querySelectorAll<HTMLElement>(
+        "[data-testid='anilist-result-item']",
+      );
+      expect(resultItems.length).toBeGreaterThan(0);
+      act(() => {
+        resultItems[0].dispatchEvent(
+          new MouseEvent("click", { bubbles: true }),
+        );
+      });
+      await flush();
+      expect(input!.value).toBe("Shingeki no Kyojin");
+
+      // Now manually edit the name — this should clear selectedResult
+      setInputValue(input!, "Custom Name");
+      await flush();
+
+      // Submit — should only call CreateAnime, NOT ImportFromAniList
+      const submit = r.container.querySelector<HTMLButtonElement>(
+        "[data-testid='create-anime-submit']",
+      );
+      await act(async () => {
+        submit!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(createAnimeMock).toHaveBeenCalledWith("Custom Name");
+      // ImportFromAniList should NOT have been called because selectedResult
+      // was cleared when the user edited the name.
+      expect(importFromAniListMock).not.toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalledTimes(1);
+    } finally {
+      r.unmount();
+    }
+  });
 });
