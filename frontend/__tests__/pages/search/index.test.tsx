@@ -60,11 +60,14 @@ const getAllTagsMock = jest.fn();
 const getAnimeDetailsMock = jest.fn();
 const searchImagesByAnimeMock = jest.fn();
 
+const getImageTagIDsMock = jest.fn();
+
 jest.mock("../../../src/lib/api", () => ({
   __esModule: true,
   AnimeService: {
     GetAnimeDetails: (...args: unknown[]) => getAnimeDetailsMock(...args),
     SearchImagesByAnime: (...args: unknown[]) => searchImagesByAnimeMock(...args),
+    GetImageTagIDs: (...args: unknown[]) => getImageTagIDsMock(...args),
   },
   SearchService: {
     SearchImages: (...args: unknown[]) => searchImagesMock(...args),
@@ -131,6 +134,8 @@ describe("SearchPage", () => {
     getAnimeDetailsMock.mockResolvedValue(null);
     searchImagesByAnimeMock.mockReset();
     searchImagesByAnimeMock.mockResolvedValue({ images: [] });
+    getImageTagIDsMock.mockReset();
+    getImageTagIDsMock.mockResolvedValue({});
     resetSelectionStore();
   });
 
@@ -497,7 +502,7 @@ describe("SearchPage", () => {
     }
   });
 
-  test("clicking an already-included tag chip removes it from the filter", async () => {
+  test("clicking an already-included tag chip cycles it to exclude", async () => {
     const { container, unmount } = renderWithClient(<SearchPage />, {
       routerInitialEntries: ["/search?tag=1"],
     });
@@ -513,14 +518,14 @@ describe("SearchPage", () => {
           (h as HTMLElement).dispatchEvent(new MouseEvent("click", { bubbles: true }));
         });
       });
-      // Wait for the ActiveFiltersBar to show the Outdoor chip.
+      // Wait for the ActiveFiltersBar to show the Outdoor chip as include.
       await waitFor(
         () =>
           (container.querySelector(
             "[data-testid='active-filters-bar']",
           )?.textContent ?? "").includes("Outdoor"),
       );
-      // Click the Outdoor chip inside the picker again — toggles it off.
+      // Click the Outdoor chip inside the picker — cycles include -> exclude.
       const outdoorChip = Array.from(
         container.querySelectorAll("[data-testid='tag-chip']"),
       ).find((el) => el.textContent?.includes("Outdoor"));
@@ -530,15 +535,14 @@ describe("SearchPage", () => {
           new MouseEvent("click", { bubbles: true }),
         );
       });
-      // After toggle, the active filter bar should no longer show Outdoor.
+      // After cycling, the filter bar should still show Outdoor but now as
+      // an exclude chip (with the `−` prefix from FilterChip variant=exclude).
       await waitFor(
         () =>
-          !(
-            container
-              .querySelector("[data-testid='active-filters-bar']")
-              ?.textContent?.includes("Outdoor") ?? false
-          ),
+          container.querySelector("[data-variant='exclude']") !== null,
       );
+      const excludeChip = container.querySelector("[data-variant='exclude']");
+      expect(excludeChip?.textContent).toContain("Outdoor");
     } finally {
       unmount();
     }

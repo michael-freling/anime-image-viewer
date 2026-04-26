@@ -8,9 +8,11 @@
  *   - anime-only filter   -> `AnimeService.SearchImagesByAnime(animeId)`
  *   - include-tag filter  -> `SearchService.SearchImages({ tagId })`
  *   - empty filter        -> short-circuit to []
+ *   - exclude-tag filter  -> client-side filtering via `AnimeService.GetImageTagIDs`
  */
 const searchImagesMock = jest.fn();
 const searchImagesByAnimeMock = jest.fn();
+const getImageTagIDsMock = jest.fn();
 jest.mock("../../src/lib/api", () => ({
   __esModule: true,
   SearchService: {
@@ -19,6 +21,7 @@ jest.mock("../../src/lib/api", () => ({
   AnimeService: {
     SearchImagesByAnime: (...args: unknown[]) =>
       searchImagesByAnimeMock(...args),
+    GetImageTagIDs: (...args: unknown[]) => getImageTagIDsMock(...args),
   },
 }));
 
@@ -35,6 +38,7 @@ describe("useSearchImages", () => {
   beforeEach(() => {
     searchImagesMock.mockReset();
     searchImagesByAnimeMock.mockReset();
+    getImageTagIDsMock.mockReset();
   });
 
   test("fetches by tag when includeTagIds are provided", async () => {
@@ -141,5 +145,108 @@ describe("useSearchImages", () => {
     await waitFor(() => hook.result.current.data?.[0]?.name === "new");
     expect(hook.result.current.isPlaceholderData).toBe(false);
     hook.unmount();
+  });
+
+  test("exclude tags filter out images via GetImageTagIDs", async () => {
+    // Images returned from the server include three items.
+    searchImagesMock.mockResolvedValue({
+      images: [
+        { id: 10, name: "outdoor.png", path: "outdoor.png" },
+        { id: 11, name: "indoor.png", path: "indoor.png" },
+        { id: 12, name: "both.png", path: "both.png" },
+      ],
+    });
+    // Tag map: image 10 has tag 5 (excluded), image 11 has tag 6, image 12 has both.
+    getImageTagIDsMock.mockResolvedValue({
+      10: [5],
+      11: [6],
+      12: [5, 6],
+    });
+
+    const filters: SearchFilters = {
+      includeTagIds: [1],
+      excludeTagIds: [5],
+    };
+    const { result, unmount } = renderHookWithClient(() =>
+      useSearchImages(filters),
+    );
+    await waitFor(() => result.current.isSuccess);
+
+    // Only image 11 survives — images 10 and 12 carry excluded tag 5.
+    expect(result.current.data).toHaveLength(1);
+    expect(result.current.data?.[0]?.id).toBe(11);
+
+    // GetImageTagIDs was called with the result image ids.
+    expect(getImageTagIDsMock).toHaveBeenCalledWith([10, 11, 12]);
+    unmount();
+  });
+
+  test("exclude filtering with anime-scoped search", async () => {
+    searchImagesByAnimeMock.mockResolvedValue({
+      images: [
+        { id: 20, name: "a.png", path: "a.png" },
+        { id: 21, name: "b.png", path: "b.png" },
+      ],
+    });
+    // Image 20 has the excluded tag, image 21 does not.
+    getImageTagIDsMock.mockResolvedValue({
+      20: [7],
+      21: [8],
+    });
+
+    const filters: SearchFilters = {
+      animeId: 42,
+      excludeTagIds: [7],
+    };
+    const { result, unmount } = renderHookWithClient(() =>
+      useSearchImages(filters),
+    );
+    await waitFor(() => result.current.isSuccess);
+
+    expect(searchImagesByAnimeMock).toHaveBeenCalledWith(42);
+    expect(result.current.data).toHaveLength(1);
+    expect(result.current.data?.[0]?.id).toBe(21);
+    unmount();
+  });
+
+  test("exclude filtering with empty tag map returns all images", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [{ id: 30, name: "c.png", path: "c.png" }],
+    });
+    // GetImageTagIDs returns null (no tags assigned).
+    getImageTagIDsMock.mockResolvedValue(null);
+
+    const filters: SearchFilters = {
+      includeTagIds: [1],
+      excludeTagIds: [5],
+    };
+    const { result, unmount } = renderHookWithClient(() =>
+      useSearchImages(filters),
+    );
+    await waitFor(() => result.current.isSuccess);
+
+    // When the tag map is null, no images are excluded.
+    expect(result.current.data).toHaveLength(1);
+    expect(result.current.data?.[0]?.id).toBe(30);
+    unmount();
+  });
+
+  test("no exclude tags skips GetImageTagIDs call", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [{ id: 40, name: "d.png", path: "d.png" }],
+    });
+
+    const filters: SearchFilters = {
+      includeTagIds: [1],
+      excludeTagIds: [],
+    };
+    const { result, unmount } = renderHookWithClient(() =>
+      useSearchImages(filters),
+    );
+    await waitFor(() => result.current.isSuccess);
+
+    expect(getImageTagIDsMock).not.toHaveBeenCalled();
+    expect(result.current.data).toHaveLength(1);
+    unmount();
   });
 });

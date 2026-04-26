@@ -2,7 +2,7 @@
  * Tests for `TagPicker`.
  *
  * Verifies bucketing-by-category, the empty-state branch when there are no
- * tags, and that clicking a chip fires onToggleInclude.
+ * tags, and that clicking a chip fires onCycleTag.
  */
 import { act } from "react-dom/test-utils";
 
@@ -23,7 +23,7 @@ describe("TagPicker", () => {
         tags={TAGS}
         includedIds={[]}
         excludedIds={[]}
-        onToggleInclude={() => undefined}
+        onCycleTag={() => undefined}
       />,
     );
     try {
@@ -47,7 +47,7 @@ describe("TagPicker", () => {
         tags={[]}
         includedIds={[]}
         excludedIds={[]}
-        onToggleInclude={() => undefined}
+        onCycleTag={() => undefined}
       />,
     );
     try {
@@ -60,14 +60,14 @@ describe("TagPicker", () => {
     }
   });
 
-  test("clicking an unincluded chip fires onToggleInclude with its id", () => {
+  test("clicking an unincluded chip fires onCycleTag with its id", () => {
     const onToggle = jest.fn();
     const { container, unmount } = renderWithClient(
       <TagPicker
         tags={TAGS}
         includedIds={[]}
         excludedIds={[]}
-        onToggleInclude={onToggle}
+        onCycleTag={onToggle}
       />,
     );
     try {
@@ -102,7 +102,7 @@ describe("TagPicker", () => {
         tags={TAGS}
         includedIds={[1]}
         excludedIds={[]}
-        onToggleInclude={() => undefined}
+        onCycleTag={() => undefined}
       />,
     );
     try {
@@ -134,7 +134,7 @@ describe("TagPicker", () => {
         tags={TAGS}
         includedIds={[]}
         excludedIds={[1]}
-        onToggleInclude={() => undefined}
+        onCycleTag={() => undefined}
       />,
     );
     try {
@@ -159,6 +159,71 @@ describe("TagPicker", () => {
     }
   });
 
+  test("excluded chips render with data-excluded attribute", () => {
+    const { container, unmount } = renderWithClient(
+      <TagPicker
+        tags={TAGS}
+        includedIds={[]}
+        excludedIds={[1]}
+        onCycleTag={() => undefined}
+      />,
+    );
+    try {
+      // Expand all sections since groups are collapsed by default.
+      const headers = container.querySelectorAll("[data-testid='category-section-header']");
+      headers.forEach((h) => {
+        act(() => {
+          (h as HTMLElement).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        });
+      });
+
+      const chips = container.querySelectorAll("[data-testid='tag-chip']");
+      const outdoor = Array.from(chips).find((c) =>
+        (c.textContent ?? "").includes("Outdoor"),
+      ) as HTMLElement;
+      // The TagChip writes data-excluded="true" when excluded.
+      expect(outdoor.getAttribute("data-excluded")).toBe("true");
+      // Should NOT be active.
+      expect(outdoor.getAttribute("data-active")).toBeNull();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("clicking an excluded chip fires onCycleTag to advance to unset", () => {
+    const onCycle = jest.fn();
+    const { container, unmount } = renderWithClient(
+      <TagPicker
+        tags={TAGS}
+        includedIds={[]}
+        excludedIds={[2]}
+        onCycleTag={onCycle}
+      />,
+    );
+    try {
+      // Expand all sections since groups are collapsed by default.
+      const headers = container.querySelectorAll("[data-testid='category-section-header']");
+      headers.forEach((h) => {
+        act(() => {
+          (h as HTMLElement).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        });
+      });
+
+      const chips = container.querySelectorAll("[data-testid='tag-chip']");
+      const indoor = Array.from(chips).find((c) =>
+        (c.textContent ?? "").includes("Indoor"),
+      ) as HTMLElement;
+      expect(indoor).toBeDefined();
+      act(() => {
+        indoor.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      // The cycle callback receives the tag id regardless of current state.
+      expect(onCycle).toHaveBeenCalledWith(2);
+    } finally {
+      unmount();
+    }
+  });
+
   test("alphabetical ordering inside a bucket", () => {
     const { container, unmount } = renderWithClient(
       <TagPicker
@@ -169,7 +234,7 @@ describe("TagPicker", () => {
         ]}
         includedIds={[]}
         excludedIds={[]}
-        onToggleInclude={() => undefined}
+        onCycleTag={() => undefined}
       />,
     );
     try {
@@ -199,7 +264,7 @@ describe("TagPicker", () => {
         tags={[{ id: 1, name: "Loose", category: "made-up" }]}
         includedIds={[]}
         excludedIds={[]}
-        onToggleInclude={() => undefined}
+        onCycleTag={() => undefined}
       />,
     );
     try {

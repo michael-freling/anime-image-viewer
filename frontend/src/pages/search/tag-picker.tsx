@@ -5,16 +5,14 @@
  * grouping. We bucket the global tag list by category (scene / nature /
  * location / mood / uncategorized) using `tagCategoryKey` and render each
  * group inside a `CategorySection`. Each tag inside a group is a `TagChip`
- * whose `active` flag mirrors the include set. Clicking a chip:
+ * whose visual state reflects its filter status. Clicking a chip cycles
+ * through three states:
  *
- *   - If unset: adds it to `includeIds`
- *   - If already in includes: removes it (toggle off)
- *   - If in excludes: leaves exclusion alone (caller can clear the chip
- *     from the active filter bar instead)
+ *   unset -> include -> exclude -> unset
  *
- * This keeps the picker's click semantics mirror-image to the chip body
- * (a single click toggles inclusion) while the X on the active filter row
- * is the canonical "remove" affordance.
+ * This matches the `cycleTagId` rotation in `filter-state.ts`. The caller
+ * passes a single `onCycleTag(id)` callback which handles the state
+ * transition.
  */
 import { Box, Flex, Text } from "@chakra-ui/react";
 import { useMemo } from "react";
@@ -41,10 +39,13 @@ export interface TagPickerProps {
   tags: readonly Tag[];
   /** Ids currently in the include set — rendered as "active" chips. */
   includedIds: readonly number[];
-  /** Ids currently in the exclude set — rendered muted to avoid confusion. */
+  /** Ids currently in the exclude set — rendered with excluded styling. */
   excludedIds: readonly number[];
-  /** Fires when a chip body is clicked (add / remove from include set). */
-  onToggleInclude: (id: number) => void;
+  /**
+   * Fires when a chip body is clicked. The caller is expected to cycle the
+   * tag through unset -> include -> exclude -> unset via `cycleTagId`.
+   */
+  onCycleTag: (id: number) => void;
 }
 
 interface TagBucket {
@@ -78,7 +79,7 @@ export function TagPicker({
   tags,
   includedIds,
   excludedIds,
-  onToggleInclude,
+  onCycleTag,
 }: TagPickerProps): JSX.Element {
   const buckets = useMemo(() => bucketTags(tags), [tags]);
   const includeSet = useMemo(() => new Set(includedIds), [includedIds]);
@@ -134,10 +135,11 @@ export function TagPicker({
                     key={tag.id}
                     tag={tag}
                     active={isIncluded}
+                    excluded={isExcluded}
                     label={
                       isExcluded ? `${tag.name} (excluded)` : undefined
                     }
-                    onClick={() => onToggleInclude(tag.id)}
+                    onClick={() => onCycleTag(tag.id)}
                   />
                 );
               })}

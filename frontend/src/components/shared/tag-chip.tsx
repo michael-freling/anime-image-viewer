@@ -6,9 +6,10 @@
  * resolved via `tagCategoryKey` so both normalised keys ("scene") and
  * display labels ("Scene/Action") pick the same token pair.
  *
- * Two visual states:
+ * Three visual states:
  *   - inactive (ghost/outline)   -- transparent bg, category fg as text
  *   - active (filled)            -- category bg + category fg
+ *   - excluded (muted/strike)    -- reduced opacity, strikethrough text
  * An optional `onRemove` renders a small `X` inside the chip. The handler
  * stops click propagation so it does not trigger `onClick` on the chip.
  */
@@ -27,6 +28,8 @@ export interface TagChipProps {
   tag: Tag;
   /** Filled vs ghost style. Default: inactive (ghost). */
   active?: boolean;
+  /** Excluded state: muted opacity with strikethrough text. */
+  excluded?: boolean;
   /** Click on the chip body. */
   onClick?: () => void;
   /**
@@ -69,6 +72,7 @@ const SIZE_CONFIGS: Record<TagChipSize, SizeConfig> = {
 export function TagChip({
   tag,
   active = false,
+  excluded = false,
   onClick,
   onRemove,
   size = "md",
@@ -79,7 +83,7 @@ export function TagChip({
   const sizing = SIZE_CONFIGS[size];
   const displayLabel = label ?? tag.name;
 
-  const bodyBg = active ? tokens.bg : "transparent";
+  const bodyBg = excluded ? "transparent" : active ? tokens.bg : "transparent";
 
   return (
     <ChipButton
@@ -89,6 +93,7 @@ export function TagChip({
       data-testid="tag-chip"
       data-category={categoryKey}
       data-active={active || undefined}
+      data-excluded={excluded || undefined}
       aria-pressed={onClick ? active : undefined}
       display="inline-flex"
       alignItems="center"
@@ -100,8 +105,9 @@ export function TagChip({
       fontWeight="500"
       bg={bodyBg}
       color={tokens.fg}
+      opacity={excluded ? 0.6 : 1}
       border="1px solid"
-      borderColor={tokens.fg}
+      borderColor={excluded ? "border.muted" : tokens.fg}
       borderRadius="pill"
       cursor={onClick ? "pointer" : "default"}
       transition="background 0.15s ease-out, transform 0.1s ease-out"
@@ -124,7 +130,11 @@ export function TagChip({
         opacity: 1,
       }}
     >
-      <Box as="span" data-testid="tag-chip-label">
+      <Box
+        as="span"
+        data-testid="tag-chip-label"
+        textDecoration={excluded ? "line-through" : undefined}
+      >
         {displayLabel}
       </Box>
       {onRemove && (

@@ -16,8 +16,12 @@
  *     - first `includeTagIds[0]`  -> SearchService.SearchImages({ tagId })
  *       additional include/exclude tags are applied client-side once the
  *       per-image tag map (via AnimeService.GetImageTagIDs) is available.
- *   The hook keeps its filter-object signature unchanged so callers (and the
- *   existing tests) remain valid; the backend mapping is internal.
+ *
+ * Client-side exclude filtering:
+ *   When `excludeTagIds` are present, we fetch the tag map for the result
+ *   set via `AnimeService.GetImageTagIDs` and filter out images that carry
+ *   any of the excluded tags. This keeps the API surface simple while
+ *   enabling the "show me images missing tag X" workflow.
  */
 import {
   keepPreviousData,
@@ -32,6 +36,32 @@ interface SearchResponse {
   images?: ImageFile[] | null;
 }
 
+/**
+ * Given a set of images and exclude tag ids, fetch each image's tags via
+ * `AnimeService.GetImageTagIDs` and return only images that do NOT carry
+ * any of the excluded tags.
+ */
+async function applyExcludeFilter(
+  images: ImageFile[],
+  excludeTagIds: number[],
+): Promise<ImageFile[]> {
+  if (images.length === 0 || excludeTagIds.length === 0) return images;
+
+  const imageIds = images.map((img) => img.id);
+  const tagMap = (await AnimeService.GetImageTagIDs(imageIds)) as Record<
+    number | string,
+    number[]
+  > | null;
+
+  if (!tagMap) return images;
+
+  const excludeSet = new Set(excludeTagIds);
+  return images.filter((img) => {
+    const imageTags: number[] = tagMap[img.id] ?? [];
+    return !imageTags.some((tagId) => excludeSet.has(tagId));
+  });
+}
+
 export function useSearchImages(
   filters: SearchFilters,
 ): UseQueryResult<ImageFile[]> {
@@ -44,29 +74,40 @@ export function useSearchImages(
     }),
     queryFn: async () => {
       const includeIds = filters.includeTagIds ?? [];
-      // Anime-anchored search with no tag filters: hit the dedicated
+      const excludeIds = filters.excludeTagIds ?? [];
+
+      let images: ImageFile[];
+
+      // Anime-anchored search with no include tag filters: hit the dedicated
       // SearchImagesByAnime endpoint so the result is anime-scoped without
       // requiring a tagId.
       if (filters.animeId != null && includeIds.length === 0) {
         const resp = (await AnimeService.SearchImagesByAnime(
           filters.animeId,
         )) as SearchResponse;
-        return resp?.images ?? [];
+        images = resp?.images ?? [];
+      } else {
+        // Tag-driven search: pass the first include tag to the server.
+        const primaryTagId = includeIds[0];
+        if (primaryTagId == null) {
+          // No include tag and no anime anchor — the backend can't resolve
+          // an empty SearchImagesRequest; surface an empty result instead of
+          // a runtime validation error.
+          return [];
+        }
+        const resp = (await SearchService.SearchImages({
+          tagId: primaryTagId,
+        })) as SearchResponse;
+        images = resp?.images ?? [];
       }
-      // Tag-driven search: pass the first include tag to the server and let
-      // any additional include/exclude tags fall back to a client-side
-      // filter pass when the caller introduces it.
-      const primaryTagId = includeIds[0];
-      if (primaryTagId == null) {
-        // No include tag and no anime anchor — the backend can't resolve
-        // an empty SearchImagesRequest; surface an empty result instead of
-        // a runtime validation error.
-        return [];
+
+      // Client-side exclude filtering: remove images that carry any of the
+      // excluded tags.
+      if (excludeIds.length > 0) {
+        images = await applyExcludeFilter(images, excludeIds);
       }
-      const resp = (await SearchService.SearchImages({
-        tagId: primaryTagId,
-      })) as SearchResponse;
-      return resp?.images ?? [];
+
+      return images;
     },
     placeholderData: keepPreviousData,
   });

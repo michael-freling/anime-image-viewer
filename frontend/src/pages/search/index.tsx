@@ -50,7 +50,7 @@ import type { ImageFile, Tag } from "../../types";
 
 import { ActiveFiltersBar } from "./active-filters-bar";
 import {
-  addIncludeId,
+  cycleTagId,
   filterStateFromSearchParams,
   filterStateToSearchParams,
   isEmptyFilterState,
@@ -121,16 +121,10 @@ export function SearchPage(): JSX.Element {
     [setSearchParams],
   );
 
-  const handleAddIncludeTag = useCallback(
+  const handleCycleTag = useCallback(
     (id: number) => {
       const current = filterStateFromSearchParams(searchParams);
-      // Toggle: adding an already-included tag removes it so the tag picker
-      // behaves like a press-state toggle.
-      if (current.includeIds.includes(id)) {
-        updateState(removeTagId(current, id));
-      } else {
-        updateState(addIncludeId(current, id));
-      }
+      updateState(cycleTagId(current, id));
     },
     [searchParams, updateState],
   );
@@ -370,7 +364,7 @@ export function SearchPage(): JSX.Element {
           tags={pickerTags}
           includedIds={urlState.includeIds}
           excludedIds={urlState.excludeIds}
-          onToggleInclude={handleAddIncludeTag}
+          onCycleTag={handleCycleTag}
         />
       )}
 
