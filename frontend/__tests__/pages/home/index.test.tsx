@@ -16,6 +16,7 @@
 const listAnimeMock = jest.fn();
 const listUnassignedMock = jest.fn();
 const importFoldersMock = jest.fn();
+const searchAniListMock = jest.fn();
 
 jest.mock("../../../src/lib/api", () => ({
   __esModule: true,
@@ -25,6 +26,7 @@ jest.mock("../../../src/lib/api", () => ({
       listUnassignedMock(...args),
     ImportMultipleFoldersAsAnime: (...args: unknown[]) =>
       importFoldersMock(...args),
+    SearchAniList: (...args: unknown[]) => searchAniListMock(...args),
   },
 }));
 
@@ -89,10 +91,13 @@ describe("HomePage", () => {
     listAnimeMock.mockReset();
     listUnassignedMock.mockReset();
     importFoldersMock.mockReset();
+    searchAniListMock.mockReset();
     toastSuccess.mockReset();
     toastError.mockReset();
     navigateMock.mockReset();
     resetStores();
+    // Default: no AniList search results.
+    searchAniListMock.mockResolvedValue([]);
   });
 
   test("renders the page header with the AnimeVault title", async () => {
@@ -272,9 +277,8 @@ describe("HomePage", () => {
     }
   });
 
-  test("clicking the trailing +New anime tile opens the import dialog via ?create=1", async () => {
+  test("clicking the trailing +New anime tile opens the create anime dialog via ?create=1", async () => {
     listAnimeMock.mockResolvedValue(ANIME);
-    listUnassignedMock.mockResolvedValue([{ id: 9, name: "staged-folder" }]);
     const r = renderWithClient(<HomePage />);
     try {
       await waitFor(
@@ -289,21 +293,44 @@ describe("HomePage", () => {
       act(() => {
         trailing!.click();
       });
-      // The dialog mounts after the query-param toggles to `?create=1`.
+      // The create anime dialog mounts after the query-param toggles to `?create=1`.
       await waitFor(
         () =>
           document.body.querySelector(
-            "[data-testid='import-folders-dialog']",
+            "[data-testid='create-anime-dialog']",
           ) !== null,
       );
-      // And the dialog fetched the unassigned folders.
-      expect(listUnassignedMock).toHaveBeenCalled();
     } finally {
       r.unmount();
     }
   });
 
-  test("empty-state CTA also opens the import dialog", async () => {
+  test("empty-state Create CTA opens the create anime dialog", async () => {
+    listAnimeMock.mockResolvedValue([]);
+    const r = renderWithClient(<HomePage />);
+    try {
+      await waitFor(() =>
+        (r.container.textContent ?? "").includes("No anime yet"),
+      );
+      const cta = r.container.querySelector<HTMLElement>(
+        "[data-testid='empty-state-create']",
+      );
+      expect(cta).not.toBeNull();
+      act(() => {
+        cta!.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector(
+            "[data-testid='create-anime-dialog']",
+          ) !== null,
+      );
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("empty-state Import CTA opens the import dialog", async () => {
     listAnimeMock.mockResolvedValue([]);
     listUnassignedMock.mockResolvedValue([{ id: 9, name: "staged-folder" }]);
     const r = renderWithClient(<HomePage />);
@@ -330,14 +357,31 @@ describe("HomePage", () => {
     }
   });
 
-  test("starting on /?create=1 opens the dialog immediately", async () => {
+  test("starting on /?create=1 opens the create anime dialog immediately", async () => {
     listAnimeMock.mockResolvedValue(ANIME);
-    listUnassignedMock.mockResolvedValue([]);
     const r = renderWithClient(<HomePage />, {
       routerInitialEntries: ["/?create=1"],
     });
     try {
       // Dialog mounts without a click because the query param is already set.
+      await waitFor(
+        () =>
+          document.body.querySelector(
+            "[data-testid='create-anime-dialog']",
+          ) !== null,
+      );
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("starting on /?import=1 opens the import dialog immediately", async () => {
+    listAnimeMock.mockResolvedValue(ANIME);
+    listUnassignedMock.mockResolvedValue([]);
+    const r = renderWithClient(<HomePage />, {
+      routerInitialEntries: ["/?import=1"],
+    });
+    try {
       await waitFor(
         () =>
           document.body.querySelector(
@@ -349,9 +393,8 @@ describe("HomePage", () => {
     }
   });
 
-  test("header New anime button opens the import dialog", async () => {
+  test("header New anime button opens the create anime dialog", async () => {
     listAnimeMock.mockResolvedValue(ANIME);
-    listUnassignedMock.mockResolvedValue([]);
     const r = renderWithClient(<HomePage />);
     try {
       await waitFor(
@@ -369,6 +412,34 @@ describe("HomePage", () => {
       await waitFor(
         () =>
           document.body.querySelector(
+            "[data-testid='create-anime-dialog']",
+          ) !== null,
+      );
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("header Import folders button opens the import dialog", async () => {
+    listAnimeMock.mockResolvedValue(ANIME);
+    listUnassignedMock.mockResolvedValue([]);
+    const r = renderWithClient(<HomePage />);
+    try {
+      await waitFor(
+        () =>
+          r.container.querySelectorAll("[data-testid='anime-card']").length ===
+          ANIME.length,
+      );
+      const importBtn = r.container.querySelector<HTMLElement>(
+        "[data-testid='home-import-folders']",
+      );
+      expect(importBtn).not.toBeNull();
+      act(() => {
+        importBtn!.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector(
             "[data-testid='import-folders-dialog']",
           ) !== null,
       );
@@ -377,9 +448,8 @@ describe("HomePage", () => {
     }
   });
 
-  test("closing the import dialog strips ?create=1 from the URL", async () => {
+  test("closing the create anime dialog strips ?create=1 from the URL", async () => {
     listAnimeMock.mockResolvedValue(ANIME);
-    listUnassignedMock.mockResolvedValue([]);
     const r = renderWithClient(<HomePage />, {
       routerInitialEntries: ["/?create=1"],
     });
@@ -388,14 +458,12 @@ describe("HomePage", () => {
       await waitFor(
         () =>
           document.body.querySelector(
-            "[data-testid='import-folders-dialog']",
+            "[data-testid='create-anime-dialog']",
           ) !== null,
       );
-      // Close button lives inside the dialog; both the Cancel button and
-      // the overlay's close wire up to `onClose`. The dialog exposes a
-      // cancel button we can click to drive the `closeImportDialog` branch.
+      // Cancel button closes the create anime dialog.
       const cancelBtn = document.body.querySelector<HTMLElement>(
-        "[data-testid='import-folders-cancel']",
+        "[data-testid='create-anime-cancel']",
       );
       expect(cancelBtn).not.toBeNull();
       act(() => {
@@ -404,7 +472,7 @@ describe("HomePage", () => {
       await waitFor(
         () =>
           document.body.querySelector(
-            "[data-testid='import-folders-dialog']",
+            "[data-testid='create-anime-dialog']",
           ) === null,
       );
     } finally {

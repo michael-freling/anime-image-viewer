@@ -3,23 +3,23 @@
  *
  * Spec: ui-design.md §3.1 (Home) and the accompanying wireframes
  * `01-home-desktop.svg` / `01-home-mobile.svg`.
- *   - Sticky PageHeader with "AnimeVault" title and a "+ New anime" action.
+ *   - Sticky PageHeader with "AnimeVault" title, "+ New anime" action, and
+ *     "Import folders" secondary action.
  *   - SearchBar below the header filters the visible cards by name
  *     (client-side substring match — the backend list is small, ~1k at most,
  *     and the search page covers full-library queries).
  *   - Responsive CSS grid of AnimeCards (2/3/5/6 columns by viewport).
- *   - Trailing NewAnimeCard opens the import-folders dialog via a
- *     `?create=1` query parameter (so the URL is shareable / back-button
- *     friendly).
+ *   - Trailing NewAnimeCard opens the CreateAnimeDialog via a `?create=1`
+ *     query parameter. The ImportFoldersDialog is accessible via `?import=1`.
  *   - Loading state: skeleton placeholders inside the grid (at least 10).
- *   - Empty state: EmptyState with a call-to-action to import.
+ *   - Empty state: EmptyState with CTAs for both create and import flows.
  *   - Error state: ErrorAlert with retry (refetch).
  *   - ImportProgressBar mounts at the bottom while any import is running.
  *
  * Phase D1 scope — see frontend-design.md §2 (pages/home directory).
  */
 import { Box, Button, Stack } from "@chakra-ui/react";
-import { Plus, Sparkles } from "lucide-react";
+import { FolderOpen, Plus, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
@@ -33,9 +33,11 @@ import { formatCount } from "../../lib/format";
 import { useAnimeList } from "../../hooks/use-anime-list";
 import type { AnimeSummary } from "../../types";
 import { AnimeGrid } from "./anime-grid";
+import { CreateAnimeDialog } from "./create-anime-dialog";
 import { HomeImportDialog } from "./import-dialog";
 
 const CREATE_PARAM = "create";
+const IMPORT_PARAM = "import";
 const SKELETON_COUNT = 10;
 
 /** Case-insensitive substring filter. Empty query returns the full list. */
@@ -52,19 +54,32 @@ export function HomePage(): JSX.Element {
 
   const [search, setSearch] = useState("");
   const isCreateOpen = searchParams.get(CREATE_PARAM) === "1";
+  const isImportOpen = searchParams.get(IMPORT_PARAM) === "1";
 
   const items = animeListQuery.data ?? [];
   const filteredItems = useMemo(() => filterAnime(items, search), [items, search]);
 
-  const openImportDialog = () => {
+  const openCreateDialog = () => {
     const next = new URLSearchParams(searchParams);
     next.set(CREATE_PARAM, "1");
     setSearchParams(next, { replace: false });
   };
 
-  const closeImportDialog = () => {
+  const closeCreateDialog = () => {
     const next = new URLSearchParams(searchParams);
     next.delete(CREATE_PARAM);
+    setSearchParams(next, { replace: true });
+  };
+
+  const openImportDialog = () => {
+    const next = new URLSearchParams(searchParams);
+    next.set(IMPORT_PARAM, "1");
+    setSearchParams(next, { replace: false });
+  };
+
+  const closeImportDialog = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete(IMPORT_PARAM);
     setSearchParams(next, { replace: true });
   };
 
@@ -105,19 +120,30 @@ export function HomePage(): JSX.Element {
         <EmptyState
           icon={Sparkles}
           title="No anime yet"
-          description="Import your first folder to start organising your library."
+          description="Create a new anime or import from existing folders to start organising your library."
           action={
-            <Button
-              type="button"
-              size="sm"
-              bg="primary"
-              color="bg.surface"
-              _hover={{ bg: "primary.hover" }}
-              onClick={openImportDialog}
-              data-testid="empty-state-import"
-            >
-              Import your first folder
-            </Button>
+            <Stack direction="row" gap="2">
+              <Button
+                type="button"
+                size="sm"
+                bg="primary"
+                color="bg.surface"
+                _hover={{ bg: "primary.hover" }}
+                onClick={openCreateDialog}
+                data-testid="empty-state-create"
+              >
+                Create your first anime
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={openImportDialog}
+                data-testid="empty-state-import"
+              >
+                Import folders
+              </Button>
+            </Stack>
           }
         />
       </Box>
@@ -138,7 +164,7 @@ export function HomePage(): JSX.Element {
         items={filteredItems}
         onCardClick={handleCardClick}
         trailing={
-          <NewAnimeCard onClick={openImportDialog} label="New anime" />
+          <NewAnimeCard onClick={openCreateDialog} label="New anime" />
         }
       />
     );
@@ -154,18 +180,30 @@ export function HomePage(): JSX.Element {
         title="AnimeVault"
         subtitle={subtitle}
         actions={
-          <Button
-            type="button"
-            size="sm"
-            bg="primary"
-            color="bg.surface"
-            _hover={{ bg: "primary.hover" }}
-            onClick={openImportDialog}
-            data-testid="home-new-anime"
-          >
-            <Plus size={16} aria-hidden="true" />
-            New anime
-          </Button>
+          <Stack direction="row" gap="2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={openImportDialog}
+              data-testid="home-import-folders"
+            >
+              <FolderOpen size={16} aria-hidden="true" />
+              Import folders
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              bg="primary"
+              color="bg.surface"
+              _hover={{ bg: "primary.hover" }}
+              onClick={openCreateDialog}
+              data-testid="home-new-anime"
+            >
+              <Plus size={16} aria-hidden="true" />
+              New anime
+            </Button>
+          </Stack>
         }
       />
 
@@ -182,7 +220,8 @@ export function HomePage(): JSX.Element {
       </Stack>
 
       <ImportProgressBar />
-      <HomeImportDialog open={isCreateOpen} onClose={closeImportDialog} />
+      <CreateAnimeDialog open={isCreateOpen} onClose={closeCreateDialog} />
+      <HomeImportDialog open={isImportOpen} onClose={closeImportDialog} />
     </Box>
   );
 }
@@ -190,6 +229,7 @@ export function HomePage(): JSX.Element {
 // Re-export the atoms so tests / peer pages can import them via the page
 // namespace without needing to reach into the sub-files.
 export { AnimeGrid } from "./anime-grid";
+export { CreateAnimeDialog } from "./create-anime-dialog";
 export { HomeImportDialog } from "./import-dialog";
 
 // A named import (`import { HomePage } from "./pages/home"`) is the canonical
