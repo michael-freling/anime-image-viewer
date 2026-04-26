@@ -86,7 +86,8 @@ function bucketByCategory(tags: Tag[]): Map<TagCategoryKey, Tag[]> {
   }
   for (const tag of tags) {
     const key = tagCategoryKey(tag.category);
-    out.get(key)!.push(tag);
+    const list = out.get(key);
+    if (list) list.push(tag);
   }
   // Sort alphabetically within each bucket so the UI is stable.
   for (const list of out.values()) {

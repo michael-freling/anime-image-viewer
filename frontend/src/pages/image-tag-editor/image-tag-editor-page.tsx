@@ -150,9 +150,8 @@ export function ImageTagEditorPage(): JSX.Element {
     const allTags = tagsQuery.data ?? [];
     for (const tag of allTags) {
       const key = tagCategoryKey(tag.category);
-      const existing = buckets.get(key) ?? [];
-      existing.push(tag);
-      buckets.set(key, existing);
+      const list = buckets.get(key);
+      if (list) list.push(tag);
     }
     // Sort tags alphabetically within each category so the grid is scannable.
     for (const [key, tags] of buckets) {
