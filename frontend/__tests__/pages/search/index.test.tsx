@@ -57,12 +57,14 @@ jest.mock("react-virtualized-auto-sizer", () => {
 
 const searchImagesMock = jest.fn();
 const getAllTagsMock = jest.fn();
+const getAnimeDetailsMock = jest.fn();
+const searchImagesByAnimeMock = jest.fn();
 
 jest.mock("../../../src/lib/api", () => ({
   __esModule: true,
   AnimeService: {
-    GetAnimeDetails: () => Promise.resolve(null),
-    SearchImagesByAnime: () => Promise.resolve({ images: [] }),
+    GetAnimeDetails: (...args: unknown[]) => getAnimeDetailsMock(...args),
+    SearchImagesByAnime: (...args: unknown[]) => searchImagesByAnimeMock(...args),
   },
   SearchService: {
     SearchImages: (...args: unknown[]) => searchImagesMock(...args),
@@ -125,6 +127,10 @@ describe("SearchPage", () => {
     searchImagesMock.mockResolvedValue({ images: [] });
     getAllTagsMock.mockReset();
     getAllTagsMock.mockResolvedValue(TAGS);
+    getAnimeDetailsMock.mockReset();
+    getAnimeDetailsMock.mockResolvedValue(null);
+    searchImagesByAnimeMock.mockReset();
+    searchImagesByAnimeMock.mockResolvedValue({ images: [] });
     resetSelectionStore();
   });
 
@@ -702,6 +708,150 @@ describe("SearchPage", () => {
         "input[role='searchbox']",
       ) as HTMLInputElement;
       expect(input.value).toBe("beach");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("anime filter from URL shows anime chip and scoped tags", async () => {
+    getAnimeDetailsMock.mockResolvedValue({
+      anime: { id: 42, name: "Bebop", aniListId: null },
+      tags: [
+        { id: 10, name: "Spike", category: "character", imageCount: 5 },
+        { id: 11, name: "Space", category: "scene", imageCount: 3 },
+      ],
+      folders: [],
+      folderTree: null,
+      entries: [],
+    });
+    searchImagesByAnimeMock.mockResolvedValue({ images: [] });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?tag=1&anime=42"],
+    });
+    try {
+      // Wait for the active-filters-bar to show the anime name chip.
+      await waitFor(
+        () =>
+          (container.querySelector(
+            "[data-testid='active-filters-bar']",
+          )?.textContent ?? "").includes("Bebop"),
+      );
+      const bar = container.querySelector(
+        "[data-testid='active-filters-bar']",
+      );
+      expect(bar?.textContent).toContain("Bebop");
+
+      // Wait for the tag picker to render with the anime's scoped tags.
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='tag-picker']") !== null,
+      );
+
+      // Expand collapsed tag picker groups so we can see the chips.
+      const headers = container.querySelectorAll("[data-testid='category-section-header']");
+      headers.forEach((h) => {
+        act(() => {
+          (h as HTMLElement).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        });
+      });
+
+      // The tag picker should show the anime's tags (Spike, Space) rather
+      // than the global tags (Outdoor, Sunny, Indoor).
+      const picker = container.querySelector("[data-testid='tag-picker']");
+      expect(picker?.textContent).toContain("Spike");
+      expect(picker?.textContent).toContain("Space");
+      // Global tags should NOT appear.
+      expect(picker?.textContent).not.toContain("Outdoor");
+      expect(picker?.textContent).not.toContain("Sunny");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("removing anime filter clears anime from URL", async () => {
+    getAnimeDetailsMock.mockResolvedValue({
+      anime: { id: 42, name: "Bebop", aniListId: null },
+      tags: [],
+      folders: [],
+      folderTree: null,
+      entries: [],
+    });
+    searchImagesByAnimeMock.mockResolvedValue({ images: [] });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?anime=42"],
+    });
+    try {
+      // Wait for the anime chip to render.
+      await waitFor(
+        () =>
+          container.querySelector(
+            "[aria-label='Remove filter Bebop']",
+          ) !== null,
+      );
+      const removeBtn = container.querySelector(
+        "[aria-label='Remove filter Bebop']",
+      ) as HTMLElement;
+      expect(removeBtn).not.toBeNull();
+
+      // Click the X button on the anime chip to remove it.
+      act(() => {
+        removeBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      // After removal, the anime chip should disappear.
+      await waitFor(
+        () =>
+          container.querySelector(
+            "[aria-label='Remove filter Bebop']",
+          ) === null,
+      );
+      // The active-filters-bar should no longer show "Bebop".
+      const bar = container.querySelector("[data-testid='active-filters-bar']");
+      // Either bar is gone entirely or doesn't contain Bebop.
+      expect(bar?.textContent ?? "").not.toContain("Bebop");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("image viewer opens on click in non-select mode", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [makeImage(500, "hero.png"), makeImage(501, "villain.png")],
+    });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?tag=1"],
+    });
+    try {
+      // Wait for the image grid to render.
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='image-grid']") !== null,
+      );
+      // Confirm we are NOT in select mode.
+      expect(useSelectionStore.getState().selectMode).toBe(false);
+
+      // Click a tile — in non-select mode this should open the image viewer.
+      const tile = container.querySelector(
+        "[data-file-id='500']",
+      ) as HTMLElement;
+      expect(tile).not.toBeNull();
+      act(() => {
+        tile.click();
+      });
+
+      // The ImageViewerOverlay should now be visible.
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='image-viewer-overlay']") !==
+          null,
+      );
+      const overlay = container.querySelector(
+        "[data-testid='image-viewer-overlay']",
+      );
+      expect(overlay).not.toBeNull();
+
+      // Selection store should remain empty (no selection happened).
+      expect(useSelectionStore.getState().selectedIds.size).toBe(0);
     } finally {
       unmount();
     }

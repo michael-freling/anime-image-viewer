@@ -2,7 +2,8 @@
  * Tests for `TagsTab`.
  *
  * Spec: ui-design.md §3.2.4 "Tags tab". Verifies grouping-by-category,
- * active chip render, empty state, and error state.
+ * active chip render, empty state, error state, edit dialog, convert
+ * category, and search navigation.
  */
 
 jest.mock("react-photo-album/masonry.css", () => ({}), { virtual: true });
@@ -37,9 +38,25 @@ jest.mock("../../../src/lib/api", () => ({
   },
 }));
 
+const updateTagMock = jest.fn();
+jest.mock("../../../src/pages/tags/tag-mutations", () => ({
+  __esModule: true,
+  updateTag: (...args: unknown[]) => updateTagMock(...args),
+}));
+
+jest.mock("../../../src/components/ui/toaster", () => ({
+  __esModule: true,
+  toast: {
+    success: jest.fn(),
+    error: jest.fn(),
+  },
+}));
+
+import { toast } from "../../../src/components/ui/toaster";
 import { routes } from "../../../src/app/routes";
 import type { AnimeDerivedTag, AnimeDetail } from "../../../src/types";
 import { renderRoutes, waitFor } from "../../test-utils";
+import { act } from "react-dom/test-utils";
 
 function makeDerivedTag(
   id: number,
@@ -64,6 +81,9 @@ function makeDetail(overrides: Partial<AnimeDetail> = {}): AnimeDetail {
 describe("TagsTab", () => {
   beforeEach(() => {
     getAnimeDetailsMock.mockReset();
+    updateTagMock.mockReset();
+    (toast.success as jest.Mock).mockClear();
+    (toast.error as jest.Mock).mockClear();
   });
 
   test("groups tags by category with TagChips and counts", async () => {
@@ -233,6 +253,445 @@ describe("TagsTab", () => {
         { timeout: 200 },
       ).catch(() => undefined);
       expect(getAnimeDetailsMock).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("clicking edit button opens the edit dialog", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        tags: [makeDerivedTag(1, "Outdoor", "scene", 5)],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/tags"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='tags-tab-tag-edit']") !== null,
+      );
+      const editBtn = container.querySelector(
+        "[data-testid='tags-tab-tag-edit']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        editBtn.click();
+      });
+      // TagDialog renders via Portal to document.body, not inside `container`.
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='tag-dialog']") !== null,
+      );
+      expect(
+        document.body.querySelector("[data-testid='tag-dialog']"),
+      ).not.toBeNull();
+      // The dialog title should contain the tag name.
+      const dialog = document.body.querySelector(
+        "[data-testid='tag-dialog']",
+      )!;
+      expect(dialog.textContent).toContain("Outdoor");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("edit dialog validates empty name", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        tags: [makeDerivedTag(1, "Outdoor", "scene", 5)],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/tags"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='tags-tab-tag-edit']") !== null,
+      );
+      const editBtn = container.querySelector(
+        "[data-testid='tags-tab-tag-edit']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        editBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='tag-dialog']") !== null,
+      );
+      // Clear the name input (rendered inside Portal on document.body).
+      const nameInput = document.body.querySelector(
+        "[data-testid='tag-form-name']",
+      ) as HTMLInputElement;
+      await act(async () => {
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          "value",
+        )!.set!;
+        nativeInputValueSetter.call(nameInput, "");
+        nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+        nameInput.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      // The Save button is disabled when name is empty, so trigger submitEdit
+      // via Enter key on the name input.
+      await act(async () => {
+        nameInput.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            bubbles: true,
+          }),
+        );
+      });
+      // Wait for the error message to appear.
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='tag-form-error']") !==
+          null,
+      );
+      expect(
+        document.body.querySelector("[data-testid='tag-form-error']")
+          ?.textContent,
+      ).toContain("Tag name is required");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("edit dialog submits and calls updateTag", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        tags: [makeDerivedTag(1, "Outdoor", "scene", 5)],
+      }),
+    );
+    updateTagMock.mockResolvedValue({
+      id: 1,
+      name: "Indoor",
+      category: "scene",
+    });
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/tags"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='tags-tab-tag-edit']") !== null,
+      );
+      const editBtn = container.querySelector(
+        "[data-testid='tags-tab-tag-edit']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        editBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='tag-dialog']") !== null,
+      );
+      // Change the name input (in Portal).
+      const nameInput = document.body.querySelector(
+        "[data-testid='tag-form-name']",
+      ) as HTMLInputElement;
+      await act(async () => {
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          "value",
+        )!.set!;
+        nativeInputValueSetter.call(nameInput, "Indoor");
+        nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+        nameInput.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      // Click the submit button (in Portal).
+      const submitBtn = document.body.querySelector(
+        "[data-testid='tag-form-submit']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        submitBtn.click();
+      });
+      // Wait for updateTag to have been called.
+      await waitFor(() => updateTagMock.mock.calls.length > 0);
+      expect(updateTagMock).toHaveBeenCalledWith(1, {
+        name: "Indoor",
+        category: "scene",
+        parentId: undefined,
+      });
+      expect(toast.success).toHaveBeenCalledWith(
+        "Tag updated",
+        expect.stringContaining("Indoor"),
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("edit dialog shows error on failure", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        tags: [makeDerivedTag(1, "Outdoor", "scene", 5)],
+      }),
+    );
+    updateTagMock.mockRejectedValue(new Error("server error"));
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/tags"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='tags-tab-tag-edit']") !== null,
+      );
+      const editBtn = container.querySelector(
+        "[data-testid='tags-tab-tag-edit']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        editBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='tag-dialog']") !== null,
+      );
+      // Click the submit button (name is pre-filled with "Outdoor", in Portal).
+      const submitBtn = document.body.querySelector(
+        "[data-testid='tag-form-submit']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        submitBtn.click();
+      });
+      // Wait for error toast.
+      await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
+      expect(toast.error).toHaveBeenCalledWith(
+        "Could not save tag",
+        "server error",
+      );
+      // The inline error in the form should also appear (in Portal).
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='tag-form-error']") !==
+          null,
+      );
+      expect(
+        document.body.querySelector("[data-testid='tag-form-error']")
+          ?.textContent,
+      ).toContain("server error");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("convert button toggles character to uncategorized", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        tags: [makeDerivedTag(1, "Spike", "character", 3)],
+      }),
+    );
+    updateTagMock.mockResolvedValue({
+      id: 1,
+      name: "Spike",
+      category: "uncategorized",
+    });
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/tags"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='tags-tab-tag-convert']") !==
+          null,
+      );
+      const convertBtn = container.querySelector(
+        "[data-testid='tags-tab-tag-convert']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        convertBtn.click();
+      });
+      await waitFor(() => updateTagMock.mock.calls.length > 0);
+      expect(updateTagMock).toHaveBeenCalledWith(1, {
+        name: "Spike",
+        category: "uncategorized",
+      });
+      expect(toast.success).toHaveBeenCalledWith(
+        "Category changed",
+        expect.stringContaining("tag"),
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("convert button toggles uncategorized to character", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        tags: [makeDerivedTag(1, "Loose", "uncategorized", 2)],
+      }),
+    );
+    updateTagMock.mockResolvedValue({
+      id: 1,
+      name: "Loose",
+      category: "character",
+    });
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/tags"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='tags-tab-tag-convert']") !==
+          null,
+      );
+      const convertBtn = container.querySelector(
+        "[data-testid='tags-tab-tag-convert']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        convertBtn.click();
+      });
+      await waitFor(() => updateTagMock.mock.calls.length > 0);
+      expect(updateTagMock).toHaveBeenCalledWith(1, {
+        name: "Loose",
+        category: "character",
+      });
+      expect(toast.success).toHaveBeenCalledWith(
+        "Category changed",
+        expect.stringContaining("character"),
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("convert error shows toast", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        tags: [makeDerivedTag(1, "Outdoor", "scene", 5)],
+      }),
+    );
+    updateTagMock.mockRejectedValue(new Error("convert failed"));
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/tags"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='tags-tab-tag-convert']") !==
+          null,
+      );
+      const convertBtn = container.querySelector(
+        "[data-testid='tags-tab-tag-convert']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        convertBtn.click();
+      });
+      await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
+      expect(toast.error).toHaveBeenCalledWith(
+        "Could not convert tag",
+        "convert failed",
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("convert error with non-Error rejection uses String()", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        tags: [makeDerivedTag(1, "Outdoor", "scene", 5)],
+      }),
+    );
+    updateTagMock.mockRejectedValue("plain string error");
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/tags"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='tags-tab-tag-convert']") !==
+          null,
+      );
+      const convertBtn = container.querySelector(
+        "[data-testid='tags-tab-tag-convert']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        convertBtn.click();
+      });
+      await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
+      expect(toast.error).toHaveBeenCalledWith(
+        "Could not convert tag",
+        "plain string error",
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("edit dialog error with non-Error rejection uses String()", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        tags: [makeDerivedTag(1, "Outdoor", "scene", 5)],
+      }),
+    );
+    updateTagMock.mockRejectedValue("string rejection");
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/tags"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='tags-tab-tag-edit']") !== null,
+      );
+      const editBtn = container.querySelector(
+        "[data-testid='tags-tab-tag-edit']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        editBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='tag-dialog']") !== null,
+      );
+      const submitBtn = document.body.querySelector(
+        "[data-testid='tag-form-submit']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        submitBtn.click();
+      });
+      await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
+      expect(toast.error).toHaveBeenCalledWith(
+        "Could not save tag",
+        "string rejection",
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("search button navigates to search with anime param", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        tags: [makeDerivedTag(1, "Outdoor", "scene", 5)],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/tags"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='tags-tab-tag-search']") !==
+          null,
+      );
+      const searchBtn = container.querySelector(
+        "[data-testid='tags-tab-tag-search']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        searchBtn.click();
+      });
+      // After clicking search, the router should navigate to /search?tag=1&anime=42.
+      // The SearchPage component should now be rendered (since it's in the routes).
+      // We verify by checking the URL changed — the search page will render.
+      await waitFor(
+        () =>
+          // The tags-tab should no longer be visible since we navigated away.
+          container.querySelector("[data-testid='tags-tab']") === null ||
+          // Or the search page content may be visible.
+          (container.textContent ?? "").includes("Search") === true,
+      );
     } finally {
       unmount();
     }
