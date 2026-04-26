@@ -22,7 +22,7 @@ import { useMemo } from "react";
 import { CategorySection } from "../../components/shared/category-section";
 import { TagChip } from "../../components/shared/tag-chip";
 import {
-  TAG_CATEGORY_ORDER,
+  TAG_ONLY_CATEGORY_ORDER,
   TAG_CATEGORY_TOKENS,
   tagCategoryKey,
 } from "../../lib/constants";
@@ -55,15 +55,15 @@ interface TagBucket {
 
 function bucketTags(tags: readonly Tag[]): TagBucket[] {
   const buckets = new Map<TagCategoryKey, Tag[]>();
-  for (const key of TAG_CATEGORY_ORDER) buckets.set(key, []);
+  for (const key of TAG_ONLY_CATEGORY_ORDER) buckets.set(key, []);
   for (const tag of tags) {
     const key = tagCategoryKey(tag.category);
     const list = buckets.get(key);
     if (list) list.push(tag);
   }
-  // Preserve the spec order from TAG_CATEGORY_ORDER and drop empty buckets.
+  // Preserve the spec order from TAG_ONLY_CATEGORY_ORDER and drop empty buckets.
   const result: TagBucket[] = [];
-  for (const key of TAG_CATEGORY_ORDER) {
+  for (const key of TAG_ONLY_CATEGORY_ORDER) {
     const list = buckets.get(key) ?? [];
     if (list.length === 0) continue;
     // Alphabetical inside a bucket so the picker is scannable regardless of

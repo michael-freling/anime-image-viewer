@@ -51,7 +51,7 @@ import { useTagStats } from "../../hooks/use-tag-stats";
 import { useTags } from "../../hooks/use-tags";
 import { TagFrontendService } from "../../lib/api";
 import {
-  TAG_CATEGORY_ORDER,
+  TAG_ONLY_CATEGORY_ORDER,
   TAG_CATEGORY_TOKENS,
   tagCategoryKey,
 } from "../../lib/constants";
@@ -146,7 +146,7 @@ export function ImageTagEditorPage(): JSX.Element {
   // Group tags by category, in the canonical display order.
   const tagsByCategory = useMemo(() => {
     const buckets = new Map<TagCategoryKey, Tag[]>();
-    for (const key of TAG_CATEGORY_ORDER) buckets.set(key, []);
+    for (const key of TAG_ONLY_CATEGORY_ORDER) buckets.set(key, []);
     const allTags = tagsQuery.data ?? [];
     for (const tag of allTags) {
       const key = tagCategoryKey(tag.category);
@@ -170,7 +170,7 @@ export function ImageTagEditorPage(): JSX.Element {
     const needle = search.trim().toLowerCase();
     if (needle === "") return tagsByCategory;
     const result = new Map<TagCategoryKey, Tag[]>();
-    for (const key of TAG_CATEGORY_ORDER) {
+    for (const key of TAG_ONLY_CATEGORY_ORDER) {
       const tags = tagsByCategory.get(key) ?? [];
       const matching = tags.filter((t) =>
         t.name.toLowerCase().includes(needle),

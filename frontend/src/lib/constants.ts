@@ -111,6 +111,14 @@ export const TAG_CATEGORY_ORDER: readonly TagCategoryKey[] = [
 ];
 
 /**
+ * Tag-only category order — excludes "character" since characters have
+ * their own dedicated UI (anime detail Characters tab) and should not
+ * appear alongside regular tags in pickers, editors, or the tag form.
+ */
+export const TAG_ONLY_CATEGORY_ORDER: readonly TagCategoryKey[] =
+  TAG_CATEGORY_ORDER.filter((k) => k !== "character");
+
+/**
  * Normalise a raw category string into a `TagCategoryKey`. Unknown values
  * fall back to "uncategorized".
  */
