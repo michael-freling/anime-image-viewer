@@ -9,6 +9,7 @@
  * → navigate to home.
  */
 import { Box, Button, Flex, Stack, Text } from "@chakra-ui/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
@@ -20,6 +21,7 @@ import { toast } from "../../components/ui/toaster";
 import { useAnimeDetail } from "../../hooks/use-anime-detail";
 import { AnimeService } from "../../lib/api";
 import { formatCount } from "../../lib/format";
+import { qk } from "../../lib/query-keys";
 
 function parseAnimeId(raw: string | undefined): number {
   if (!raw) return 0;
@@ -52,6 +54,7 @@ export function InfoTab(): JSX.Element {
   const { animeId: rawId } = useParams<{ animeId: string }>();
   const animeId = parseAnimeId(rawId);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data, isLoading, isError, error, refetch } = useAnimeDetail(animeId);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -208,6 +211,7 @@ export function InfoTab(): JSX.Element {
         onConfirm={async () => {
           try {
             await AnimeService.DeleteAnime(animeId);
+            await queryClient.invalidateQueries({ queryKey: qk.anime.all });
             toast.success("Anime deleted", `"${anime.name}" has been removed.`);
             navigate("/");
           } catch (err) {
