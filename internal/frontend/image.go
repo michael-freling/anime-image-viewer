@@ -58,7 +58,7 @@ func (service *ImageService) ShowImageInExplorer(ctx context.Context, imageID ui
 
 	switch runtime.GOOS {
 	case "windows":
-		return exec.Command("explorer", "/select,", filepath.ToSlash(filePath)).Start()
+		return exec.Command("explorer", "/select,"+filePath).Start()
 	case "darwin":
 		return exec.Command("open", "-R", filePath).Start()
 	default:
