@@ -230,6 +230,14 @@ export function ImageViewerOverlay({
     });
   }, [currentImage]);
 
+  // Show-in-explorer handler: opens the system file explorer with the file selected.
+  const handleShowInExplorer = useCallback(() => {
+    if (!currentImage) return;
+    ImageService.ShowImageInExplorer(currentImage.id).catch((err: unknown) => {
+      console.error("Failed to show image in explorer:", err);
+    });
+  }, [currentImage]);
+
   // `useMemo` keeps the img src stable across unrelated re-renders; this
   // matters because the React Query HTTP cache is keyed by URL and we want
   // the browser image cache to reuse the prefetched response.
@@ -323,6 +331,7 @@ export function ImageViewerOverlay({
           }}
           onClose={onClose}
           onOpenInOS={handleOpenInOS}
+          onShowInExplorer={handleShowInExplorer}
           closeButtonRef={closeButtonRef}
         />
       </Box>

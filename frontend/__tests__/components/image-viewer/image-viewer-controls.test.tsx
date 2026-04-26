@@ -244,6 +244,69 @@ describe("ImageViewerControls", () => {
     }
   });
 
+  test("renders the 'Show in file explorer' button when onShowInExplorer is provided", () => {
+    const onShowInExplorer = jest.fn();
+    const r = renderWithClient(
+      <ImageViewerControls
+        hasPrev
+        hasNext
+        onPrev={jest.fn()}
+        onNext={jest.fn()}
+        onClose={jest.fn()}
+        onShowInExplorer={onShowInExplorer}
+      />,
+    );
+    try {
+      const btn = byTestId(r.container, "image-viewer-show-in-explorer");
+      expect(btn).not.toBeNull();
+      expect(btn!.getAttribute("aria-label")).toBe(
+        "Show in file explorer",
+      );
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("does not render 'Show in file explorer' button when onShowInExplorer is not provided", () => {
+    const r = renderWithClient(
+      <ImageViewerControls
+        hasPrev
+        hasNext
+        onPrev={jest.fn()}
+        onNext={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+    try {
+      expect(byTestId(r.container, "image-viewer-show-in-explorer")).toBeNull();
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("clicking 'Show in file explorer' fires onShowInExplorer", () => {
+    const onShowInExplorer = jest.fn();
+    const r = renderWithClient(
+      <ImageViewerControls
+        hasPrev
+        hasNext
+        onPrev={jest.fn()}
+        onNext={jest.fn()}
+        onClose={jest.fn()}
+        onShowInExplorer={onShowInExplorer}
+      />,
+    );
+    try {
+      const btn = byTestId(r.container, "image-viewer-show-in-explorer")!;
+      act(() => {
+        btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      expect(onShowInExplorer).toHaveBeenCalledTimes(1);
+    } finally {
+      r.unmount();
+    }
+  });
+
   test("renders both edges hidden when hasPrev and hasNext are both false", () => {
     const r = renderWithClient(
       <ImageViewerControls

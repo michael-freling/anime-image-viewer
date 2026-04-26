@@ -34,10 +34,12 @@ jest.mock("../../../src/hooks/use-image-prefetch", () => ({
 }));
 
 const openImageInOSMock = jest.fn().mockResolvedValue(undefined);
+const showImageInExplorerMock = jest.fn().mockResolvedValue(undefined);
 jest.mock("../../../src/lib/api", () => ({
   __esModule: true,
   ImageService: {
     OpenImageInOS: (...args: unknown[]) => openImageInOSMock(...args),
+    ShowImageInExplorer: (...args: unknown[]) => showImageInExplorerMock(...args),
   },
 }));
 
@@ -74,6 +76,7 @@ function dispatchKey(key: string): void {
 beforeEach(() => {
   useImagePrefetchMock.mockReset();
   openImageInOSMock.mockReset().mockResolvedValue(undefined);
+  showImageInExplorerMock.mockReset().mockResolvedValue(undefined);
 });
 
 describe("ImageViewerOverlay", () => {
@@ -578,6 +581,29 @@ describe("ImageViewerOverlay", () => {
         btn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       });
       expect(openImageInOSMock).toHaveBeenCalledWith(20); // id of IMAGES[1]
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("renders the 'Show in file explorer' button and calls ImageService.ShowImageInExplorer on click", async () => {
+    const r = renderWithClient(
+      <ImageViewerOverlay
+        open
+        images={IMAGES}
+        currentIndex={1}
+        onIndexChange={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+    try {
+      await flushPromises();
+      const btn = byTestId(r.container, "image-viewer-show-in-explorer");
+      expect(btn).not.toBeNull();
+      act(() => {
+        btn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      expect(showImageInExplorerMock).toHaveBeenCalledWith(20); // id of IMAGES[1]
     } finally {
       r.unmount();
     }

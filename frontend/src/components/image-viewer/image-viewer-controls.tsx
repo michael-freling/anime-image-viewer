@@ -26,7 +26,7 @@
  */
 import type { ReactElement, RefObject } from "react";
 import { Box, IconButton } from "@chakra-ui/react";
-import { ChevronLeft, ChevronRight, ExternalLink, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, FolderOpen, X } from "lucide-react";
 
 export interface ImageViewerControlsProps {
   /** Whether a previous image exists. Hide Prev when false. */
@@ -41,6 +41,8 @@ export interface ImageViewerControlsProps {
   onClose: () => void;
   /** Fired by "Open in default application" button. Only rendered when provided. */
   onOpenInOS?: () => void;
+  /** Fired by "Show in file explorer" button. Only rendered when provided. */
+  onShowInExplorer?: () => void;
   /**
    * Ref surfaced to the parent so it can move focus to the close button on
    * open (ui-design.md §7 "All interactive elements keyboard-focusable").
@@ -87,6 +89,7 @@ export function ImageViewerControls({
   onNext,
   onClose,
   onOpenInOS,
+  onShowInExplorer,
   closeButtonRef,
 }: ImageViewerControlsProps): ReactElement {
   return (
@@ -119,30 +122,62 @@ export function ImageViewerControls({
         </IconButton>
       </Box>
 
-      {/* Open in OS button — top-right, only rendered when handler provided. */}
-      {onOpenInOS && (
-        <Box position="absolute" top="16px" right="16px" zIndex={2}>
-          <IconButton
-            aria-label="Open in default application"
-            data-testid="image-viewer-open-in-os"
-            onClick={onOpenInOS}
-            size="lg"
-            variant="ghost"
-            width="48px"
-            height="48px"
-            minW="48px"
-            borderRadius="pill"
-            bg="rgba(30, 30, 46, 0.8)"
-            color="#f1f5f9"
-            _hover={{ bg: "rgba(30, 30, 46, 0.95)" }}
-            _focusVisible={{
-              outline: "2px solid",
-              outlineColor: "primary",
-              outlineOffset: "2px",
-            }}
-          >
-            <ExternalLink size={24} aria-hidden="true" />
-          </IconButton>
+      {/* Top-right action buttons — open in OS and show in explorer. */}
+      {(onOpenInOS || onShowInExplorer) && (
+        <Box
+          position="absolute"
+          top="16px"
+          right="16px"
+          zIndex={2}
+          display="flex"
+          gap="8px"
+        >
+          {onShowInExplorer && (
+            <IconButton
+              aria-label="Show in file explorer"
+              data-testid="image-viewer-show-in-explorer"
+              onClick={onShowInExplorer}
+              size="lg"
+              variant="ghost"
+              width="48px"
+              height="48px"
+              minW="48px"
+              borderRadius="pill"
+              bg="rgba(30, 30, 46, 0.8)"
+              color="#f1f5f9"
+              _hover={{ bg: "rgba(30, 30, 46, 0.95)" }}
+              _focusVisible={{
+                outline: "2px solid",
+                outlineColor: "primary",
+                outlineOffset: "2px",
+              }}
+            >
+              <FolderOpen size={24} aria-hidden="true" />
+            </IconButton>
+          )}
+          {onOpenInOS && (
+            <IconButton
+              aria-label="Open in default application"
+              data-testid="image-viewer-open-in-os"
+              onClick={onOpenInOS}
+              size="lg"
+              variant="ghost"
+              width="48px"
+              height="48px"
+              minW="48px"
+              borderRadius="pill"
+              bg="rgba(30, 30, 46, 0.8)"
+              color="#f1f5f9"
+              _hover={{ bg: "rgba(30, 30, 46, 0.95)" }}
+              _focusVisible={{
+                outline: "2px solid",
+                outlineColor: "primary",
+                outlineOffset: "2px",
+              }}
+            >
+              <ExternalLink size={24} aria-hidden="true" />
+            </IconButton>
+          )}
         </Box>
       )}
 

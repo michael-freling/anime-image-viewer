@@ -3,6 +3,9 @@ package frontend
 import (
 	"context"
 	"fmt"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 
 	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -37,6 +40,32 @@ func (service *ImageService) OpenImageInOS(ctx context.Context, imageID uint) er
 
 	app := application.Get()
 	return app.BrowserOpenFile(imageFiles[0].LocalFilePath)
+}
+
+// ShowImageInExplorer opens the system file explorer with the image's file
+// selected. On Windows this uses `explorer /select,`, on macOS `open -R`,
+// and on Linux `xdg-open` on the parent directory.
+func (service *ImageService) ShowImageInExplorer(ctx context.Context, imageID uint) error {
+	imageFiles, err := service.imageReader.ReadImagesByIDs([]uint{imageID})
+	if err != nil {
+		return fmt.Errorf("ReadImagesByIDs: %w", err)
+	}
+	if len(imageFiles) == 0 {
+		return fmt.Errorf("image not found: %d", imageID)
+	}
+
+	filePath := imageFiles[0].LocalFilePath
+
+	switch runtime.GOOS {
+	case "windows":
+		return exec.Command("explorer", "/select,", filepath.ToSlash(filePath)).Start()
+	case "darwin":
+		return exec.Command("open", "-R", filePath).Start()
+	default:
+		// Linux: xdg-open on the parent directory (most file managers will show
+		// the directory contents; there's no portable "select file" command).
+		return exec.Command("xdg-open", filepath.Dir(filePath)).Start()
+	}
 }
 
 type Image struct {
