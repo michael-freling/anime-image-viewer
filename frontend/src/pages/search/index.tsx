@@ -46,9 +46,11 @@ import { useImageSelection } from "../../hooks/use-image-selection";
 import { useSearchImages } from "../../hooks/use-search-images";
 import { useTagMap, useTags } from "../../hooks/use-tags";
 import { useSelectionStore } from "../../stores/selection-store";
+import { tagCategoryKey } from "../../lib/constants";
 import type { ImageFile, Tag } from "../../types";
 
 import { ActiveFiltersBar } from "./active-filters-bar";
+import { CharacterPicker } from "./character-picker";
 import {
   cycleTagId,
   filterStateFromSearchParams,
@@ -157,9 +159,9 @@ export function SearchPage(): JSX.Element {
     excludeTagIds: urlState.excludeIds,
   });
 
-  // When an anime filter is active, scope the tag picker to that anime's
+  // When an anime filter is active, scope the pickers to that anime's
   // derived tags instead of showing the full global tag list.
-  const pickerTags = useMemo<Tag[]>(() => {
+  const allPickerTags = useMemo<Tag[]>(() => {
     if (urlState.animeId != null && animeDetailQuery.data?.tags) {
       return animeDetailQuery.data.tags.map((t) => ({
         id: t.id,
@@ -169,6 +171,15 @@ export function SearchPage(): JSX.Element {
     }
     return tagsQuery.data ?? [];
   }, [urlState.animeId, animeDetailQuery.data, tagsQuery.data]);
+
+  const pickerTags = useMemo<Tag[]>(
+    () => allPickerTags.filter((t) => tagCategoryKey(t.category) !== "character"),
+    [allPickerTags],
+  );
+  const pickerCharacters = useMemo<Tag[]>(
+    () => allPickerTags.filter((t) => tagCategoryKey(t.category) === "character"),
+    [allPickerTags],
+  );
 
   const images = searchQuery.data ?? [];
   const filteredImages = useMemo(
@@ -362,6 +373,15 @@ export function SearchPage(): JSX.Element {
       {pickerTags.length > 0 && (
         <TagPicker
           tags={pickerTags}
+          includedIds={urlState.includeIds}
+          excludedIds={urlState.excludeIds}
+          onCycleTag={handleCycleTag}
+        />
+      )}
+
+      {urlState.animeId != null && pickerCharacters.length > 0 && (
+        <CharacterPicker
+          characters={pickerCharacters}
           includedIds={urlState.includeIds}
           excludedIds={urlState.excludeIds}
           onCycleTag={handleCycleTag}
