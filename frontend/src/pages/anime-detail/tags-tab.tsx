@@ -13,10 +13,11 @@
  */
 import { Box, Button, Flex, IconButton, Stack, Text } from "@chakra-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeftRight, Pencil, Plus, Search, Tag as TagIcon } from "lucide-react";
+import { Pencil, Plus, Search, Tag as TagIcon, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
+import { ConfirmDialog } from "../../components/ui/confirm-dialog";
 import { CategorySection } from "../../components/shared/category-section";
 import { EmptyState } from "../../components/shared/empty-state";
 import { ErrorAlert } from "../../components/shared/error-alert";
@@ -111,6 +112,9 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
   const grouped = useMemo(() => groupTags(data?.tags ?? []), [data]);
 
   const [dialog, setDialog] = useState<EditDialogState>(INITIAL_EDIT);
+  const [confirmTarget, setConfirmTarget] = useState<AnimeDerivedTag | null>(null);
+
+  const confirmIsCharacter = confirmTarget ? tagCategoryKey(confirmTarget.category) === "character" : false;
 
   const openEdit = (t: AnimeDerivedTag) => {
     setDialog({
@@ -131,17 +135,19 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
   const convertCategory = async (t: AnimeDerivedTag) => {
     const isCharacter = tagCategoryKey(t.category) === "character";
     const newCategory = isCharacter ? "uncategorized" : "character";
-    const label = isCharacter ? "tag" : "character";
     try {
       await updateTag(t.id, { name: t.name, category: newCategory });
-      toast.success("Category changed", `"${t.name}" converted to ${label}.`);
+      toast.success(
+        isCharacter ? "Moved to Tags" : "Moved to Characters",
+        `"${t.name}" ${isCharacter ? "is now a regular tag" : "is now a character"}.`,
+      );
       await queryClient.invalidateQueries({ queryKey: qk.tags.list() });
       await queryClient.invalidateQueries({
         queryKey: qk.anime.detail(animeId),
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      toast.error("Could not convert tag", message);
+      toast.error("Could not convert", message);
     }
   };
 
@@ -283,22 +289,28 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
                   >
                     <Pencil size={12} aria-hidden="true" />
                   </IconButton>
-                  <IconButton
+                  <Button
                     type="button"
                     size="xs"
                     variant="ghost"
-                    aria-label={
-                      tagCategoryKey(t.category) === "character"
-                        ? `Convert ${t.name} to tag`
-                        : `Convert ${t.name} to character`
-                    }
                     data-testid="tags-tab-tag-convert"
-                    onClick={() => void convertCategory(t)}
+                    onClick={() => setConfirmTarget(t)}
                     color="fg.secondary"
                     _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
+                    fontSize="xs"
                   >
-                    <ArrowLeftRight size={12} aria-hidden="true" />
-                  </IconButton>
+                    {tagCategoryKey(t.category) === "character" ? (
+                      <>
+                        <TagIcon size={12} aria-hidden="true" />
+                        Make Tag
+                      </>
+                    ) : (
+                      <>
+                        <Users size={12} aria-hidden="true" />
+                        Make Character
+                      </>
+                    )}
+                  </Button>
                   <IconButton
                     type="button"
                     size="xs"
@@ -333,6 +345,24 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
         onSubmit={submitEdit}
         submitting={dialog.submitting}
         error={dialog.error}
+      />
+
+      <ConfirmDialog
+        open={confirmTarget !== null}
+        onClose={() => setConfirmTarget(null)}
+        onConfirm={async () => {
+          if (confirmTarget) {
+            await convertCategory(confirmTarget);
+            setConfirmTarget(null);
+          }
+        }}
+        title={confirmIsCharacter ? "Move to Tags?" : "Make Character?"}
+        description={
+          confirmIsCharacter
+            ? `"${confirmTarget?.name ?? ""}" will move from Characters to Tags.`
+            : `"${confirmTarget?.name ?? ""}" will move to the Characters tab.`
+        }
+        confirmLabel={confirmIsCharacter ? "Move to Tags" : "Make Character"}
       />
     </Box>
   );

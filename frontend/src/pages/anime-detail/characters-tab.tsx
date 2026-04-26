@@ -8,7 +8,7 @@
  */
 import { Box, Button, Flex, IconButton, SimpleGrid, Text, chakra } from "@chakra-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeftRight, Pencil, Search, UserPlus, Users } from "lucide-react";
+import { Pencil, Tag as TagIcon, UserPlus, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
@@ -17,6 +17,7 @@ import { EmptyState } from "../../components/shared/empty-state";
 import { ErrorAlert } from "../../components/shared/error-alert";
 import { RowSkeleton } from "../../components/shared/loading-skeleton";
 import { SearchBar } from "../../components/shared/search-bar";
+import { ConfirmDialog } from "../../components/ui/confirm-dialog";
 import { toast } from "../../components/ui/toaster";
 import { useAnimeDetail } from "../../hooks/use-anime-detail";
 import { tagCategoryKey } from "../../lib/constants";
@@ -48,6 +49,8 @@ const INITIAL_EDIT: EditDialogState = {
   submitting: false,
 };
 
+const CardButton = chakra("button");
+
 function CharacterCard({
   character,
   onEdit,
@@ -60,7 +63,9 @@ function CharacterCard({
   onConvertToTag: () => void;
 }): JSX.Element {
   return (
-    <Box
+    <CardButton
+      type="button"
+      onClick={onSearch}
       data-testid="character-card"
       data-character-id={character.id}
       borderWidth="1px"
@@ -70,6 +75,13 @@ function CharacterCard({
       bg="bg.surface"
       display="flex"
       flexDirection="column"
+      cursor="pointer"
+      textAlign="left"
+      p="0"
+      _hover={{ transform: "scale(1.02)", boxShadow: "0 0 0 2px var(--chakra-colors-primary)" }}
+      _active={{ transform: "scale(0.98)" }}
+      _focusVisible={{ outline: "2px solid", outlineColor: "primary", outlineOffset: "2px" }}
+      transition="transform 0.15s ease-out, box-shadow 0.15s ease-out"
     >
       <Box
         aspectRatio="1 / 1"
@@ -109,39 +121,31 @@ function CharacterCard({
             variant="ghost"
             aria-label={`Edit ${character.name}`}
             data-testid="character-card-edit"
-            onClick={onEdit}
+            onClick={(e) => { e.stopPropagation(); onEdit(); }}
             color="fg.secondary"
             _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
           >
             <Pencil size={12} aria-hidden="true" />
           </IconButton>
-          <IconButton
+          <Button
             type="button"
             size="xs"
             variant="ghost"
-            aria-label={`Convert ${character.name} to tag`}
             data-testid="character-card-convert"
-            onClick={onConvertToTag}
+            onClick={(e) => {
+              e.stopPropagation();
+              onConvertToTag();
+            }}
             color="fg.secondary"
             _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
+            fontSize="xs"
           >
-            <ArrowLeftRight size={12} aria-hidden="true" />
-          </IconButton>
-          <IconButton
-            type="button"
-            size="xs"
-            variant="ghost"
-            aria-label={`Search images with ${character.name}`}
-            data-testid="character-card-search"
-            onClick={onSearch}
-            color="fg.secondary"
-            _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
-          >
-            <Search size={12} aria-hidden="true" />
-          </IconButton>
+            <TagIcon size={12} aria-hidden="true" />
+            Move to Tags
+          </Button>
         </Flex>
       </Box>
-    </Box>
+    </CardButton>
   );
 }
 
@@ -162,6 +166,7 @@ export function CharactersTab(): JSX.Element {
 
   const [filter, setFilter] = useState("");
   const [dialog, setDialog] = useState<EditDialogState>(INITIAL_EDIT);
+  const [confirmTarget, setConfirmTarget] = useState<AnimeDerivedTag | null>(null);
 
   const filtered =
     filter.trim().length === 0
@@ -216,14 +221,14 @@ export function CharactersTab(): JSX.Element {
   const convertToTag = async (t: AnimeDerivedTag) => {
     try {
       await updateTag(t.id, { name: t.name, category: "uncategorized" });
-      toast.success("Converted to tag", `"${t.name}" moved to Tags.`);
+      toast.success("Moved to Tags", `"${t.name}" is now a regular tag.`);
       await queryClient.invalidateQueries({ queryKey: qk.tags.list() });
       await queryClient.invalidateQueries({
         queryKey: qk.anime.detail(animeId),
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      toast.error("Could not convert", message);
+      toast.error("Could not move", message);
     }
   };
 
@@ -298,7 +303,7 @@ export function CharactersTab(): JSX.Element {
             character={character}
             onEdit={() => openEdit(character)}
             onSearch={() => navigate(`/search?tag=${character.id}&anime=${animeId}`)}
-            onConvertToTag={() => void convertToTag(character)}
+            onConvertToTag={() => setConfirmTarget(character)}
           />
         ))}
       </SimpleGrid>
@@ -318,6 +323,20 @@ export function CharactersTab(): JSX.Element {
         onSubmit={submitEdit}
         submitting={dialog.submitting}
         error={dialog.error}
+      />
+
+      <ConfirmDialog
+        open={confirmTarget !== null}
+        onClose={() => setConfirmTarget(null)}
+        onConfirm={async () => {
+          if (confirmTarget) {
+            await convertToTag(confirmTarget);
+            setConfirmTarget(null);
+          }
+        }}
+        title="Move to Tags?"
+        description={`"${confirmTarget?.name ?? ""}" will be removed from Characters and appear in Tags.`}
+        confirmLabel="Move to Tags"
       />
     </Box>
   );

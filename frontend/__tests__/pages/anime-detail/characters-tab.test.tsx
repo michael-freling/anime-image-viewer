@@ -441,7 +441,7 @@ describe("CharactersTab", () => {
     }
   });
 
-  test("convert to tag calls updateTag with uncategorized", async () => {
+  test("convert to tag calls updateTag with uncategorized after confirm", async () => {
     updateTagMock.mockResolvedValue({
       id: 1,
       name: "Spike Spiegel",
@@ -451,14 +451,33 @@ describe("CharactersTab", () => {
     try {
       await waitForCards(container, 3);
 
-      // Click convert button on the first character card
+      // Click "Move to Tags" button on the first character card
       const convertBtn = container.querySelector(
         "[data-testid='character-card-convert']",
       ) as HTMLButtonElement;
       expect(convertBtn).not.toBeNull();
 
-      await act(async () => {
+      act(() => {
         convertBtn.click();
+      });
+
+      // Confirm dialog should appear (rendered via Portal to document.body)
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      expect(
+        document.body.querySelector("[data-testid='confirm-dialog']"),
+      ).not.toBeNull();
+
+      // Click the confirm button
+      const confirmBtn = document.body.querySelector(
+        "[data-testid='confirm-dialog-confirm']",
+      ) as HTMLButtonElement;
+      expect(confirmBtn).not.toBeNull();
+
+      await act(async () => {
+        confirmBtn.click();
       });
 
       await waitFor(() => updateTagMock.mock.calls.length > 0);
@@ -468,9 +487,51 @@ describe("CharactersTab", () => {
         category: "uncategorized",
       });
       expect(toast.success).toHaveBeenCalledWith(
-        "Converted to tag",
-        '"Spike Spiegel" moved to Tags.',
+        "Moved to Tags",
+        '"Spike Spiegel" is now a regular tag.',
       );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("convert confirm dialog cancel does not call updateTag", async () => {
+    const { container, unmount } = renderWithCharacters();
+    try {
+      await waitForCards(container, 3);
+
+      // Click "Move to Tags" button
+      const convertBtn = container.querySelector(
+        "[data-testid='character-card-convert']",
+      ) as HTMLButtonElement;
+      act(() => {
+        convertBtn.click();
+      });
+
+      // Confirm dialog should appear
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+
+      // Click cancel
+      const cancelBtn = document.body.querySelector(
+        "[data-testid='confirm-dialog-cancel']",
+      ) as HTMLButtonElement;
+      expect(cancelBtn).not.toBeNull();
+
+      act(() => {
+        cancelBtn.click();
+      });
+
+      // Dialog should close
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") === null,
+      );
+
+      // updateTag should NOT have been called
+      expect(updateTagMock).not.toHaveBeenCalled();
     } finally {
       unmount();
     }
@@ -482,18 +543,32 @@ describe("CharactersTab", () => {
     try {
       await waitForCards(container, 3);
 
-      // Click convert button on the first character card
+      // Click "Move to Tags" button
       const convertBtn = container.querySelector(
         "[data-testid='character-card-convert']",
       ) as HTMLButtonElement;
-      await act(async () => {
+      act(() => {
         convertBtn.click();
+      });
+
+      // Confirm dialog should appear
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+
+      // Click confirm
+      const confirmBtn = document.body.querySelector(
+        "[data-testid='confirm-dialog-confirm']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        confirmBtn.click();
       });
 
       await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
 
       expect(toast.error).toHaveBeenCalledWith(
-        "Could not convert",
+        "Could not move",
         "convert failed",
       );
     } finally {
@@ -587,14 +662,28 @@ describe("CharactersTab", () => {
       const convertBtn = container.querySelector(
         "[data-testid='character-card-convert']",
       ) as HTMLButtonElement;
-      await act(async () => {
+      act(() => {
         convertBtn.click();
+      });
+
+      // Confirm dialog should appear
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+
+      // Click confirm
+      const confirmBtn = document.body.querySelector(
+        "[data-testid='confirm-dialog-confirm']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        confirmBtn.click();
       });
 
       await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
 
       expect(toast.error).toHaveBeenCalledWith(
-        "Could not convert",
+        "Could not move",
         "string error",
       );
     } finally {
@@ -735,19 +824,19 @@ describe("CharactersTab", () => {
     }
   });
 
-  test("search button navigates to search with anime param", async () => {
+  test("clicking character card navigates to search with anime param", async () => {
     const { container, unmount } = renderWithCharacters();
     try {
       await waitForCards(container, 3);
 
-      // Click search button on the first character card
-      const searchBtn = container.querySelector(
-        "[data-testid='character-card-search']",
+      // Click the character card itself (the whole card is now clickable)
+      const card = container.querySelector(
+        "[data-testid='character-card']",
       ) as HTMLButtonElement;
-      expect(searchBtn).not.toBeNull();
+      expect(card).not.toBeNull();
 
       act(() => {
-        searchBtn.click();
+        card.click();
       });
 
       // The navigate call goes to /search?tag=1&anime=42

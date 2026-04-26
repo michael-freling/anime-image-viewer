@@ -502,14 +502,29 @@ describe("TagsTab", () => {
       await act(async () => {
         convertBtn.click();
       });
+      // Confirm dialog should appear
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      expect(
+        document.body.querySelector("[data-testid='confirm-dialog']"),
+      ).not.toBeNull();
+      // Click confirm
+      const confirmBtn = document.body.querySelector(
+        "[data-testid='confirm-dialog-confirm']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        confirmBtn.click();
+      });
       await waitFor(() => updateTagMock.mock.calls.length > 0);
       expect(updateTagMock).toHaveBeenCalledWith(1, {
         name: "Spike",
         category: "uncategorized",
       });
       expect(toast.success).toHaveBeenCalledWith(
-        "Category changed",
-        expect.stringContaining("tag"),
+        "Moved to Tags",
+        expect.stringContaining("regular tag"),
       );
     } finally {
       unmount();
@@ -542,15 +557,71 @@ describe("TagsTab", () => {
       await act(async () => {
         convertBtn.click();
       });
+      // Confirm dialog should appear
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      // Click confirm
+      const confirmBtn = document.body.querySelector(
+        "[data-testid='confirm-dialog-confirm']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        confirmBtn.click();
+      });
       await waitFor(() => updateTagMock.mock.calls.length > 0);
       expect(updateTagMock).toHaveBeenCalledWith(1, {
         name: "Loose",
         category: "character",
       });
       expect(toast.success).toHaveBeenCalledWith(
-        "Category changed",
-        expect.stringContaining("character"),
+        "Moved to Characters",
+        expect.stringContaining("is now a character"),
       );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("convert cancel does not call updateTag", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        tags: [makeDerivedTag(1, "Spike", "character", 3)],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/tags"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='tags-tab-tag-convert']") !==
+          null,
+      );
+      const convertBtn = container.querySelector(
+        "[data-testid='tags-tab-tag-convert']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        convertBtn.click();
+      });
+      // Confirm dialog should appear
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      // Click cancel
+      const cancelBtn = document.body.querySelector(
+        "[data-testid='confirm-dialog-cancel']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        cancelBtn.click();
+      });
+      // Dialog should close
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") === null,
+      );
+      expect(updateTagMock).not.toHaveBeenCalled();
     } finally {
       unmount();
     }
@@ -578,9 +649,21 @@ describe("TagsTab", () => {
       await act(async () => {
         convertBtn.click();
       });
+      // Confirm dialog should appear
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      // Click confirm
+      const confirmBtn = document.body.querySelector(
+        "[data-testid='confirm-dialog-confirm']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        confirmBtn.click();
+      });
       await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
       expect(toast.error).toHaveBeenCalledWith(
-        "Could not convert tag",
+        "Could not convert",
         "convert failed",
       );
     } finally {
@@ -610,9 +693,21 @@ describe("TagsTab", () => {
       await act(async () => {
         convertBtn.click();
       });
+      // Confirm dialog should appear
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      // Click confirm
+      const confirmBtn = document.body.querySelector(
+        "[data-testid='confirm-dialog-confirm']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        confirmBtn.click();
+      });
       await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
       expect(toast.error).toHaveBeenCalledWith(
-        "Could not convert tag",
+        "Could not convert",
         "plain string error",
       );
     } finally {
