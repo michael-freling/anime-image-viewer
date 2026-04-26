@@ -99,8 +99,13 @@ export function AnimeCard({
           display="flex"
           alignItems="center"
           justifyContent="center"
-          backgroundImage={`linear-gradient(135deg, hsl(${hue} 55% 32%), hsl(${(hue + 40) % 360} 65% 18%))`}
-          color="fg"
+          css={{
+            backgroundImage: `linear-gradient(135deg, hsl(${hue} 50% 68%), hsl(${(hue + 40) % 360} 55% 58%))`,
+            ".dark &": {
+              backgroundImage: `linear-gradient(135deg, hsl(${hue} 55% 32%), hsl(${(hue + 40) % 360} 65% 18%))`,
+            },
+          }}
+          color="whiteAlpha.800"
         >
           <Text fontSize="48px" fontWeight="700" opacity="0.7">
             {initial}
@@ -114,7 +119,7 @@ export function AnimeCard({
         top="8px"
         right="8px"
         bg="rgba(0, 0, 0, 0.6)"
-        color="fg"
+        color="white"
         borderRadius="pill"
         px="8px"
         py="2px"
@@ -138,13 +143,13 @@ export function AnimeCard({
         <Text
           fontSize="14px"
           fontWeight="600"
-          color="fg"
+          color="white"
           lineClamp={2}
           textShadow="0 1px 2px rgba(0,0,0,0.6)"
         >
           {anime.name}
         </Text>
-        <Text fontSize="10px" color="fg.secondary" mt="2px">
+        <Text fontSize="10px" color="whiteAlpha.700" mt="2px">
           {formatCount(anime.imageCount, "image", "images")}
         </Text>
       </Box>

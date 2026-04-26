@@ -45,6 +45,7 @@ describe("filterStateToSearchParams", () => {
       query: "hello",
       includeIds: [1, 2],
       excludeIds: [3],
+      animeId: null,
     };
     expect(filterStateToSearchParams(state)).toEqual({
       q: "hello",
@@ -58,6 +59,7 @@ describe("filterStateToSearchParams", () => {
       query: "foo",
       includeIds: [5, 3, 7],
       excludeIds: [2],
+      animeId: null,
     };
     const encoded = filterStateToSearchParams(state);
     const params = new URLSearchParams(encoded);
@@ -65,6 +67,20 @@ describe("filterStateToSearchParams", () => {
     expect(decoded.query).toBe("foo");
     expect(decoded.includeIds).toEqual([3, 5, 7]);
     expect(decoded.excludeIds).toEqual([2]);
+  });
+
+  test("anime param round-trips through URL serialization", () => {
+    const state: SearchFilterState = {
+      query: "",
+      includeIds: [],
+      excludeIds: [],
+      animeId: 42,
+    };
+    const encoded = filterStateToSearchParams(state);
+    expect(encoded).toEqual({ anime: "42" });
+    const params = new URLSearchParams(encoded);
+    const decoded = filterStateFromSearchParams(params);
+    expect(decoded.animeId).toBe(42);
   });
 });
 
@@ -86,6 +102,11 @@ describe("isEmptyFilterState", () => {
     ).toBe(false);
     expect(
       isEmptyFilterState({ ...EMPTY_FILTER_STATE, excludeIds: [1] }),
+    ).toBe(false);
+  });
+  test("active anime filter reports non-empty", () => {
+    expect(
+      isEmptyFilterState({ ...EMPTY_FILTER_STATE, animeId: 5 }),
     ).toBe(false);
   });
 });
@@ -125,6 +146,7 @@ describe("addIncludeId / addExcludeId / removeTagId", () => {
       query: "x",
       includeIds: [1, 2],
       excludeIds: [3, 1],
+      animeId: null,
     };
     const next = removeTagId(state, 1);
     expect(next.includeIds).toEqual([2]);

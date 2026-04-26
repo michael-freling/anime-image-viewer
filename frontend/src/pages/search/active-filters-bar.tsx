@@ -23,6 +23,10 @@ export interface ActiveFiltersBarProps {
   state: SearchFilterState;
   /** Look-up of tag ids to rich Tag records for chip labels. */
   tagMap?: Map<number, Tag>;
+  /** Name of the anime filter when `state.animeId` is set. */
+  animeName?: string;
+  /** Fires when the anime filter chip is removed. */
+  onRemoveAnime?: () => void;
   /** Fires when a chip's X button is clicked. */
   onRemove: (id: number) => void;
   /** Fires on the "Clear all" link. */
@@ -37,6 +41,8 @@ export interface ActiveFiltersBarProps {
 export function ActiveFiltersBar({
   state,
   tagMap,
+  animeName,
+  onRemoveAnime,
   onRemove,
   onClearAll,
   totalLabel,
@@ -44,8 +50,9 @@ export function ActiveFiltersBar({
   const hasTagFilters =
     state.includeIds.length > 0 || state.excludeIds.length > 0;
   const hasQuery = state.query.trim().length > 0;
+  const hasAnimeFilter = state.animeId != null;
 
-  if (!hasTagFilters && !hasQuery && !totalLabel) {
+  if (!hasTagFilters && !hasQuery && !hasAnimeFilter && !totalLabel) {
     // Nothing to render — keep the page surface clean.
     return null;
   }
@@ -84,6 +91,14 @@ export function ActiveFiltersBar({
               {totalLabel}
             </Text>
           )}
+          {hasAnimeFilter && onRemoveAnime && (
+            <FilterChip
+              key="anime-filter"
+              label={animeName ?? `Anime #${state.animeId}`}
+              variant="include"
+              onRemove={onRemoveAnime}
+            />
+          )}
           {state.includeIds.map((id) => (
             <FilterChip
               key={`inc-${id}`}
@@ -102,7 +117,7 @@ export function ActiveFiltersBar({
           ))}
         </Flex>
 
-        {(hasTagFilters || hasQuery) && (
+        {(hasTagFilters || hasQuery || hasAnimeFilter) && (
           <Button
             type="button"
             data-testid="active-filters-clear-all"

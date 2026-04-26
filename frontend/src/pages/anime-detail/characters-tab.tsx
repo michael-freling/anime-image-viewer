@@ -282,7 +282,7 @@ export function CharactersTab(): JSX.Element {
             key={character.id}
             character={character}
             onEdit={() => openEdit(character)}
-            onSearch={() => navigate(`/search?tag=${character.id}`)}
+            onSearch={() => navigate(`/search?tag=${character.id}&anime=${animeId}`)}
             onConvertToTag={() => void convertToTag(character)}
           />
         ))}

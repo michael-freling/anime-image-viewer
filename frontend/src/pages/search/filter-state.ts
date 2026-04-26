@@ -26,17 +26,21 @@ export interface SearchFilterState {
   includeIds: number[];
   /** Tag ids that must NOT be on the image (exclusion set). Stable-sorted. */
   excludeIds: number[];
+  /** Anime id to scope the search to; null means "all anime". */
+  animeId: number | null;
 }
 
 export const EMPTY_FILTER_STATE: SearchFilterState = Object.freeze({
   query: "",
   includeIds: [],
   excludeIds: [],
+  animeId: null,
 }) as SearchFilterState;
 
 const QUERY_KEY = "q";
 const INCLUDE_KEY = "tag";
 const EXCLUDE_KEY = "exclude";
+const ANIME_KEY = "anime";
 
 function parseIdList(raw: string | null): number[] {
   if (!raw) return [];
@@ -59,6 +63,12 @@ function parseIdList(raw: string | null): number[] {
   return Array.from(new Set(ids));
 }
 
+function parseAnimeId(raw: string | null): number | null {
+  if (!raw) return null;
+  const n = Number(raw.trim());
+  return Number.isFinite(n) && Number.isInteger(n) && n > 0 ? n : null;
+}
+
 /**
  * Decode a `URLSearchParams` instance (from react-router's `useSearchParams`)
  * into a structured `SearchFilterState`. Unknown keys are ignored.
@@ -70,6 +80,7 @@ export function filterStateFromSearchParams(
     query: params.get(QUERY_KEY)?.trim() ?? "",
     includeIds: parseIdList(params.get(INCLUDE_KEY)),
     excludeIds: parseIdList(params.get(EXCLUDE_KEY)),
+    animeId: parseAnimeId(params.get(ANIME_KEY)),
   };
 }
 
@@ -87,6 +98,7 @@ export function filterStateToSearchParams(
     out[INCLUDE_KEY] = state.includeIds.join(",");
   if (state.excludeIds.length > 0)
     out[EXCLUDE_KEY] = state.excludeIds.join(",");
+  if (state.animeId != null) out[ANIME_KEY] = String(state.animeId);
   return out;
 }
 
@@ -95,7 +107,8 @@ export function isEmptyFilterState(state: SearchFilterState): boolean {
   return (
     state.query.trim().length === 0 &&
     state.includeIds.length === 0 &&
-    state.excludeIds.length === 0
+    state.excludeIds.length === 0 &&
+    state.animeId == null
   );
 }
 

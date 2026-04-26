@@ -117,6 +117,7 @@ export function TagPicker({
         {buckets.map((bucket) => (
           <CategorySection
             key={bucket.key}
+            defaultOpen={false}
             category={{
               key: bucket.key,
               label: bucket.label,

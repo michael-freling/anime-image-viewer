@@ -305,7 +305,7 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
                     variant="ghost"
                     aria-label={`Search images with tag ${t.name}`}
                     data-testid="tags-tab-tag-search"
-                    onClick={() => navigate(`/search?tag=${t.id}`)}
+                    onClick={() => navigate(`/search?tag=${t.id}&anime=${animeId}`)}
                     color="fg.secondary"
                     _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
                   >

@@ -71,6 +71,14 @@ describe("TagPicker", () => {
       />,
     );
     try {
+      // Expand all sections since groups are collapsed by default.
+      const headers = container.querySelectorAll("[data-testid='category-section-header']");
+      headers.forEach((h) => {
+        act(() => {
+          (h as HTMLElement).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        });
+      });
+
       const chips = container.querySelectorAll(
         "[data-testid='tag-chip']",
       );
@@ -98,6 +106,14 @@ describe("TagPicker", () => {
       />,
     );
     try {
+      // Expand all sections since groups are collapsed by default.
+      const headers = container.querySelectorAll("[data-testid='category-section-header']");
+      headers.forEach((h) => {
+        act(() => {
+          (h as HTMLElement).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        });
+      });
+
       const chips = container.querySelectorAll(
         "[data-testid='tag-chip']",
       );
@@ -122,6 +138,14 @@ describe("TagPicker", () => {
       />,
     );
     try {
+      // Expand all sections since groups are collapsed by default.
+      const headers = container.querySelectorAll("[data-testid='category-section-header']");
+      headers.forEach((h) => {
+        act(() => {
+          (h as HTMLElement).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        });
+      });
+
       // The TagChip renders the `label` prop verbatim in its label box.
       const labels = container.querySelectorAll(
         "[data-testid='tag-chip-label']",
@@ -149,6 +173,14 @@ describe("TagPicker", () => {
       />,
     );
     try {
+      // Expand all sections since groups are collapsed by default.
+      const headers = container.querySelectorAll("[data-testid='category-section-header']");
+      headers.forEach((h) => {
+        act(() => {
+          (h as HTMLElement).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        });
+      });
+
       const bucket = container.querySelector(
         "[data-testid='tag-picker-scene']",
       );

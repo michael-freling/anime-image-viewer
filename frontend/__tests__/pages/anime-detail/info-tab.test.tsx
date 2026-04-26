@@ -31,6 +31,7 @@ jest.mock("../../../src/lib/api", () => ({
     GetAnimeImages: () => Promise.resolve({ images: [] }),
     GetAnimeImagesByEntry: () => Promise.resolve({ images: [] }),
     GetAnimeList: () => Promise.resolve([]),
+    SearchImagesByAnime: () => Promise.resolve({ images: [] }),
   },
   TagService: {
     GetAll: () => Promise.resolve([]),

@@ -60,6 +60,10 @@ const getAllTagsMock = jest.fn();
 
 jest.mock("../../../src/lib/api", () => ({
   __esModule: true,
+  AnimeService: {
+    GetAnimeDetails: () => Promise.resolve(null),
+    SearchImagesByAnime: () => Promise.resolve({ images: [] }),
+  },
   SearchService: {
     SearchImages: (...args: unknown[]) => searchImagesMock(...args),
   },
@@ -165,6 +169,13 @@ describe("SearchPage", () => {
         () =>
           container.querySelector("[data-testid='tag-picker']") !== null,
       );
+      // Expand collapsed tag picker groups.
+      const headers = container.querySelectorAll("[data-testid='category-section-header']");
+      headers.forEach((h) => {
+        act(() => {
+          (h as HTMLElement).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        });
+      });
       // Scene bucket renders "Outdoor" + "Indoor".
       const sceneGroup = container.querySelector(
         "[data-testid='tag-picker-scene']",
@@ -489,6 +500,13 @@ describe("SearchPage", () => {
         () =>
           container.querySelector("[data-testid='tag-picker']") !== null,
       );
+      // Expand collapsed tag picker groups.
+      const headers = container.querySelectorAll("[data-testid='category-section-header']");
+      headers.forEach((h) => {
+        act(() => {
+          (h as HTMLElement).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        });
+      });
       // Wait for the ActiveFiltersBar to show the Outdoor chip.
       await waitFor(
         () =>

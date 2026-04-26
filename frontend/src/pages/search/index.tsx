@@ -41,11 +41,12 @@ import {
 import { SearchBar } from "../../components/shared/search-bar";
 import { RubberBandOverlay } from "../../components/selection/rubber-band-overlay";
 import { SelectionActionBar } from "../../components/selection/selection-action-bar";
+import { useAnimeDetail } from "../../hooks/use-anime-detail";
 import { useImageSelection } from "../../hooks/use-image-selection";
 import { useSearchImages } from "../../hooks/use-search-images";
 import { useTagMap, useTags } from "../../hooks/use-tags";
 import { useSelectionStore } from "../../stores/selection-store";
-import type { ImageFile } from "../../types";
+import type { ImageFile, Tag } from "../../types";
 
 import { ActiveFiltersBar } from "./active-filters-bar";
 import {
@@ -142,6 +143,11 @@ export function SearchPage(): JSX.Element {
     [searchParams, updateState],
   );
 
+  const handleRemoveAnime = useCallback(() => {
+    const current = filterStateFromSearchParams(searchParams);
+    updateState({ ...current, animeId: null });
+  }, [searchParams, updateState]);
+
   const handleClearAll = useCallback(() => {
     setInputValue("");
     setSearchParams({});
@@ -150,10 +156,25 @@ export function SearchPage(): JSX.Element {
   // React Query hooks.
   const tagsQuery = useTags();
   const tagMapQuery = useTagMap();
+  const animeDetailQuery = useAnimeDetail(urlState.animeId ?? 0);
   const searchQuery = useSearchImages({
+    animeId: urlState.animeId ?? undefined,
     includeTagIds: urlState.includeIds,
     excludeTagIds: urlState.excludeIds,
   });
+
+  // When an anime filter is active, scope the tag picker to that anime's
+  // derived tags instead of showing the full global tag list.
+  const pickerTags = useMemo<Tag[]>(() => {
+    if (urlState.animeId != null && animeDetailQuery.data?.tags) {
+      return animeDetailQuery.data.tags.map((t) => ({
+        id: t.id,
+        name: t.name,
+        category: t.category,
+      }));
+    }
+    return tagsQuery.data ?? [];
+  }, [urlState.animeId, animeDetailQuery.data, tagsQuery.data]);
 
   const images = searchQuery.data ?? [];
   const filteredImages = useMemo(
@@ -330,6 +351,8 @@ export function SearchPage(): JSX.Element {
       <ActiveFiltersBar
         state={urlState}
         tagMap={tagMapQuery.data}
+        animeName={animeDetailQuery.data?.anime.name}
+        onRemoveAnime={handleRemoveAnime}
         onRemove={handleRemoveTag}
         onClearAll={handleClearAll}
         totalLabel={
@@ -340,10 +363,11 @@ export function SearchPage(): JSX.Element {
       />
 
       {/* Tag picker: always shown when the library has tags so the user
-          can discover filters without having typed anything yet. */}
-      {tagsQuery.data && tagsQuery.data.length > 0 && (
+          can discover filters without having typed anything yet. When an
+          anime filter is active, shows only that anime's tags. */}
+      {pickerTags.length > 0 && (
         <TagPicker
-          tags={tagsQuery.data}
+          tags={pickerTags}
           includedIds={urlState.includeIds}
           excludedIds={urlState.excludeIds}
           onToggleInclude={handleAddIncludeTag}
