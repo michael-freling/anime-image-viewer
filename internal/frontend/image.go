@@ -3,9 +3,6 @@ package frontend
 import (
 	"context"
 	"fmt"
-	"os/exec"
-	"path/filepath"
-	"runtime"
 
 	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -54,21 +51,7 @@ func (service *ImageService) ShowImageInExplorer(ctx context.Context, imageID ui
 		return fmt.Errorf("image not found: %d", imageID)
 	}
 
-	filePath := imageFiles[0].LocalFilePath
-
-	switch runtime.GOOS {
-	case "windows":
-		// Go's exec.Command quotes arguments containing spaces, which breaks
-		// explorer's /select, parsing. Routing through cmd /c with explicit
-		// quoting around the path avoids this issue.
-		return exec.Command("cmd", "/c", `explorer /select,"`+filePath+`"`).Start()
-	case "darwin":
-		return exec.Command("open", "-R", filePath).Start()
-	default:
-		// Linux: xdg-open on the parent directory (most file managers will show
-		// the directory contents; there's no portable "select file" command).
-		return exec.Command("xdg-open", filepath.Dir(filePath)).Start()
-	}
+	return showInExplorer(imageFiles[0].LocalFilePath)
 }
 
 type Image struct {
