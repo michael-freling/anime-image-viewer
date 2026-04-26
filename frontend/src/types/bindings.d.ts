@@ -32,6 +32,7 @@ declare module "*/bindings/github.com/michael-freling/anime-image-viewer/interna
     name: string;
     category: string;
     imageCount: number;
+    thumbnailPath: string;
   }
 
   export interface AnimeFolderInfo {

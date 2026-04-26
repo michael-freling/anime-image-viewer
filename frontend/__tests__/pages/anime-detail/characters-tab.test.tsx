@@ -63,8 +63,13 @@ function makeDerivedTag(
   name: string,
   category: string,
   imageCount = 3,
+  thumbnailPath?: string,
 ): AnimeDerivedTag {
-  return { id, name, category, imageCount };
+  const tag: AnimeDerivedTag = { id, name, category, imageCount };
+  if (thumbnailPath !== undefined) {
+    tag.thumbnailPath = thumbnailPath;
+  }
+  return tag;
 }
 
 function makeDetail(overrides: Partial<AnimeDetail> = {}): AnimeDetail {
@@ -670,6 +675,61 @@ describe("CharactersTab", () => {
       );
       // The ErrorAlert should render without crashing
       expect(container.querySelector("[role='alert']")).not.toBeNull();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("renders thumbnail image when thumbnailPath is provided", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        tags: [
+          makeDerivedTag(1, "Spike Spiegel", "character", 10, "/files/anime/char.jpg"),
+        ],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/characters"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelectorAll("[data-testid='character-card']").length ===
+          1,
+      );
+      const card = container.querySelector("[data-testid='character-card']")!;
+      const img = card.querySelector("img");
+      expect(img).not.toBeNull();
+      expect(img!.getAttribute("src")).toContain("/anime/char.jpg");
+      expect(img!.getAttribute("alt")).toBe("Spike Spiegel");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("renders fallback Users icon when thumbnailPath is absent", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        tags: [
+          makeDerivedTag(1, "Faye Valentine", "character", 8),
+        ],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/characters"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelectorAll("[data-testid='character-card']").length ===
+          1,
+      );
+      const card = container.querySelector("[data-testid='character-card']")!;
+      const img = card.querySelector("img");
+      expect(img).toBeNull();
+      // The fallback SVG icon should be present
+      const svg = card.querySelector("svg");
+      expect(svg).not.toBeNull();
     } finally {
       unmount();
     }

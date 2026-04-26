@@ -30,10 +30,11 @@ type AnimeListItem struct {
 // AnimeTagInfo is a derived tag computed from the images in the anime's folder
 // tree (read-only).
 type AnimeTagInfo struct {
-	ID         uint   `json:"id"`
-	Name       string `json:"name"`
-	Category   string `json:"category"`
-	ImageCount uint   `json:"imageCount"`
+	ID            uint   `json:"id"`
+	Name          string `json:"name"`
+	Category      string `json:"category"`
+	ImageCount    uint   `json:"imageCount"`
+	ThumbnailPath string `json:"thumbnailPath"`
 }
 
 // AnimeFolderInfo is a folder mapped to an anime, with the inheritance flag.
@@ -180,6 +181,14 @@ func (s *AnimeService) GetAnimeDetails(ctx context.Context, id uint) (AnimeDetai
 			Category:   dt.TagCategory,
 			ImageCount: dt.ImageCount,
 		})
+	}
+	tagIDs := make([]uint, 0, len(tagInfos))
+	for _, ti := range tagInfos {
+		tagIDs = append(tagIDs, ti.ID)
+	}
+	thumbnailPaths := s.resolveTagThumbnails(tagIDs)
+	for i := range tagInfos {
+		tagInfos[i].ThumbnailPath = thumbnailPaths[tagInfos[i].ID]
 	}
 	sort.SliceStable(tagInfos, func(i, j int) bool {
 		return strings.ToLower(tagInfos[i].Name) < strings.ToLower(tagInfos[j].Name)
@@ -398,6 +407,60 @@ func (s *AnimeService) resolveCoverImages(animeRows []anime.Anime) map[uint]stri
 		}
 	}
 	return coverPaths
+}
+
+// resolveTagThumbnails returns a map from tag ID to the /files/... path of
+// one representative image for that tag. It picks the smallest file ID per tag
+// for deterministic ordering. On any error it silently returns nil so the
+// detail page degrades gracefully.
+func (s *AnimeService) resolveTagThumbnails(tagIDs []uint) map[uint]string {
+	if len(tagIDs) == 0 {
+		return nil
+	}
+	fileTags, err := s.dbClient.FileTag().FindAllByTagIDs(tagIDs)
+	if err != nil {
+		return nil
+	}
+	tagFileMap := fileTags.ToTagMap() // map[tagID]map[fileID]FileTag
+
+	// For each tag pick the smallest file ID (deterministic).
+	tagFirstImage := make(map[uint]uint, len(tagIDs))
+	uniqueImageIDs := make(map[uint]struct{})
+	for _, tagID := range tagIDs {
+		fileMap, ok := tagFileMap[tagID]
+		if !ok || len(fileMap) == 0 {
+			continue
+		}
+		var minFileID uint
+		for fileID := range fileMap {
+			if minFileID == 0 || fileID < minFileID {
+				minFileID = fileID
+			}
+		}
+		tagFirstImage[tagID] = minFileID
+		uniqueImageIDs[minFileID] = struct{}{}
+	}
+	if len(uniqueImageIDs) == 0 {
+		return nil
+	}
+
+	imageIDs := make([]uint, 0, len(uniqueImageIDs))
+	for id := range uniqueImageIDs {
+		imageIDs = append(imageIDs, id)
+	}
+	imageFiles, err := s.imageReader.ReadImagesByIDs(imageIDs)
+	if err != nil {
+		return nil
+	}
+	imageFileMap := imageFiles.ToMap()
+
+	result := make(map[uint]string, len(tagFirstImage))
+	for tagID, imgID := range tagFirstImage {
+		if f, ok := imageFileMap[imgID]; ok {
+			result[tagID] = f.Path
+		}
+	}
+	return result
 }
 
 // firstImageIDForAnime walks the directory tree and returns the ID of the

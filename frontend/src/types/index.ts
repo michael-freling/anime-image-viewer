@@ -50,6 +50,7 @@ export interface AnimeDerivedTag {
   name: string;
   category: string;
   imageCount: number;
+  thumbnailPath?: string;
 }
 
 /**

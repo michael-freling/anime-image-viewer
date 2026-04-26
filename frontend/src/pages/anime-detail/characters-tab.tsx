@@ -6,12 +6,13 @@
  * category. Each character card shows the name, image count, and actions
  * to search images, edit, or convert back to a regular tag.
  */
-import { Box, Button, Flex, IconButton, SimpleGrid, Text } from "@chakra-ui/react";
+import { Box, Button, Flex, IconButton, SimpleGrid, Text, chakra } from "@chakra-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftRight, Pencil, Search, UserPlus, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
+import { fileResizeUrl, fileResizeSrcSet } from "../../lib/image-urls";
 import { EmptyState } from "../../components/shared/empty-state";
 import { ErrorAlert } from "../../components/shared/error-alert";
 import { RowSkeleton } from "../../components/shared/loading-skeleton";
@@ -77,8 +78,22 @@ function CharacterCard({
         display="flex"
         alignItems="center"
         justifyContent="center"
+        overflow="hidden"
       >
-        <Users size={32} aria-hidden="true" />
+        {character.thumbnailPath ? (
+          <chakra.img
+            src={fileResizeUrl(character.thumbnailPath, 520)}
+            srcSet={fileResizeSrcSet(character.thumbnailPath)}
+            sizes="(min-width: 1024px) 20vw, (min-width: 640px) 33vw, 50vw"
+            alt={character.name}
+            width="100%"
+            height="100%"
+            objectFit="cover"
+            loading="lazy"
+          />
+        ) : (
+          <Users size={32} aria-hidden="true" />
+        )}
       </Box>
       <Box p="3">
         <Text fontSize="sm" fontWeight="600" color="fg" lineClamp={1}>
