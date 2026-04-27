@@ -1405,6 +1405,83 @@ func TestAnimeService_GetAnimeDetails_Characters(t *testing.T) {
 // thumbnail paths are resolved when actual image files exist on disk. This
 // exercises the resolveTagThumbnails and resolveCharacterThumbnails code paths
 // that build image file maps and return thumbnail paths.
+// TestAnimeService_ListAnime_CountImagesError verifies that ListAnime returns
+// an error when CountImagesForAnimeFolders fails (e.g. the files table is missing).
+func TestAnimeService_ListAnime_CountImagesError(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
+
+	// Insert an anime row directly so ReadAll returns a non-empty slice.
+	animeRow := db.Anime{Name: "TestAnime"}
+	require.NoError(t, db.Create(tester.dbClient.Client, &animeRow))
+
+	// Drop the files table so CountImagesForAnimeFolders fails.
+	tester.dbClient.DropTable(t, &db.File{})
+
+	svc := tester.getAnimeService()
+	_, err := svc.ListAnime(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "CountImagesForAnimeFolders")
+}
+
+// TestAnimeService_GetAnimeEntries_CoreError verifies that GetAnimeEntries
+// returns an error when the core service fails (e.g. the files table is missing).
+func TestAnimeService_GetAnimeEntries_CoreError(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
+
+	// Insert an anime row directly.
+	animeRow := db.Anime{Name: "TestAnime"}
+	require.NoError(t, db.Create(tester.dbClient.Client, &animeRow))
+
+	// Drop the files table so core.GetAnimeEntries fails.
+	tester.dbClient.DropTable(t, &db.File{})
+
+	svc := tester.getAnimeService()
+	_, err := svc.GetAnimeEntries(animeRow.ID)
+	require.Error(t, err)
+}
+
+// TestAnimeService_GetImageTagIDs_DBError verifies that GetImageTagIDs
+// returns an error when the database query fails.
+func TestAnimeService_GetImageTagIDs_DBError(t *testing.T) {
+	tester := newTester(t)
+
+	// Drop the file_tags table so FindAllByFileID fails.
+	tester.dbClient.DropTable(t, &db.FileTag{})
+
+	svc := tester.getAnimeService()
+	_, err := svc.GetImageTagIDs(context.Background(), []uint{1, 2})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "FileTag.FindAllByFileID")
+}
+
+// TestAnimeService_ListUnassignedTopFolders_DBError verifies that
+// ListUnassignedTopFolders returns an error when the core service fails.
+func TestAnimeService_ListUnassignedTopFolders_DBError(t *testing.T) {
+	tester := newTester(t)
+
+	// Drop the files table so core.ListUnassignedTopFolders fails.
+	tester.dbClient.DropTable(t, &db.File{})
+
+	svc := tester.getAnimeService()
+	_, err := svc.ListUnassignedTopFolders(context.Background())
+	require.Error(t, err)
+}
+
+// TestAnimeService_GetFolderImages_CoreError verifies that GetFolderImages
+// returns an error when the core service GetFolderImageIDs fails.
+func TestAnimeService_GetFolderImages_CoreError(t *testing.T) {
+	tester := newTester(t)
+
+	// Drop the files table so core.GetFolderImageIDs fails.
+	tester.dbClient.DropTable(t, &db.File{})
+
+	svc := tester.getAnimeService()
+	_, err := svc.GetFolderImages(context.Background(), 1, false)
+	require.Error(t, err)
+}
+
 func TestAnimeService_GetAnimeDetails_Thumbnails(t *testing.T) {
 	tester := newTester(t)
 	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{}, db.Character{}, db.FileCharacter{})

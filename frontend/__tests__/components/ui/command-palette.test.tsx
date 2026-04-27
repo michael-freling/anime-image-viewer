@@ -66,6 +66,12 @@ describe("CommandPalette", () => {
     window.localStorage.clear();
   });
 
+  afterEach(() => {
+    // Clean up any stale Radix portal content from cmdk dialogs
+    document.querySelectorAll("[cmdk-root]").forEach((el) => el.remove());
+    document.querySelectorAll("[data-radix-portal]").forEach((el) => el.remove());
+  });
+
   test("renders nothing when closed", async () => {
     listAnimeMock.mockResolvedValue([]);
     getAllTagsMock.mockResolvedValue([]);
@@ -126,7 +132,10 @@ describe("CommandPalette", () => {
     });
     await waitFor(() => document.querySelector("[cmdk-root]") !== null);
     await waitFor(
-      () => document.querySelectorAll("[cmdk-item]").length >= 3,
+      () =>
+        Array.from(document.querySelectorAll("[cmdk-item]")).some((el) =>
+          el.textContent?.includes("Naruto"),
+        ),
     );
     const headings = Array.from(
       document.querySelectorAll("[cmdk-group-heading]"),
@@ -201,7 +210,10 @@ describe("CommandPalette", () => {
     });
     await waitFor(() => document.querySelector("[cmdk-input]") !== null);
     await waitFor(
-      () => document.querySelectorAll("[cmdk-item]").length >= 2,
+      () =>
+        Array.from(document.querySelectorAll("[cmdk-item]")).some((el) =>
+          el.textContent?.includes("Naruto"),
+        ),
     );
     const input = document.querySelector("[cmdk-input]") as HTMLInputElement;
     typeIntoInput(input, "nar");

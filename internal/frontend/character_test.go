@@ -265,3 +265,117 @@ func TestCharacterService_ReadCharactersByAnimeID(t *testing.T) {
 		assert.Empty(t, got)
 	})
 }
+
+// TestCharacterService_CreateCharacter_DBError verifies that CreateCharacter
+// returns an error when the database write fails.
+func TestCharacterService_CreateCharacter_DBError(t *testing.T) {
+	tester := newTester(t)
+	svc := NewCharacterService(tester.dbClient.Client)
+	ctx := context.Background()
+
+	// Drop the characters table so db.Create fails
+	tester.dbClient.DropTable(t, &db.Character{})
+
+	_, err := svc.CreateCharacter(ctx, "ShouldFail", 1)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "db.Create")
+}
+
+// TestCharacterService_DeleteCharacter_FileCharacterDeleteError verifies that
+// DeleteCharacter returns an error when deleting file-character associations fails.
+func TestCharacterService_DeleteCharacter_FileCharacterDeleteError(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.Character{}, db.FileCharacter{})
+	svc := NewCharacterService(tester.dbClient.Client)
+	ctx := context.Background()
+
+	// Create a character first
+	chars := []db.Character{{ID: 20001, Name: "TestChar", AnimeID: 1}}
+	db.LoadTestData(t, tester.dbClient, chars)
+
+	// Drop the file_characters table so DeleteByCharacterID fails
+	tester.dbClient.DropTable(t, &db.FileCharacter{})
+
+	err := svc.DeleteCharacter(ctx, 20001)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "FileCharacter.DeleteByCharacterID")
+}
+
+// TestCharacterService_DeleteCharacter_CharacterDeleteError verifies that
+// DeleteCharacter returns an error when deleting the character record fails.
+func TestCharacterService_DeleteCharacter_CharacterDeleteError(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.Character{}, db.FileCharacter{})
+	svc := NewCharacterService(tester.dbClient.Client)
+	ctx := context.Background()
+
+	// Create a character first (no file associations, so FileCharacter delete succeeds)
+	chars := []db.Character{{ID: 20002, Name: "TestChar2", AnimeID: 1}}
+	db.LoadTestData(t, tester.dbClient, chars)
+
+	// Drop the characters table so DeleteByID fails (after FileCharacter succeeds)
+	tester.dbClient.DropTable(t, &db.Character{})
+
+	err := svc.DeleteCharacter(ctx, 20002)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Character.DeleteByID")
+}
+
+// TestCharacterService_GetCharacterFileCount_DBError verifies that
+// GetCharacterFileCount returns an error when the database query fails.
+func TestCharacterService_GetCharacterFileCount_DBError(t *testing.T) {
+	tester := newTester(t)
+	svc := NewCharacterService(tester.dbClient.Client)
+
+	// Drop the file_characters table so FindByCharacterIDs fails
+	tester.dbClient.DropTable(t, &db.FileCharacter{})
+
+	_, err := svc.GetCharacterFileCount(1)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "FileCharacter.FindByCharacterIDs")
+}
+
+// TestCharacterService_GetImageCharacterIDs_DBError verifies that
+// GetImageCharacterIDs returns an error when the database query fails.
+func TestCharacterService_GetImageCharacterIDs_DBError(t *testing.T) {
+	tester := newTester(t)
+	svc := NewCharacterService(tester.dbClient.Client)
+	ctx := context.Background()
+
+	// Drop the file_characters table so FindByFileIDs fails
+	tester.dbClient.DropTable(t, &db.FileCharacter{})
+
+	_, err := svc.GetImageCharacterIDs(ctx, []uint{1, 2})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "FileCharacter.FindByFileIDs")
+}
+
+// TestCharacterService_ReadCharactersByAnimeID_DBError verifies that
+// ReadCharactersByAnimeID returns an error when the database query fails.
+func TestCharacterService_ReadCharactersByAnimeID_DBError(t *testing.T) {
+	tester := newTester(t)
+	svc := NewCharacterService(tester.dbClient.Client)
+	ctx := context.Background()
+
+	// Drop the characters table so FindByAnimeID fails
+	tester.dbClient.DropTable(t, &db.Character{})
+
+	_, err := svc.ReadCharactersByAnimeID(ctx, 1)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Character.FindByAnimeID")
+}
+
+// TestCharacterService_BatchUpdateCharactersForFiles_DBError verifies that
+// BatchUpdateCharactersForFiles returns an error when the initial DB query fails.
+func TestCharacterService_BatchUpdateCharactersForFiles_DBError(t *testing.T) {
+	tester := newTester(t)
+	svc := NewCharacterService(tester.dbClient.Client)
+	ctx := context.Background()
+
+	// Drop the file_characters table so FindByFileIDs fails
+	tester.dbClient.DropTable(t, &db.FileCharacter{})
+
+	err := svc.BatchUpdateCharactersForFiles(ctx, []uint{1}, []uint{100}, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "FileCharacter.FindByFileIDs")
+}
