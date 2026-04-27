@@ -1,0 +1,429 @@
+/**
+ * CharactersTab — characters for this anime.
+ *
+ * Characters are stored in a dedicated Character table (separate from tags).
+ * They are fetched via `useAnimeDetail` which includes a `characters` array.
+ * Each character card shows the name, image count, and actions to search
+ * images, rename, or delete the character.
+ *
+ * CRUD operations use `CharacterService` bindings.
+ */
+import { Box, Button, Flex, IconButton, SimpleGrid, Text, chakra } from "@chakra-ui/react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Pencil, Plus, Tag as TagIcon, Trash2, UserPlus, Users } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router";
+
+import { fileResizeUrl, fileResizeSrcSet } from "../../lib/image-urls";
+import { EmptyState } from "../../components/shared/empty-state";
+import { ErrorAlert } from "../../components/shared/error-alert";
+import { RowSkeleton } from "../../components/shared/loading-skeleton";
+import { SearchBar } from "../../components/shared/search-bar";
+import { ConfirmDialog } from "../../components/ui/confirm-dialog";
+import { toast } from "../../components/ui/toaster";
+import { useAnimeDetail } from "../../hooks/use-anime-detail";
+import { CharacterService } from "../../lib/api";
+import { qk } from "../../lib/query-keys";
+import type { AnimeCharacter } from "../../types";
+import { RenameDialog } from "./rename-dialog";
+
+function parseAnimeId(raw: string | undefined): number {
+  if (!raw) return 0;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+interface RenameDialogState {
+  open: boolean;
+  character: AnimeCharacter | null;
+  name: string;
+  error: string | null;
+  submitting: boolean;
+}
+
+const INITIAL_RENAME: RenameDialogState = {
+  open: false,
+  character: null,
+  name: "",
+  error: null,
+  submitting: false,
+};
+
+const CardButton = chakra("button");
+
+function CharacterCard({
+  character,
+  onEdit,
+  onSearch,
+  onDelete,
+  onMoveToTag,
+}: {
+  character: AnimeCharacter;
+  onEdit: () => void;
+  onSearch: () => void;
+  onDelete: () => void;
+  onMoveToTag: () => void;
+}): JSX.Element {
+  return (
+    <CardButton
+      type="button"
+      onClick={onSearch}
+      data-testid="character-card"
+      data-character-id={character.id}
+      borderWidth="1px"
+      borderColor="border"
+      borderRadius="md"
+      overflow="hidden"
+      bg="bg.surface"
+      display="flex"
+      flexDirection="column"
+      cursor="pointer"
+      textAlign="left"
+      p="0"
+      _hover={{ transform: "scale(1.02)", boxShadow: "0 0 0 2px var(--chakra-colors-primary)" }}
+      _active={{ transform: "scale(0.98)" }}
+      _focusVisible={{ outline: "2px solid", outlineColor: "primary", outlineOffset: "2px" }}
+      transition="transform 0.15s ease-out, box-shadow 0.15s ease-out"
+    >
+      <Box
+        aspectRatio="1 / 1"
+        bg="bg.surfaceAlt"
+        color="fg.muted"
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+        overflow="hidden"
+      >
+        {character.thumbnailPath ? (
+          <chakra.img
+            src={fileResizeUrl(character.thumbnailPath, 520)}
+            srcSet={fileResizeSrcSet(character.thumbnailPath)}
+            sizes="(min-width: 1024px) 20vw, (min-width: 640px) 33vw, 50vw"
+            alt={character.name}
+            width="100%"
+            height="100%"
+            objectFit="cover"
+            loading="lazy"
+          />
+        ) : (
+          <Users size={32} aria-hidden="true" />
+        )}
+      </Box>
+      <Box p="3">
+        <Text fontSize="sm" fontWeight="600" color="fg" lineClamp={1}>
+          {character.name}
+        </Text>
+        <Text fontSize="xs" color="fg.muted" mt="1">
+          {character.imageCount} image{character.imageCount === 1 ? "" : "s"}
+        </Text>
+        <Flex mt="2" gap="1">
+          <IconButton
+            type="button"
+            size="xs"
+            variant="ghost"
+            aria-label={`Edit ${character.name}`}
+            data-testid="character-card-edit"
+            onClick={(e) => { e.stopPropagation(); onEdit(); }}
+            color="fg.secondary"
+            _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
+          >
+            <Pencil size={12} aria-hidden="true" />
+          </IconButton>
+          <IconButton
+            type="button"
+            size="xs"
+            variant="ghost"
+            aria-label={`Delete ${character.name}`}
+            data-testid="character-card-delete"
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            color="fg.secondary"
+            _hover={{ color: "danger", bg: "bg.surfaceAlt" }}
+          >
+            <Trash2 size={12} aria-hidden="true" />
+          </IconButton>
+          <IconButton
+            type="button"
+            size="xs"
+            variant="ghost"
+            aria-label={`Move ${character.name} to tags`}
+            data-testid="character-card-move-to-tag"
+            onClick={(e) => { e.stopPropagation(); onMoveToTag(); }}
+            color="fg.secondary"
+            _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
+          >
+            <TagIcon size={12} aria-hidden="true" />
+          </IconButton>
+        </Flex>
+      </Box>
+    </CardButton>
+  );
+}
+
+export function CharactersTab(): JSX.Element {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { animeId: rawId } = useParams<{ animeId: string }>();
+  const animeId = parseAnimeId(rawId);
+  const { data, isLoading, isError, error, refetch } = useAnimeDetail(animeId);
+
+  const characters = useMemo(
+    () => data?.characters ?? [],
+    [data],
+  );
+
+  const [filter, setFilter] = useState("");
+  const [renameState, setRenameState] = useState<RenameDialogState>(INITIAL_RENAME);
+  const [deleteTarget, setDeleteTarget] = useState<AnimeCharacter | null>(null);
+  const [moveToTagTarget, setMoveToTagTarget] = useState<AnimeCharacter | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const filtered =
+    filter.trim().length === 0
+      ? characters
+      : characters.filter((c) =>
+          c.name.toLowerCase().includes(filter.trim().toLowerCase()),
+        );
+
+  const openRename = (ch: AnimeCharacter) => {
+    setRenameState({
+      open: true,
+      character: ch,
+      name: ch.name,
+      error: null,
+      submitting: false,
+    });
+  };
+
+  const closeRename = () => setRenameState(INITIAL_RENAME);
+
+  const submitRename = async () => {
+    if (!renameState.character) return;
+    const trimmed = renameState.name.trim();
+    if (trimmed === "") {
+      setRenameState((s) => ({ ...s, error: "Name is required." }));
+      return;
+    }
+    setRenameState((s) => ({ ...s, submitting: true, error: null }));
+    try {
+      await CharacterService.RenameCharacter(renameState.character.id, trimmed);
+      toast.success("Character renamed", `"${trimmed}" saved.`);
+      await queryClient.invalidateQueries({
+        queryKey: qk.anime.detail(animeId),
+      });
+      closeRename();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setRenameState((s) => ({ ...s, submitting: false, error: message }));
+      toast.error("Could not rename", message);
+    }
+  };
+
+  const submitDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await CharacterService.DeleteCharacter(deleteTarget.id);
+      toast.success("Character deleted", `"${deleteTarget.name}" removed.`);
+      await queryClient.invalidateQueries({
+        queryKey: qk.anime.detail(animeId),
+      });
+      setDeleteTarget(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error("Could not delete", message);
+    }
+  };
+
+  const convertToTag = async (ch: AnimeCharacter) => {
+    try {
+      await CharacterService.ConvertCharacterToTag(ch.id);
+      toast.success("Moved to Tags", `"${ch.name}" is now a regular tag.`);
+      await queryClient.invalidateQueries({ queryKey: qk.tags.list() });
+      await queryClient.invalidateQueries({ queryKey: qk.anime.detail(animeId) });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error("Could not move", message);
+    }
+  };
+
+  const submitCreate = async () => {
+    const trimmed = createName.trim();
+    if (trimmed === "") {
+      setCreateError("Name is required.");
+      return;
+    }
+    setCreateSubmitting(true);
+    setCreateError(null);
+    try {
+      await CharacterService.CreateCharacter(trimmed, animeId);
+      toast.success("Character created", `"${trimmed}" added.`);
+      await queryClient.invalidateQueries({
+        queryKey: qk.anime.detail(animeId),
+      });
+      setCreateOpen(false);
+      setCreateName("");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setCreateError(message);
+      toast.error("Could not create", message);
+    } finally {
+      setCreateSubmitting(false);
+    }
+  };
+
+  if (isError) {
+    return (
+      <Box p="4" data-testid="characters-tab">
+        <ErrorAlert
+          title="Could not load characters"
+          message={error instanceof Error ? error.message : String(error ?? "")}
+          onRetry={() => {
+            void refetch();
+          }}
+        />
+      </Box>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <Box p="4" data-testid="characters-tab-loading">
+        <RowSkeleton lines={3} />
+      </Box>
+    );
+  }
+
+  if (characters.length === 0) {
+    return (
+      <Box p="4" data-testid="characters-tab">
+        <EmptyState
+          icon={Users}
+          title="No characters yet"
+          description="Create a character or import from AniList."
+          action={
+            <Button
+              type="button"
+              size="sm"
+              variant="solid"
+              onClick={() => setCreateOpen(true)}
+              data-testid="characters-tab-add"
+            >
+              <Box as="span" aria-hidden="true" display="inline-flex" mr="2">
+                <UserPlus size={14} />
+              </Box>
+              Add character
+            </Button>
+          }
+        />
+
+        <RenameDialog
+          open={createOpen}
+          onClose={() => { setCreateOpen(false); setCreateName(""); setCreateError(null); }}
+          title="Create character"
+          name={createName}
+          onNameChange={setCreateName}
+          onSubmit={submitCreate}
+          submitting={createSubmitting}
+          error={createError}
+          submitLabel="Create"
+        />
+      </Box>
+    );
+  }
+
+  return (
+    <Box data-testid="characters-tab" p={{ base: "3", md: "4" }}>
+      <Flex gap="3" mb="4" direction={{ base: "column", md: "row" }}>
+        <Box flex="1">
+          <SearchBar
+            value={filter}
+            onChange={setFilter}
+            placeholder="Search characters"
+            size="md"
+          />
+        </Box>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => setCreateOpen(true)}
+          data-testid="characters-tab-add"
+        >
+          <Box as="span" aria-hidden="true" display="inline-flex" mr="2">
+            <Plus size={14} />
+          </Box>
+          Add character
+        </Button>
+      </Flex>
+      <SimpleGrid
+        columns={{ base: 2, sm: 3, md: 4, lg: 5 }}
+        gap="3"
+        data-testid="characters-grid"
+      >
+        {filtered.map((character) => (
+          <CharacterCard
+            key={character.id}
+            character={character}
+            onEdit={() => openRename(character)}
+            onSearch={() => navigate(`/search?char=${character.id}&anime=${animeId}`)}
+            onDelete={() => setDeleteTarget(character)}
+            onMoveToTag={() => setMoveToTagTarget(character)}
+          />
+        ))}
+      </SimpleGrid>
+
+      <RenameDialog
+        open={renameState.open}
+        onClose={closeRename}
+        title={
+          renameState.character
+            ? `Rename character — ${renameState.character.name}`
+            : "Rename character"
+        }
+        name={renameState.name}
+        onNameChange={(name) => setRenameState((s) => ({ ...s, name }))}
+        onSubmit={submitRename}
+        submitting={renameState.submitting}
+        error={renameState.error}
+        submitLabel="Save"
+      />
+
+      <RenameDialog
+        open={createOpen}
+        onClose={() => { setCreateOpen(false); setCreateName(""); setCreateError(null); }}
+        title="Create character"
+        name={createName}
+        onNameChange={setCreateName}
+        onSubmit={submitCreate}
+        submitting={createSubmitting}
+        error={createError}
+        submitLabel="Create"
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={submitDelete}
+        title="Delete character?"
+        description={`"${deleteTarget?.name ?? ""}" will be removed. This also removes all file associations.`}
+        confirmLabel="Delete"
+      />
+
+      <ConfirmDialog
+        open={moveToTagTarget !== null}
+        onClose={() => setMoveToTagTarget(null)}
+        onConfirm={async () => {
+          if (moveToTagTarget) await convertToTag(moveToTagTarget);
+          setMoveToTagTarget(null);
+        }}
+        title="Move to Tags?"
+        description={`"${moveToTagTarget?.name ?? ""}" will be moved to the Tags tab as an uncategorized tag.`}
+        confirmLabel="Move to Tags"
+      />
+    </Box>
+  );
+}
+
+export default CharactersTab;

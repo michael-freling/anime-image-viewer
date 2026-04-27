@@ -1,0 +1,21 @@
+baseURL = "/"
+languageCode = "en-us"
+title = "Anime Image Viewer"
+theme = "hugo-book"
+
+# Book theme configuration
+[params]
+  BookTheme = "auto"
+  BookToC = true
+  BookSection = "/"
+  BookRepo = "https://github.com/michael-freling/anime-image-viewer"
+  BookEditPath = "edit/main/docs/content"
+  BookMenuBundle = "/menu"
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+  [markup.tableOfContents]
+    startLevel = 2
+    endLevel = 4

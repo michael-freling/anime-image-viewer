@@ -1,0 +1,136 @@
+<svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 11px; fill: #555; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1440" height="900" fill="#0f0f14"/>
+
+  <!-- ==================== ICON RAIL (64px) ==================== -->
+  <rect x="0" y="0" width="64" height="900" fill="#16161e"/>
+  <rect x="12" y="14" width="40" height="40" rx="10" fill="#818cf8"/>
+  <text x="32" y="40" font-size="20" fill="#fff" font-weight="700" text-anchor="middle">A</text>
+  <g transform="translate(0, 72)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="#1e1e2e"/>
+    <text x="32" y="68" font-size="11" fill="#818cf8" text-anchor="middle" font-weight="500">Home</text>
+  </g>
+  <g transform="translate(0, 148)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="transparent"/>
+    <text x="32" y="68" font-size="11" fill="#64748b" text-anchor="middle">Search</text>
+  </g>
+  <g transform="translate(0, 224)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="transparent"/>
+    <text x="32" y="68" font-size="11" fill="#64748b" text-anchor="middle">Tags</text>
+  </g>
+  <g transform="translate(0, 300)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="transparent"/>
+    <text x="32" y="68" font-size="11" fill="#64748b" text-anchor="middle">Settings</text>
+  </g>
+
+  <!-- ==================== HEADER (52px) ==================== -->
+  <rect x="64" y="0" width="1376" height="52" fill="#16161e"/>
+
+  <!-- Breadcrumb -->
+  <text x="84" y="18" font-size="12" fill="#818cf8">Home</text>
+  <text x="118" y="18" font-size="12" fill="#475569">/</text>
+
+  <!-- Anime title and metadata -->
+  <text x="84" y="40" font-size="18" fill="#f1f5f9" font-weight="700">Attack on Titan</text>
+  <text x="270" y="40" font-size="12" fill="#64748b">4 entries · 342 images</text>
+
+  <!-- Action buttons (right side of header) -->
+  <rect x="1286" y="12" width="70" height="28" rx="8" fill="#818cf8"/>
+  <text x="1321" y="31" font-size="12" fill="#fff" text-anchor="middle" font-weight="500">Upload</text>
+
+  <rect x="1366" y="12" width="36" height="28" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1384" y="31" font-size="12" fill="#94a3b8" text-anchor="middle">...</text>
+
+  <!-- ==================== PRIMARY TAB BAR (38px) ==================== -->
+  <rect x="64" y="52" width="1376" height="38" fill="#0f0f14"/>
+  <line x1="64" y1="89" x2="1440" y2="89" stroke="#2d2d3f" stroke-width="1"/>
+
+  <!-- Images tab -->
+  <text x="84" y="77" font-size="13" fill="#64748b">Images</text>
+
+  <!-- Entries tab -->
+  <text x="152" y="77" font-size="13" fill="#64748b">Entries</text>
+
+  <!-- Characters tab -->
+  <text x="220" y="77" font-size="13" fill="#64748b">Characters</text>
+
+  <!-- Tags tab -->
+  <text x="310" y="77" font-size="13" fill="#64748b">Tags</text>
+
+  <!-- Info tab (active) -->
+  <text x="364" y="77" font-size="13" fill="#818cf8" font-weight="600">Info</text>
+  <rect x="364" y="82" width="24" height="2" rx="1" fill="#818cf8"/>
+
+  <!-- ==================== INFO TAB CONTENT (centered, max-width ~600px) ==================== -->
+
+  <!-- Section: Title -->
+  <rect x="420" y="108" width="600" height="100" rx="10" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+
+  <text x="444" y="134" font-size="14" fill="#f1f5f9" font-weight="600">Title</text>
+  <text x="444" y="152" font-size="11" fill="#64748b">The display name for this anime in your library.</text>
+
+  <!-- Title input -->
+  <rect x="444" y="164" width="440" height="32" rx="8" fill="#0f0f14" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="460" y="185" font-size="13" fill="#f1f5f9">Attack on Titan</text>
+
+  <!-- Section: AniList Link -->
+  <rect x="420" y="224" width="600" height="140" rx="10" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+
+  <text x="444" y="252" font-size="14" fill="#f1f5f9" font-weight="600">AniList Link</text>
+  <text x="444" y="270" font-size="11" fill="#64748b">Connect to AniList for metadata and character data.</text>
+
+  <!-- Current link status (linked) -->
+  <rect x="444" y="282" width="552" height="32" rx="8" fill="#1a3a2e" stroke="#22c55e" stroke-width="1"/>
+  <circle cx="462" cy="298" r="5" fill="#22c55e"/>
+  <text x="476" y="303" font-size="11" fill="#6ee7b7" font-weight="500">Linked</text>
+  <text x="528" y="303" font-size="11" fill="#94a3b8">ID: 16498 · Shingeki no Kyojin</text>
+
+  <!-- Open in AniList button -->
+  <rect x="444" y="324" width="140" height="28" rx="8" fill="#312e81" stroke="#818cf8" stroke-width="1"/>
+  <text x="514" y="343" font-size="11" fill="#818cf8" text-anchor="middle" font-weight="500">Open in AniList</text>
+
+  <!-- Unlink button -->
+  <rect x="596" y="324" width="72" height="28" rx="8" fill="#1e1e2e" stroke="#ef4444" stroke-width="1"/>
+  <text x="632" y="343" font-size="11" fill="#ef4444" text-anchor="middle">Unlink</text>
+
+  <!-- Section: Description -->
+  <rect x="420" y="380" width="600" height="148" rx="10" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+
+  <text x="444" y="408" font-size="14" fill="#f1f5f9" font-weight="600">Description</text>
+  <text x="444" y="426" font-size="11" fill="#64748b">Optional notes about this anime.</text>
+
+  <!-- Description textarea -->
+  <rect x="444" y="438" width="552" height="72" rx="8" fill="#0f0f14" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="460" y="459" font-size="12" fill="#94a3b8">Several hundred years ago, humans were nearly</text>
+  <text x="460" y="475" font-size="12" fill="#94a3b8">exterminated by Titans. Titans are typically several</text>
+  <text x="460" y="491" font-size="12" fill="#94a3b8">stories tall, seem to have no intelligence...</text>
+
+  <!-- Save Changes button -->
+  <rect x="420" y="544" width="120" height="36" rx="8" fill="#818cf8"/>
+  <text x="480" y="567" font-size="13" fill="#fff" text-anchor="middle" font-weight="500">Save Changes</text>
+
+  <!-- ==================== DANGER ZONE ==================== -->
+  <rect x="420" y="608" width="600" height="110" rx="10" fill="#1e1e2e" stroke="#3b1a1a" stroke-width="1"/>
+
+  <text x="444" y="636" font-size="14" fill="#ef4444" font-weight="600">Danger Zone</text>
+  <text x="444" y="654" font-size="11" fill="#64748b">These actions are destructive and cannot be undone.</text>
+
+  <!-- Delete anime row -->
+  <rect x="444" y="668" width="552" height="36" rx="8" fill="#1a1a26"/>
+  <text x="460" y="690" font-size="12" fill="#f1f5f9">Delete this anime</text>
+  <text x="460" y="702" font-size="10" fill="#64748b">Removes anime, entries, and metadata. Images stay on disk.</text>
+
+  <!-- Delete button -->
+  <rect x="896" y="672" width="88" height="28" rx="6" fill="#ef4444"/>
+  <text x="940" y="691" font-size="12" fill="#fff" text-anchor="middle" font-weight="500">Delete Anime</text>
+
+  <!-- Annotation -->
+  <text x="752" y="893" class="label" text-anchor="middle">Info tab -- Centered form: title, AniList link (with status), description textarea, save button, danger zone with delete</text>
+</svg>

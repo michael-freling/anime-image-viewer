@@ -1,0 +1,29 @@
+<svg viewBox="0 0 375 812" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+    </style>
+  </defs>
+
+  <!-- Full-screen dark -->
+  <rect width="375" height="812" fill="#0a0a0f"/>
+
+  <!-- ==================== MAIN IMAGE (fills screen) ==================== -->
+  <rect x="0" y="40" width="375" height="732" fill="#1a1a2e"/>
+  <text x="188" y="400" font-size="14" fill="#475569" text-anchor="middle">Image Content</text>
+  <text x="188" y="420" font-size="10" fill="#2d2d3f" text-anchor="middle">Swipe left/right to navigate</text>
+
+  <!-- ==================== CLOSE BUTTON (top-left) ==================== -->
+  <rect x="12" y="12" width="32" height="32" rx="16" fill="rgba(30,30,46,0.8)"/>
+  <text x="28" y="34" font-size="16" fill="#f1f5f9" text-anchor="middle">X</text>
+
+  <!-- ==================== LEFT NAV ARROW (subtle) ==================== -->
+  <rect x="8" y="390" width="28" height="28" rx="14" fill="rgba(30,30,46,0.5)"/>
+  <text x="20" y="410" font-size="14" fill="#f1f5f9" text-anchor="middle" opacity="0.7">&lt;</text>
+
+  <!-- ==================== RIGHT NAV ARROW (subtle) ==================== -->
+  <rect x="339" y="390" width="28" height="28" rx="14" fill="rgba(30,30,46,0.5)"/>
+  <text x="355" y="410" font-size="14" fill="#f1f5f9" text-anchor="middle" opacity="0.7">&gt;</text>
+
+  <!-- Minimal. No counter, no filename, no thumbnails, no tag panel. -->
+</svg>

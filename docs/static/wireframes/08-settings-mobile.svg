@@ -1,0 +1,115 @@
+<svg viewBox="0 0 375 812" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="375" height="812" fill="#0f0f14"/>
+  <text x="20" y="30" font-size="12" fill="#f1f5f9" font-weight="600">9:41</text>
+
+  <!-- Header -->
+  <text x="20" y="66" font-size="20" fill="#f1f5f9" font-weight="700">Settings</text>
+
+  <!-- Settings list (iOS-style) -->
+  <!-- General section -->
+  <text x="20" y="100" font-size="12" fill="#64748b" font-weight="500">GENERAL</text>
+
+  <rect x="20" y="110" width="335" height="168" rx="10" fill="#1e1e2e"/>
+
+  <g transform="translate(20, 110)">
+    <text x="12" y="28" font-size="13" fill="#f1f5f9">Image Root Directory</text>
+    <text x="304" y="28" font-size="12" fill="#64748b" text-anchor="end">&gt;</text>
+    <text x="12" y="44" font-size="10" fill="#475569">/home/user/anime-images/</text>
+    <line x1="12" y1="52" x2="323" y2="52" stroke="#2d2d3f" stroke-width="0.5"/>
+
+    <text x="12" y="72" font-size="13" fill="#f1f5f9">Config Directory</text>
+    <text x="304" y="72" font-size="12" fill="#64748b" text-anchor="end">&gt;</text>
+    <line x1="12" y1="84" x2="323" y2="84" stroke="#2d2d3f" stroke-width="0.5"/>
+
+    <text x="12" y="104" font-size="13" fill="#f1f5f9">Log Directory</text>
+    <text x="304" y="104" font-size="12" fill="#64748b" text-anchor="end">&gt;</text>
+    <line x1="12" y1="116" x2="323" y2="116" stroke="#2d2d3f" stroke-width="0.5"/>
+
+    <text x="12" y="136" font-size="13" fill="#f1f5f9">Backup Directory</text>
+    <text x="304" y="136" font-size="12" fill="#64748b" text-anchor="end">&gt;</text>
+  </g>
+
+  <!-- Appearance section -->
+  <text x="20" y="304" font-size="12" fill="#64748b" font-weight="500">APPEARANCE</text>
+
+  <rect x="20" y="314" width="335" height="88" rx="10" fill="#1e1e2e"/>
+
+  <g transform="translate(20, 314)">
+    <text x="12" y="28" font-size="13" fill="#f1f5f9">Theme</text>
+    <rect x="160" y="10" width="156" height="28" rx="8" fill="#0f0f14"/>
+    <text x="192" y="30" font-size="10" fill="#64748b" text-anchor="middle">Light</text>
+    <rect x="214" y="12" width="50" height="24" rx="6" fill="#818cf8"/>
+    <text x="239" y="30" font-size="10" fill="#fff" text-anchor="middle">Dark</text>
+    <text x="290" y="30" font-size="10" fill="#64748b" text-anchor="middle">System</text>
+    <line x1="12" y1="44" x2="323" y2="44" stroke="#2d2d3f" stroke-width="0.5"/>
+
+    <text x="12" y="68" font-size="13" fill="#f1f5f9">Grid Columns</text>
+    <text x="304" y="68" font-size="12" fill="#94a3b8" text-anchor="end">Auto</text>
+  </g>
+
+  <!-- Backup section -->
+  <text x="20" y="428" font-size="12" fill="#64748b" font-weight="500">BACKUP</text>
+
+  <rect x="20" y="438" width="335" height="132" rx="10" fill="#1e1e2e"/>
+
+  <g transform="translate(20, 438)">
+    <text x="12" y="28" font-size="13" fill="#f1f5f9">Create Backup</text>
+    <text x="304" y="28" font-size="12" fill="#818cf8" text-anchor="end">&gt;</text>
+    <line x1="12" y1="40" x2="323" y2="40" stroke="#2d2d3f" stroke-width="0.5"/>
+
+    <text x="12" y="60" font-size="13" fill="#f1f5f9">Restore from Backup</text>
+    <text x="304" y="60" font-size="12" fill="#64748b" text-anchor="end">&gt;</text>
+    <line x1="12" y1="72" x2="323" y2="72" stroke="#2d2d3f" stroke-width="0.5"/>
+
+    <text x="12" y="92" font-size="13" fill="#f1f5f9">Auto-Backup</text>
+    <!-- Toggle -->
+    <rect x="268" y="78" width="44" height="24" rx="12" fill="#818cf8"/>
+    <circle cx="300" cy="90" r="9" fill="#fff"/>
+    <line x1="12" y1="104" x2="323" y2="104" stroke="#2d2d3f" stroke-width="0.5"/>
+
+    <text x="12" y="122" font-size="13" fill="#f1f5f9">Backup History</text>
+    <text x="304" y="122" font-size="12" fill="#64748b" text-anchor="end">3 backups &gt;</text>
+  </g>
+
+  <!-- About section -->
+  <text x="20" y="596" font-size="12" fill="#64748b" font-weight="500">ABOUT</text>
+
+  <rect x="20" y="606" width="335" height="76" rx="10" fill="#1e1e2e"/>
+
+  <g transform="translate(20, 606)">
+    <text x="12" y="26" font-size="13" fill="#f1f5f9">Version</text>
+    <text x="304" y="26" font-size="12" fill="#64748b" text-anchor="end">1.0.0</text>
+    <line x1="12" y1="38" x2="323" y2="38" stroke="#2d2d3f" stroke-width="0.5"/>
+
+    <text x="12" y="58" font-size="13" fill="#f1f5f9">GitHub</text>
+    <text x="304" y="58" font-size="12" fill="#818cf8" text-anchor="end">Open</text>
+  </g>
+
+  <!-- Danger zone -->
+  <text x="20" y="710" font-size="12" fill="#64748b" font-weight="500">DANGER ZONE</text>
+  <rect x="20" y="720" width="335" height="36" rx="10" fill="#1e1e2e"/>
+  <text x="32" y="744" font-size="13" fill="#fca5a5">Reset to Defaults</text>
+
+  <!-- Bottom Tab Bar (4 items) -->
+  <rect x="0" y="768" width="375" height="44" fill="#16161e" stroke="#2d2d3f" stroke-width="1"/>
+  <g transform="translate(18, 774)">
+    <text x="36" y="26" font-size="10" fill="#64748b" text-anchor="middle">Home</text>
+  </g>
+  <g transform="translate(108, 774)">
+    <text x="36" y="26" font-size="10" fill="#64748b" text-anchor="middle">Search</text>
+  </g>
+  <g transform="translate(198, 774)">
+    <text x="36" y="26" font-size="10" fill="#64748b" text-anchor="middle">Tags</text>
+  </g>
+  <g transform="translate(288, 774)">
+    <rect x="10" y="-4" width="52" height="24" rx="12" fill="#1e1e2e"/>
+    <text x="36" y="26" font-size="10" fill="#818cf8" text-anchor="middle" font-weight="500">Settings</text>
+  </g>
+</svg>

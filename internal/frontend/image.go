@@ -39,6 +39,21 @@ func (service *ImageService) OpenImageInOS(ctx context.Context, imageID uint) er
 	return app.BrowserOpenFile(imageFiles[0].LocalFilePath)
 }
 
+// ShowImageInExplorer opens the system file explorer with the image's file
+// selected. On Windows this uses `explorer /select,`, on macOS `open -R`,
+// and on Linux `xdg-open` on the parent directory.
+func (service *ImageService) ShowImageInExplorer(ctx context.Context, imageID uint) error {
+	imageFiles, err := service.imageReader.ReadImagesByIDs([]uint{imageID})
+	if err != nil {
+		return fmt.Errorf("ReadImagesByIDs: %w", err)
+	}
+	if len(imageFiles) == 0 {
+		return fmt.Errorf("image not found: %d", imageID)
+	}
+
+	return showInExplorer(imageFiles[0].LocalFilePath)
+}
+
 type Image struct {
 	ID   uint   `json:"id"`
 	Name string `json:"name"`

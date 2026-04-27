@@ -359,13 +359,13 @@ func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID
 	}
 
 	// Collect characters from ALL fetched entries, dedup by name.
-	existingTags, err := s.dbClient.Tag().FindTagsByAnimeID(animeID)
+	existingChars, err := s.dbClient.Character().FindByAnimeID(animeID)
 	if err != nil {
-		return nil, fmt.Errorf("Tag.FindTagsByAnimeID: %w", err)
+		return nil, fmt.Errorf("Character.FindByAnimeID: %w", err)
 	}
-	existingNames := make(map[string]bool, len(existingTags))
-	for _, t := range existingTags {
-		existingNames[t.Name] = true
+	existingNames := make(map[string]bool, len(existingChars))
+	for _, c := range existingChars {
+		existingNames[c.Name] = true
 	}
 
 	for _, detail := range fetched {
@@ -376,17 +376,15 @@ func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID
 			if ch.Name.Full == "" || existingNames[ch.Name.Full] {
 				continue
 			}
-			aid := animeID
-			tag := db.Tag{
-				Name:     ch.Name.Full,
-				Category: "character",
-				AnimeID:  &aid,
+			character := db.Character{
+				Name:    ch.Name.Full,
+				AnimeID: animeID,
 			}
-			if err := s.dbClient.Tag().Create(ctx, &tag); err != nil {
+			if err := s.dbClient.Character().Create(ctx, &character); err != nil {
 				if isUniqueViolation(err) {
 					continue
 				}
-				return nil, fmt.Errorf("Tag.Create for character %q: %w", ch.Name.Full, err)
+				return nil, fmt.Errorf("Character.Create for %q: %w", ch.Name.Full, err)
 			}
 			existingNames[ch.Name.Full] = true
 			result.CharactersCreated++
