@@ -25,15 +25,20 @@ import {
   Pencil,
   Plus,
   Trash2,
+  Upload,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
+
+import { useQueryClient } from "@tanstack/react-query";
 
 import { EmptyState } from "../../components/shared/empty-state";
 import { ErrorAlert } from "../../components/shared/error-alert";
 import { RowSkeleton } from "../../components/shared/loading-skeleton";
 import { ConfirmDialog } from "../../components/ui/confirm-dialog";
 import { useAnimeDetail } from "../../hooks/use-anime-detail";
+import { BatchImportImageService } from "../../lib/api";
+import { qk } from "../../lib/query-keys";
 import {
   useCreateEntry,
   useDeleteEntry,
@@ -394,12 +399,14 @@ function EntryRow({
   depth,
   onEdit,
   onDelete,
+  onUpload,
 }: {
   entry: Entry;
   animeId: number;
   depth: number;
   onEdit: (entry: Entry) => void;
   onDelete: (entry: Entry) => void;
+  onUpload: (entryId: number) => void;
 }): JSX.Element {
   const navigate = useNavigate();
   const config = ENTRY_TYPE_CONFIGS[entry.type] ?? ENTRY_TYPE_CONFIGS.other;
@@ -493,6 +500,19 @@ function EntryRow({
             type="button"
             variant="ghost"
             size="xs"
+            aria-label={`Upload images to ${entry.name || "entry"}`}
+            data-testid="entry-upload-btn"
+            onClick={(e: React.MouseEvent) => {
+              e.stopPropagation();
+              onUpload(entry.id);
+            }}
+          >
+            <Upload size={14} />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
             aria-label={`Edit ${entry.name || "entry"}`}
             data-testid="entry-edit-btn"
             onClick={(e: React.MouseEvent) => {
@@ -529,6 +549,7 @@ function EntryRow({
 export function EntriesTab(): JSX.Element {
   const { animeId: rawId } = useParams<{ animeId: string }>();
   const animeId = parseAnimeId(rawId);
+  const queryClient = useQueryClient();
   const { data, isLoading, isError, error, refetch } = useAnimeDetail(animeId);
 
   // Dialog state
@@ -560,6 +581,15 @@ export function EntriesTab(): JSX.Element {
   const handleCloseDelete = useCallback(() => {
     setDeletingEntry(null);
   }, []);
+
+  const handleUploadToEntry = useCallback(async (entryId: number) => {
+    try {
+      await BatchImportImageService.ImportImages(entryId);
+      await queryClient.invalidateQueries({ queryKey: qk.anime.detail(animeId) });
+    } catch {
+      // User cancelled the file dialog
+    }
+  }, [animeId, queryClient]);
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deletingEntry) return;
@@ -668,6 +698,7 @@ export function EntriesTab(): JSX.Element {
               depth={0}
               onEdit={handleOpenEdit}
               onDelete={handleOpenDelete}
+              onUpload={handleUploadToEntry}
             />
             {entry.children && entry.children.length > 0 ? (
               <Stack as="ul" role="list" gap="2" mt="2">
@@ -679,6 +710,7 @@ export function EntriesTab(): JSX.Element {
                     depth={1}
                     onEdit={handleOpenEdit}
                     onDelete={handleOpenDelete}
+                    onUpload={handleUploadToEntry}
                   />
                 ))}
               </Stack>

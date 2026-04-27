@@ -10,10 +10,14 @@
  * with their own datasets (images, tags) call their specific hooks.
  */
 import { Box } from "@chakra-ui/react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { Outlet, useParams } from "react-router";
 
 import { ErrorAlert } from "../../components/shared/error-alert";
 import { useAnimeDetail } from "../../hooks/use-anime-detail";
+import { BatchImportImageService } from "../../lib/api";
+import { qk } from "../../lib/query-keys";
 
 import { AnimeDetailHeader } from "./header";
 import { AnimeDetailTabBar } from "./tab-bar";
@@ -29,12 +33,26 @@ export function AnimeDetailLayout(): JSX.Element {
   const animeId = parseAnimeId(rawId);
   const validId = Number.isFinite(animeId) && animeId > 0;
 
+  const queryClient = useQueryClient();
+
   // Keep the detail query enabled for any positive integer; the hook guards
   // against invalid ids internally but we also render a plain error alert
   // for obviously bad URLs so the page never renders a broken header.
   const { data, isError, error, refetch } = useAnimeDetail(
     validId ? animeId : 0,
   );
+
+  const rootFolder = data?.folders?.[0];
+
+  const handleUpload = useCallback(async () => {
+    if (!rootFolder) return;
+    try {
+      await BatchImportImageService.ImportImages(rootFolder.id);
+      await queryClient.invalidateQueries({ queryKey: qk.anime.detail(animeId) });
+    } catch {
+      // ImportImages opens a native file dialog; if the user cancels, it throws
+    }
+  }, [rootFolder, animeId, queryClient]);
 
   if (!validId) {
     return (
@@ -70,6 +88,7 @@ export function AnimeDetailLayout(): JSX.Element {
         detail={data}
         totalImages={0}
         entryCount={entryCount}
+        onUpload={rootFolder ? handleUpload : undefined}
       />
       <AnimeDetailTabBar />
 
