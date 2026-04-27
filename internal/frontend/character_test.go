@@ -266,6 +266,194 @@ func TestCharacterService_ReadCharactersByAnimeID(t *testing.T) {
 	})
 }
 
+func TestCharacterService_ConvertTagToCharacter(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.Character{}, db.FileCharacter{}, db.Tag{}, db.FileTag{}, db.Anime{})
+	svc := NewCharacterService(tester.dbClient.Client)
+	ctx := context.Background()
+
+	// Create an anime
+	animeRow := db.Anime{Name: "ConvertTestAnime"}
+	require.NoError(t, db.Create(tester.dbClient.Client, &animeRow))
+
+	t.Run("happy path with file associations", func(t *testing.T) {
+		// Create a tag
+		tag := db.Tag{Name: "Hitori Gotoh", Category: "some-category"}
+		require.NoError(t, db.Create(tester.dbClient.Client, &tag))
+
+		// Create file tag associations
+		fileTags := []db.FileTag{
+			{TagID: tag.ID, FileID: 100, AddedBy: db.FileTagAddedByUser},
+			{TagID: tag.ID, FileID: 200, AddedBy: db.FileTagAddedByImport},
+		}
+		db.LoadTestData(t, tester.dbClient, fileTags)
+
+		// Convert the tag to a character
+		got, err := svc.ConvertTagToCharacter(ctx, tag.ID, animeRow.ID)
+		require.NoError(t, err)
+		assert.NotZero(t, got.ID)
+		assert.Equal(t, "Hitori Gotoh", got.Name)
+		assert.Equal(t, animeRow.ID, got.AnimeID)
+
+		// Verify the character exists in DB
+		chars, err := tester.dbClient.Client.Character().FindByIDs([]uint{got.ID})
+		require.NoError(t, err)
+		require.Len(t, chars, 1)
+		assert.Equal(t, "Hitori Gotoh", chars[0].Name)
+		assert.Equal(t, animeRow.ID, chars[0].AnimeID)
+
+		// Verify FileCharacter rows exist for the same files
+		fcs, err := tester.dbClient.Client.FileCharacter().FindByCharacterIDs([]uint{got.ID})
+		require.NoError(t, err)
+		require.Len(t, fcs, 2)
+		fileIDs := make([]uint, 0, len(fcs))
+		addedBys := make(map[uint]db.FileTagAddedBy)
+		for _, fc := range fcs {
+			fileIDs = append(fileIDs, fc.FileID)
+			addedBys[fc.FileID] = fc.AddedBy
+		}
+		assert.ElementsMatch(t, []uint{100, 200}, fileIDs)
+		assert.Equal(t, db.FileTagAddedByUser, addedBys[100])
+		assert.Equal(t, db.FileTagAddedByImport, addedBys[200])
+
+		// Verify original tag is deleted
+		tags, err := tester.dbClient.Client.Tag().FindAllByTagIDs([]uint{tag.ID})
+		require.NoError(t, err)
+		assert.Empty(t, tags)
+
+		// Verify original file tags are deleted
+		remainingFTs, err := tester.dbClient.Client.FileTag().FindAllByTagIDs([]uint{tag.ID})
+		require.NoError(t, err)
+		assert.Empty(t, remainingFTs)
+	})
+
+	t.Run("tag with no file associations", func(t *testing.T) {
+		tag := db.Tag{Name: "NoFilesTag", Category: "uncategorized"}
+		require.NoError(t, db.Create(tester.dbClient.Client, &tag))
+
+		got, err := svc.ConvertTagToCharacter(ctx, tag.ID, animeRow.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "NoFilesTag", got.Name)
+		assert.Equal(t, animeRow.ID, got.AnimeID)
+
+		// Verify character exists
+		chars, err := tester.dbClient.Client.Character().FindByIDs([]uint{got.ID})
+		require.NoError(t, err)
+		assert.Len(t, chars, 1)
+
+		// Verify no FileCharacter rows
+		fcs, err := tester.dbClient.Client.FileCharacter().FindByCharacterIDs([]uint{got.ID})
+		require.NoError(t, err)
+		assert.Empty(t, fcs)
+
+		// Verify tag is deleted
+		tags, err := tester.dbClient.Client.Tag().FindAllByTagIDs([]uint{tag.ID})
+		require.NoError(t, err)
+		assert.Empty(t, tags)
+	})
+
+	t.Run("non-existent tag returns error", func(t *testing.T) {
+		_, err := svc.ConvertTagToCharacter(ctx, 99999, animeRow.ID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "TagClient.FindByValue")
+	})
+}
+
+func TestCharacterService_ConvertCharacterToTag(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.Character{}, db.FileCharacter{}, db.Tag{}, db.FileTag{}, db.Anime{})
+	svc := NewCharacterService(tester.dbClient.Client)
+	ctx := context.Background()
+
+	// Create an anime
+	animeRow := db.Anime{Name: "ConvertBackTestAnime"}
+	require.NoError(t, db.Create(tester.dbClient.Client, &animeRow))
+
+	t.Run("happy path with file associations", func(t *testing.T) {
+		// Create a character
+		character := db.Character{Name: "Nijika Ijichi", AnimeID: animeRow.ID}
+		require.NoError(t, db.Create(tester.dbClient.Client, &character))
+
+		// Create file character associations
+		fileCharacters := []db.FileCharacter{
+			{CharacterID: character.ID, FileID: 300, AddedBy: db.FileTagAddedByUser},
+			{CharacterID: character.ID, FileID: 400, AddedBy: db.FileTagAddedBySuggestion},
+		}
+		db.LoadTestData(t, tester.dbClient, fileCharacters)
+
+		// Convert character to tag
+		got, err := svc.ConvertCharacterToTag(ctx, character.ID)
+		require.NoError(t, err)
+		assert.NotZero(t, got.ID)
+		assert.Equal(t, "Nijika Ijichi", got.Name)
+		assert.Equal(t, "uncategorized", got.Category)
+
+		// Verify the tag exists in DB with correct anime ID
+		tags, err := tester.dbClient.Client.Tag().FindAllByTagIDs([]uint{got.ID})
+		require.NoError(t, err)
+		require.Len(t, tags, 1)
+		assert.Equal(t, "Nijika Ijichi", tags[0].Name)
+		assert.Equal(t, "uncategorized", tags[0].Category)
+		require.NotNil(t, tags[0].AnimeID)
+		assert.Equal(t, animeRow.ID, *tags[0].AnimeID)
+
+		// Verify FileTag rows exist for the same files
+		fts, err := tester.dbClient.Client.FileTag().FindAllByTagIDs([]uint{got.ID})
+		require.NoError(t, err)
+		require.Len(t, fts, 2)
+		fileIDs := make([]uint, 0, len(fts))
+		addedBys := make(map[uint]db.FileTagAddedBy)
+		for _, ft := range fts {
+			fileIDs = append(fileIDs, ft.FileID)
+			addedBys[ft.FileID] = ft.AddedBy
+		}
+		assert.ElementsMatch(t, []uint{300, 400}, fileIDs)
+		assert.Equal(t, db.FileTagAddedByUser, addedBys[300])
+		assert.Equal(t, db.FileTagAddedBySuggestion, addedBys[400])
+
+		// Verify original character is deleted
+		chars, err := tester.dbClient.Client.Character().FindByIDs([]uint{character.ID})
+		require.NoError(t, err)
+		assert.Empty(t, chars)
+
+		// Verify original file characters are deleted
+		remainingFCs, err := tester.dbClient.Client.FileCharacter().FindByCharacterIDs([]uint{character.ID})
+		require.NoError(t, err)
+		assert.Empty(t, remainingFCs)
+	})
+
+	t.Run("character with no file associations", func(t *testing.T) {
+		character := db.Character{Name: "NoFilesChar", AnimeID: animeRow.ID}
+		require.NoError(t, db.Create(tester.dbClient.Client, &character))
+
+		got, err := svc.ConvertCharacterToTag(ctx, character.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "NoFilesChar", got.Name)
+		assert.Equal(t, "uncategorized", got.Category)
+
+		// Verify tag exists
+		tags, err := tester.dbClient.Client.Tag().FindAllByTagIDs([]uint{got.ID})
+		require.NoError(t, err)
+		assert.Len(t, tags, 1)
+
+		// Verify no FileTag rows
+		fts, err := tester.dbClient.Client.FileTag().FindAllByTagIDs([]uint{got.ID})
+		require.NoError(t, err)
+		assert.Empty(t, fts)
+
+		// Verify character is deleted
+		chars, err := tester.dbClient.Client.Character().FindByIDs([]uint{character.ID})
+		require.NoError(t, err)
+		assert.Empty(t, chars)
+	})
+
+	t.Run("non-existent character returns error", func(t *testing.T) {
+		_, err := svc.ConvertCharacterToTag(ctx, 99999)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CharacterClient.FindByValue")
+	})
+}
+
 // TestCharacterService_CreateCharacter_DBError verifies that CreateCharacter
 // returns an error when the database write fails.
 func TestCharacterService_CreateCharacter_DBError(t *testing.T) {

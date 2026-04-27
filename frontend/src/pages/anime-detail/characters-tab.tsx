@@ -10,7 +10,7 @@
  */
 import { Box, Button, Flex, IconButton, SimpleGrid, Text, chakra } from "@chakra-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react";
+import { Pencil, Plus, Tag as TagIcon, Trash2, UserPlus, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
@@ -56,11 +56,13 @@ function CharacterCard({
   onEdit,
   onSearch,
   onDelete,
+  onMoveToTag,
 }: {
   character: AnimeCharacter;
   onEdit: () => void;
   onSearch: () => void;
   onDelete: () => void;
+  onMoveToTag: () => void;
 }): JSX.Element {
   return (
     <CardButton
@@ -139,6 +141,18 @@ function CharacterCard({
           >
             <Trash2 size={12} aria-hidden="true" />
           </IconButton>
+          <IconButton
+            type="button"
+            size="xs"
+            variant="ghost"
+            aria-label={`Move ${character.name} to tags`}
+            data-testid="character-card-move-to-tag"
+            onClick={(e) => { e.stopPropagation(); onMoveToTag(); }}
+            color="fg.secondary"
+            _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
+          >
+            <TagIcon size={12} aria-hidden="true" />
+          </IconButton>
         </Flex>
       </Box>
     </CardButton>
@@ -160,6 +174,7 @@ export function CharactersTab(): JSX.Element {
   const [filter, setFilter] = useState("");
   const [renameState, setRenameState] = useState<RenameDialogState>(INITIAL_RENAME);
   const [deleteTarget, setDeleteTarget] = useState<AnimeCharacter | null>(null);
+  const [moveToTagTarget, setMoveToTagTarget] = useState<AnimeCharacter | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createSubmitting, setCreateSubmitting] = useState(false);
@@ -218,6 +233,18 @@ export function CharactersTab(): JSX.Element {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       toast.error("Could not delete", message);
+    }
+  };
+
+  const convertToTag = async (ch: AnimeCharacter) => {
+    try {
+      await CharacterService.ConvertCharacterToTag(ch.id);
+      toast.success("Moved to Tags", `"${ch.name}" is now a regular tag.`);
+      await queryClient.invalidateQueries({ queryKey: qk.tags.list() });
+      await queryClient.invalidateQueries({ queryKey: qk.anime.detail(animeId) });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error("Could not move", message);
     }
   };
 
@@ -342,6 +369,7 @@ export function CharactersTab(): JSX.Element {
             onEdit={() => openRename(character)}
             onSearch={() => navigate(`/search?tag=${character.id}&anime=${animeId}`)}
             onDelete={() => setDeleteTarget(character)}
+            onMoveToTag={() => setMoveToTagTarget(character)}
           />
         ))}
       </SimpleGrid>
@@ -381,6 +409,18 @@ export function CharactersTab(): JSX.Element {
         title="Delete character?"
         description={`"${deleteTarget?.name ?? ""}" will be removed. This also removes all file associations.`}
         confirmLabel="Delete"
+      />
+
+      <ConfirmDialog
+        open={moveToTagTarget !== null}
+        onClose={() => setMoveToTagTarget(null)}
+        onConfirm={async () => {
+          if (moveToTagTarget) await convertToTag(moveToTagTarget);
+          setMoveToTagTarget(null);
+        }}
+        title="Move to Tags?"
+        description={`"${moveToTagTarget?.name ?? ""}" will be moved to the Tags tab as an uncategorized tag.`}
+        confirmLabel="Move to Tags"
       />
     </Box>
   );

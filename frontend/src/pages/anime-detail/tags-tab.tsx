@@ -13,7 +13,7 @@
  */
 import { Box, Button, Flex, IconButton, Stack, Text } from "@chakra-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Search, Tag as TagIcon } from "lucide-react";
+import { Pencil, Plus, Search, Tag as TagIcon, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
@@ -22,8 +22,10 @@ import { EmptyState } from "../../components/shared/empty-state";
 import { ErrorAlert } from "../../components/shared/error-alert";
 import { TagChipSkeleton } from "../../components/shared/loading-skeleton";
 import { TagChip } from "../../components/shared/tag-chip";
+import { ConfirmDialog } from "../../components/ui/confirm-dialog";
 import { toast } from "../../components/ui/toaster";
 import { useAnimeDetail } from "../../hooks/use-anime-detail";
+import { CharacterService } from "../../lib/api";
 import {
   TAG_CATEGORY_ORDER,
   tagCategoryKey,
@@ -110,6 +112,19 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
   const grouped = useMemo(() => groupTags(data?.tags ?? []), [data]);
 
   const [dialog, setDialog] = useState<EditDialogState>(INITIAL_EDIT);
+  const [confirmTarget, setConfirmTarget] = useState<AnimeDerivedTag | null>(null);
+
+  const convertToCharacter = async (t: AnimeDerivedTag) => {
+    try {
+      await CharacterService.ConvertTagToCharacter(t.id, animeId);
+      toast.success("Moved to Characters", `"${t.name}" is now a character.`);
+      await queryClient.invalidateQueries({ queryKey: qk.tags.list() });
+      await queryClient.invalidateQueries({ queryKey: qk.anime.detail(animeId) });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error("Could not convert", message);
+    }
+  };
 
   const openEdit = (t: AnimeDerivedTag) => {
     setDialog({
@@ -277,6 +292,18 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
                   >
                     <Search size={12} aria-hidden="true" />
                   </IconButton>
+                  <IconButton
+                    type="button"
+                    size="xs"
+                    variant="ghost"
+                    aria-label={`Make ${t.name} a character`}
+                    data-testid="tags-tab-tag-make-character"
+                    onClick={() => setConfirmTarget(t)}
+                    color="fg.secondary"
+                    _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
+                  >
+                    <Users size={12} aria-hidden="true" />
+                  </IconButton>
                 </Flex>
               ))}
             </Flex>
@@ -301,6 +328,17 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
         error={dialog.error}
       />
 
+      <ConfirmDialog
+        open={confirmTarget !== null}
+        onClose={() => setConfirmTarget(null)}
+        onConfirm={async () => {
+          if (confirmTarget) await convertToCharacter(confirmTarget);
+          setConfirmTarget(null);
+        }}
+        title="Make Character?"
+        description={`"${confirmTarget?.name ?? ""}" will be moved to the Characters tab.`}
+        confirmLabel="Make Character"
+      />
     </Box>
   );
 }
