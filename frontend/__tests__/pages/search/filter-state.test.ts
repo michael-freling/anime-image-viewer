@@ -295,3 +295,51 @@ describe("cycleCharacterId", () => {
     expect(state.excludeCharacterIds).toEqual([]);
   });
 });
+
+describe("parseAnimeId edge cases", () => {
+  test("invalid anime param returns null", () => {
+    const params = new URLSearchParams("anime=abc");
+    const state = filterStateFromSearchParams(params);
+    expect(state.animeId).toBeNull();
+  });
+
+  test("negative anime param returns null", () => {
+    const params = new URLSearchParams("anime=-5");
+    const state = filterStateFromSearchParams(params);
+    expect(state.animeId).toBeNull();
+  });
+
+  test("zero anime param returns null", () => {
+    const params = new URLSearchParams("anime=0");
+    const state = filterStateFromSearchParams(params);
+    expect(state.animeId).toBeNull();
+  });
+
+  test("fractional anime param returns null", () => {
+    const params = new URLSearchParams("anime=3.5");
+    const state = filterStateFromSearchParams(params);
+    expect(state.animeId).toBeNull();
+  });
+});
+
+describe("addExcludeId no-op", () => {
+  test("addExcludeId is a no-op if the id is already excluded", () => {
+    const state: SearchFilterState = {
+      ...EMPTY_FILTER_STATE,
+      excludeIds: [7],
+    };
+    const next = addExcludeId(state, 7);
+    expect(next).toBe(state);
+  });
+});
+
+describe("addExcludeCharacterId no-op", () => {
+  test("addExcludeCharacterId is a no-op if the id is already excluded", () => {
+    const state: SearchFilterState = {
+      ...EMPTY_FILTER_STATE,
+      excludeCharacterIds: [7],
+    };
+    const next = addExcludeCharacterId(state, 7);
+    expect(next).toBe(state);
+  });
+});

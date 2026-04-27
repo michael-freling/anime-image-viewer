@@ -13,6 +13,7 @@
 const searchImagesMock = jest.fn();
 const searchImagesByAnimeMock = jest.fn();
 const getImageTagIDsMock = jest.fn();
+const getImageCharacterIDsMock = jest.fn();
 jest.mock("../../src/lib/api", () => ({
   __esModule: true,
   SearchService: {
@@ -22,6 +23,10 @@ jest.mock("../../src/lib/api", () => ({
     SearchImagesByAnime: (...args: unknown[]) =>
       searchImagesByAnimeMock(...args),
     GetImageTagIDs: (...args: unknown[]) => getImageTagIDsMock(...args),
+  },
+  CharacterService: {
+    GetImageCharacterIDs: (...args: unknown[]) =>
+      getImageCharacterIDsMock(...args),
   },
 }));
 
@@ -39,6 +44,7 @@ describe("useSearchImages", () => {
     searchImagesMock.mockReset();
     searchImagesByAnimeMock.mockReset();
     getImageTagIDsMock.mockReset();
+    getImageCharacterIDsMock.mockReset();
   });
 
   test("fetches by tag when includeTagIds are provided", async () => {
@@ -247,6 +253,214 @@ describe("useSearchImages", () => {
 
     expect(getImageTagIDsMock).not.toHaveBeenCalled();
     expect(result.current.data).toHaveLength(1);
+    unmount();
+  });
+
+  // ---- Character filter tests ----
+
+  test("include character filter keeps only images that have ALL included characters", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [
+        { id: 50, name: "a.png", path: "a.png" },
+        { id: 51, name: "b.png", path: "b.png" },
+        { id: 52, name: "c.png", path: "c.png" },
+      ],
+    });
+    // Image 50 has characters [10, 20], image 51 has [10], image 52 has [20].
+    getImageCharacterIDsMock.mockResolvedValue({
+      50: [10, 20],
+      51: [10],
+      52: [20],
+    });
+
+    const filters: SearchFilters = {
+      includeTagIds: [1],
+      includeCharacterIds: [10, 20],
+    };
+    const { result, unmount } = renderHookWithClient(() =>
+      useSearchImages(filters),
+    );
+    await waitFor(() => result.current.isSuccess);
+
+    // Only image 50 has BOTH characters 10 and 20.
+    expect(result.current.data).toHaveLength(1);
+    expect(result.current.data?.[0]?.id).toBe(50);
+    expect(getImageCharacterIDsMock).toHaveBeenCalledWith([50, 51, 52]);
+    unmount();
+  });
+
+  test("exclude character filter removes images that have ANY excluded character", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [
+        { id: 60, name: "x.png", path: "x.png" },
+        { id: 61, name: "y.png", path: "y.png" },
+        { id: 62, name: "z.png", path: "z.png" },
+      ],
+    });
+    // Image 60 has character 10, image 61 has character 20, image 62 has both.
+    getImageCharacterIDsMock.mockResolvedValue({
+      60: [10],
+      61: [20],
+      62: [10, 20],
+    });
+
+    const filters: SearchFilters = {
+      includeTagIds: [1],
+      excludeCharacterIds: [10],
+    };
+    const { result, unmount } = renderHookWithClient(() =>
+      useSearchImages(filters),
+    );
+    await waitFor(() => result.current.isSuccess);
+
+    // Images 60 and 62 carry excluded character 10 — only 61 survives.
+    expect(result.current.data).toHaveLength(1);
+    expect(result.current.data?.[0]?.id).toBe(61);
+    unmount();
+  });
+
+  test("combined include + exclude character filter", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [
+        { id: 70, name: "a.png", path: "a.png" },
+        { id: 71, name: "b.png", path: "b.png" },
+        { id: 72, name: "c.png", path: "c.png" },
+      ],
+    });
+    // Image 70 has [10, 20], image 71 has [10], image 72 has [10, 30].
+    getImageCharacterIDsMock.mockResolvedValue({
+      70: [10, 20],
+      71: [10],
+      72: [10, 30],
+    });
+
+    const filters: SearchFilters = {
+      includeTagIds: [1],
+      includeCharacterIds: [10],
+      excludeCharacterIds: [20],
+    };
+    const { result, unmount } = renderHookWithClient(() =>
+      useSearchImages(filters),
+    );
+    await waitFor(() => result.current.isSuccess);
+
+    // Include 10: all three images have it. Exclude 20: removes image 70.
+    // Surviving: 71 and 72.
+    expect(result.current.data).toHaveLength(2);
+    expect(result.current.data?.map((i) => i.id).sort()).toEqual([71, 72]);
+    unmount();
+  });
+
+  test("character filter with null charMap returns all images", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [{ id: 80, name: "d.png", path: "d.png" }],
+    });
+    getImageCharacterIDsMock.mockResolvedValue(null);
+
+    const filters: SearchFilters = {
+      includeTagIds: [1],
+      includeCharacterIds: [10],
+    };
+    const { result, unmount } = renderHookWithClient(() =>
+      useSearchImages(filters),
+    );
+    await waitFor(() => result.current.isSuccess);
+
+    // When the character map is null, no filtering is applied.
+    expect(result.current.data).toHaveLength(1);
+    expect(result.current.data?.[0]?.id).toBe(80);
+    unmount();
+  });
+
+  test("character filter with empty image set returns empty", async () => {
+    searchImagesMock.mockResolvedValue({ images: [] });
+
+    const filters: SearchFilters = {
+      includeTagIds: [1],
+      includeCharacterIds: [10],
+    };
+    const { result, unmount } = renderHookWithClient(() =>
+      useSearchImages(filters),
+    );
+    await waitFor(() => result.current.isSuccess);
+
+    expect(result.current.data).toEqual([]);
+    // GetImageCharacterIDs should NOT be called when there are no images.
+    expect(getImageCharacterIDsMock).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  test("no character filters skips GetImageCharacterIDs call", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [{ id: 90, name: "e.png", path: "e.png" }],
+    });
+
+    const filters: SearchFilters = {
+      includeTagIds: [1],
+    };
+    const { result, unmount } = renderHookWithClient(() =>
+      useSearchImages(filters),
+    );
+    await waitFor(() => result.current.isSuccess);
+
+    expect(getImageCharacterIDsMock).not.toHaveBeenCalled();
+    expect(result.current.data).toHaveLength(1);
+    unmount();
+  });
+
+  test("character filter with anime-scoped search", async () => {
+    searchImagesByAnimeMock.mockResolvedValue({
+      images: [
+        { id: 100, name: "a.png", path: "a.png" },
+        { id: 101, name: "b.png", path: "b.png" },
+      ],
+    });
+    getImageCharacterIDsMock.mockResolvedValue({
+      100: [10],
+      101: [20],
+    });
+
+    const filters: SearchFilters = {
+      animeId: 42,
+      includeCharacterIds: [10],
+    };
+    const { result, unmount } = renderHookWithClient(() =>
+      useSearchImages(filters),
+    );
+    await waitFor(() => result.current.isSuccess);
+
+    expect(searchImagesByAnimeMock).toHaveBeenCalledWith(42);
+    // Only image 100 has character 10.
+    expect(result.current.data).toHaveLength(1);
+    expect(result.current.data?.[0]?.id).toBe(100);
+    unmount();
+  });
+
+  test("include character filter with missing charMap entries treats missing as empty", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [
+        { id: 110, name: "a.png", path: "a.png" },
+        { id: 111, name: "b.png", path: "b.png" },
+      ],
+    });
+    // Only image 110 has an entry in the charMap; 111 is missing.
+    getImageCharacterIDsMock.mockResolvedValue({
+      110: [10],
+    });
+
+    const filters: SearchFilters = {
+      includeTagIds: [1],
+      includeCharacterIds: [10],
+    };
+    const { result, unmount } = renderHookWithClient(() =>
+      useSearchImages(filters),
+    );
+    await waitFor(() => result.current.isSuccess);
+
+    // Image 111 has no entry in the charMap (treated as []), so it doesn't
+    // have the included character. Only 110 survives.
+    expect(result.current.data).toHaveLength(1);
+    expect(result.current.data?.[0]?.id).toBe(110);
     unmount();
   });
 });
