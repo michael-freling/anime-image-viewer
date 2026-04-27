@@ -269,6 +269,45 @@ func TestService_Delete(t *testing.T) {
 		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrAnimeNotFound)
 	})
+
+	t.Run("deletes characters and file-character associations", func(t *testing.T) {
+		a, err := svc.Create(ctx, "CharDelAnime")
+		require.NoError(t, err)
+
+		rootFolder, err := svc.FindAnimeRootFolder(a.ID)
+		require.NoError(t, err)
+		require.NotNil(t, rootFolder)
+
+		// Create an image under the root folder
+		imgFile := db.File{ParentID: rootFolder.ID, Name: "img.jpg", Type: db.FileTypeImage}
+		require.NoError(t, te.dbClient.File().Create(ctx, &imgFile))
+
+		// Create characters for this anime
+		charA := db.Character{Name: "CharA", AnimeID: a.ID}
+		require.NoError(t, te.dbClient.Character().Create(ctx, &charA))
+		charB := db.Character{Name: "CharB", AnimeID: a.ID}
+		require.NoError(t, te.dbClient.Character().Create(ctx, &charB))
+
+		// Create file-character associations
+		fcs := []db.FileCharacter{
+			{CharacterID: charA.ID, FileID: imgFile.ID, AddedBy: db.FileTagAddedByUser},
+			{CharacterID: charB.ID, FileID: imgFile.ID, AddedBy: db.FileTagAddedByUser},
+		}
+		require.NoError(t, db.BatchCreate(te.dbClient.Client, fcs))
+
+		// Delete the anime
+		require.NoError(t, svc.Delete(ctx, a.ID))
+
+		// Verify characters are gone
+		chars, err := te.dbClient.Character().FindByAnimeID(a.ID)
+		require.NoError(t, err)
+		assert.Empty(t, chars)
+
+		// Verify file-character associations are gone
+		remaining, err := te.dbClient.FileCharacter().FindByCharacterIDs([]uint{charA.ID, charB.ID})
+		require.NoError(t, err)
+		assert.Empty(t, remaining)
+	})
 }
 
 func TestService_AssignFolder(t *testing.T) {
@@ -1996,5 +2035,82 @@ func TestService_UpdateEntryAiringInfo(t *testing.T) {
 		err = svc.UpdateEntryAiringInfo(ctx, imgFile.ID, db.AiringSeasonFall, 2024)
 		require.Error(t, err)
 		assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+	})
+}
+
+func TestService_DeriveCharactersForAnime(t *testing.T) {
+	te := newTester(t)
+	svc := te.service()
+	ctx := context.Background()
+
+	a, err := svc.Create(ctx, "CharShow")
+	require.NoError(t, err)
+
+	rootFolder, err := svc.FindAnimeRootFolder(a.ID)
+	require.NoError(t, err)
+	require.NotNil(t, rootFolder)
+
+	// Create subfolder and images
+	season1 := db.File{ParentID: rootFolder.ID, Name: "S01", Type: db.FileTypeDirectory}
+	require.NoError(t, te.dbClient.File().Create(ctx, &season1))
+
+	img1 := db.File{ParentID: rootFolder.ID, Name: "a.jpg", Type: db.FileTypeImage}
+	require.NoError(t, te.dbClient.File().Create(ctx, &img1))
+
+	img2 := db.File{ParentID: season1.ID, Name: "b.jpg", Type: db.FileTypeImage}
+	require.NoError(t, te.dbClient.File().Create(ctx, &img2))
+
+	img3 := db.File{ParentID: season1.ID, Name: "c.jpg", Type: db.FileTypeImage}
+	require.NoError(t, te.dbClient.File().Create(ctx, &img3))
+
+	// Create characters for this anime
+	charA := db.Character{Name: "Hitori", AnimeID: a.ID}
+	require.NoError(t, te.dbClient.Character().Create(ctx, &charA))
+	charB := db.Character{Name: "Nijika", AnimeID: a.ID}
+	require.NoError(t, te.dbClient.Character().Create(ctx, &charB))
+
+	// Associate characters with images via FileCharacter
+	fileChars := []db.FileCharacter{
+		{CharacterID: charA.ID, FileID: img1.ID, AddedBy: db.FileTagAddedByUser},
+		{CharacterID: charA.ID, FileID: img2.ID, AddedBy: db.FileTagAddedByUser},
+		{CharacterID: charB.ID, FileID: img2.ID, AddedBy: db.FileTagAddedByUser},
+		{CharacterID: charB.ID, FileID: img3.ID, AddedBy: db.FileTagAddedByUser},
+	}
+	require.NoError(t, db.BatchCreate(te.dbClient.Client, fileChars))
+
+	derived, err := svc.DeriveCharactersForAnime(a.ID)
+	require.NoError(t, err)
+	require.Len(t, derived, 2)
+
+	charMap := make(map[uint]DerivedCharacterCount)
+	for _, d := range derived {
+		charMap[d.CharacterID] = d
+	}
+
+	assert.Equal(t, "Hitori", charMap[charA.ID].CharacterName)
+	assert.Equal(t, uint(2), charMap[charA.ID].ImageCount) // img1 + img2
+	assert.Equal(t, "Nijika", charMap[charB.ID].CharacterName)
+	assert.Equal(t, uint(2), charMap[charB.ID].ImageCount) // img2 + img3
+
+	t.Run("returns nil for anime with no characters", func(t *testing.T) {
+		noChars, err := svc.Create(ctx, "NoCharsAnime")
+		require.NoError(t, err)
+		derived, err := svc.DeriveCharactersForAnime(noChars.ID)
+		require.NoError(t, err)
+		assert.Nil(t, derived)
+	})
+
+	t.Run("includes character with zero images", func(t *testing.T) {
+		zeroAnime, err := svc.Create(ctx, "ZeroImgCharAnime")
+		require.NoError(t, err)
+
+		zeroChar := db.Character{Name: "Ryo", AnimeID: zeroAnime.ID}
+		require.NoError(t, te.dbClient.Character().Create(ctx, &zeroChar))
+
+		derived, err := svc.DeriveCharactersForAnime(zeroAnime.ID)
+		require.NoError(t, err)
+		require.Len(t, derived, 1)
+		assert.Equal(t, "Ryo", derived[0].CharacterName)
+		assert.Equal(t, uint(0), derived[0].ImageCount)
 	})
 }

@@ -28,6 +28,7 @@ jest.mock("../../../src/lib/api", () => ({
   TagService: {
     GetAll: (...args: unknown[]) => getAllTagsMock(...args),
   },
+  CharacterService: {},
 }));
 
 // --- Imports -------------------------------------------------------------

@@ -311,6 +311,176 @@ func TestMigrate(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+// Tests for migrateCharactersFromTags
+func TestMigrateCharactersFromTags(t *testing.T) {
+	t.Run("migrates character tags to character table", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		dsn := DSNFromFilePath(tmpDir, "migrate_char_test.sqlite")
+		client, err := NewClient(dsn, WithNopLogger())
+		require.NoError(t, err)
+		t.Cleanup(func() { client.Close() })
+
+		// Migrate to create tables
+		require.NoError(t, client.Migrate())
+
+		// Insert character tags (with category="character" and AnimeID set)
+		animeID1 := uint(100)
+		animeID2 := uint(200)
+		tags := []Tag{
+			{ID: 501, Name: "Hitori", Category: "character", AnimeID: &animeID1, CreatedAt: 1000, UpdatedAt: 1001},
+			{ID: 502, Name: "Nijika", Category: "character", AnimeID: &animeID1, CreatedAt: 2000, UpdatedAt: 2001},
+			{ID: 503, Name: "Ryo", Category: "character", AnimeID: &animeID2, CreatedAt: 3000, UpdatedAt: 3001},
+			{ID: 504, Name: "action", Category: "", CreatedAt: 4000, UpdatedAt: 4001}, // not a character, should be ignored
+		}
+		require.NoError(t, client.connection.Create(&tags).Error)
+
+		// Insert FileTags for the character tags
+		fileTags := []FileTag{
+			{TagID: 501, FileID: 10, AddedBy: FileTagAddedByUser, CreatedAt: 1100},
+			{TagID: 501, FileID: 20, AddedBy: FileTagAddedByImport, CreatedAt: 1200},
+			{TagID: 502, FileID: 10, AddedBy: FileTagAddedByUser, CreatedAt: 2100},
+			{TagID: 504, FileID: 30, AddedBy: FileTagAddedByUser, CreatedAt: 4100}, // for non-character tag
+		}
+		require.NoError(t, client.connection.Create(&fileTags).Error)
+
+		// Run migration again (it should pick up the character tags)
+		require.NoError(t, client.Migrate())
+
+		// Verify Character rows were created
+		var characters []Character
+		require.NoError(t, client.connection.Find(&characters).Error)
+		assert.Len(t, characters, 3)
+
+		charMap := make(map[uint]Character)
+		for _, c := range characters {
+			charMap[c.ID] = c
+		}
+		assert.Equal(t, "Hitori", charMap[501].Name)
+		assert.Equal(t, uint(100), charMap[501].AnimeID)
+		assert.Equal(t, uint(1000), charMap[501].CreatedAt)
+		assert.Equal(t, "Nijika", charMap[502].Name)
+		assert.Equal(t, uint(100), charMap[502].AnimeID)
+		assert.Equal(t, "Ryo", charMap[503].Name)
+		assert.Equal(t, uint(200), charMap[503].AnimeID)
+
+		// Verify FileCharacter rows were created
+		var fileCharacters []FileCharacter
+		require.NoError(t, client.connection.Find(&fileCharacters).Error)
+		assert.Len(t, fileCharacters, 3) // 2 for tag 501, 1 for tag 502
+
+		fcMap := make(map[uint][]FileCharacter)
+		for _, fc := range fileCharacters {
+			fcMap[fc.CharacterID] = append(fcMap[fc.CharacterID], fc)
+		}
+		assert.Len(t, fcMap[501], 2)
+		assert.Len(t, fcMap[502], 1)
+
+		// Verify old character Tag rows were deleted
+		var remainingTags []Tag
+		require.NoError(t, client.connection.Where("category = ?", "character").Find(&remainingTags).Error)
+		assert.Empty(t, remainingTags)
+
+		// Verify old FileTags for character tags were deleted
+		var remainingFileTags []FileTag
+		require.NoError(t, client.connection.Where("tag_id IN ?", []uint{501, 502, 503}).Find(&remainingFileTags).Error)
+		assert.Empty(t, remainingFileTags)
+
+		// Verify non-character tag and its FileTag still exist
+		var normalTags []Tag
+		require.NoError(t, client.connection.Where("id = ?", 504).Find(&normalTags).Error)
+		assert.Len(t, normalTags, 1)
+		assert.Equal(t, "action", normalTags[0].Name)
+
+		var normalFileTags []FileTag
+		require.NoError(t, client.connection.Where("tag_id = ?", 504).Find(&normalFileTags).Error)
+		assert.Len(t, normalFileTags, 1)
+	})
+
+	t.Run("idempotent - running again is a no-op", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		dsn := DSNFromFilePath(tmpDir, "migrate_idem_test.sqlite")
+		client, err := NewClient(dsn, WithNopLogger())
+		require.NoError(t, err)
+		t.Cleanup(func() { client.Close() })
+
+		// First migration: create tables and seed character tags
+		require.NoError(t, client.Migrate())
+
+		animeID := uint(100)
+		tags := []Tag{
+			{ID: 601, Name: "Bocchi", Category: "character", AnimeID: &animeID, CreatedAt: 5000, UpdatedAt: 5001},
+		}
+		require.NoError(t, client.connection.Create(&tags).Error)
+
+		fileTags := []FileTag{
+			{TagID: 601, FileID: 10, AddedBy: FileTagAddedByUser, CreatedAt: 5100},
+		}
+		require.NoError(t, client.connection.Create(&fileTags).Error)
+
+		// Run migration to migrate character tags
+		require.NoError(t, client.Migrate())
+
+		// Verify character was created
+		var characters []Character
+		require.NoError(t, client.connection.Find(&characters).Error)
+		assert.Len(t, characters, 1)
+
+		// Run migration again - should be a no-op since no more character tags exist
+		require.NoError(t, client.Migrate())
+
+		// Verify character count is still 1 (no duplicates)
+		require.NoError(t, client.connection.Find(&characters).Error)
+		assert.Len(t, characters, 1)
+	})
+
+	t.Run("no-op when no character tags exist", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		dsn := DSNFromFilePath(tmpDir, "migrate_noop_test.sqlite")
+		client, err := NewClient(dsn, WithNopLogger())
+		require.NoError(t, err)
+		t.Cleanup(func() { client.Close() })
+
+		require.NoError(t, client.Migrate())
+
+		// Insert only non-character tags
+		tags := []Tag{
+			{ID: 701, Name: "action", Category: ""},
+		}
+		require.NoError(t, client.connection.Create(&tags).Error)
+
+		// Migration should succeed and not touch anything
+		require.NoError(t, client.Migrate())
+
+		// Tag should still exist
+		var remaining []Tag
+		require.NoError(t, client.connection.Find(&remaining).Error)
+		assert.Len(t, remaining, 1)
+	})
+
+	t.Run("character tags without AnimeID are skipped", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		dsn := DSNFromFilePath(tmpDir, "migrate_no_anime_test.sqlite")
+		client, err := NewClient(dsn, WithNopLogger())
+		require.NoError(t, err)
+		t.Cleanup(func() { client.Close() })
+
+		require.NoError(t, client.Migrate())
+
+		// Create a character tag without AnimeID
+		tags := []Tag{
+			{ID: 801, Name: "OrphanChar", Category: "character", AnimeID: nil},
+		}
+		require.NoError(t, client.connection.Create(&tags).Error)
+
+		require.NoError(t, client.Migrate())
+
+		// No character should be created (AnimeID was nil)
+		var characters []Character
+		require.NoError(t, client.connection.Find(&characters).Error)
+		assert.Empty(t, characters)
+	})
+}
+
 // Tests for FindAllByValue (generic)
 func TestFindAllByValue(t *testing.T) {
 	client := newIsolatedTableClient(t)
