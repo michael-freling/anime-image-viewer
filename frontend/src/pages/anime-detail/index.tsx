@@ -10,13 +10,12 @@
  * with their own datasets (images, tags) call their specific hooks.
  */
 import { Box } from "@chakra-ui/react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { Outlet, useParams } from "react-router";
 
 import { ErrorAlert } from "../../components/shared/error-alert";
 import { useAnimeDetail } from "../../hooks/use-anime-detail";
-import { BatchImportImageService } from "../../lib/api";
+import { useImageImport } from "../../hooks/use-image-import";
 import { qk } from "../../lib/query-keys";
 
 import { AnimeDetailHeader } from "./header";
@@ -33,7 +32,7 @@ export function AnimeDetailLayout(): JSX.Element {
   const animeId = parseAnimeId(rawId);
   const validId = Number.isFinite(animeId) && animeId > 0;
 
-  const queryClient = useQueryClient();
+  const { importImages } = useImageImport();
 
   // Keep the detail query enabled for any positive integer; the hook guards
   // against invalid ids internally but we also render a plain error alert
@@ -46,13 +45,9 @@ export function AnimeDetailLayout(): JSX.Element {
 
   const handleUpload = useCallback(async () => {
     if (!rootFolder) return;
-    try {
-      await BatchImportImageService.ImportImages(rootFolder.id);
-      await queryClient.invalidateQueries({ queryKey: qk.anime.detail(animeId) });
-    } catch {
-      // ImportImages opens a native file dialog; if the user cancels, it throws
-    }
-  }, [rootFolder, animeId, queryClient]);
+    const label = data?.anime.name ?? "Anime";
+    await importImages(rootFolder.id, label, qk.anime.detail(animeId));
+  }, [rootFolder, data?.anime.name, animeId, importImages]);
 
   if (!validId) {
     return (

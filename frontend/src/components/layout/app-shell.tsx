@@ -16,6 +16,7 @@
 import { Box } from "@chakra-ui/react";
 import { Outlet } from "react-router";
 import { useUIStore } from "../../stores/ui-store";
+import { ImportProgressBar } from "../shared/import-progress-bar";
 import { BottomTabBar } from "./bottom-tab-bar";
 import { IconRail } from "./icon-rail";
 
@@ -91,6 +92,8 @@ export function AppShell(): JSX.Element {
       <Box display={{ base: "block", sm: "none" }}>
         <BottomTabBar />
       </Box>
+
+      <ImportProgressBar />
     </Box>
   );
 }

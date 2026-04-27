@@ -26,6 +26,7 @@ const renameEntryMock = jest.fn();
 const updateEntryTypeMock = jest.fn();
 const updateEntryAiringInfoMock = jest.fn();
 const deleteEntryMock = jest.fn();
+const importImagesMock = jest.fn();
 jest.mock("../../../src/lib/api", () => ({
   __esModule: true,
   AnimeService: {
@@ -39,6 +40,9 @@ jest.mock("../../../src/lib/api", () => ({
     UpdateEntryAiringInfo: (...args: unknown[]) =>
       updateEntryAiringInfoMock(...args),
     DeleteEntry: (...args: unknown[]) => deleteEntryMock(...args),
+  },
+  BatchImportImageService: {
+    ImportImages: (...args: unknown[]) => importImagesMock(...args),
   },
   TagService: {
     GetAll: () => Promise.resolve([]),
@@ -101,6 +105,8 @@ describe("EntriesTab", () => {
     updateEntryTypeMock.mockReset();
     updateEntryAiringInfoMock.mockReset();
     deleteEntryMock.mockReset();
+    importImagesMock.mockReset();
+    importImagesMock.mockResolvedValue(undefined);
   });
 
   // -----------------------------------------------------------------------
@@ -1401,6 +1407,66 @@ describe("EntriesTab", () => {
         "Failed to delete entry",
         "flat-string",
       );
+    } finally {
+      unmount();
+    }
+  });
+
+  // -----------------------------------------------------------------------
+  // Upload button tests
+  // -----------------------------------------------------------------------
+
+  test("each entry row has an upload button", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        entries: [
+          makeEntry({ id: 1, name: "Season 1", imageCount: 5 }),
+          makeEntry({ id: 2, name: "Season 2", imageCount: 3 }),
+        ],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/entries"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelectorAll("[data-testid='entry-row']").length === 2,
+      );
+      const uploadBtns = container.querySelectorAll(
+        "[data-testid='entry-upload-btn']",
+      );
+      expect(uploadBtns.length).toBe(2);
+    } finally {
+      unmount();
+    }
+  });
+
+  test("clicking upload button calls BatchImportImageService.ImportImages with the entry id", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        entries: [
+          makeEntry({ id: 7, name: "Season 1", imageCount: 5 }),
+        ],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/entries"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='entry-upload-btn']") !== null,
+      );
+      act(() => {
+        (
+          container.querySelector(
+            "[data-testid='entry-upload-btn']",
+          ) as HTMLElement
+        ).click();
+      });
+      await waitFor(() => importImagesMock.mock.calls.length > 0);
+      expect(importImagesMock).toHaveBeenCalledWith(7);
     } finally {
       unmount();
     }

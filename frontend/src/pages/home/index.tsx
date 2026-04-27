@@ -27,7 +27,6 @@ import { PageHeader } from "../../components/layout/page-header";
 import { NewAnimeCard } from "../../components/shared/anime-card";
 import { EmptyState } from "../../components/shared/empty-state";
 import { ErrorAlert } from "../../components/shared/error-alert";
-import { ImportProgressBar } from "../../components/shared/import-progress-bar";
 import { SearchBar } from "../../components/shared/search-bar";
 import { formatCount } from "../../lib/format";
 import { useAnimeList } from "../../hooks/use-anime-list";
@@ -219,7 +218,6 @@ export function HomePage(): JSX.Element {
         {body}
       </Stack>
 
-      <ImportProgressBar />
       <CreateAnimeDialog open={isCreateOpen} onClose={closeCreateDialog} />
       <HomeImportDialog open={isImportOpen} onClose={closeImportDialog} />
     </Box>

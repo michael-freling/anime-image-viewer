@@ -30,14 +30,12 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
-import { useQueryClient } from "@tanstack/react-query";
-
 import { EmptyState } from "../../components/shared/empty-state";
 import { ErrorAlert } from "../../components/shared/error-alert";
 import { RowSkeleton } from "../../components/shared/loading-skeleton";
 import { ConfirmDialog } from "../../components/ui/confirm-dialog";
 import { useAnimeDetail } from "../../hooks/use-anime-detail";
-import { BatchImportImageService } from "../../lib/api";
+import { useImageImport } from "../../hooks/use-image-import";
 import { qk } from "../../lib/query-keys";
 import {
   useCreateEntry,
@@ -549,7 +547,7 @@ function EntryRow({
 export function EntriesTab(): JSX.Element {
   const { animeId: rawId } = useParams<{ animeId: string }>();
   const animeId = parseAnimeId(rawId);
-  const queryClient = useQueryClient();
+  const { importImages } = useImageImport();
   const { data, isLoading, isError, error, refetch } = useAnimeDetail(animeId);
 
   // Dialog state
@@ -582,14 +580,16 @@ export function EntriesTab(): JSX.Element {
     setDeletingEntry(null);
   }, []);
 
-  const handleUploadToEntry = useCallback(async (entryId: number) => {
-    try {
-      await BatchImportImageService.ImportImages(entryId);
-      await queryClient.invalidateQueries({ queryKey: qk.anime.detail(animeId) });
-    } catch {
-      // User cancelled the file dialog
-    }
-  }, [animeId, queryClient]);
+  const handleUploadToEntry = useCallback(
+    async (entryId: number) => {
+      const entry = data?.entries
+        ?.flatMap((e) => [e, ...(e.children ?? [])])
+        .find((e) => e.id === entryId);
+      const label = entry?.name || `Entry #${entryId}`;
+      await importImages(entryId, label, qk.anime.detail(animeId));
+    },
+    [data?.entries, animeId, importImages],
+  );
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deletingEntry) return;

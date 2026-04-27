@@ -31,6 +31,7 @@ const getAnimeDetailsMock = jest.fn();
 const getAnimeImagesMock = jest.fn();
 const getAnimeImagesByEntryMock = jest.fn();
 const getAnimeListMock = jest.fn();
+const importImagesMock = jest.fn();
 jest.mock("../../../src/lib/api", () => ({
   __esModule: true,
   AnimeService: {
@@ -39,6 +40,9 @@ jest.mock("../../../src/lib/api", () => ({
     GetAnimeImagesByEntry: (...args: unknown[]) =>
       getAnimeImagesByEntryMock(...args),
     GetAnimeList: (...args: unknown[]) => getAnimeListMock(...args),
+  },
+  BatchImportImageService: {
+    ImportImages: (...args: unknown[]) => importImagesMock(...args),
   },
   TagService: {
     GetAll: () => Promise.resolve([]),
@@ -89,6 +93,8 @@ describe("AnimeDetailLayout (via routes)", () => {
     getAnimeImagesByEntryMock.mockResolvedValue({ images: [] });
     getAnimeListMock.mockReset();
     getAnimeListMock.mockResolvedValue([]);
+    importImagesMock.mockReset();
+    importImagesMock.mockResolvedValue(undefined);
     resetSelectionStore();
   });
 
@@ -206,6 +212,37 @@ describe("AnimeDetailLayout (via routes)", () => {
         "[data-testid='anime-detail-tab-panel']",
       );
       expect(panel?.getAttribute("role")).toBe("tabpanel");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Upload button appears when anime has folders and calls ImportImages", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        folders: [
+          { id: 10, name: "root", path: "/root", imageCount: 0, inherited: false },
+        ],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/images"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='anime-detail-upload']") !==
+          null,
+      );
+      act(() => {
+        (
+          container.querySelector(
+            "[data-testid='anime-detail-upload']",
+          ) as HTMLElement
+        ).click();
+      });
+      await waitFor(() => importImagesMock.mock.calls.length > 0);
+      expect(importImagesMock).toHaveBeenCalledWith(10);
     } finally {
       unmount();
     }
