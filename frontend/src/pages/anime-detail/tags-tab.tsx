@@ -13,11 +13,10 @@
  */
 import { Box, Button, Flex, IconButton, Stack, Text } from "@chakra-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Search, Tag as TagIcon, Users } from "lucide-react";
+import { Pencil, Plus, Search, Tag as TagIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
-import { ConfirmDialog } from "../../components/ui/confirm-dialog";
 import { CategorySection } from "../../components/shared/category-section";
 import { EmptyState } from "../../components/shared/empty-state";
 import { ErrorAlert } from "../../components/shared/error-alert";
@@ -50,7 +49,6 @@ const CATEGORY_LABELS: Record<TagCategoryKey, string> = {
   nature: "Nature/Weather",
   location: "Location",
   mood: "Mood/Genre",
-  character: "Character",
   uncategorized: "Uncategorized",
 };
 
@@ -64,8 +62,6 @@ function groupTags(tags: readonly AnimeDerivedTag[]): GroupedTags[] {
   const buckets = new Map<TagCategoryKey, AnimeDerivedTag[]>();
   for (const tag of tags) {
     const key = tagCategoryKey(tag.category);
-    // Characters have their own dedicated tab — skip them here.
-    if (key === "character") continue;
     const bucket = buckets.get(key) ?? [];
     bucket.push(tag);
     buckets.set(key, bucket);
@@ -114,7 +110,6 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
   const grouped = useMemo(() => groupTags(data?.tags ?? []), [data]);
 
   const [dialog, setDialog] = useState<EditDialogState>(INITIAL_EDIT);
-  const [confirmTarget, setConfirmTarget] = useState<AnimeDerivedTag | null>(null);
 
   const openEdit = (t: AnimeDerivedTag) => {
     setDialog({
@@ -131,23 +126,6 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
   };
 
   const closeEdit = () => setDialog(INITIAL_EDIT);
-
-  const convertToCharacter = async (t: AnimeDerivedTag) => {
-    try {
-      await updateTag(t.id, { name: t.name, category: "character" });
-      toast.success(
-        "Moved to Characters",
-        `"${t.name}" is now a character.`,
-      );
-      await queryClient.invalidateQueries({ queryKey: qk.tags.list() });
-      await queryClient.invalidateQueries({
-        queryKey: qk.anime.detail(animeId),
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      toast.error("Could not convert", message);
-    }
-  };
 
   const submitEdit = async () => {
     if (!dialog.editing) return;
@@ -287,19 +265,6 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
                   >
                     <Pencil size={12} aria-hidden="true" />
                   </IconButton>
-                  <Button
-                    type="button"
-                    size="xs"
-                    variant="ghost"
-                    data-testid="tags-tab-tag-convert"
-                    onClick={() => setConfirmTarget(t)}
-                    color="fg.secondary"
-                    _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
-                    fontSize="xs"
-                  >
-                    <Users size={12} aria-hidden="true" />
-                    Make Character
-                  </Button>
                   <IconButton
                     type="button"
                     size="xs"
@@ -336,19 +301,6 @@ export function TagsTab({ onAddTag }: TagsTabProps = {}): JSX.Element {
         error={dialog.error}
       />
 
-      <ConfirmDialog
-        open={confirmTarget !== null}
-        onClose={() => setConfirmTarget(null)}
-        onConfirm={async () => {
-          if (confirmTarget) {
-            await convertToCharacter(confirmTarget);
-            setConfirmTarget(null);
-          }
-        }}
-        title="Make Character?"
-        description={`"${confirmTarget?.name ?? ""}" will move to the Characters tab.`}
-        confirmLabel="Make Character"
-      />
     </Box>
   );
 }

@@ -195,10 +195,13 @@ func (s *Service) Delete(ctx context.Context, id uint) error {
 	}
 
 	return db.NewTransaction(ctx, s.dbClient, func(ctx context.Context) error {
-		// Delete file_tag rows for all files in the tree
+		// Delete file_tag and file_character rows for all files in the tree
 		if len(allFileIDs) > 0 {
 			if err := s.dbClient.FileTag().DeleteByFileIDs(ctx, allFileIDs); err != nil {
 				return fmt.Errorf("FileTag.DeleteByFileIDs: %w", err)
+			}
+			if err := s.dbClient.FileCharacter().DeleteByFileIDs(ctx, allFileIDs); err != nil {
+				return fmt.Errorf("FileCharacter.DeleteByFileIDs: %w", err)
 			}
 			// Delete all file rows
 			if err := s.dbClient.File().DeleteByIDs(ctx, allFileIDs); err != nil {
@@ -211,6 +214,22 @@ func (s *Service) Delete(ctx context.Context, id uint) error {
 		// may also be used on images outside this anime.
 		if err := s.dbClient.Tag().ClearAnimeIDByAnimeID(ctx, id); err != nil {
 			return fmt.Errorf("Tag.ClearAnimeIDByAnimeID: %w", err)
+		}
+
+		// Delete characters and their file associations for this anime.
+		animeChars, err := s.dbClient.Character().FindByAnimeID(id)
+		if err != nil {
+			return fmt.Errorf("Character.FindByAnimeID: %w", err)
+		}
+		if len(animeChars) > 0 {
+			for _, c := range animeChars {
+				if err := s.dbClient.FileCharacter().DeleteByCharacterID(ctx, c.ID); err != nil {
+					return fmt.Errorf("FileCharacter.DeleteByCharacterID: %w", err)
+				}
+			}
+			if err := s.dbClient.Character().DeleteByAnimeID(ctx, id); err != nil {
+				return fmt.Errorf("Character.DeleteByAnimeID: %w", err)
+			}
 		}
 
 		// Delete the anime row
@@ -258,6 +277,63 @@ type DerivedTagCount struct {
 	TagName     string `json:"tagName"`
 	TagCategory string `json:"tagCategory"`
 	ImageCount  uint   `json:"imageCount"`
+}
+
+// DerivedCharacterCount is a character with the number of images that have it
+// in the anime's folder tree.
+type DerivedCharacterCount struct {
+	CharacterID   uint   `json:"characterId"`
+	CharacterName string `json:"characterName"`
+	ImageCount    uint   `json:"imageCount"`
+}
+
+// DeriveCharactersForAnime computes the characters for an anime by finding all
+// image files in its folder tree, looking up which characters are applied to
+// those images via the file_characters table, and returning unique characters
+// with counts. It also includes characters that have no images yet (count 0).
+func (s *Service) DeriveCharactersForAnime(animeID uint) ([]DerivedCharacterCount, error) {
+	characters, err := s.dbClient.Character().FindByAnimeID(animeID)
+	if err != nil {
+		return nil, fmt.Errorf("Character.FindByAnimeID: %w", err)
+	}
+	if len(characters) == 0 {
+		return nil, nil
+	}
+
+	tree, err := s.directoryReader.ReadDirectoryTree()
+	if err != nil {
+		return nil, fmt.Errorf("directoryReader.ReadDirectoryTree: %w", err)
+	}
+	stored, err := s.readStoredAnimeAssignments()
+	if err != nil {
+		return nil, err
+	}
+	resolved := make(map[uint]FolderAnimeAssignment)
+	walkDirectoryTree(&tree, 0, stored, resolved)
+
+	imageIDs := make([]uint, 0)
+	collectImageIDsForAnimeFromTree(&tree, animeID, resolved, &imageIDs)
+
+	charCounts := make(map[uint]uint)
+	if len(imageIDs) > 0 {
+		fileChars, err := s.dbClient.FileCharacter().FindByFileIDs(imageIDs)
+		if err != nil {
+			return nil, fmt.Errorf("FileCharacter.FindByFileIDs: %w", err)
+		}
+		for _, fc := range fileChars {
+			charCounts[fc.CharacterID]++
+		}
+	}
+
+	result := make([]DerivedCharacterCount, 0, len(characters))
+	for _, c := range characters {
+		result = append(result, DerivedCharacterCount{
+			CharacterID:   c.ID,
+			CharacterName: c.Name,
+			ImageCount:    charCounts[c.ID],
+		})
+	}
+	return result, nil
 }
 
 // DeriveTagsForAnime computes the tags for an anime by finding all image files
@@ -1227,6 +1303,9 @@ func (s *Service) DeleteEntry(ctx context.Context, entryID uint) error {
 		if len(allFileIDs) > 0 {
 			if err := s.dbClient.FileTag().DeleteByFileIDs(ctx, allFileIDs); err != nil {
 				return fmt.Errorf("FileTag.DeleteByFileIDs: %w", err)
+			}
+			if err := s.dbClient.FileCharacter().DeleteByFileIDs(ctx, allFileIDs); err != nil {
+				return fmt.Errorf("FileCharacter.DeleteByFileIDs: %w", err)
 			}
 			if err := s.dbClient.File().DeleteByIDs(ctx, allFileIDs); err != nil {
 				return fmt.Errorf("File.DeleteByIDs: %w", err)

@@ -33,7 +33,7 @@ import { SearchBar } from "../../components/shared/search-bar";
 import { ConfirmDialog } from "../../components/ui/confirm-dialog";
 import { toast } from "../../components/ui/toaster";
 import { useTags } from "../../hooks/use-tags";
-import { TAG_ONLY_CATEGORY_ORDER, tagCategoryKey } from "../../lib/constants";
+import { TAG_CATEGORY_ORDER, tagCategoryKey } from "../../lib/constants";
 import { formatCount } from "../../lib/format";
 import { qk } from "../../lib/query-keys";
 import type { Tag, TagCategoryKey } from "../../types";
@@ -81,7 +81,7 @@ function filterTags(tags: Tag[], query: string): Tag[] {
 /** Bucket filtered tags by normalised category key. */
 function bucketByCategory(tags: Tag[]): Map<TagCategoryKey, Tag[]> {
   const out = new Map<TagCategoryKey, Tag[]>();
-  for (const key of TAG_ONLY_CATEGORY_ORDER) {
+  for (const key of TAG_CATEGORY_ORDER) {
     out.set(key, []);
   }
   for (const tag of tags) {
@@ -240,7 +240,7 @@ export function TagManagementPage(): JSX.Element {
   const subtitle = useMemo(() => {
     if (tagsQuery.isLoading || tagsQuery.isError) return undefined;
     return `${formatCount(tags.length, "tag")} across ${formatCount(
-      TAG_ONLY_CATEGORY_ORDER.length,
+      TAG_CATEGORY_ORDER.length,
       "category",
       "categories",
     )}`;
@@ -312,7 +312,7 @@ export function TagManagementPage(): JSX.Element {
         px={{ base: "4", md: "6" }}
         pb="8"
       >
-        {TAG_ONLY_CATEGORY_ORDER.map((key) => (
+        {TAG_CATEGORY_ORDER.map((key) => (
           <CategoryPanel
             key={key}
             categoryKey={key}

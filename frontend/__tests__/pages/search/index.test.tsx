@@ -721,8 +721,10 @@ describe("SearchPage", () => {
     getAnimeDetailsMock.mockResolvedValue({
       anime: { id: 42, name: "Bebop", aniListId: null },
       tags: [
-        { id: 10, name: "Spike", category: "character", imageCount: 5 },
         { id: 11, name: "Space", category: "scene", imageCount: 3 },
+      ],
+      characters: [
+        { id: 10, name: "Spike", imageCount: 5 },
       ],
       folders: [],
       folderTree: null,
@@ -759,9 +761,9 @@ describe("SearchPage", () => {
         });
       });
 
-      // The tag picker should show the anime's non-character tags (Space)
-      // rather than the global tags (Outdoor, Sunny, Indoor). Character
-      // tags appear in a separate character picker, not the tag picker.
+      // The tag picker should show the anime's tags (Space) rather than
+      // the global tags (Outdoor, Sunny, Indoor). Characters appear in a
+      // separate character picker.
       const picker = container.querySelector("[data-testid='tag-picker']");
       expect(picker?.textContent).toContain("Space");
       expect(picker?.textContent).not.toContain("Spike");

@@ -37,6 +37,14 @@ type AnimeTagInfo struct {
 	ThumbnailPath string `json:"thumbnailPath"`
 }
 
+// AnimeCharacterInfo is a character derived from an anime, exposed to the frontend.
+type AnimeCharacterInfo struct {
+	ID            uint   `json:"id"`
+	Name          string `json:"name"`
+	ImageCount    uint   `json:"imageCount"`
+	ThumbnailPath string `json:"thumbnailPath"`
+}
+
 // AnimeFolderInfo is a folder mapped to an anime, with the inheritance flag.
 type AnimeFolderInfo struct {
 	ID         uint   `json:"id"`
@@ -78,6 +86,7 @@ type AnimeEntryInfo struct {
 type AnimeDetailsResponse struct {
 	Anime      Anime                `json:"anime"`
 	Tags       []AnimeTagInfo       `json:"tags"`
+	Characters []AnimeCharacterInfo `json:"characters"`
 	Folders    []AnimeFolderInfo    `json:"folders"`
 	FolderTree *AnimeFolderTreeNode `json:"folderTree"`
 	Entries    []AnimeEntryInfo     `json:"entries"`
@@ -194,6 +203,32 @@ func (s *AnimeService) GetAnimeDetails(ctx context.Context, id uint) (AnimeDetai
 		return strings.ToLower(tagInfos[i].Name) < strings.ToLower(tagInfos[j].Name)
 	})
 
+	// Derive characters for this anime
+	derivedChars, err := s.core.DeriveCharactersForAnime(id)
+	if err != nil {
+		return AnimeDetailsResponse{}, fmt.Errorf("core.DeriveCharactersForAnime: %w", err)
+	}
+	charInfos := make([]AnimeCharacterInfo, 0, len(derivedChars))
+	for _, dc := range derivedChars {
+		charInfos = append(charInfos, AnimeCharacterInfo{
+			ID:         dc.CharacterID,
+			Name:       dc.CharacterName,
+			ImageCount: dc.ImageCount,
+		})
+	}
+	// Resolve character thumbnails
+	charIDs := make([]uint, 0, len(charInfos))
+	for _, ci := range charInfos {
+		charIDs = append(charIDs, ci.ID)
+	}
+	charThumbnailPaths := s.resolveCharacterThumbnails(charIDs)
+	for i := range charInfos {
+		charInfos[i].ThumbnailPath = charThumbnailPaths[charInfos[i].ID]
+	}
+	sort.SliceStable(charInfos, func(i, j int) bool {
+		return strings.ToLower(charInfos[i].Name) < strings.ToLower(charInfos[j].Name)
+	})
+
 	// folders
 	folderInfos, err := s.collectFoldersForAnime(id)
 	if err != nil {
@@ -221,6 +256,7 @@ func (s *AnimeService) GetAnimeDetails(ctx context.Context, id uint) (AnimeDetai
 	return AnimeDetailsResponse{
 		Anime:      Anime{ID: a.ID, Name: a.Name, AniListID: dbAnime.AniListID},
 		Tags:       tagInfos,
+		Characters: charInfos,
 		Folders:    folderInfos,
 		FolderTree: folderTree,
 		Entries:    entryInfos,
@@ -458,6 +494,52 @@ func (s *AnimeService) resolveTagThumbnails(tagIDs []uint) map[uint]string {
 	for tagID, imgID := range tagFirstImage {
 		if f, ok := imageFileMap[imgID]; ok {
 			result[tagID] = f.Path
+		}
+	}
+	return result
+}
+
+// resolveCharacterThumbnails returns a map from character ID to the /files/...
+// path of one representative image for that character. It picks the smallest
+// file ID per character for deterministic ordering. On any error it silently
+// returns nil so the detail page degrades gracefully.
+func (s *AnimeService) resolveCharacterThumbnails(characterIDs []uint) map[uint]string {
+	if len(characterIDs) == 0 {
+		return nil
+	}
+	fileCharacters, err := s.dbClient.FileCharacter().FindByCharacterIDs(characterIDs)
+	if err != nil {
+		return nil
+	}
+
+	// For each character pick the smallest file ID (deterministic).
+	charFirstImage := make(map[uint]uint, len(characterIDs))
+	uniqueImageIDs := make(map[uint]struct{})
+	for _, fc := range fileCharacters {
+		current, exists := charFirstImage[fc.CharacterID]
+		if !exists || fc.FileID < current {
+			charFirstImage[fc.CharacterID] = fc.FileID
+		}
+		uniqueImageIDs[fc.FileID] = struct{}{}
+	}
+	if len(uniqueImageIDs) == 0 {
+		return nil
+	}
+
+	imageIDs := make([]uint, 0, len(uniqueImageIDs))
+	for id := range uniqueImageIDs {
+		imageIDs = append(imageIDs, id)
+	}
+	imageFiles, err := s.imageReader.ReadImagesByIDs(imageIDs)
+	if err != nil {
+		return nil
+	}
+	imageFileMap := imageFiles.ToMap()
+
+	result := make(map[uint]string, len(charFirstImage))
+	for charID, imgID := range charFirstImage {
+		if f, ok := imageFileMap[imgID]; ok {
+			result[charID] = f.Path
 		}
 	}
 	return result

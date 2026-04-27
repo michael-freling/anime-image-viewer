@@ -43,6 +43,12 @@ export {
 } from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 
 export {
+  CharacterService,
+  type CharacterInfo as BindingCharacterInfo,
+  type AnimeCharacterInfo as BindingAnimeCharacterInfo,
+} from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
+
+export {
   ImageService,
   type Image as BindingImage,
 } from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";

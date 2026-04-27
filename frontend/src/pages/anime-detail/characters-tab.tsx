@@ -1,14 +1,16 @@
 /**
- * CharactersTab — characters (tags with category="character") for this anime.
+ * CharactersTab — characters for this anime.
  *
- * Characters are stored as regular tags with `category: "character"`. They
- * are fetched via `useAnimeDetail` (same as the Tags tab) and filtered by
- * category. Each character card shows the name, image count, and actions
- * to search images, edit, or convert back to a regular tag.
+ * Characters are stored in a dedicated Character table (separate from tags).
+ * They are fetched via `useAnimeDetail` which includes a `characters` array.
+ * Each character card shows the name, image count, and actions to search
+ * images, rename, or delete the character.
+ *
+ * CRUD operations use `CharacterService` bindings.
  */
 import { Box, Button, Flex, IconButton, SimpleGrid, Text, chakra } from "@chakra-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Pencil, Tag as TagIcon, UserPlus, Users } from "lucide-react";
+import { Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
@@ -20,12 +22,10 @@ import { SearchBar } from "../../components/shared/search-bar";
 import { ConfirmDialog } from "../../components/ui/confirm-dialog";
 import { toast } from "../../components/ui/toaster";
 import { useAnimeDetail } from "../../hooks/use-anime-detail";
-import { tagCategoryKey } from "../../lib/constants";
+import { CharacterService } from "../../lib/api";
 import { qk } from "../../lib/query-keys";
-import type { AnimeDerivedTag } from "../../types";
-import { TagDialog } from "../tags/tag-dialog";
-import type { TagFormValues } from "../tags/tag-form";
-import { updateTag } from "../tags/tag-mutations";
+import type { AnimeCharacter } from "../../types";
+import { RenameDialog } from "./rename-dialog";
 
 function parseAnimeId(raw: string | undefined): number {
   if (!raw) return 0;
@@ -33,18 +33,18 @@ function parseAnimeId(raw: string | undefined): number {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-interface EditDialogState {
+interface RenameDialogState {
   open: boolean;
-  editing: AnimeDerivedTag | null;
-  values: TagFormValues;
+  character: AnimeCharacter | null;
+  name: string;
   error: string | null;
   submitting: boolean;
 }
 
-const INITIAL_EDIT: EditDialogState = {
+const INITIAL_RENAME: RenameDialogState = {
   open: false,
-  editing: null,
-  values: { name: "", category: "character", parentId: null },
+  character: null,
+  name: "",
   error: null,
   submitting: false,
 };
@@ -55,12 +55,12 @@ function CharacterCard({
   character,
   onEdit,
   onSearch,
-  onConvertToTag,
+  onDelete,
 }: {
-  character: AnimeDerivedTag;
+  character: AnimeCharacter;
   onEdit: () => void;
   onSearch: () => void;
-  onConvertToTag: () => void;
+  onDelete: () => void;
 }): JSX.Element {
   return (
     <CardButton
@@ -127,22 +127,18 @@ function CharacterCard({
           >
             <Pencil size={12} aria-hidden="true" />
           </IconButton>
-          <Button
+          <IconButton
             type="button"
             size="xs"
             variant="ghost"
-            data-testid="character-card-convert"
-            onClick={(e) => {
-              e.stopPropagation();
-              onConvertToTag();
-            }}
+            aria-label={`Delete ${character.name}`}
+            data-testid="character-card-delete"
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
             color="fg.secondary"
-            _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
-            fontSize="xs"
+            _hover={{ color: "danger", bg: "bg.surfaceAlt" }}
           >
-            <TagIcon size={12} aria-hidden="true" />
-            Move to Tags
-          </Button>
+            <Trash2 size={12} aria-hidden="true" />
+          </IconButton>
         </Flex>
       </Box>
     </CardButton>
@@ -157,16 +153,17 @@ export function CharactersTab(): JSX.Element {
   const { data, isLoading, isError, error, refetch } = useAnimeDetail(animeId);
 
   const characters = useMemo(
-    () =>
-      (data?.tags ?? []).filter(
-        (t) => tagCategoryKey(t.category) === "character",
-      ),
+    () => data?.characters ?? [],
     [data],
   );
 
   const [filter, setFilter] = useState("");
-  const [dialog, setDialog] = useState<EditDialogState>(INITIAL_EDIT);
-  const [confirmTarget, setConfirmTarget] = useState<AnimeDerivedTag | null>(null);
+  const [renameState, setRenameState] = useState<RenameDialogState>(INITIAL_RENAME);
+  const [deleteTarget, setDeleteTarget] = useState<AnimeCharacter | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const filtered =
     filter.trim().length === 0
@@ -175,60 +172,77 @@ export function CharactersTab(): JSX.Element {
           c.name.toLowerCase().includes(filter.trim().toLowerCase()),
         );
 
-  const openEdit = (t: AnimeDerivedTag) => {
-    setDialog({
+  const openRename = (ch: AnimeCharacter) => {
+    setRenameState({
       open: true,
-      editing: t,
-      values: {
-        name: t.name,
-        category: tagCategoryKey(t.category),
-        parentId: null,
-      },
+      character: ch,
+      name: ch.name,
       error: null,
       submitting: false,
     });
   };
 
-  const closeEdit = () => setDialog(INITIAL_EDIT);
+  const closeRename = () => setRenameState(INITIAL_RENAME);
 
-  const submitEdit = async () => {
-    if (!dialog.editing) return;
-    const values = dialog.values;
-    if (values.name.trim() === "") {
-      setDialog((s) => ({ ...s, error: "Name is required." }));
+  const submitRename = async () => {
+    if (!renameState.character) return;
+    const trimmed = renameState.name.trim();
+    if (trimmed === "") {
+      setRenameState((s) => ({ ...s, error: "Name is required." }));
       return;
     }
-    setDialog((s) => ({ ...s, submitting: true, error: null }));
+    setRenameState((s) => ({ ...s, submitting: true, error: null }));
     try {
-      await updateTag(dialog.editing.id, {
-        name: values.name.trim(),
-        category: values.category,
-        parentId: values.parentId ?? undefined,
-      });
-      toast.success("Character updated", `"${values.name.trim()}" saved.`);
-      await queryClient.invalidateQueries({ queryKey: qk.tags.list() });
+      await CharacterService.RenameCharacter(renameState.character.id, trimmed);
+      toast.success("Character renamed", `"${trimmed}" saved.`);
       await queryClient.invalidateQueries({
         queryKey: qk.anime.detail(animeId),
       });
-      closeEdit();
+      closeRename();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      setDialog((s) => ({ ...s, submitting: false, error: message }));
-      toast.error("Could not save", message);
+      setRenameState((s) => ({ ...s, submitting: false, error: message }));
+      toast.error("Could not rename", message);
     }
   };
 
-  const convertToTag = async (t: AnimeDerivedTag) => {
+  const submitDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await updateTag(t.id, { name: t.name, category: "uncategorized" });
-      toast.success("Moved to Tags", `"${t.name}" is now a regular tag.`);
-      await queryClient.invalidateQueries({ queryKey: qk.tags.list() });
+      await CharacterService.DeleteCharacter(deleteTarget.id);
+      toast.success("Character deleted", `"${deleteTarget.name}" removed.`);
       await queryClient.invalidateQueries({
         queryKey: qk.anime.detail(animeId),
       });
+      setDeleteTarget(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      toast.error("Could not move", message);
+      toast.error("Could not delete", message);
+    }
+  };
+
+  const submitCreate = async () => {
+    const trimmed = createName.trim();
+    if (trimmed === "") {
+      setCreateError("Name is required.");
+      return;
+    }
+    setCreateSubmitting(true);
+    setCreateError(null);
+    try {
+      await CharacterService.CreateCharacter(trimmed, animeId);
+      toast.success("Character created", `"${trimmed}" added.`);
+      await queryClient.invalidateQueries({
+        queryKey: qk.anime.detail(animeId),
+      });
+      setCreateOpen(false);
+      setCreateName("");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setCreateError(message);
+      toast.error("Could not create", message);
+    } finally {
+      setCreateSubmitting(false);
     }
   };
 
@@ -260,21 +274,33 @@ export function CharactersTab(): JSX.Element {
         <EmptyState
           icon={Users}
           title="No characters yet"
-          description="Convert a tag to a character on the Tags tab, or import from AniList."
+          description="Create a character or import from AniList."
           action={
             <Button
               type="button"
               size="sm"
               variant="solid"
-              onClick={() => navigate("../tags", { relative: "path" })}
-              data-testid="characters-tab-go-tags"
+              onClick={() => setCreateOpen(true)}
+              data-testid="characters-tab-add"
             >
               <Box as="span" aria-hidden="true" display="inline-flex" mr="2">
                 <UserPlus size={14} />
               </Box>
-              Go to Tags
+              Add character
             </Button>
           }
+        />
+
+        <RenameDialog
+          open={createOpen}
+          onClose={() => { setCreateOpen(false); setCreateName(""); setCreateError(null); }}
+          title="Create character"
+          name={createName}
+          onNameChange={setCreateName}
+          onSubmit={submitCreate}
+          submitting={createSubmitting}
+          error={createError}
+          submitLabel="Create"
         />
       </Box>
     );
@@ -291,6 +317,18 @@ export function CharactersTab(): JSX.Element {
             size="md"
           />
         </Box>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => setCreateOpen(true)}
+          data-testid="characters-tab-add"
+        >
+          <Box as="span" aria-hidden="true" display="inline-flex" mr="2">
+            <Plus size={14} />
+          </Box>
+          Add character
+        </Button>
       </Flex>
       <SimpleGrid
         columns={{ base: 2, sm: 3, md: 4, lg: 5 }}
@@ -301,42 +339,48 @@ export function CharactersTab(): JSX.Element {
           <CharacterCard
             key={character.id}
             character={character}
-            onEdit={() => openEdit(character)}
+            onEdit={() => openRename(character)}
             onSearch={() => navigate(`/search?tag=${character.id}&anime=${animeId}`)}
-            onConvertToTag={() => setConfirmTarget(character)}
+            onDelete={() => setDeleteTarget(character)}
           />
         ))}
       </SimpleGrid>
 
-      <TagDialog
-        open={dialog.open}
-        onClose={closeEdit}
+      <RenameDialog
+        open={renameState.open}
+        onClose={closeRename}
         title={
-          dialog.editing
-            ? `Edit character — ${dialog.editing.name}`
-            : "Edit character"
+          renameState.character
+            ? `Rename character — ${renameState.character.name}`
+            : "Rename character"
         }
-        values={dialog.values}
-        onChange={(values) => setDialog((s) => ({ ...s, values }))}
-        parentOptions={[]}
+        name={renameState.name}
+        onNameChange={(name) => setRenameState((s) => ({ ...s, name }))}
+        onSubmit={submitRename}
+        submitting={renameState.submitting}
+        error={renameState.error}
         submitLabel="Save"
-        onSubmit={submitEdit}
-        submitting={dialog.submitting}
-        error={dialog.error}
+      />
+
+      <RenameDialog
+        open={createOpen}
+        onClose={() => { setCreateOpen(false); setCreateName(""); setCreateError(null); }}
+        title="Create character"
+        name={createName}
+        onNameChange={setCreateName}
+        onSubmit={submitCreate}
+        submitting={createSubmitting}
+        error={createError}
+        submitLabel="Create"
       />
 
       <ConfirmDialog
-        open={confirmTarget !== null}
-        onClose={() => setConfirmTarget(null)}
-        onConfirm={async () => {
-          if (confirmTarget) {
-            await convertToTag(confirmTarget);
-            setConfirmTarget(null);
-          }
-        }}
-        title="Move to Tags?"
-        description={`"${confirmTarget?.name ?? ""}" will be removed from Characters and appear in Tags.`}
-        confirmLabel="Move to Tags"
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={submitDelete}
+        title="Delete character?"
+        description={`"${deleteTarget?.name ?? ""}" will be removed. This also removes all file associations.`}
+        confirmLabel="Delete"
       />
     </Box>
   );

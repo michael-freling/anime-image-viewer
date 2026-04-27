@@ -15,7 +15,6 @@ export type TagCategoryKey =
   | "nature"
   | "location"
   | "mood"
-  | "character"
   | "uncategorized";
 
 /** Entry kind, matching db.EntryType{Season,Movie,Other}. */
@@ -40,6 +39,16 @@ export interface Anime {
   id: number;
   name: string;
   aniListId: number | null;
+}
+
+/**
+ * Character derived from an anime's images. Mirrors `frontend.AnimeCharacterInfo`.
+ */
+export interface AnimeCharacter {
+  id: number;
+  name: string;
+  imageCount: number;
+  thumbnailPath?: string;
 }
 
 /**
@@ -97,6 +106,7 @@ export interface Entry {
 export interface AnimeDetail {
   anime: Anime;
   tags: AnimeDerivedTag[];
+  characters: AnimeCharacter[];
   folders: AnimeFolder[];
   folderTree: AnimeFolderTreeNode | null;
   entries: Entry[];
@@ -143,17 +153,12 @@ export interface TagStat {
 }
 
 /**
- * Character linked to an anime. Mirrors `anilist.Character` (the backend has
- * not yet exposed a dedicated frontend DTO, so we track the fields the UI
- * will render on the Characters tab).
+ * Character record. Mirrors `frontend.CharacterInfo`.
  */
 export interface Character {
   id: number;
   name: string;
-  nativeName: string;
-  /** AniList role: MAIN / SUPPORTING / BACKGROUND. */
-  role: string;
-  /** Images tagged with this character. */
+  animeId: number;
   imageCount: number;
 }
 

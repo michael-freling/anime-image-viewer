@@ -16,6 +16,7 @@ function makeDetail(overrides: Partial<AnimeDetail> = {}): AnimeDetail {
   return {
     anime: { id: 1, name: "Cowboy Bebop", aniListId: null },
     tags: [],
+    characters: [],
     folders: [],
     folderTree: null,
     entries: [],

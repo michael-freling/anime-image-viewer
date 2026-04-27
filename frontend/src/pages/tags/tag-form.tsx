@@ -15,7 +15,7 @@
  */
 import { Box, Button, Stack, chakra } from "@chakra-ui/react";
 
-import { TAG_ONLY_CATEGORY_ORDER } from "../../lib/constants";
+import { TAG_CATEGORY_ORDER } from "../../lib/constants";
 import type { Tag, TagCategoryKey } from "../../types";
 
 // Native DOM elements wrapped with Chakra's style-prop machinery. `chakra(...)`
@@ -37,7 +37,6 @@ export const CATEGORY_LABELS: Record<TagCategoryKey, string> = {
   nature: "Nature / Weather",
   location: "Location",
   mood: "Mood / Genre",
-  character: "Character",
   uncategorized: "Uncategorized",
 };
 
@@ -157,7 +156,7 @@ export function TagForm({
           }}
           _disabled={{ opacity: 0.6, cursor: "not-allowed" }}
         >
-          {TAG_ONLY_CATEGORY_ORDER.map((key) => (
+          {TAG_CATEGORY_ORDER.map((key) => (
             <option key={key} value={key}>
               {CATEGORY_LABELS[key]}
             </option>

@@ -46,7 +46,6 @@ import { useImageSelection } from "../../hooks/use-image-selection";
 import { useSearchImages } from "../../hooks/use-search-images";
 import { useTagMap, useTags } from "../../hooks/use-tags";
 import { useSelectionStore } from "../../stores/selection-store";
-import { tagCategoryKey } from "../../lib/constants";
 import type { ImageFile, Tag } from "../../types";
 
 import { ActiveFiltersBar } from "./active-filters-bar";
@@ -172,14 +171,20 @@ export function SearchPage(): JSX.Element {
     return tagsQuery.data ?? [];
   }, [urlState.animeId, animeDetailQuery.data, tagsQuery.data]);
 
-  const pickerTags = useMemo<Tag[]>(
-    () => allPickerTags.filter((t) => tagCategoryKey(t.category) !== "character"),
-    [allPickerTags],
-  );
-  const pickerCharacters = useMemo<Tag[]>(
-    () => allPickerTags.filter((t) => tagCategoryKey(t.category) === "character"),
-    [allPickerTags],
-  );
+  // Tags are used directly — characters are no longer mixed in with tags.
+  const pickerTags = allPickerTags;
+
+  // Characters come from the anime detail's dedicated `characters` field.
+  const pickerCharacters = useMemo<Tag[]>(() => {
+    if (urlState.animeId == null || !animeDetailQuery.data?.characters) {
+      return [];
+    }
+    return animeDetailQuery.data.characters.map((c) => ({
+      id: c.id,
+      name: c.name,
+      category: "character",
+    }));
+  }, [urlState.animeId, animeDetailQuery.data]);
 
   const images = searchQuery.data ?? [];
   const filteredImages = useMemo(

@@ -91,9 +91,24 @@ declare module "*/bindings/github.com/michael-freling/anime-image-viewer/interna
     charactersCreated: number;
   }
 
+  export interface AnimeCharacterInfo {
+    id: number;
+    name: string;
+    imageCount: number;
+    thumbnailPath: string;
+  }
+
+  export interface CharacterInfo {
+    id: number;
+    name: string;
+    animeId: number;
+    imageCount: number;
+  }
+
   export interface AnimeDetailsResponse {
     anime: Anime;
     tags: AnimeTagInfo[];
+    characters: AnimeCharacterInfo[];
     folders: AnimeFolderInfo[];
     folderTree: AnimeFolderTreeNode | null;
     entries: AnimeEntryInfo[];
@@ -185,4 +200,5 @@ declare module "*/bindings/github.com/michael-freling/anime-image-viewer/interna
   export const ConfigFrontendService: Record<string, (...args: unknown[]) => Promise<unknown>>;
   export const BatchImportImageService: Record<string, (...args: unknown[]) => Promise<unknown>>;
   export const DirectoryService: Record<string, (...args: unknown[]) => Promise<unknown>>;
+  export const CharacterService: Record<string, (...args: unknown[]) => Promise<unknown>>;
 }

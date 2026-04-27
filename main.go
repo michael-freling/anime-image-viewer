@@ -161,6 +161,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 		tagReader,
 		imageReader,
 	)
+	characterFrontendService := frontend.NewCharacterService(dbClient)
 
 	title := "anime-image-viewer"
 	// Create a new Wails application by providing the necessary options.
@@ -197,6 +198,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 			application.NewService(backupFrontendService),
 			application.NewService(configFrontendService),
 			application.NewService(animeFrontendService),
+			application.NewService(characterFrontendService),
 		},
 		Assets: application.AssetOptions{
 			Handler:        application.AssetFileServerFS(assets),

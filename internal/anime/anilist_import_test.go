@@ -216,21 +216,19 @@ func TestImportFromAniList_FollowsChainAndDeduplicatesCharacters(t *testing.T) {
 	assert.Equal(t, "Attack on Titan Season 2", seasonNames[2])
 	assert.Equal(t, "Attack on Titan Season 3", seasonNames[3])
 
-	// Verify character tags -- only 3 unique.
-	tags, err := te.dbClient.Tag().FindTagsByAnimeID(created.ID)
+	// Verify characters -- only 3 unique.
+	chars, err := te.dbClient.Character().FindByAnimeID(created.ID)
 	require.NoError(t, err)
-	assert.Len(t, tags, 3)
+	assert.Len(t, chars, 3)
 
-	tagNames := make(map[string]bool)
-	for _, tag := range tags {
-		tagNames[tag.Name] = true
-		assert.Equal(t, "character", tag.Category)
-		require.NotNil(t, tag.AnimeID)
-		assert.Equal(t, created.ID, *tag.AnimeID)
+	charNames := make(map[string]bool)
+	for _, ch := range chars {
+		charNames[ch.Name] = true
+		assert.Equal(t, created.ID, ch.AnimeID)
 	}
-	assert.True(t, tagNames["Eren Yeager"])
-	assert.True(t, tagNames["Mikasa Ackerman"])
-	assert.True(t, tagNames["Armin Arlert"])
+	assert.True(t, charNames["Eren Yeager"])
+	assert.True(t, charNames["Mikasa Ackerman"])
+	assert.True(t, charNames["Armin Arlert"])
 
 	// Verify airing info on season 1 entry.
 	rootFolder, err := svc.FindAnimeRootFolder(created.ID)
@@ -525,10 +523,9 @@ func TestImportFromAniList_SkipsDuplicateCharacters(t *testing.T) {
 	created, err := svc.Create(ctx, "Frieren")
 	require.NoError(t, err)
 
-	// Pre-create a character tag for "Frieren".
-	aid := created.ID
-	preTag := db.Tag{Name: "Frieren", Category: "character", AnimeID: &aid}
-	require.NoError(t, te.dbClient.Tag().Create(ctx, &preTag))
+	// Pre-create a character for "Frieren".
+	preChar := db.Character{Name: "Frieren", AnimeID: created.ID}
+	require.NoError(t, te.dbClient.Character().Create(ctx, &preChar))
 
 	// Run import.
 	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
@@ -537,10 +534,10 @@ func TestImportFromAniList_SkipsDuplicateCharacters(t *testing.T) {
 	// Only "Fern" should be created; "Frieren" already exists.
 	assert.Equal(t, 1, result.CharactersCreated)
 
-	// Verify total character tags.
-	tags, err := te.dbClient.Tag().FindTagsByAnimeID(created.ID)
+	// Verify total characters.
+	chars, err := te.dbClient.Character().FindByAnimeID(created.ID)
 	require.NoError(t, err)
-	assert.Len(t, tags, 2)
+	assert.Len(t, chars, 2)
 }
 
 func TestSearchAniList(t *testing.T) {

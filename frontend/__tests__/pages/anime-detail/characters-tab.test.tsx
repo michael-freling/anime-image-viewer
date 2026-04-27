@@ -1,9 +1,10 @@
 /**
  * Tests for `CharactersTab`.
  *
- * Characters are tags with `category: "character"`, fetched via
- * `useAnimeDetail`. Tests mock `AnimeService.GetAnimeDetails` and render
- * through the real router so `useParams` works.
+ * Characters are separate entities (not tags), fetched via `useAnimeDetail`
+ * in the `characters` array. CRUD operations use `CharacterService` bindings.
+ * Tests mock `AnimeService.GetAnimeDetails` and `CharacterService` methods,
+ * and render through the real router so `useParams` works.
  */
 
 jest.mock("react-photo-album/masonry.css", () => ({}), { virtual: true });
@@ -21,12 +22,6 @@ jest.mock("react-photo-album", () => {
   };
 });
 
-const updateTagMock = jest.fn();
-jest.mock("../../../src/pages/tags/tag-mutations", () => ({
-  __esModule: true,
-  updateTag: (...args: unknown[]) => updateTagMock(...args),
-}));
-
 jest.mock("../../../src/components/ui/toaster", () => ({
   __esModule: true,
   toast: {
@@ -36,6 +31,10 @@ jest.mock("../../../src/components/ui/toaster", () => ({
 }));
 
 const getAnimeDetailsMock = jest.fn();
+const renameCharacterMock = jest.fn();
+const deleteCharacterMock = jest.fn();
+const createCharacterMock = jest.fn();
+
 jest.mock("../../../src/lib/api", () => ({
   __esModule: true,
   AnimeService: {
@@ -43,6 +42,11 @@ jest.mock("../../../src/lib/api", () => ({
     GetAnimeImages: () => Promise.resolve({ images: [] }),
     GetAnimeImagesByEntry: () => Promise.resolve({ images: [] }),
     GetAnimeList: () => Promise.resolve([]),
+  },
+  CharacterService: {
+    RenameCharacter: (...args: unknown[]) => renameCharacterMock(...args),
+    DeleteCharacter: (...args: unknown[]) => deleteCharacterMock(...args),
+    CreateCharacter: (...args: unknown[]) => createCharacterMock(...args),
   },
   TagService: {
     GetAll: () => Promise.resolve([]),
@@ -55,27 +59,27 @@ jest.mock("../../../src/lib/api", () => ({
 import { act } from "react-dom/test-utils";
 import { routes } from "../../../src/app/routes";
 import { toast } from "../../../src/components/ui/toaster";
-import type { AnimeDerivedTag, AnimeDetail } from "../../../src/types";
+import type { AnimeCharacter, AnimeDetail } from "../../../src/types";
 import { renderRoutes, waitFor } from "../../test-utils";
 
-function makeDerivedTag(
+function makeCharacter(
   id: number,
   name: string,
-  category: string,
   imageCount = 3,
   thumbnailPath?: string,
-): AnimeDerivedTag {
-  const tag: AnimeDerivedTag = { id, name, category, imageCount };
+): AnimeCharacter {
+  const ch: AnimeCharacter = { id, name, imageCount };
   if (thumbnailPath !== undefined) {
-    tag.thumbnailPath = thumbnailPath;
+    ch.thumbnailPath = thumbnailPath;
   }
-  return tag;
+  return ch;
 }
 
 function makeDetail(overrides: Partial<AnimeDetail> = {}): AnimeDetail {
   return {
     anime: { id: 42, name: "Bebop", aniListId: null },
     tags: [],
+    characters: [],
     folders: [],
     folderTree: null,
     entries: [],
@@ -83,15 +87,14 @@ function makeDetail(overrides: Partial<AnimeDetail> = {}): AnimeDetail {
   };
 }
 
-/** Helper: render the characters tab with three character tags. */
+/** Helper: render the characters tab with three characters. */
 function renderWithCharacters() {
   getAnimeDetailsMock.mockResolvedValue(
     makeDetail({
-      tags: [
-        makeDerivedTag(1, "Spike Spiegel", "character", 10),
-        makeDerivedTag(2, "Jet Black", "character", 5),
-        makeDerivedTag(3, "Faye Valentine", "character", 8),
-        makeDerivedTag(4, "Outdoor", "scene", 7),
+      characters: [
+        makeCharacter(1, "Spike Spiegel", 10),
+        makeCharacter(2, "Jet Black", 5),
+        makeCharacter(3, "Faye Valentine", 8),
       ],
     }),
   );
@@ -112,20 +115,15 @@ async function waitForCards(container: HTMLElement, count = 3) {
 describe("CharactersTab", () => {
   beforeEach(() => {
     getAnimeDetailsMock.mockReset();
-    updateTagMock.mockReset();
+    renameCharacterMock.mockReset();
+    deleteCharacterMock.mockReset();
+    createCharacterMock.mockReset();
     (toast.success as jest.Mock).mockClear();
     (toast.error as jest.Mock).mockClear();
   });
 
-  test("renders empty state when no character tags exist", async () => {
-    getAnimeDetailsMock.mockResolvedValue(
-      makeDetail({
-        tags: [
-          makeDerivedTag(1, "Outdoor", "scene", 10),
-          makeDerivedTag(2, "Indoor", "location", 3),
-        ],
-      }),
-    );
+  test("renders empty state when no characters exist", async () => {
+    getAnimeDetailsMock.mockResolvedValue(makeDetail());
     const { container, unmount } = renderRoutes(routes, {
       initialEntries: ["/anime/42/characters"],
     });
@@ -134,20 +132,19 @@ describe("CharactersTab", () => {
         () => (container.textContent ?? "").includes("No characters yet"),
       );
       expect(
-        container.querySelector("[data-testid='characters-tab-go-tags']"),
+        container.querySelector("[data-testid='characters-tab-add']"),
       ).not.toBeNull();
     } finally {
       unmount();
     }
   });
 
-  test("renders character cards for tags with category 'character'", async () => {
+  test("renders character cards from data.characters", async () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
-        tags: [
-          makeDerivedTag(1, "Spike Spiegel", "character", 10),
-          makeDerivedTag(2, "Jet Black", "character", 5),
-          makeDerivedTag(3, "Outdoor", "scene", 7),
+        characters: [
+          makeCharacter(1, "Spike Spiegel", 10),
+          makeCharacter(2, "Jet Black", 5),
         ],
       }),
     );
@@ -176,9 +173,9 @@ describe("CharactersTab", () => {
   test("shows image count with correct pluralisation", async () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
-        tags: [
-          makeDerivedTag(1, "Solo", "character", 1),
-          makeDerivedTag(2, "Many", "character", 5),
+        characters: [
+          makeCharacter(1, "Solo", 1),
+          makeCharacter(2, "Many", 5),
         ],
       }),
     );
@@ -251,7 +248,7 @@ describe("CharactersTab", () => {
     }
   });
 
-  test("clicking edit opens the edit dialog", async () => {
+  test("clicking edit opens the rename dialog", async () => {
     const { container, unmount } = renderWithCharacters();
     try {
       await waitForCards(container, 3);
@@ -265,29 +262,28 @@ describe("CharactersTab", () => {
         editBtn.click();
       });
 
-      // TagDialog uses Portal, so it renders to document.body
+      // RenameDialog uses Portal, so it renders to document.body
       await waitFor(
         () =>
-          document.body.querySelector("[data-testid='tag-dialog']") !== null,
+          document.body.querySelector("[data-testid='rename-dialog']") !== null,
       );
       expect(
-        document.body.querySelector("[data-testid='tag-dialog']"),
+        document.body.querySelector("[data-testid='rename-dialog']"),
       ).not.toBeNull();
-      // Verify the dialog has a submit button
       expect(
-        document.body.querySelector("[data-testid='tag-form-submit']"),
+        document.body.querySelector("[data-testid='rename-dialog-submit']"),
       ).not.toBeNull();
     } finally {
       unmount();
     }
   });
 
-  test("edit dialog validates empty name", async () => {
+  test("rename dialog validates empty name", async () => {
     const { container, unmount } = renderWithCharacters();
     try {
       await waitForCards(container, 3);
 
-      // Open edit dialog
+      // Open rename dialog
       const editBtn = container.querySelector(
         "[data-testid='character-card-edit']",
       ) as HTMLButtonElement;
@@ -296,12 +292,12 @@ describe("CharactersTab", () => {
       });
       await waitFor(
         () =>
-          document.body.querySelector("[data-testid='tag-dialog']") !== null,
+          document.body.querySelector("[data-testid='rename-dialog']") !== null,
       );
 
-      // Clear the name field (Portal renders to document.body)
+      // Clear the name field
       const nameInput = document.body.querySelector(
-        "[data-testid='tag-form-name']",
+        "[data-testid='rename-dialog-input']",
       ) as HTMLInputElement;
       expect(nameInput).not.toBeNull();
 
@@ -314,21 +310,20 @@ describe("CharactersTab", () => {
         nameInput.dispatchEvent(new Event("input", { bubbles: true }));
       });
 
-      // Trigger submitEdit via Enter key on the name input
+      // Trigger submit via Enter key
       await act(async () => {
         nameInput.dispatchEvent(
           new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
         );
       });
 
-      // The submitEdit handler sets error "Name is required." for empty name
       await waitFor(
         () =>
-          document.body.querySelector("[data-testid='tag-form-error']") !==
+          document.body.querySelector("[data-testid='rename-dialog-error']") !==
           null,
       );
       expect(
-        document.body.querySelector("[data-testid='tag-form-error']")!
+        document.body.querySelector("[data-testid='rename-dialog-error']")!
           .textContent,
       ).toBe("Name is required.");
     } finally {
@@ -336,17 +331,18 @@ describe("CharactersTab", () => {
     }
   });
 
-  test("edit dialog submits successfully", async () => {
-    updateTagMock.mockResolvedValue({
+  test("rename dialog submits successfully", async () => {
+    renameCharacterMock.mockResolvedValue({
       id: 1,
       name: "Spike S.",
-      category: "character",
+      animeId: 42,
+      imageCount: 10,
     });
     const { container, unmount } = renderWithCharacters();
     try {
       await waitForCards(container, 3);
 
-      // Open edit dialog for the first character
+      // Open rename dialog for the first character
       const editBtn = container.querySelector(
         "[data-testid='character-card-edit']",
       ) as HTMLButtonElement;
@@ -355,12 +351,12 @@ describe("CharactersTab", () => {
       });
       await waitFor(
         () =>
-          document.body.querySelector("[data-testid='tag-dialog']") !== null,
+          document.body.querySelector("[data-testid='rename-dialog']") !== null,
       );
 
-      // Change the name (Portal renders to document.body)
+      // Change the name
       const nameInput = document.body.querySelector(
-        "[data-testid='tag-form-name']",
+        "[data-testid='rename-dialog-input']",
       ) as HTMLInputElement;
       const setter = Object.getOwnPropertyDescriptor(
         HTMLInputElement.prototype,
@@ -373,22 +369,17 @@ describe("CharactersTab", () => {
 
       // Click submit
       const submitBtn = document.body.querySelector(
-        "[data-testid='tag-form-submit']",
+        "[data-testid='rename-dialog-submit']",
       ) as HTMLButtonElement;
       await act(async () => {
         submitBtn.click();
       });
 
-      // Wait for the async submit to complete
-      await waitFor(() => updateTagMock.mock.calls.length > 0);
+      await waitFor(() => renameCharacterMock.mock.calls.length > 0);
 
-      expect(updateTagMock).toHaveBeenCalledWith(1, {
-        name: "Spike S.",
-        category: "character",
-        parentId: undefined,
-      });
+      expect(renameCharacterMock).toHaveBeenCalledWith(1, "Spike S.");
       expect(toast.success).toHaveBeenCalledWith(
-        "Character updated",
+        "Character renamed",
         '"Spike S." saved.',
       );
     } finally {
@@ -396,13 +387,12 @@ describe("CharactersTab", () => {
     }
   });
 
-  test("edit dialog shows error on failure", async () => {
-    updateTagMock.mockRejectedValue(new Error("server error"));
+  test("rename dialog shows error on failure", async () => {
+    renameCharacterMock.mockRejectedValue(new Error("server error"));
     const { container, unmount } = renderWithCharacters();
     try {
       await waitForCards(container, 3);
 
-      // Open edit dialog
       const editBtn = container.querySelector(
         "[data-testid='character-card-edit']",
       ) as HTMLButtonElement;
@@ -411,29 +401,27 @@ describe("CharactersTab", () => {
       });
       await waitFor(
         () =>
-          document.body.querySelector("[data-testid='tag-dialog']") !== null,
+          document.body.querySelector("[data-testid='rename-dialog']") !== null,
       );
 
-      // Submit with existing name (non-empty, so validation passes)
       const submitBtn = document.body.querySelector(
-        "[data-testid='tag-form-submit']",
+        "[data-testid='rename-dialog-submit']",
       ) as HTMLButtonElement;
       await act(async () => {
         submitBtn.click();
       });
 
-      // Wait for error to appear
       await waitFor(
         () =>
-          document.body.querySelector("[data-testid='tag-form-error']") !==
+          document.body.querySelector("[data-testid='rename-dialog-error']") !==
           null,
       );
       expect(
-        document.body.querySelector("[data-testid='tag-form-error']")!
+        document.body.querySelector("[data-testid='rename-dialog-error']")!
           .textContent,
       ).toBe("server error");
       expect(toast.error).toHaveBeenCalledWith(
-        "Could not save",
+        "Could not rename",
         "server error",
       );
     } finally {
@@ -441,34 +429,27 @@ describe("CharactersTab", () => {
     }
   });
 
-  test("convert to tag calls updateTag with uncategorized after confirm", async () => {
-    updateTagMock.mockResolvedValue({
-      id: 1,
-      name: "Spike Spiegel",
-      category: "uncategorized",
-    });
+  test("delete character calls DeleteCharacter after confirm", async () => {
+    deleteCharacterMock.mockResolvedValue(undefined);
     const { container, unmount } = renderWithCharacters();
     try {
       await waitForCards(container, 3);
 
-      // Click "Move to Tags" button on the first character card
-      const convertBtn = container.querySelector(
-        "[data-testid='character-card-convert']",
+      // Click delete button on the first character card
+      const deleteBtn = container.querySelector(
+        "[data-testid='character-card-delete']",
       ) as HTMLButtonElement;
-      expect(convertBtn).not.toBeNull();
+      expect(deleteBtn).not.toBeNull();
 
       act(() => {
-        convertBtn.click();
+        deleteBtn.click();
       });
 
-      // Confirm dialog should appear (rendered via Portal to document.body)
+      // Confirm dialog should appear
       await waitFor(
         () =>
           document.body.querySelector("[data-testid='confirm-dialog']") !== null,
       );
-      expect(
-        document.body.querySelector("[data-testid='confirm-dialog']"),
-      ).not.toBeNull();
 
       // Click the confirm button
       const confirmBtn = document.body.querySelector(
@@ -480,41 +461,35 @@ describe("CharactersTab", () => {
         confirmBtn.click();
       });
 
-      await waitFor(() => updateTagMock.mock.calls.length > 0);
+      await waitFor(() => deleteCharacterMock.mock.calls.length > 0);
 
-      expect(updateTagMock).toHaveBeenCalledWith(1, {
-        name: "Spike Spiegel",
-        category: "uncategorized",
-      });
+      expect(deleteCharacterMock).toHaveBeenCalledWith(1);
       expect(toast.success).toHaveBeenCalledWith(
-        "Moved to Tags",
-        '"Spike Spiegel" is now a regular tag.',
+        "Character deleted",
+        '"Spike Spiegel" removed.',
       );
     } finally {
       unmount();
     }
   });
 
-  test("convert confirm dialog cancel does not call updateTag", async () => {
+  test("delete confirm dialog cancel does not call DeleteCharacter", async () => {
     const { container, unmount } = renderWithCharacters();
     try {
       await waitForCards(container, 3);
 
-      // Click "Move to Tags" button
-      const convertBtn = container.querySelector(
-        "[data-testid='character-card-convert']",
+      const deleteBtn = container.querySelector(
+        "[data-testid='character-card-delete']",
       ) as HTMLButtonElement;
       act(() => {
-        convertBtn.click();
+        deleteBtn.click();
       });
 
-      // Confirm dialog should appear
       await waitFor(
         () =>
           document.body.querySelector("[data-testid='confirm-dialog']") !== null,
       );
 
-      // Click cancel
       const cancelBtn = document.body.querySelector(
         "[data-testid='confirm-dialog-cancel']",
       ) as HTMLButtonElement;
@@ -524,40 +499,35 @@ describe("CharactersTab", () => {
         cancelBtn.click();
       });
 
-      // Dialog should close
       await waitFor(
         () =>
           document.body.querySelector("[data-testid='confirm-dialog']") === null,
       );
 
-      // updateTag should NOT have been called
-      expect(updateTagMock).not.toHaveBeenCalled();
+      expect(deleteCharacterMock).not.toHaveBeenCalled();
     } finally {
       unmount();
     }
   });
 
-  test("convert to tag shows error on failure", async () => {
-    updateTagMock.mockRejectedValue(new Error("convert failed"));
+  test("delete character shows error on failure", async () => {
+    deleteCharacterMock.mockRejectedValue(new Error("delete failed"));
     const { container, unmount } = renderWithCharacters();
     try {
       await waitForCards(container, 3);
 
-      // Click "Move to Tags" button
-      const convertBtn = container.querySelector(
-        "[data-testid='character-card-convert']",
+      const deleteBtn = container.querySelector(
+        "[data-testid='character-card-delete']",
       ) as HTMLButtonElement;
       act(() => {
-        convertBtn.click();
+        deleteBtn.click();
       });
 
-      // Confirm dialog should appear
       await waitFor(
         () =>
           document.body.querySelector("[data-testid='confirm-dialog']") !== null,
       );
 
-      // Click confirm
       const confirmBtn = document.body.querySelector(
         "[data-testid='confirm-dialog-confirm']",
       ) as HTMLButtonElement;
@@ -568,8 +538,8 @@ describe("CharactersTab", () => {
       await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
 
       expect(toast.error).toHaveBeenCalledWith(
-        "Could not move",
-        "convert failed",
+        "Could not delete",
+        "delete failed",
       );
     } finally {
       unmount();
@@ -586,8 +556,6 @@ describe("CharactersTab", () => {
         () => container.querySelector("[data-testid='characters-tab'] [role='alert']") !== null,
       );
 
-      // Click the retry button inside the characters-tab's ErrorAlert
-      // (not the layout's error alert)
       const retryBtn = container.querySelector(
         "[data-testid='characters-tab'] [role='alert'] button",
       ) as HTMLButtonElement;
@@ -596,7 +564,7 @@ describe("CharactersTab", () => {
       // Set up a successful response for the retry
       getAnimeDetailsMock.mockResolvedValue(
         makeDetail({
-          tags: [makeDerivedTag(1, "Spike Spiegel", "character", 10)],
+          characters: [makeCharacter(1, "Spike Spiegel", 10)],
         }),
       );
 
@@ -604,7 +572,6 @@ describe("CharactersTab", () => {
         retryBtn.click();
       });
 
-      // After retry, the component should render successfully
       await waitFor(
         () =>
           container.querySelectorAll("[data-testid='character-card']")
@@ -618,162 +585,11 @@ describe("CharactersTab", () => {
     }
   });
 
-  test("empty state Go to Tags button navigates to tags tab", async () => {
-    getAnimeDetailsMock.mockResolvedValue(
-      makeDetail({
-        tags: [makeDerivedTag(1, "Outdoor", "scene", 10)],
-      }),
-    );
-    const { container, unmount } = renderRoutes(routes, {
-      initialEntries: ["/anime/42/characters"],
-    });
-    try {
-      await waitFor(
-        () => (container.textContent ?? "").includes("No characters yet"),
-      );
-
-      const goTagsBtn = container.querySelector(
-        "[data-testid='characters-tab-go-tags']",
-      ) as HTMLButtonElement;
-      expect(goTagsBtn).not.toBeNull();
-
-      act(() => {
-        goTagsBtn.click();
-      });
-
-      // Should navigate to the tags tab. Wait for the characters tab to disappear.
-      await waitFor(
-        () =>
-          container.querySelector("[data-testid='characters-tab']") === null ||
-          !(container.textContent ?? "").includes("No characters yet"),
-        { timeout: 2000 },
-      );
-    } finally {
-      unmount();
-    }
-  });
-
-  test("convert to tag handles non-Error thrown value", async () => {
-    updateTagMock.mockRejectedValue("string error");
-    const { container, unmount } = renderWithCharacters();
-    try {
-      await waitForCards(container, 3);
-
-      const convertBtn = container.querySelector(
-        "[data-testid='character-card-convert']",
-      ) as HTMLButtonElement;
-      act(() => {
-        convertBtn.click();
-      });
-
-      // Confirm dialog should appear
-      await waitFor(
-        () =>
-          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
-      );
-
-      // Click confirm
-      const confirmBtn = document.body.querySelector(
-        "[data-testid='confirm-dialog-confirm']",
-      ) as HTMLButtonElement;
-      await act(async () => {
-        confirmBtn.click();
-      });
-
-      await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
-
-      expect(toast.error).toHaveBeenCalledWith(
-        "Could not move",
-        "string error",
-      );
-    } finally {
-      unmount();
-    }
-  });
-
-  test("edit dialog handles non-Error thrown value", async () => {
-    updateTagMock.mockRejectedValue("update string error");
-    const { container, unmount } = renderWithCharacters();
-    try {
-      await waitForCards(container, 3);
-
-      // Open edit dialog
-      const editBtn = container.querySelector(
-        "[data-testid='character-card-edit']",
-      ) as HTMLButtonElement;
-      act(() => {
-        editBtn.click();
-      });
-      await waitFor(
-        () =>
-          document.body.querySelector("[data-testid='tag-dialog']") !== null,
-      );
-
-      // Submit with existing name
-      const submitBtn = document.body.querySelector(
-        "[data-testid='tag-form-submit']",
-      ) as HTMLButtonElement;
-      await act(async () => {
-        submitBtn.click();
-      });
-
-      await waitFor(
-        () =>
-          document.body.querySelector("[data-testid='tag-form-error']") !==
-          null,
-      );
-      expect(
-        document.body.querySelector("[data-testid='tag-form-error']")!
-          .textContent,
-      ).toBe("update string error");
-      expect(toast.error).toHaveBeenCalledWith(
-        "Could not save",
-        "update string error",
-      );
-    } finally {
-      unmount();
-    }
-  });
-
-  test("error alert shows string error message", async () => {
-    getAnimeDetailsMock.mockRejectedValue("plain string error");
-    const { container, unmount } = renderRoutes(routes, {
-      initialEntries: ["/anime/42/characters"],
-    });
-    try {
-      await waitFor(
-        () => container.querySelector("[role='alert']") !== null,
-      );
-      expect(container.querySelector("[role='alert']")!.textContent).toContain(
-        "plain string error",
-      );
-    } finally {
-      unmount();
-    }
-  });
-
-  test("error alert handles null/undefined error value", async () => {
-    // Reject with null to exercise the `String(error ?? "")` branch
-    getAnimeDetailsMock.mockRejectedValue(null);
-    const { container, unmount } = renderRoutes(routes, {
-      initialEntries: ["/anime/42/characters"],
-    });
-    try {
-      await waitFor(
-        () => container.querySelector("[role='alert']") !== null,
-      );
-      // The ErrorAlert should render without crashing
-      expect(container.querySelector("[role='alert']")).not.toBeNull();
-    } finally {
-      unmount();
-    }
-  });
-
   test("renders thumbnail image when thumbnailPath is provided", async () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
-        tags: [
-          makeDerivedTag(1, "Spike Spiegel", "character", 10, "/files/anime/char.jpg"),
+        characters: [
+          makeCharacter(1, "Spike Spiegel", 10, "/files/anime/char.jpg"),
         ],
       }),
     );
@@ -799,8 +615,8 @@ describe("CharactersTab", () => {
   test("renders fallback Users icon when thumbnailPath is absent", async () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
-        tags: [
-          makeDerivedTag(1, "Faye Valentine", "character", 8),
+        characters: [
+          makeCharacter(1, "Faye Valentine", 8),
         ],
       }),
     );
@@ -816,7 +632,6 @@ describe("CharactersTab", () => {
       const card = container.querySelector("[data-testid='character-card']")!;
       const img = card.querySelector("img");
       expect(img).toBeNull();
-      // The fallback SVG icon should be present
       const svg = card.querySelector("svg");
       expect(svg).not.toBeNull();
     } finally {
@@ -829,7 +644,6 @@ describe("CharactersTab", () => {
     try {
       await waitForCards(container, 3);
 
-      // Click the character card itself (the whole card is now clickable)
       const card = container.querySelector(
         "[data-testid='character-card']",
       ) as HTMLButtonElement;
@@ -839,8 +653,6 @@ describe("CharactersTab", () => {
         card.click();
       });
 
-      // The navigate call goes to /search?tag=1&anime=42
-      // Wait for the search page content to appear
       await waitFor(
         () =>
           container.querySelector("[role='searchbox']") !== null ||
@@ -848,10 +660,41 @@ describe("CharactersTab", () => {
         { timeout: 2000 },
       );
 
-      // The characters tab should no longer be visible since we navigated away
       expect(
         container.querySelector("[data-testid='characters-grid']"),
       ).toBeNull();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("error alert shows string error message", async () => {
+    getAnimeDetailsMock.mockRejectedValue("plain string error");
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/characters"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[role='alert']") !== null,
+      );
+      expect(container.querySelector("[role='alert']")!.textContent).toContain(
+        "plain string error",
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("error alert handles null/undefined error value", async () => {
+    getAnimeDetailsMock.mockRejectedValue(null);
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/characters"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[role='alert']") !== null,
+      );
+      expect(container.querySelector("[role='alert']")).not.toBeNull();
     } finally {
       unmount();
     }

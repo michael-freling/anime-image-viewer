@@ -74,7 +74,6 @@ export const TAG_CATEGORY_KEY_MAP: Record<string, TagCategoryKey> = {
   mood: "mood",
   "mood/genre": "mood",
   genre: "mood",
-  character: "character",
   uncategorized: "uncategorized",
   "": "uncategorized",
 };
@@ -91,7 +90,6 @@ export const TAG_CATEGORY_TOKENS: Record<
   nature: { bg: "tag.nature.bg", fg: "tag.nature.fg" },
   location: { bg: "tag.location.bg", fg: "tag.location.fg" },
   mood: { bg: "tag.mood.bg", fg: "tag.mood.fg" },
-  character: { bg: "tag.character.bg", fg: "tag.character.fg" },
   uncategorized: {
     bg: "tag.uncategorized.bg",
     fg: "tag.uncategorized.fg",
@@ -106,17 +104,8 @@ export const TAG_CATEGORY_ORDER: readonly TagCategoryKey[] = [
   "nature",
   "location",
   "mood",
-  "character",
   "uncategorized",
 ];
-
-/**
- * Tag-only category order — excludes "character" since characters have
- * their own dedicated UI (anime detail Characters tab) and should not
- * appear alongside regular tags in pickers, editors, or the tag form.
- */
-export const TAG_ONLY_CATEGORY_ORDER: readonly TagCategoryKey[] =
-  TAG_CATEGORY_ORDER.filter((k) => k !== "character");
 
 /**
  * Normalise a raw category string into a `TagCategoryKey`. Unknown values
