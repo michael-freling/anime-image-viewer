@@ -34,6 +34,7 @@ const getAnimeDetailsMock = jest.fn();
 const renameCharacterMock = jest.fn();
 const deleteCharacterMock = jest.fn();
 const createCharacterMock = jest.fn();
+const convertCharacterToTagMock = jest.fn();
 
 jest.mock("../../../src/lib/api", () => ({
   __esModule: true,
@@ -47,6 +48,7 @@ jest.mock("../../../src/lib/api", () => ({
     RenameCharacter: (...args: unknown[]) => renameCharacterMock(...args),
     DeleteCharacter: (...args: unknown[]) => deleteCharacterMock(...args),
     CreateCharacter: (...args: unknown[]) => createCharacterMock(...args),
+    ConvertCharacterToTag: (...args: unknown[]) => convertCharacterToTagMock(...args),
   },
   TagService: {
     GetAll: () => Promise.resolve([]),
@@ -118,6 +120,7 @@ describe("CharactersTab", () => {
     renameCharacterMock.mockReset();
     deleteCharacterMock.mockReset();
     createCharacterMock.mockReset();
+    convertCharacterToTagMock.mockReset();
     (toast.success as jest.Mock).mockClear();
     (toast.error as jest.Mock).mockClear();
   });
@@ -695,6 +698,148 @@ describe("CharactersTab", () => {
         () => container.querySelector("[role='alert']") !== null,
       );
       expect(container.querySelector("[role='alert']")).not.toBeNull();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Move to Tags button opens confirm dialog", async () => {
+    const { container, unmount } = renderWithCharacters();
+    try {
+      await waitForCards(container, 3);
+
+      const moveBtn = container.querySelector(
+        "[data-testid='character-card-move-to-tag']",
+      ) as HTMLButtonElement;
+      expect(moveBtn).not.toBeNull();
+
+      act(() => {
+        moveBtn.click();
+      });
+
+      // ConfirmDialog renders via Portal to document.body.
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      const dialog = document.body.querySelector(
+        "[data-testid='confirm-dialog']",
+      )!;
+      expect(dialog).not.toBeNull();
+      expect(dialog.textContent).toContain("Move to Tags?");
+      expect(dialog.textContent).toContain("Spike Spiegel");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Move to Tags confirm calls ConvertCharacterToTag", async () => {
+    convertCharacterToTagMock.mockResolvedValue({
+      id: 200,
+      name: "Spike Spiegel",
+      category: "uncategorized",
+    });
+    const { container, unmount } = renderWithCharacters();
+    try {
+      await waitForCards(container, 3);
+
+      const moveBtn = container.querySelector(
+        "[data-testid='character-card-move-to-tag']",
+      ) as HTMLButtonElement;
+      act(() => {
+        moveBtn.click();
+      });
+
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      const confirmBtn = document.body.querySelector(
+        "[data-testid='confirm-dialog-confirm']",
+      ) as HTMLButtonElement;
+      expect(confirmBtn).not.toBeNull();
+
+      await act(async () => {
+        confirmBtn.click();
+      });
+
+      await waitFor(() => convertCharacterToTagMock.mock.calls.length > 0);
+      expect(convertCharacterToTagMock).toHaveBeenCalledWith(1);
+      expect(toast.success).toHaveBeenCalledWith(
+        "Moved to Tags",
+        '"Spike Spiegel" is now a regular tag.',
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Move to Tags confirm shows error on failure", async () => {
+    convertCharacterToTagMock.mockRejectedValue(
+      new Error("move failed"),
+    );
+    const { container, unmount } = renderWithCharacters();
+    try {
+      await waitForCards(container, 3);
+
+      const moveBtn = container.querySelector(
+        "[data-testid='character-card-move-to-tag']",
+      ) as HTMLButtonElement;
+      act(() => {
+        moveBtn.click();
+      });
+
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      const confirmBtn = document.body.querySelector(
+        "[data-testid='confirm-dialog-confirm']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        confirmBtn.click();
+      });
+
+      await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
+      expect(toast.error).toHaveBeenCalledWith(
+        "Could not move",
+        "move failed",
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Move to Tags cancel does not call ConvertCharacterToTag", async () => {
+    const { container, unmount } = renderWithCharacters();
+    try {
+      await waitForCards(container, 3);
+
+      const moveBtn = container.querySelector(
+        "[data-testid='character-card-move-to-tag']",
+      ) as HTMLButtonElement;
+      act(() => {
+        moveBtn.click();
+      });
+
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      const cancelBtn = document.body.querySelector(
+        "[data-testid='confirm-dialog-cancel']",
+      ) as HTMLButtonElement;
+      expect(cancelBtn).not.toBeNull();
+
+      act(() => {
+        cancelBtn.click();
+      });
+
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") === null,
+      );
+      expect(convertCharacterToTagMock).not.toHaveBeenCalled();
     } finally {
       unmount();
     }

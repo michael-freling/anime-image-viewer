@@ -22,6 +22,7 @@ jest.mock("react-photo-album", () => {
 });
 
 const getAnimeDetailsMock = jest.fn();
+const convertTagToCharacterMock = jest.fn();
 jest.mock("../../../src/lib/api", () => ({
   __esModule: true,
   AnimeService: {
@@ -29,6 +30,9 @@ jest.mock("../../../src/lib/api", () => ({
     GetAnimeImages: () => Promise.resolve({ images: [] }),
     GetAnimeImagesByEntry: () => Promise.resolve({ images: [] }),
     GetAnimeList: () => Promise.resolve([]),
+  },
+  CharacterService: {
+    ConvertTagToCharacter: (...args: unknown[]) => convertTagToCharacterMock(...args),
   },
   TagService: {
     GetAll: () => Promise.resolve([]),
@@ -83,6 +87,7 @@ describe("TagsTab", () => {
   beforeEach(() => {
     getAnimeDetailsMock.mockReset();
     updateTagMock.mockReset();
+    convertTagToCharacterMock.mockReset();
     (toast.success as jest.Mock).mockClear();
     (toast.error as jest.Mock).mockClear();
   });
@@ -549,6 +554,182 @@ describe("TagsTab", () => {
           // Or the search page content may be visible.
           (container.textContent ?? "").includes("Search") === true,
       );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Make Character button opens confirm dialog", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        tags: [makeDerivedTag(1, "Outdoor", "scene", 5)],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/tags"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector(
+            "[data-testid='tags-tab-tag-make-character']",
+          ) !== null,
+      );
+      const makeCharBtn = container.querySelector(
+        "[data-testid='tags-tab-tag-make-character']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        makeCharBtn.click();
+      });
+      // ConfirmDialog renders via Portal to document.body.
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      const dialog = document.body.querySelector(
+        "[data-testid='confirm-dialog']",
+      )!;
+      expect(dialog).not.toBeNull();
+      expect(dialog.textContent).toContain("Make Character?");
+      expect(dialog.textContent).toContain("Outdoor");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Make Character confirm calls ConvertTagToCharacter", async () => {
+    convertTagToCharacterMock.mockResolvedValue({
+      id: 100,
+      name: "Outdoor",
+      animeId: 42,
+      imageCount: 5,
+    });
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        tags: [makeDerivedTag(1, "Outdoor", "scene", 5)],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/tags"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector(
+            "[data-testid='tags-tab-tag-make-character']",
+          ) !== null,
+      );
+      const makeCharBtn = container.querySelector(
+        "[data-testid='tags-tab-tag-make-character']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        makeCharBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      const confirmBtn = document.body.querySelector(
+        "[data-testid='confirm-dialog-confirm']",
+      ) as HTMLButtonElement;
+      expect(confirmBtn).not.toBeNull();
+      await act(async () => {
+        confirmBtn.click();
+      });
+      await waitFor(() => convertTagToCharacterMock.mock.calls.length > 0);
+      expect(convertTagToCharacterMock).toHaveBeenCalledWith(1, 42);
+      expect(toast.success).toHaveBeenCalledWith(
+        "Moved to Characters",
+        '"Outdoor" is now a character.',
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Make Character confirm shows error on failure", async () => {
+    convertTagToCharacterMock.mockRejectedValue(
+      new Error("conversion failed"),
+    );
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        tags: [makeDerivedTag(1, "Outdoor", "scene", 5)],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/tags"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector(
+            "[data-testid='tags-tab-tag-make-character']",
+          ) !== null,
+      );
+      const makeCharBtn = container.querySelector(
+        "[data-testid='tags-tab-tag-make-character']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        makeCharBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      const confirmBtn = document.body.querySelector(
+        "[data-testid='confirm-dialog-confirm']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        confirmBtn.click();
+      });
+      await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
+      expect(toast.error).toHaveBeenCalledWith(
+        "Could not convert",
+        "conversion failed",
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Make Character cancel does not call ConvertTagToCharacter", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        tags: [makeDerivedTag(1, "Outdoor", "scene", 5)],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/tags"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector(
+            "[data-testid='tags-tab-tag-make-character']",
+          ) !== null,
+      );
+      const makeCharBtn = container.querySelector(
+        "[data-testid='tags-tab-tag-make-character']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        makeCharBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      const cancelBtn = document.body.querySelector(
+        "[data-testid='confirm-dialog-cancel']",
+      ) as HTMLButtonElement;
+      expect(cancelBtn).not.toBeNull();
+      act(() => {
+        cancelBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") === null,
+      );
+      expect(convertTagToCharacterMock).not.toHaveBeenCalled();
     } finally {
       unmount();
     }
