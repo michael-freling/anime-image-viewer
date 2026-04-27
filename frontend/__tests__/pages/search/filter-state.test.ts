@@ -4,11 +4,15 @@
 import {
   addExcludeId,
   addIncludeId,
+  addIncludeCharacterId,
+  addExcludeCharacterId,
+  cycleCharacterId,
   cycleTagId,
   EMPTY_FILTER_STATE,
   filterStateFromSearchParams,
   filterStateToSearchParams,
   isEmptyFilterState,
+  removeCharacterId,
   removeTagId,
   type SearchFilterState,
 } from "../../../src/pages/search/filter-state";
@@ -45,6 +49,8 @@ describe("filterStateToSearchParams", () => {
       query: "hello",
       includeIds: [1, 2],
       excludeIds: [3],
+      includeCharacterIds: [],
+      excludeCharacterIds: [],
       animeId: null,
     };
     expect(filterStateToSearchParams(state)).toEqual({
@@ -59,6 +65,8 @@ describe("filterStateToSearchParams", () => {
       query: "foo",
       includeIds: [5, 3, 7],
       excludeIds: [2],
+      includeCharacterIds: [],
+      excludeCharacterIds: [],
       animeId: null,
     };
     const encoded = filterStateToSearchParams(state);
@@ -74,6 +82,8 @@ describe("filterStateToSearchParams", () => {
       query: "",
       includeIds: [],
       excludeIds: [],
+      includeCharacterIds: [],
+      excludeCharacterIds: [],
       animeId: 42,
     };
     const encoded = filterStateToSearchParams(state);
@@ -146,6 +156,8 @@ describe("addIncludeId / addExcludeId / removeTagId", () => {
       query: "x",
       includeIds: [1, 2],
       excludeIds: [3, 1],
+      includeCharacterIds: [],
+      excludeCharacterIds: [],
       animeId: null,
     };
     const next = removeTagId(state, 1);
@@ -167,5 +179,119 @@ describe("cycleTagId", () => {
     state = cycleTagId(state, 5);
     expect(state.includeIds).toEqual([]);
     expect(state.excludeIds).toEqual([]);
+  });
+});
+
+describe("character filter URL params", () => {
+  test("parses ?char=10,20&excludeChar=30", () => {
+    const params = new URLSearchParams("char=10,20&excludeChar=30");
+    const state = filterStateFromSearchParams(params);
+    expect(state.includeCharacterIds).toEqual([10, 20]);
+    expect(state.excludeCharacterIds).toEqual([30]);
+  });
+
+  test("serialises character filter state", () => {
+    const state: SearchFilterState = {
+      ...EMPTY_FILTER_STATE,
+      includeCharacterIds: [10],
+      excludeCharacterIds: [20],
+    };
+    const encoded = filterStateToSearchParams(state);
+    expect(encoded).toEqual({ char: "10", excludeChar: "20" });
+  });
+
+  test("round-trips character params through URL", () => {
+    const state: SearchFilterState = {
+      ...EMPTY_FILTER_STATE,
+      includeCharacterIds: [5, 3],
+      excludeCharacterIds: [7],
+      animeId: 42,
+    };
+    const encoded = filterStateToSearchParams(state);
+    const decoded = filterStateFromSearchParams(new URLSearchParams(encoded));
+    expect(decoded.includeCharacterIds).toEqual([3, 5]);
+    expect(decoded.excludeCharacterIds).toEqual([7]);
+    expect(decoded.animeId).toBe(42);
+  });
+});
+
+describe("isEmptyFilterState with character filters", () => {
+  test("character include filter reports non-empty", () => {
+    expect(
+      isEmptyFilterState({ ...EMPTY_FILTER_STATE, includeCharacterIds: [1] }),
+    ).toBe(false);
+  });
+  test("character exclude filter reports non-empty", () => {
+    expect(
+      isEmptyFilterState({ ...EMPTY_FILTER_STATE, excludeCharacterIds: [1] }),
+    ).toBe(false);
+  });
+});
+
+describe("addIncludeCharacterId / addExcludeCharacterId / removeCharacterId", () => {
+  test("addIncludeCharacterId moves from exclude to include", () => {
+    const state: SearchFilterState = {
+      ...EMPTY_FILTER_STATE,
+      excludeCharacterIds: [7],
+    };
+    const next = addIncludeCharacterId(state, 7);
+    expect(next.includeCharacterIds).toEqual([7]);
+    expect(next.excludeCharacterIds).toEqual([]);
+  });
+
+  test("addExcludeCharacterId moves from include to exclude", () => {
+    const state: SearchFilterState = {
+      ...EMPTY_FILTER_STATE,
+      includeCharacterIds: [7, 9],
+    };
+    const next = addExcludeCharacterId(state, 7);
+    expect(next.includeCharacterIds).toEqual([9]);
+    expect(next.excludeCharacterIds).toEqual([7]);
+  });
+
+  test("addIncludeCharacterId is no-op if already included", () => {
+    const state: SearchFilterState = {
+      ...EMPTY_FILTER_STATE,
+      includeCharacterIds: [1, 2],
+    };
+    const next = addIncludeCharacterId(state, 1);
+    expect(next).toBe(state);
+  });
+
+  test("removeCharacterId removes from both sets", () => {
+    const state: SearchFilterState = {
+      ...EMPTY_FILTER_STATE,
+      includeCharacterIds: [1, 2],
+      excludeCharacterIds: [3, 1],
+    };
+    const next = removeCharacterId(state, 1);
+    expect(next.includeCharacterIds).toEqual([2]);
+    expect(next.excludeCharacterIds).toEqual([3]);
+  });
+
+  test("character operations do not affect tag sets", () => {
+    const state: SearchFilterState = {
+      ...EMPTY_FILTER_STATE,
+      includeIds: [10],
+      excludeIds: [20],
+    };
+    const next = addIncludeCharacterId(state, 5);
+    expect(next.includeIds).toEqual([10]);
+    expect(next.excludeIds).toEqual([20]);
+    expect(next.includeCharacterIds).toEqual([5]);
+  });
+});
+
+describe("cycleCharacterId", () => {
+  test("unset -> include -> exclude -> unset", () => {
+    let state: SearchFilterState = EMPTY_FILTER_STATE;
+    state = cycleCharacterId(state, 5);
+    expect(state.includeCharacterIds).toEqual([5]);
+    state = cycleCharacterId(state, 5);
+    expect(state.excludeCharacterIds).toEqual([5]);
+    expect(state.includeCharacterIds).toEqual([]);
+    state = cycleCharacterId(state, 5);
+    expect(state.includeCharacterIds).toEqual([]);
+    expect(state.excludeCharacterIds).toEqual([]);
   });
 });

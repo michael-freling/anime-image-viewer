@@ -367,7 +367,7 @@ export function CharactersTab(): JSX.Element {
             key={character.id}
             character={character}
             onEdit={() => openRename(character)}
-            onSearch={() => navigate(`/search?tag=${character.id}&anime=${animeId}`)}
+            onSearch={() => navigate(`/search?char=${character.id}&anime=${animeId}`)}
             onDelete={() => setDeleteTarget(character)}
             onMoveToTag={() => setMoveToTagTarget(character)}
           />

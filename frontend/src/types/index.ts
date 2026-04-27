@@ -167,5 +167,7 @@ export interface SearchFilters {
   animeId?: number;
   includeTagIds?: number[];
   excludeTagIds?: number[];
+  includeCharacterIds?: number[];
+  excludeCharacterIds?: number[];
   sort?: "recent" | "oldest" | "name";
 }

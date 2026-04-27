@@ -61,6 +61,7 @@ const getAnimeDetailsMock = jest.fn();
 const searchImagesByAnimeMock = jest.fn();
 
 const getImageTagIDsMock = jest.fn();
+const getImageCharacterIDsMock = jest.fn();
 
 jest.mock("../../../src/lib/api", () => ({
   __esModule: true,
@@ -68,6 +69,9 @@ jest.mock("../../../src/lib/api", () => ({
     GetAnimeDetails: (...args: unknown[]) => getAnimeDetailsMock(...args),
     SearchImagesByAnime: (...args: unknown[]) => searchImagesByAnimeMock(...args),
     GetImageTagIDs: (...args: unknown[]) => getImageTagIDsMock(...args),
+  },
+  CharacterService: {
+    GetImageCharacterIDs: (...args: unknown[]) => getImageCharacterIDsMock(...args),
   },
   SearchService: {
     SearchImages: (...args: unknown[]) => searchImagesMock(...args),
@@ -136,6 +140,8 @@ describe("SearchPage", () => {
     searchImagesByAnimeMock.mockResolvedValue({ images: [] });
     getImageTagIDsMock.mockReset();
     getImageTagIDsMock.mockResolvedValue({});
+    getImageCharacterIDsMock.mockReset();
+    getImageCharacterIDsMock.mockResolvedValue({});
     resetSelectionStore();
   });
 

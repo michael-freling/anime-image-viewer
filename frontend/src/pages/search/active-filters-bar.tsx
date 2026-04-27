@@ -23,12 +23,16 @@ export interface ActiveFiltersBarProps {
   state: SearchFilterState;
   /** Look-up of tag ids to rich Tag records for chip labels. */
   tagMap?: Map<number, Tag>;
+  /** Look-up of character ids to character records for chip labels. */
+  characterMap?: Map<number, { id: number; name: string }>;
   /** Name of the anime filter when `state.animeId` is set. */
   animeName?: string;
   /** Fires when the anime filter chip is removed. */
   onRemoveAnime?: () => void;
-  /** Fires when a chip's X button is clicked. */
+  /** Fires when a tag chip's X button is clicked. */
   onRemove: (id: number) => void;
+  /** Fires when a character chip's X button is clicked. */
+  onRemoveCharacter?: (id: number) => void;
   /** Fires on the "Clear all" link. */
   onClearAll: () => void;
   /**
@@ -41,18 +45,22 @@ export interface ActiveFiltersBarProps {
 export function ActiveFiltersBar({
   state,
   tagMap,
+  characterMap,
   animeName,
   onRemoveAnime,
   onRemove,
+  onRemoveCharacter,
   onClearAll,
   totalLabel,
 }: ActiveFiltersBarProps): JSX.Element | null {
   const hasTagFilters =
     state.includeIds.length > 0 || state.excludeIds.length > 0;
+  const hasCharacterFilters =
+    state.includeCharacterIds.length > 0 || state.excludeCharacterIds.length > 0;
   const hasQuery = state.query.trim().length > 0;
   const hasAnimeFilter = state.animeId != null;
 
-  if (!hasTagFilters && !hasQuery && !hasAnimeFilter && !totalLabel) {
+  if (!hasTagFilters && !hasCharacterFilters && !hasQuery && !hasAnimeFilter && !totalLabel) {
     // Nothing to render — keep the page surface clean.
     return null;
   }
@@ -115,9 +123,25 @@ export function ActiveFiltersBar({
               onRemove={() => onRemove(id)}
             />
           ))}
+          {state.includeCharacterIds.map((id) => (
+            <FilterChip
+              key={`char-inc-${id}`}
+              label={characterMap?.get(id)?.name ?? `Character #${id}`}
+              variant="include"
+              onRemove={() => onRemoveCharacter?.(id)}
+            />
+          ))}
+          {state.excludeCharacterIds.map((id) => (
+            <FilterChip
+              key={`char-exc-${id}`}
+              label={characterMap?.get(id)?.name ?? `Character #${id}`}
+              variant="exclude"
+              onRemove={() => onRemoveCharacter?.(id)}
+            />
+          ))}
         </Flex>
 
-        {(hasTagFilters || hasQuery || hasAnimeFilter) && (
+        {(hasTagFilters || hasCharacterFilters || hasQuery || hasAnimeFilter) && (
           <Button
             type="button"
             data-testid="active-filters-clear-all"

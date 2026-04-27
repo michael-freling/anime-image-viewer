@@ -26,6 +26,10 @@ export interface SearchFilterState {
   includeIds: number[];
   /** Tag ids that must NOT be on the image (exclusion set). Stable-sorted. */
   excludeIds: number[];
+  /** Character ids that must be on the image (inclusion set). Stable-sorted. */
+  includeCharacterIds: number[];
+  /** Character ids that must NOT be on the image (exclusion set). Stable-sorted. */
+  excludeCharacterIds: number[];
   /** Anime id to scope the search to; null means "all anime". */
   animeId: number | null;
 }
@@ -34,12 +38,16 @@ export const EMPTY_FILTER_STATE: SearchFilterState = Object.freeze({
   query: "",
   includeIds: [],
   excludeIds: [],
+  includeCharacterIds: [],
+  excludeCharacterIds: [],
   animeId: null,
 }) as SearchFilterState;
 
 const QUERY_KEY = "q";
 const INCLUDE_KEY = "tag";
 const EXCLUDE_KEY = "exclude";
+const INCLUDE_CHAR_KEY = "char";
+const EXCLUDE_CHAR_KEY = "excludeChar";
 const ANIME_KEY = "anime";
 
 function parseIdList(raw: string | null): number[] {
@@ -80,6 +88,8 @@ export function filterStateFromSearchParams(
     query: params.get(QUERY_KEY)?.trim() ?? "",
     includeIds: parseIdList(params.get(INCLUDE_KEY)),
     excludeIds: parseIdList(params.get(EXCLUDE_KEY)),
+    includeCharacterIds: parseIdList(params.get(INCLUDE_CHAR_KEY)),
+    excludeCharacterIds: parseIdList(params.get(EXCLUDE_CHAR_KEY)),
     animeId: parseAnimeId(params.get(ANIME_KEY)),
   };
 }
@@ -98,16 +108,22 @@ export function filterStateToSearchParams(
     out[INCLUDE_KEY] = state.includeIds.join(",");
   if (state.excludeIds.length > 0)
     out[EXCLUDE_KEY] = state.excludeIds.join(",");
+  if (state.includeCharacterIds.length > 0)
+    out[INCLUDE_CHAR_KEY] = state.includeCharacterIds.join(",");
+  if (state.excludeCharacterIds.length > 0)
+    out[EXCLUDE_CHAR_KEY] = state.excludeCharacterIds.join(",");
   if (state.animeId != null) out[ANIME_KEY] = String(state.animeId);
   return out;
 }
 
-/** True when no search, no include tags, and no exclude tags are active. */
+/** True when no search, no include tags, no exclude tags, and no character filters are active. */
 export function isEmptyFilterState(state: SearchFilterState): boolean {
   return (
     state.query.trim().length === 0 &&
     state.includeIds.length === 0 &&
     state.excludeIds.length === 0 &&
+    state.includeCharacterIds.length === 0 &&
+    state.excludeCharacterIds.length === 0 &&
     state.animeId == null
   );
 }
@@ -170,4 +186,58 @@ export function cycleTagId(
     return removeTagId(state, id);
   }
   return addIncludeId(state, id);
+}
+
+// ---- Character filter helpers ----
+
+/** Add a character id to the inclusion set (no-op if already present). */
+export function addIncludeCharacterId(
+  state: SearchFilterState,
+  id: number,
+): SearchFilterState {
+  if (state.includeCharacterIds.includes(id)) return state;
+  const nextExclude = state.excludeCharacterIds.filter((x) => x !== id);
+  const nextInclude = [...state.includeCharacterIds, id].sort((a, b) => a - b);
+  return { ...state, includeCharacterIds: nextInclude, excludeCharacterIds: nextExclude };
+}
+
+/** Add a character id to the exclusion set (no-op if already present). */
+export function addExcludeCharacterId(
+  state: SearchFilterState,
+  id: number,
+): SearchFilterState {
+  if (state.excludeCharacterIds.includes(id)) return state;
+  const nextInclude = state.includeCharacterIds.filter((x) => x !== id);
+  const nextExclude = [...state.excludeCharacterIds, id].sort((a, b) => a - b);
+  return { ...state, includeCharacterIds: nextInclude, excludeCharacterIds: nextExclude };
+}
+
+/** Remove a character id from BOTH sets. */
+export function removeCharacterId(
+  state: SearchFilterState,
+  id: number,
+): SearchFilterState {
+  return {
+    ...state,
+    includeCharacterIds: state.includeCharacterIds.filter((x) => x !== id),
+    excludeCharacterIds: state.excludeCharacterIds.filter((x) => x !== id),
+  };
+}
+
+/**
+ * Toggle a character id between unset/include/exclude. The progression is:
+ *
+ *   unset -> include -> exclude -> unset
+ */
+export function cycleCharacterId(
+  state: SearchFilterState,
+  id: number,
+): SearchFilterState {
+  if (state.includeCharacterIds.includes(id)) {
+    return addExcludeCharacterId(state, id);
+  }
+  if (state.excludeCharacterIds.includes(id)) {
+    return removeCharacterId(state, id);
+  }
+  return addIncludeCharacterId(state, id);
 }

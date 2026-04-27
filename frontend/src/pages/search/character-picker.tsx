@@ -15,14 +15,14 @@ export interface CharacterPickerProps {
   characters: readonly Tag[];
   includedIds: readonly number[];
   excludedIds: readonly number[];
-  onCycleTag: (id: number) => void;
+  onCycleCharacter: (id: number) => void;
 }
 
 export function CharacterPicker({
   characters,
   includedIds,
   excludedIds,
-  onCycleTag,
+  onCycleCharacter,
 }: CharacterPickerProps): JSX.Element {
   const includeSet = useMemo(() => new Set(includedIds), [includedIds]);
   const excludeSet = useMemo(() => new Set(excludedIds), [excludedIds]);
@@ -64,7 +64,7 @@ export function CharacterPicker({
               active={isIncluded}
               excluded={isExcluded}
               label={isExcluded ? `${char.name} (excluded)` : undefined}
-              onClick={() => onCycleTag(char.id)}
+              onClick={() => onCycleCharacter(char.id)}
             />
           );
         })}

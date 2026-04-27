@@ -75,10 +75,8 @@ describe("ActiveFiltersBar", () => {
     const r = render(
       createElement(ActiveFiltersBar, {
         state: {
-          query: "",
+          ...EMPTY_FILTER_STATE,
           includeIds: [1],
-          excludeIds: [],
-          animeId: null,
         },
         tagMap: TAG_MAP,
         onRemove,
@@ -101,10 +99,8 @@ describe("ActiveFiltersBar", () => {
     const r = render(
       createElement(ActiveFiltersBar, {
         state: {
-          query: "",
-          includeIds: [],
+          ...EMPTY_FILTER_STATE,
           excludeIds: [3],
-          animeId: null,
         },
         tagMap: TAG_MAP,
         onRemove: jest.fn(),
@@ -122,10 +118,8 @@ describe("ActiveFiltersBar", () => {
     const r = render(
       createElement(ActiveFiltersBar, {
         state: {
-          query: "",
+          ...EMPTY_FILTER_STATE,
           includeIds: [1, 2],
-          excludeIds: [],
-          animeId: null,
         },
         tagMap: TAG_MAP,
         onRemove,
@@ -149,10 +143,8 @@ describe("ActiveFiltersBar", () => {
     const r = render(
       createElement(ActiveFiltersBar, {
         state: {
-          query: "",
+          ...EMPTY_FILTER_STATE,
           includeIds: [1],
-          excludeIds: [],
-          animeId: null,
         },
         tagMap: TAG_MAP,
         onRemove: jest.fn(),
@@ -174,10 +166,8 @@ describe("ActiveFiltersBar", () => {
     const r = render(
       createElement(ActiveFiltersBar, {
         state: {
-          query: "",
+          ...EMPTY_FILTER_STATE,
           includeIds: [999],
-          excludeIds: [],
-          animeId: null,
         },
         tagMap: new Map(),
         onRemove: jest.fn(),
@@ -206,6 +196,100 @@ describe("ActiveFiltersBar", () => {
     expect(
       r.container.querySelector("[data-testid='active-filters-clear-all']"),
     ).toBeNull();
+    r.unmount();
+  });
+
+  test("renders character include chips with name from characterMap", () => {
+    const characterMap = new Map([
+      [10, { id: 10, name: "Spike" }],
+      [20, { id: 20, name: "Faye" }],
+    ]);
+    const r = render(
+      createElement(ActiveFiltersBar, {
+        state: {
+          ...EMPTY_FILTER_STATE,
+          includeCharacterIds: [10],
+        },
+        tagMap: TAG_MAP,
+        characterMap,
+        onRemove: jest.fn(),
+        onRemoveCharacter: jest.fn(),
+        onClearAll: jest.fn(),
+      }),
+    );
+    expect(r.container.textContent).toContain("Spike");
+    // Clear all should show since we have character filters.
+    expect(
+      r.container.querySelector("[data-testid='active-filters-clear-all']"),
+    ).not.toBeNull();
+    r.unmount();
+  });
+
+  test("renders character exclude chips with name from characterMap", () => {
+    const characterMap = new Map([
+      [10, { id: 10, name: "Spike" }],
+    ]);
+    const r = render(
+      createElement(ActiveFiltersBar, {
+        state: {
+          ...EMPTY_FILTER_STATE,
+          excludeCharacterIds: [10],
+        },
+        tagMap: TAG_MAP,
+        characterMap,
+        onRemove: jest.fn(),
+        onRemoveCharacter: jest.fn(),
+        onClearAll: jest.fn(),
+      }),
+    );
+    const chip = r.container.querySelector("[data-variant='exclude']");
+    expect(chip).not.toBeNull();
+    expect(chip?.textContent).toContain("Spike");
+    r.unmount();
+  });
+
+  test("falls back to 'Character #id' when characterMap has no entry", () => {
+    const r = render(
+      createElement(ActiveFiltersBar, {
+        state: {
+          ...EMPTY_FILTER_STATE,
+          includeCharacterIds: [999],
+        },
+        tagMap: TAG_MAP,
+        onRemove: jest.fn(),
+        onClearAll: jest.fn(),
+      }),
+    );
+    expect(r.container.textContent).toContain("Character #999");
+    r.unmount();
+  });
+
+  test("clicking character chip X fires onRemoveCharacter", () => {
+    const onRemoveCharacter = jest.fn();
+    const characterMap = new Map([
+      [10, { id: 10, name: "Spike" }],
+    ]);
+    const r = render(
+      createElement(ActiveFiltersBar, {
+        state: {
+          ...EMPTY_FILTER_STATE,
+          includeCharacterIds: [10],
+        },
+        tagMap: TAG_MAP,
+        characterMap,
+        onRemove: jest.fn(),
+        onRemoveCharacter,
+        onClearAll: jest.fn(),
+      }),
+    );
+    const xs = r.container.querySelectorAll("[aria-label^='Remove filter']");
+    expect(xs.length).toBe(1);
+    act(() => {
+      (xs[0] as HTMLElement).dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+    expect(onRemoveCharacter).toHaveBeenCalledWith(10);
     r.unmount();
   });
 });

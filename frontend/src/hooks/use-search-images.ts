@@ -28,7 +28,7 @@ import {
   useQuery,
   UseQueryResult,
 } from "@tanstack/react-query";
-import { AnimeService, SearchService } from "../lib/api";
+import { AnimeService, CharacterService, SearchService } from "../lib/api";
 import { qk } from "../lib/query-keys";
 import type { ImageFile, SearchFilters } from "../types";
 
@@ -62,16 +62,70 @@ async function applyExcludeFilter(
   });
 }
 
+/**
+ * Apply character include/exclude filters client-side using
+ * `CharacterService.GetImageCharacterIDs`.
+ */
+async function applyCharacterFilters(
+  images: ImageFile[],
+  includeCharacterIds: number[],
+  excludeCharacterIds: number[],
+): Promise<ImageFile[]> {
+  if (images.length === 0) return images;
+  if (includeCharacterIds.length === 0 && excludeCharacterIds.length === 0) {
+    return images;
+  }
+
+  const imageIds = images.map((img) => img.id);
+  const charMap = (await CharacterService.GetImageCharacterIDs(imageIds)) as Record<
+    number | string,
+    number[]
+  > | null;
+
+  if (!charMap) return images;
+
+  let result = images;
+
+  // Include filter: keep only images that have ALL included character ids.
+  if (includeCharacterIds.length > 0) {
+    const includeSet = new Set(includeCharacterIds);
+    result = result.filter((img) => {
+      const imageChars: number[] = charMap[img.id] ?? [];
+      return [...includeSet].every((cid) => imageChars.includes(cid));
+    });
+  }
+
+  // Exclude filter: remove images that have ANY excluded character id.
+  if (excludeCharacterIds.length > 0) {
+    const excludeSet = new Set(excludeCharacterIds);
+    result = result.filter((img) => {
+      const imageChars: number[] = charMap[img.id] ?? [];
+      return !imageChars.some((cid) => excludeSet.has(cid));
+    });
+  }
+
+  return result;
+}
+
 export function useSearchImages(
   filters: SearchFilters,
 ): UseQueryResult<ImageFile[]> {
+  const includeCharIds = filters.includeCharacterIds ?? [];
+  const excludeCharIds = filters.excludeCharacterIds ?? [];
+
   return useQuery<ImageFile[]>({
-    queryKey: qk.search({
-      animeId: filters.animeId,
-      includeTagIds: filters.includeTagIds,
-      excludeTagIds: filters.excludeTagIds,
-      sort: filters.sort,
-    }),
+    queryKey: [
+      ...qk.search({
+        animeId: filters.animeId,
+        includeTagIds: filters.includeTagIds,
+        excludeTagIds: filters.excludeTagIds,
+        sort: filters.sort,
+      }),
+      {
+        includeCharacterIds: [...includeCharIds].sort((a, b) => a - b),
+        excludeCharacterIds: [...excludeCharIds].sort((a, b) => a - b),
+      },
+    ],
     queryFn: async () => {
       const includeIds = filters.includeTagIds ?? [];
       const excludeIds = filters.excludeTagIds ?? [];
@@ -105,6 +159,11 @@ export function useSearchImages(
       // excluded tags.
       if (excludeIds.length > 0) {
         images = await applyExcludeFilter(images, excludeIds);
+      }
+
+      // Client-side character filtering.
+      if (includeCharIds.length > 0 || excludeCharIds.length > 0) {
+        images = await applyCharacterFilters(images, includeCharIds, excludeCharIds);
       }
 
       return images;
