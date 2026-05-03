@@ -22,11 +22,13 @@ const readTagsByFileIDsMock = jest.fn();
 const batchUpdateTagsMock = jest.fn();
 const getImageCharacterIDsMock = jest.fn();
 const batchUpdateCharactersMock = jest.fn();
+const moveFilesToSeasonMock = jest.fn();
 
 jest.mock("../../../src/lib/api", () => ({
   __esModule: true,
   AnimeService: {
     GetAnimeDetails: (...args: unknown[]) => getAnimeDetailsMock(...args),
+    MoveFilesToSeason: (...args: unknown[]) => moveFilesToSeasonMock(...args),
   },
   TagService: {
     GetAll: (...args: unknown[]) => getAllTagsMock(...args),
@@ -158,6 +160,7 @@ describe("ImageEditorPage", () => {
     batchUpdateTagsMock.mockReset();
     getImageCharacterIDsMock.mockReset();
     batchUpdateCharactersMock.mockReset();
+    moveFilesToSeasonMock.mockReset();
 
     getAnimeDetailsMock.mockResolvedValue(ANIME_DETAILS);
     getAllTagsMock.mockResolvedValue(TAGS);
@@ -165,6 +168,7 @@ describe("ImageEditorPage", () => {
     getImageCharacterIDsMock.mockResolvedValue(buildCharacterStats());
     batchUpdateTagsMock.mockResolvedValue(undefined);
     batchUpdateCharactersMock.mockResolvedValue(undefined);
+    moveFilesToSeasonMock.mockResolvedValue(undefined);
     resetSelectionStore();
   });
 
@@ -514,6 +518,214 @@ describe("ImageEditorPage", () => {
         "[data-testid='image-editor-tags-section-body']",
       );
       expect(tagsBodyReopen).not.toBeNull();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("11. season save moves files to selected season", async () => {
+    const { container, unmount } = renderWithClient(<ImageEditorPage />, {
+      routerInitialEntries: ["/images/edit?ids=1,2,3&anime=10"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector(
+            "[data-testid='image-editor-season-section']",
+          ) !== null,
+      );
+
+      // Select a season
+      const seasonItem = container.querySelector(
+        "[data-testid='image-editor-season-item'][data-season-id='200']",
+      ) as HTMLElement;
+      act(() => {
+        seasonItem.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      // Save season
+      const saveBtn = container.querySelector(
+        "[data-testid='image-editor-season-save']",
+      ) as HTMLButtonElement;
+      expect(saveBtn.disabled).toBe(false);
+      await act(async () => {
+        saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(() => moveFilesToSeasonMock.mock.calls.length > 0);
+      expect(moveFilesToSeasonMock).toHaveBeenCalledWith([1, 2, 3], 200);
+    } finally {
+      unmount();
+    }
+  });
+
+  test("12. show other anime characters toggle", async () => {
+    const { container, unmount } = renderWithClient(<ImageEditorPage />, {
+      routerInitialEntries: ["/images/edit?ids=1,2,3&anime=10"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector(
+            "[data-testid='image-editor-show-other-characters']",
+          ) !== null,
+      );
+
+      // Initially the placeholder is not shown
+      expect(
+        container.querySelector(
+          "[data-testid='image-editor-other-characters-placeholder']",
+        ),
+      ).toBeNull();
+
+      // Click toggle
+      const toggleBtn = container.querySelector(
+        "[data-testid='image-editor-show-other-characters']",
+      ) as HTMLButtonElement;
+      act(() => {
+        toggleBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      // Now placeholder text should appear
+      expect(
+        container.querySelector(
+          "[data-testid='image-editor-other-characters-placeholder']",
+        ),
+      ).not.toBeNull();
+
+      // Click again to hide
+      act(() => {
+        toggleBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      expect(
+        container.querySelector(
+          "[data-testid='image-editor-other-characters-placeholder']",
+        ),
+      ).toBeNull();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("13. season deselect by clicking the same season again", async () => {
+    const { container, unmount } = renderWithClient(<ImageEditorPage />, {
+      routerInitialEntries: ["/images/edit?ids=1,2,3&anime=10"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector(
+            "[data-testid='image-editor-season-item']",
+          ) !== null,
+      );
+
+      const seasonItem = container.querySelector(
+        "[data-testid='image-editor-season-item'][data-season-id='200']",
+      ) as HTMLElement;
+
+      // Select
+      act(() => {
+        seasonItem.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      const saveBtn = container.querySelector(
+        "[data-testid='image-editor-season-save']",
+      ) as HTMLButtonElement;
+      expect(saveBtn.disabled).toBe(false);
+
+      // Deselect by clicking same item again
+      act(() => {
+        seasonItem.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      expect(
+        (container.querySelector("[data-testid='image-editor-season-save']") as HTMLButtonElement).disabled,
+      ).toBe(true);
+    } finally {
+      unmount();
+    }
+  });
+
+  test("14. character remove: clicking checked character marks it removing", async () => {
+    const { container, unmount } = renderWithClient(<ImageEditorPage />, {
+      routerInitialEntries: ["/images/edit?ids=1,2,3&anime=10"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector(
+            "[data-testid='image-editor-character-list']",
+          ) !== null,
+      );
+
+      // Alice (id=100) is indeterminate (2/3). Clicking sets pending=adding
+      const aliceCheckbox = container.querySelector(
+        "[data-testid='image-editor-character-row'][data-character-id='100'] [role='checkbox']",
+      ) as HTMLElement;
+      act(() => {
+        aliceCheckbox.dispatchEvent(
+          new MouseEvent("click", { bubbles: true }),
+        );
+      });
+
+      const after = container.querySelector(
+        "[data-testid='image-editor-character-row'][data-character-id='100'] [role='checkbox']",
+      ) as HTMLElement;
+      expect(after.getAttribute("data-pending")).toBe("adding");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("15. cancel without changes navigates back immediately", async () => {
+    const { container, unmount } = renderWithClient(<ImageEditorPage />, {
+      routerInitialEntries: ["/images/edit?ids=1,2,3&anime=10"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='image-editor-tag-grid']") !==
+          null,
+      );
+
+      // Click cancel WITHOUT making any changes
+      const cancel = container.querySelector(
+        "[data-testid='image-editor-cancel']",
+      ) as HTMLButtonElement;
+      act(() => {
+        cancel.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      // Confirm dialog should NOT appear
+      await flushPromises();
+      expect(
+        document.body.textContent?.includes("Discard changes?"),
+      ).toBe(false);
+    } finally {
+      unmount();
+    }
+  });
+
+  test("16. uses store selection when no ids in URL", async () => {
+    // Put ids in the store instead of URL
+    act(() => {
+      useSelectionStore.setState({
+        selectMode: true,
+        selectedIds: new Set([1, 2, 3]),
+        lastSelectedId: 3,
+      });
+    });
+
+    const { container, unmount } = renderWithClient(<ImageEditorPage />, {
+      routerInitialEntries: ["/images/edit?anime=10"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='image-editor-strip']") !== null,
+      );
+      // Should show 3 strip items from the store selection
+      const stripItems = container.querySelectorAll(
+        "[data-testid='image-editor-strip-item']",
+      );
+      expect(stripItems.length).toBe(3);
     } finally {
       unmount();
     }

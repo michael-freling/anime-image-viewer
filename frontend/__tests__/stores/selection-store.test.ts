@@ -118,4 +118,41 @@ describe("selection-store", () => {
     expect(state.selectedIds.size).toBe(0);
     expect(state.lastSelectedId).toBeNull();
   });
+
+  describe("enterSelectMode", () => {
+    test("enters select mode without initial id", () => {
+      expect(useSelectionStore.getState().selectMode).toBe(false);
+      useSelectionStore.getState().enterSelectMode();
+      const state = useSelectionStore.getState();
+      expect(state.selectMode).toBe(true);
+      expect(state.selectedIds.size).toBe(0);
+      expect(state.lastSelectedId).toBeNull();
+    });
+
+    test("enters select mode with an initial id", () => {
+      useSelectionStore.getState().enterSelectMode(42);
+      const state = useSelectionStore.getState();
+      expect(state.selectMode).toBe(true);
+      expect(state.selectedIds).toEqual(new Set([42]));
+      expect(state.lastSelectedId).toBe(42);
+    });
+
+    test("already in select mode without id is a no-op", () => {
+      useSelectionStore.getState().enterSelectMode(10);
+      useSelectionStore.getState().enterSelectMode();
+      const state = useSelectionStore.getState();
+      expect(state.selectMode).toBe(true);
+      expect(state.selectedIds).toEqual(new Set([10]));
+      expect(state.lastSelectedId).toBe(10);
+    });
+
+    test("already in select mode with id adds to existing selection", () => {
+      useSelectionStore.getState().enterSelectMode(10);
+      useSelectionStore.getState().enterSelectMode(20);
+      const state = useSelectionStore.getState();
+      expect(state.selectMode).toBe(true);
+      expect(state.selectedIds).toEqual(new Set([10, 20]));
+      expect(state.lastSelectedId).toBe(20);
+    });
+  });
 });

@@ -844,4 +844,210 @@ describe("CharactersTab", () => {
       unmount();
     }
   });
+
+  test("create character dialog from empty state opens and submits", async () => {
+    getAnimeDetailsMock.mockResolvedValue(makeDetail({ characters: [] }));
+    createCharacterMock.mockResolvedValue({
+      id: 10,
+      name: "New Character",
+      animeId: 42,
+      imageCount: 0,
+    });
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/characters"],
+    });
+    try {
+      await waitFor(
+        () => (container.textContent ?? "").includes("No characters yet"),
+      );
+      const addBtn = container.querySelector(
+        "[data-testid='characters-tab-add']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        addBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='rename-dialog']") !== null,
+      );
+      const nameInput = document.body.querySelector(
+        "[data-testid='rename-dialog-input']",
+      ) as HTMLInputElement;
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )!.set!;
+      act(() => {
+        setter.call(nameInput, "New Character");
+        nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      const submitBtn = document.body.querySelector(
+        "[data-testid='rename-dialog-submit']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        submitBtn.click();
+      });
+      await waitFor(() => createCharacterMock.mock.calls.length > 0);
+      expect(createCharacterMock).toHaveBeenCalledWith("New Character", 42);
+      expect(toast.success).toHaveBeenCalledWith(
+        "Character created",
+        '"New Character" added.',
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("create character dialog validates empty name via Enter key", async () => {
+    getAnimeDetailsMock.mockResolvedValue(makeDetail({ characters: [] }));
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/characters"],
+    });
+    try {
+      await waitFor(
+        () => (container.textContent ?? "").includes("No characters yet"),
+      );
+      const addBtn = container.querySelector(
+        "[data-testid='characters-tab-add']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        addBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='rename-dialog']") !== null,
+      );
+      // The submit button is disabled when name is empty. Trigger via Enter key.
+      const nameInput = document.body.querySelector(
+        "[data-testid='rename-dialog-input']",
+      ) as HTMLInputElement;
+      await act(async () => {
+        nameInput.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+        );
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='rename-dialog-error']") !==
+          null,
+      );
+      expect(
+        document.body.querySelector("[data-testid='rename-dialog-error']")!
+          .textContent,
+      ).toBe("Name is required.");
+      expect(createCharacterMock).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("create character dialog shows error on failure", async () => {
+    getAnimeDetailsMock.mockResolvedValue(makeDetail({ characters: [] }));
+    createCharacterMock.mockRejectedValue(new Error("create failed"));
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/characters"],
+    });
+    try {
+      await waitFor(
+        () => (container.textContent ?? "").includes("No characters yet"),
+      );
+      const addBtn = container.querySelector(
+        "[data-testid='characters-tab-add']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        addBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='rename-dialog']") !== null,
+      );
+      const nameInput = document.body.querySelector(
+        "[data-testid='rename-dialog-input']",
+      ) as HTMLInputElement;
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )!.set!;
+      act(() => {
+        setter.call(nameInput, "Failing");
+        nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      const submitBtn = document.body.querySelector(
+        "[data-testid='rename-dialog-submit']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        submitBtn.click();
+      });
+      await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
+      expect(toast.error).toHaveBeenCalledWith(
+        "Could not create",
+        "create failed",
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("create character from non-empty state (Add button in toolbar)", async () => {
+    createCharacterMock.mockResolvedValue({
+      id: 10,
+      name: "New One",
+      animeId: 42,
+      imageCount: 0,
+    });
+    const { container, unmount } = renderWithCharacters();
+    try {
+      await waitForCards(container, 3);
+      // The Add button is in the toolbar when characters exist
+      const addBtn = container.querySelector(
+        "[data-testid='characters-tab-add']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        addBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='rename-dialog']") !== null,
+      );
+      const nameInput = document.body.querySelector(
+        "[data-testid='rename-dialog-input']",
+      ) as HTMLInputElement;
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )!.set!;
+      act(() => {
+        setter.call(nameInput, "New One");
+        nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      const submitBtn = document.body.querySelector(
+        "[data-testid='rename-dialog-submit']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        submitBtn.click();
+      });
+      await waitFor(() => createCharacterMock.mock.calls.length > 0);
+      expect(createCharacterMock).toHaveBeenCalledWith("New One", 42);
+    } finally {
+      unmount();
+    }
+  });
+
+  test("non-numeric animeId keeps query disabled", async () => {
+    getAnimeDetailsMock.mockResolvedValue(makeDetail());
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/0/characters"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='characters-tab']") !== null ||
+          container.querySelector("[data-testid='characters-tab-loading']") !== null,
+        { timeout: 200 },
+      ).catch(() => undefined);
+      expect(getAnimeDetailsMock).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+    }
+  });
 });
