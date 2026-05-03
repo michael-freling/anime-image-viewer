@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 /**
- * Tests for `EntryTab`.
+ * Tests for `SeasonTab`.
  */
 jest.mock("@chakra-ui/react", () =>
   require("../chakra-stub").chakraStubFactory(),
@@ -9,7 +9,7 @@ jest.mock("@chakra-ui/react", () =>
 import { createElement } from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { EntryTab } from "../../../src/components/shared/entry-tab";
+import { SeasonTab } from "../../../src/components/shared/season-tab";
 
 interface Rendered {
   container: HTMLDivElement;
@@ -37,15 +37,15 @@ function render(el: React.ReactElement): Rendered {
   };
 }
 
-describe("EntryTab", () => {
+describe("SeasonTab", () => {
   test("renders the label", () => {
-    const r = render(createElement(EntryTab, { label: "Season 1" }));
+    const r = render(createElement(SeasonTab, { label: "Season 1" }));
     expect(r.container.textContent).toContain("Season 1");
     r.unmount();
   });
 
   test("inactive state: no data-active, aria-selected=false", () => {
-    const r = render(createElement(EntryTab, { label: "All" }));
+    const r = render(createElement(SeasonTab, { label: "All" }));
     const btn = r.container.querySelector("button")!;
     expect(btn.getAttribute("aria-selected")).toBe("false");
     expect(btn.getAttribute("data-active")).toBeNull();
@@ -53,7 +53,7 @@ describe("EntryTab", () => {
   });
 
   test("active state sets data-active and aria-selected=true", () => {
-    const r = render(createElement(EntryTab, { label: "All", active: true }));
+    const r = render(createElement(SeasonTab, { label: "All", active: true }));
     const btn = r.container.querySelector("button")!;
     expect(btn.getAttribute("aria-selected")).toBe("true");
     expect(btn.getAttribute("data-active")).toBe("true");
@@ -62,26 +62,26 @@ describe("EntryTab", () => {
 
   test("count badge renders only when count is provided", () => {
     const r = render(
-      createElement(EntryTab, { label: "All", count: 342 }),
+      createElement(SeasonTab, { label: "All", count: 342 }),
     );
     const badge = r.container.querySelector(
-      "[data-testid='entry-tab-count']",
+      "[data-testid='season-tab-count']",
     );
     expect(badge).not.toBeNull();
     expect(badge!.textContent).toBe("342");
     r.unmount();
 
-    const r2 = render(createElement(EntryTab, { label: "All" }));
+    const r2 = render(createElement(SeasonTab, { label: "All" }));
     expect(
-      r2.container.querySelector("[data-testid='entry-tab-count']"),
+      r2.container.querySelector("[data-testid='season-tab-count']"),
     ).toBeNull();
     r2.unmount();
   });
 
   test("count=0 still renders (per spec: show count when provided)", () => {
-    const r = render(createElement(EntryTab, { label: "All", count: 0 }));
+    const r = render(createElement(SeasonTab, { label: "All", count: 0 }));
     const badge = r.container.querySelector(
-      "[data-testid='entry-tab-count']",
+      "[data-testid='season-tab-count']",
     );
     expect(badge).not.toBeNull();
     expect(badge!.textContent).toBe("0");
@@ -90,7 +90,7 @@ describe("EntryTab", () => {
 
   test("onClick fires on left click", () => {
     const onClick = jest.fn();
-    const r = render(createElement(EntryTab, { label: "All", onClick }));
+    const r = render(createElement(SeasonTab, { label: "All", onClick }));
     const btn = r.container.querySelector("button")!;
     act(() => {
       btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -102,7 +102,7 @@ describe("EntryTab", () => {
   test("onContextMenu fires on right click", () => {
     const onContextMenu = jest.fn();
     const r = render(
-      createElement(EntryTab, { label: "All", onContextMenu }),
+      createElement(SeasonTab, { label: "All", onContextMenu }),
     );
     const btn = r.container.querySelector("button")!;
     act(() => {

@@ -438,12 +438,12 @@ describe("TagManagementPage", () => {
     }
   });
 
-  test("subtitle reports the tag + category count once data loads", async () => {
+  test("header shows the tag count once data loads", async () => {
     getAllTagsMock.mockResolvedValue(TAGS);
     const { container, unmount } = renderWithClient(<TagManagementPage />);
     try {
       await waitFor(() =>
-        (container.textContent ?? "").includes("across 5 categories"),
+        (container.textContent ?? "").includes("4 tags"),
       );
       expect(container.textContent).toContain("4 tags");
     } finally {

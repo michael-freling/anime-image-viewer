@@ -12,6 +12,7 @@
  */
 const searchImagesMock = jest.fn();
 const searchImagesByAnimeMock = jest.fn();
+const getFolderImagesMock = jest.fn();
 const getImageTagIDsMock = jest.fn();
 const getImageCharacterIDsMock = jest.fn();
 jest.mock("../../src/lib/api", () => ({
@@ -22,6 +23,7 @@ jest.mock("../../src/lib/api", () => ({
   AnimeService: {
     SearchImagesByAnime: (...args: unknown[]) =>
       searchImagesByAnimeMock(...args),
+    GetFolderImages: (...args: unknown[]) => getFolderImagesMock(...args),
     GetImageTagIDs: (...args: unknown[]) => getImageTagIDsMock(...args),
   },
   CharacterService: {
@@ -43,6 +45,7 @@ describe("useSearchImages", () => {
   beforeEach(() => {
     searchImagesMock.mockReset();
     searchImagesByAnimeMock.mockReset();
+    getFolderImagesMock.mockReset();
     getImageTagIDsMock.mockReset();
     getImageCharacterIDsMock.mockReset();
   });
@@ -461,6 +464,57 @@ describe("useSearchImages", () => {
     // have the included character. Only 110 survives.
     expect(result.current.data).toHaveLength(1);
     expect(result.current.data?.[0]?.id).toBe(110);
+    unmount();
+  });
+
+  // ---- Season (folder) filter tests ----
+
+  test("fetches season-scoped images when animeId and seasonId are set", async () => {
+    getFolderImagesMock.mockResolvedValue({
+      images: [{ id: 200, name: "s1.png", path: "s1.png" }],
+    });
+    const filters: SearchFilters = { animeId: 7, seasonId: 42 };
+    const { result, unmount } = renderHookWithClient(() =>
+      useSearchImages(filters),
+    );
+    await waitFor(() => result.current.isSuccess);
+    expect(getFolderImagesMock).toHaveBeenCalledWith(42, true);
+    expect(searchImagesByAnimeMock).not.toHaveBeenCalled();
+    expect(searchImagesMock).not.toHaveBeenCalled();
+    expect(result.current.data).toHaveLength(1);
+    expect(result.current.data?.[0]?.id).toBe(200);
+    unmount();
+  });
+
+  test("seasonId is ignored when include tags are present", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [{ id: 201, name: "t.png", path: "t.png" }],
+    });
+    const filters: SearchFilters = {
+      animeId: 7,
+      seasonId: 42,
+      includeTagIds: [1],
+    };
+    const { result, unmount } = renderHookWithClient(() =>
+      useSearchImages(filters),
+    );
+    await waitFor(() => result.current.isSuccess);
+    // When include tags are set, the tag-driven search takes precedence.
+    expect(searchImagesMock).toHaveBeenCalledWith({ tagId: 1 });
+    expect(getFolderImagesMock).not.toHaveBeenCalled();
+    expect(result.current.data?.[0]?.id).toBe(201);
+    unmount();
+  });
+
+  test("seasonId without animeId falls back to tag search", async () => {
+    const filters: SearchFilters = { seasonId: 42, includeTagIds: [5] };
+    searchImagesMock.mockResolvedValue({ images: [] });
+    const { result, unmount } = renderHookWithClient(() =>
+      useSearchImages(filters),
+    );
+    await waitFor(() => result.current.isSuccess);
+    expect(searchImagesMock).toHaveBeenCalledWith({ tagId: 5 });
+    expect(getFolderImagesMock).not.toHaveBeenCalled();
     unmount();
   });
 });

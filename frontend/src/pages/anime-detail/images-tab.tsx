@@ -5,38 +5,30 @@
  * (Select Mode).
  *
  * Responsibilities:
- *   - Entry sub-filter row (All + one chip per entry) using EntryTab.
- *   - Client-side filename filter via SearchBar.
- *   - ImageGrid (masonry) with lazy loading + srcset.
+ *   - Simple toolbar with Search (navigates to search page) and Upload buttons.
+ *   - ImageGrid (masonry) showing ALL images for the anime.
  *   - Select mode: button toggle, SelectionActionBar, RubberBandOverlay.
  *   - Loading skeletons, error alert, empty state.
- *
- * Why the grid owns `containerRef`: RubberBandOverlay reads DOM nodes with
- * `[data-image-id]` inside its container to hit-test pending selection. The
- * ImageThumbnail wrapper uses `data-file-id` internally, so we wrap each
- * tile with an outer Box that carries `data-image-id` — kept in sync with
- * the ImageGrid render prop so the overlay's pending computation picks up
- * every tile.
  */
 import { Box, Button, Flex, Stack } from "@chakra-ui/react";
-import { ImageOff, Upload, CheckSquare } from "lucide-react";
+import { ImageOff, Search, Upload } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 
 import { ImageViewerOverlay } from "../../components/image-viewer";
 import { EmptyState } from "../../components/shared/empty-state";
-import { EntryTab } from "../../components/shared/entry-tab";
 import { ErrorAlert } from "../../components/shared/error-alert";
 import { ImageGrid } from "../../components/shared/image-grid";
 import { ImageThumbnailSkeleton } from "../../components/shared/loading-skeleton";
-import { SearchBar } from "../../components/shared/search-bar";
 import { RubberBandOverlay } from "../../components/selection/rubber-band-overlay";
 import { SelectionActionBar } from "../../components/selection/selection-action-bar";
 import { useAnimeDetail } from "../../hooks/use-anime-detail";
 import { useAnimeImages } from "../../hooks/use-anime-images";
+import { useImageImport } from "../../hooks/use-image-import";
 import { useImageSelection } from "../../hooks/use-image-selection";
+import { qk } from "../../lib/query-keys";
 import { useSelectionStore } from "../../stores/selection-store";
-import type { Entry, ImageFile } from "../../types";
+import type { ImageFile } from "../../types";
 
 function parseAnimeId(raw: string | undefined): number {
   if (!raw) return 0;
@@ -44,58 +36,13 @@ function parseAnimeId(raw: string | undefined): number {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-/**
- * Flatten an entry tree into a flat list: top-level entries first, each
- * followed by their children. The UI shows the tree as a single scroll of
- * chips, but child entries still render as their own filter.
- */
-function flattenEntries(entries: Entry[] | undefined): Entry[] {
-  if (!entries) return [];
-  const out: Entry[] = [];
-  for (const e of entries) {
-    out.push(e);
-    if (e.children && e.children.length > 0) {
-      for (const child of e.children) {
-        out.push(child);
-      }
-    }
-  }
-  return out;
-}
-
-function entryLabel(entry: Entry): string {
-  if (entry.name) return entry.name;
-  if (entry.type === "season" && entry.entryNumber != null) {
-    return `Season ${entry.entryNumber}`;
-  }
-  if (entry.type === "movie" && entry.entryNumber != null) {
-    return `Movie (${entry.entryNumber})`;
-  }
-  return `Entry #${entry.id}`;
-}
-
 export function ImagesTab(): JSX.Element {
   const navigate = useNavigate();
   const { animeId: rawId } = useParams<{ animeId: string }>();
   const animeId = parseAnimeId(rawId);
 
-  const [searchParams, setSearchParams] = useSearchParams();
-  const rawEntryParam = searchParams.get("entry");
-  const entryIdFromUrl = rawEntryParam ? Number(rawEntryParam) : null;
-  const selectedEntryId =
-    entryIdFromUrl && Number.isFinite(entryIdFromUrl) && entryIdFromUrl > 0
-      ? entryIdFromUrl
-      : null;
-
   const detailQuery = useAnimeDetail(animeId);
-  const imagesQuery = useAnimeImages(animeId, selectedEntryId);
-
-  const entries = useMemo(
-    () => flattenEntries(detailQuery.data?.entries),
-    [detailQuery.data],
-  );
-
-  const [filterText, setFilterText] = useState("");
+  const imagesQuery = useAnimeImages(animeId);
 
   // Image viewer overlay state.
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -110,21 +57,10 @@ export function ImagesTab(): JSX.Element {
     setViewerIndex(nextIndex);
   }, []);
 
-  // Filter images client-side by filename.
-  const filteredImages = useMemo<ImageFile[]>(() => {
-    const all = imagesQuery.data ?? [];
-    if (!filterText.trim()) return all;
-    const needle = filterText.trim().toLowerCase();
-    return all.filter((img) => img.name.toLowerCase().includes(needle));
-  }, [imagesQuery.data, filterText]);
-
-  const visibleIds = useMemo(
-    () => filteredImages.map((img) => img.id),
-    [filteredImages],
-  );
+  const images = imagesQuery.data ?? [];
+  const visibleIds = useMemo(() => images.map((img) => img.id), [images]);
 
   const selectMode = useSelectionStore((s) => s.selectMode);
-  const toggleSelectMode = useSelectionStore((s) => s.toggleSelectMode);
   const setSelected = useSelectionStore((s) => s.setSelected);
 
   const [pendingIds, setPendingIds] = useState<Set<number>>(new Set());
@@ -132,21 +68,15 @@ export function ImagesTab(): JSX.Element {
 
   const gridContainerRef = useRef<HTMLDivElement>(null);
 
-  const handleEntryClick = (entryId: number | null) => {
-    if (entryId === null) {
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.delete("entry");
-        return next;
-      });
-    } else {
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set("entry", String(entryId));
-        return next;
-      });
-    }
-  };
+  const { importImages } = useImageImport();
+
+  const handleUpload = useCallback(async () => {
+    const folderId = detailQuery.data?.folders?.[0]?.id;
+    if (!folderId) return;
+    const label = detailQuery.data?.anime.name ?? "Anime";
+    await importImages(folderId, label, qk.anime.detail(animeId));
+    await imagesQuery.refetch();
+  }, [detailQuery.data, animeId, importImages, imagesQuery]);
 
   const handleImageClick = (image: ImageFile, event: React.MouseEvent) => {
     if (selectMode) {
@@ -161,13 +91,20 @@ export function ImagesTab(): JSX.Element {
       return;
     }
     // Open the full-screen image viewer at the clicked image's position.
-    const clickedIndex = filteredImages.findIndex((img) => img.id === image.id);
+    const clickedIndex = images.findIndex((img) => img.id === image.id);
     if (clickedIndex < 0) return;
     // Capture the clicked element so focus can return to it on close.
     returnFocusRef.current = event.currentTarget as HTMLElement;
     setViewerIndex(clickedIndex);
     setViewerOpen(true);
   };
+
+  const handleLongPress = useCallback(
+    (image: ImageFile) => {
+      useSelectionStore.getState().enterSelectMode(image.id);
+    },
+    [],
+  );
 
   const handleRubberBandCommit = (
     finalIds: Set<number>,
@@ -187,7 +124,7 @@ export function ImagesTab(): JSX.Element {
 
   const isLoading = imagesQuery.isLoading;
   const hasError = imagesQuery.isError;
-  const hasImages = filteredImages.length > 0;
+  const hasImages = images.length > 0;
 
   return (
     <Box
@@ -202,68 +139,43 @@ export function ImagesTab(): JSX.Element {
     >
       <SelectionActionBar
         visibleIds={visibleIds}
-        totalVisible={filteredImages.length}
+        totalVisible={images.length}
+        onEdit={() => navigate(`/images/edit?anime=${animeId}`)}
         onEditTags={() => navigate("/images/edit/tags")}
       />
 
-      {/* Entry sub-filter row (ui-design §3.2.1). */}
-      {entries.length > 0 ? (
-        <Flex
-          as="nav"
-          role="tablist"
-          aria-label="Entries filter"
-          data-testid="entry-filter-row"
-          gap="2"
-          py="2"
-          wrap="wrap"
-        >
-          <EntryTab
-            label="All episodes"
-            count={imagesQuery.data?.length}
-            active={selectedEntryId === null}
-            onClick={() => handleEntryClick(null)}
-          />
-          {entries.map((entry) => (
-            <EntryTab
-              key={entry.id}
-              label={entryLabel(entry)}
-              count={entry.imageCount}
-              active={selectedEntryId === entry.id}
-              onClick={() => handleEntryClick(entry.id)}
-            />
-          ))}
-        </Flex>
-      ) : null}
-
-      {/* Toolbar: search + select toggle */}
+      {/* Toolbar: Search + Upload */}
       <Flex
         data-testid="images-tab-toolbar"
         align="center"
         gap="3"
         py="2"
-        direction={{ base: "column", md: "row" }}
       >
-        <Box flex="1" width="100%" minW={0}>
-          <SearchBar
-            value={filterText}
-            onChange={setFilterText}
-            placeholder="Filter by filename"
-            size="md"
-          />
-        </Box>
         <Button
           type="button"
           size="sm"
-          variant={selectMode ? "solid" : "outline"}
-          onClick={() => toggleSelectMode()}
-          data-testid="images-tab-select-toggle"
-          aria-pressed={selectMode}
-          aria-label={selectMode ? "Exit select mode" : "Enter select mode"}
+          variant="outline"
+          onClick={() => navigate(`/search?anime=${animeId}`)}
+          data-testid="images-tab-search"
+          aria-label="Search images"
         >
           <Box as="span" aria-hidden="true" display="inline-flex" mr="2">
-            <CheckSquare size={14} />
+            <Search size={14} />
           </Box>
-          {selectMode ? "Selecting…" : "Select"}
+          Search
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={handleUpload}
+          data-testid="images-tab-upload"
+          aria-label="Upload images"
+        >
+          <Box as="span" aria-hidden="true" display="inline-flex" mr="2">
+            <Upload size={14} />
+          </Box>
+          Upload
         </Button>
       </Flex>
 
@@ -296,27 +208,9 @@ export function ImagesTab(): JSX.Element {
       ) : !hasImages ? (
         <EmptyState
           icon={ImageOff}
-          title={filterText ? "No matching images" : "No images yet"}
-          description={
-            filterText
-              ? `Nothing matches "${filterText}". Clear the filter to see all images.`
-              : "Upload images or import folders to fill this anime."
-          }
-          action={
-            !filterText ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="solid"
-                data-testid="images-tab-empty-upload"
-              >
-                <Box as="span" aria-hidden="true" display="inline-flex" mr="2">
-                  <Upload size={14} />
-                </Box>
-                Upload images
-              </Button>
-            ) : null
-          }
+          title="No images yet"
+          description="Upload images or import folders to fill this anime."
+          action={null}
         />
       ) : (
         <Box
@@ -327,11 +221,12 @@ export function ImagesTab(): JSX.Element {
           minHeight="0"
         >
           <ImageGrid
-            images={filteredImages}
+            images={images}
             selectedIds={selection.selectedIds}
             pendingIds={pendingIds}
             selectMode={selectMode}
             onImageClick={handleImageClick}
+            onLongPress={handleLongPress}
           />
           {selectMode ? (
             <RubberBandOverlay
@@ -345,7 +240,7 @@ export function ImagesTab(): JSX.Element {
 
       <ImageViewerOverlay
         open={viewerOpen}
-        images={filteredImages}
+        images={images}
         currentIndex={viewerIndex}
         onIndexChange={handleViewerIndexChange}
         onClose={handleViewerClose}

@@ -31,6 +31,7 @@ const CATEGORY_LABELS: Record<TagCategoryKey, string> = {
   nature: "Nature / Weather",
   location: "Location",
   mood: "Mood / Genre",
+  character: "Character",
   uncategorized: "Uncategorized",
 };
 
@@ -88,8 +89,7 @@ export function TagPicker({
     return (
       <Box
         data-testid="tag-picker-empty"
-        px={{ base: "4", md: "6" }}
-        py="6"
+        py="3"
         color="fg.muted"
         fontSize="sm"
       >
@@ -101,8 +101,7 @@ export function TagPicker({
   return (
     <Box
       data-testid="tag-picker"
-      px={{ base: "4", md: "6" }}
-      py="4"
+      py="3"
     >
       <Box mb="3">
         <Text

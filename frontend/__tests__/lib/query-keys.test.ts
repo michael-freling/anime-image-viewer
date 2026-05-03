@@ -13,26 +13,26 @@ describe("query-keys", () => {
       expect(qk.anime.list()).toEqual(["anime", "list"]);
     });
 
-    test("images without entryId omits the entry segment", () => {
+    test("images without seasonId omits the season segment", () => {
       expect(qk.anime.images(7)).toEqual(["anime", "images", 7]);
     });
 
-    test("images with null entryId omits the entry segment", () => {
+    test("images with null seasonId omits the season segment", () => {
       expect(qk.anime.images(7, null)).toEqual(["anime", "images", 7]);
     });
 
-    test("images with entryId includes it", () => {
+    test("images with seasonId includes it", () => {
       expect(qk.anime.images(7, 3)).toEqual([
         "anime",
         "images",
         7,
-        "entry",
+        "season",
         3,
       ]);
     });
 
-    test("entries and characters keys are anime-scoped", () => {
-      expect(qk.anime.entries(1)).toEqual(["anime", "entries", 1]);
+    test("seasons and characters keys are anime-scoped", () => {
+      expect(qk.anime.seasons(1)).toEqual(["anime", "seasons", 1]);
       expect(qk.anime.characters(1)).toEqual(["anime", "characters", 1]);
     });
   });

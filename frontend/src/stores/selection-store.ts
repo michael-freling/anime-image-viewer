@@ -42,6 +42,17 @@ export interface SelectionState {
 
   /** Clear the selection. Does not exit select mode. */
   clearSelection: () => void;
+
+  /**
+   * Atomically enter select mode and optionally select an initial item.
+   * Used for long-press gesture support (long-press → enters select mode
+   * with that image selected).
+   *
+   * - If already in select mode with an `initialId`, adds the item to the
+   *   existing selection and updates the anchor.
+   * - If not in select mode, enables it and optionally seeds the selection.
+   */
+  enterSelectMode: (initialId?: number) => void;
 }
 
 export const useSelectionStore = create<SelectionState>()((set) => ({
@@ -105,4 +116,26 @@ export const useSelectionStore = create<SelectionState>()((set) => ({
 
   clearSelection: () =>
     set({ selectedIds: new Set<number>(), lastSelectedId: null }),
+
+  enterSelectMode: (initialId) =>
+    set((state) => {
+      if (state.selectMode) {
+        // Already in select mode – just add the item if provided.
+        if (initialId != null) {
+          const next = new Set(state.selectedIds);
+          next.add(initialId);
+          return { selectedIds: next, lastSelectedId: initialId };
+        }
+        return state;
+      }
+      // Entering select mode.
+      if (initialId != null) {
+        return {
+          selectMode: true,
+          selectedIds: new Set<number>([initialId]),
+          lastSelectedId: initialId,
+        };
+      }
+      return { selectMode: true };
+    }),
 }));

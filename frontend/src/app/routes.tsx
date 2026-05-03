@@ -20,14 +20,21 @@ import RootErrorPage from "../RootErrorPage";
 import { AppShell } from "../components/layout/app-shell";
 import { AnimeDetailLayout } from "../pages/anime-detail";
 import { CharactersTab } from "../pages/anime-detail/characters-tab";
-import { EntriesTab } from "../pages/anime-detail/entries-tab";
+import { SeasonsTab } from "../pages/anime-detail/seasons-tab";
 import { ImagesTab } from "../pages/anime-detail/images-tab";
 import { InfoTab } from "../pages/anime-detail/info-tab";
 import { TagsTab } from "../pages/anime-detail/tags-tab";
 import { HomePage } from "../pages/home";
+import { ImageEditorPage } from "../pages/image-editor";
 import { ImageTagEditorPage } from "../pages/image-tag-editor";
 import { SearchPage } from "../pages/search";
-import { SettingsPage } from "../pages/settings";
+import {
+  SettingsLayout,
+  GeneralSection,
+  AppearanceSection,
+  BackupSection,
+  AboutSection,
+} from "../pages/settings";
 import { TagManagementPage } from "../pages/tags";
 
 /**
@@ -53,14 +60,19 @@ export const ROUTE_PATHS = {
   home: "/",
   animeDetail: "/anime/:animeId",
   animeImages: "/anime/:animeId/images",
-  animeEntries: "/anime/:animeId/entries",
+  animeSeasons: "/anime/:animeId/seasons",
   animeCharacters: "/anime/:animeId/characters",
   animeTags: "/anime/:animeId/tags",
   animeInfo: "/anime/:animeId/info",
   search: "/search",
   tags: "/tags",
+  imagesEdit: "/images/edit",
   imagesEditTags: "/images/edit/tags",
   settings: "/settings",
+  settingsGeneral: "/settings/general",
+  settingsAppearance: "/settings/appearance",
+  settingsBackup: "/settings/backup",
+  settingsAbout: "/settings/about",
 } as const;
 
 /**
@@ -80,7 +92,7 @@ export const routes = [
         children: [
           { index: true, element: <Navigate to="images" replace /> },
           { path: "images", element: <ImagesTab /> },
-          { path: "entries", element: <EntriesTab /> },
+          { path: "seasons", element: <SeasonsTab /> },
           { path: "characters", element: <CharactersTab /> },
           { path: "tags", element: <TagsTab /> },
           { path: "info", element: <InfoTab /> },
@@ -88,8 +100,19 @@ export const routes = [
       },
       { path: "search", element: <SearchPage /> },
       { path: "tags", element: <TagManagementPage /> },
+      { path: "images/edit", element: <ImageEditorPage /> },
       { path: "images/edit/tags", element: <ImageTagEditorPage /> },
-      { path: "settings", element: <SettingsPage /> },
+      {
+        path: "settings",
+        element: <SettingsLayout />,
+        children: [
+          { index: true, element: <Navigate to="general" replace /> },
+          { path: "general", element: <GeneralSection /> },
+          { path: "appearance", element: <AppearanceSection /> },
+          { path: "backup", element: <BackupSection /> },
+          { path: "about", element: <AboutSection /> },
+        ],
+      },
     ],
   },
 ];

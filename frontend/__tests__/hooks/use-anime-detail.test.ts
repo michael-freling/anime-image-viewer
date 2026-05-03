@@ -59,20 +59,20 @@ describe("useAnimeDetail", () => {
     const { result, unmount } = renderHookWithClient(() => useAnimeDetail(9));
     await waitFor(() => result.current.isSuccess);
     expect(getAnimeDetailsMock).toHaveBeenCalledWith(9);
-    expect(result.current.data).toEqual(payload);
+    expect(result.current.data).toEqual({ ...payload, seasons: [] });
     unmount();
   });
 
-  test("normalises entry payloads — unknown entryType falls back to 'other'", async () => {
+  test("normalises season payloads — unknown entryType falls back to 'other'", async () => {
     getAnimeDetailsMock.mockResolvedValue({
       anime: { id: 1, name: "X", aniListId: null },
       tags: [],
       folders: [],
       folderTree: null,
       entries: [
-        // entryType: "specials" is NOT in the union → narrows to "other".
+        // entryType: "specials" is NOT in the union -> narrows to "other".
         { id: 1, name: "Specials", entryType: "specials", imageCount: 0 },
-        // entryType missing → "other".
+        // entryType missing -> "other".
         { id: 2, name: "No type", imageCount: 0 },
         // legacy `type` field is honoured for backward compat.
         { id: 3, name: "Movie", type: "movie", imageCount: 0 },
@@ -80,50 +80,50 @@ describe("useAnimeDetail", () => {
     });
     const { result, unmount } = renderHookWithClient(() => useAnimeDetail(1));
     await waitFor(() => result.current.isSuccess);
-    const entries = result.current.data!.entries;
-    expect(entries.map((e) => e.type)).toEqual(["other", "other", "movie"]);
+    const seasons = result.current.data!.seasons;
+    expect(seasons.map((s) => s.type)).toEqual(["other", "other", "movie"]);
     unmount();
   });
 
-  test("entries default to safe defaults when individual fields are missing", async () => {
+  test("seasons default to safe defaults when individual fields are missing", async () => {
     getAnimeDetailsMock.mockResolvedValue({
       anime: { id: 1, name: "X", aniListId: null },
       tags: [],
       folders: [],
       folderTree: null,
       entries: [
-        // Almost everything missing — mapEntry should fill in defaults.
+        // Almost everything missing — mapSeason should fill in defaults.
         {},
       ],
     });
     const { result, unmount } = renderHookWithClient(() => useAnimeDetail(1));
     await waitFor(() => result.current.isSuccess);
-    const entry = result.current.data!.entries[0];
-    expect(entry.id).toBe(0);
-    expect(entry.name).toBe("");
-    expect(entry.type).toBe("other");
-    expect(entry.entryNumber).toBeNull();
-    expect(entry.airingSeason).toBe("");
-    expect(entry.airingYear).toBeNull();
-    expect(entry.imageCount).toBe(0);
-    expect(entry.children).toEqual([]);
+    const season = result.current.data!.seasons[0];
+    expect(season.id).toBe(0);
+    expect(season.name).toBe("");
+    expect(season.type).toBe("other");
+    expect(season.seasonNumber).toBeNull();
+    expect(season.airingSeason).toBe("");
+    expect(season.airingYear).toBeNull();
+    expect(season.imageCount).toBe(0);
+    expect(season.children).toEqual([]);
     unmount();
   });
 
-  test("entries with a non-array children field are mapped to []", async () => {
+  test("seasons with a non-array children field are mapped to []", async () => {
     getAnimeDetailsMock.mockResolvedValue({
       anime: { id: 1, name: "X", aniListId: null },
       tags: [],
       folders: [],
       folderTree: null,
       entries: [
-        // children: null → empty array, not a crash.
+        // children: null -> empty array, not a crash.
         { id: 1, name: "S1", entryType: "season", children: null },
       ],
     });
     const { result, unmount } = renderHookWithClient(() => useAnimeDetail(1));
     await waitFor(() => result.current.isSuccess);
-    expect(result.current.data!.entries[0].children).toEqual([]);
+    expect(result.current.data!.seasons[0].children).toEqual([]);
     unmount();
   });
 
@@ -148,7 +148,7 @@ describe("useAnimeDetail", () => {
     });
     const { result, unmount } = renderHookWithClient(() => useAnimeDetail(1));
     await waitFor(() => result.current.isSuccess);
-    const child = result.current.data!.entries[0].children[0];
+    const child = result.current.data!.seasons[0].children[0];
     expect(child.id).toBe(2);
     expect(child.type).toBe("season");
     unmount();
@@ -165,7 +165,7 @@ describe("useAnimeDetail", () => {
     });
     const { result, unmount } = renderHookWithClient(() => useAnimeDetail(1));
     await waitFor(() => result.current.isSuccess);
-    expect(result.current.data!.entries).toEqual([]);
+    expect(result.current.data!.seasons).toEqual([]);
     unmount();
   });
 });

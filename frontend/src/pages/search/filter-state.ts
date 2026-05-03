@@ -32,6 +32,8 @@ export interface SearchFilterState {
   excludeCharacterIds: number[];
   /** Anime id to scope the search to; null means "all anime". */
   animeId: number | null;
+  /** Season (folder) id to narrow results within the anime; null means "all seasons". */
+  seasonId: number | null;
 }
 
 export const EMPTY_FILTER_STATE: SearchFilterState = Object.freeze({
@@ -41,6 +43,7 @@ export const EMPTY_FILTER_STATE: SearchFilterState = Object.freeze({
   includeCharacterIds: [],
   excludeCharacterIds: [],
   animeId: null,
+  seasonId: null,
 }) as SearchFilterState;
 
 const QUERY_KEY = "q";
@@ -49,6 +52,7 @@ const EXCLUDE_KEY = "exclude";
 const INCLUDE_CHAR_KEY = "char";
 const EXCLUDE_CHAR_KEY = "excludeChar";
 const ANIME_KEY = "anime";
+const SEASON_KEY = "season";
 
 function parseIdList(raw: string | null): number[] {
   if (!raw) return [];
@@ -91,6 +95,7 @@ export function filterStateFromSearchParams(
     includeCharacterIds: parseIdList(params.get(INCLUDE_CHAR_KEY)),
     excludeCharacterIds: parseIdList(params.get(EXCLUDE_CHAR_KEY)),
     animeId: parseAnimeId(params.get(ANIME_KEY)),
+    seasonId: parseAnimeId(params.get(SEASON_KEY)),
   };
 }
 
@@ -113,6 +118,7 @@ export function filterStateToSearchParams(
   if (state.excludeCharacterIds.length > 0)
     out[EXCLUDE_CHAR_KEY] = state.excludeCharacterIds.join(",");
   if (state.animeId != null) out[ANIME_KEY] = String(state.animeId);
+  if (state.seasonId != null) out[SEASON_KEY] = String(state.seasonId);
   return out;
 }
 
@@ -124,7 +130,8 @@ export function isEmptyFilterState(state: SearchFilterState): boolean {
     state.excludeIds.length === 0 &&
     state.includeCharacterIds.length === 0 &&
     state.excludeCharacterIds.length === 0 &&
-    state.animeId == null
+    state.animeId == null &&
+    state.seasonId == null
   );
 }
 

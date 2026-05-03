@@ -15,9 +15,11 @@
  *   - Show `emptyState` when there are no images.
  */
 import { Box } from "@chakra-ui/react";
+import { useCallback } from "react";
 import { AutoSizer } from "react-virtualized-auto-sizer";
 import { FixedSizeGrid, type GridChildComponentProps } from "react-window";
 
+import { useLongPress } from "../../hooks/use-long-press";
 import type { ImageFile } from "../../types";
 
 import { ImageThumbnail } from "./image-thumbnail";
@@ -51,6 +53,8 @@ export interface ImageGridProps {
   selectMode?: boolean;
   /** Click handler for a single image. Receives the native event. */
   onImageClick?: (image: ImageFile, event: React.MouseEvent) => void;
+  /** Long-press handler for a single image (used to enter select mode). */
+  onLongPress?: (image: ImageFile) => void;
   columnsByBreakpoint?: ColumnsByBreakpoint;
   /**
    * Layout variant. Kept for API compatibility with callers that pass it,
@@ -98,8 +102,60 @@ interface CellData {
   pendingIds?: ReadonlySet<number>;
   selectMode: boolean;
   onImageClick?: (image: ImageFile, event: React.MouseEvent) => void;
+  onLongPress?: (image: ImageFile) => void;
   sizes?: string;
   columnWidth: number;
+}
+
+/** Wrapper that attaches long-press handlers to a thumbnail cell. */
+function CellThumbnail({
+  image,
+  thumbSize,
+  selected,
+  pending,
+  selectMode,
+  sizes,
+  onImageClick,
+  onLongPress,
+}: {
+  image: ImageFile;
+  thumbSize: number;
+  selected: boolean;
+  pending: boolean;
+  selectMode: boolean;
+  sizes?: string;
+  onImageClick?: (image: ImageFile, event: React.MouseEvent) => void;
+  onLongPress?: (image: ImageFile) => void;
+}): JSX.Element {
+  const handleLongPress = useCallback(() => {
+    onLongPress?.(image);
+  }, [onLongPress, image]);
+
+  const longPressHandlers = useLongPress({ onLongPress: handleLongPress });
+
+  return (
+    <div
+      {...longPressHandlers}
+      style={{ touchAction: "none" }}
+    >
+      <ImageThumbnail
+        image={image}
+        width={thumbSize}
+        height={thumbSize}
+        selected={selected}
+        rubberBandPending={pending}
+        selectMode={selectMode}
+        sizes={sizes}
+        onClick={
+          onImageClick
+            ? (event) => {
+                onImageClick(image, event as React.MouseEvent);
+              }
+            : undefined
+        }
+      />
+    </div>
+  );
 }
 
 /** A single cell in the virtualized grid. */
@@ -116,6 +172,7 @@ function Cell({
     pendingIds,
     selectMode,
     onImageClick,
+    onLongPress,
     sizes,
     columnWidth,
   } = data;
@@ -144,21 +201,15 @@ function Cell({
 
   return (
     <div style={innerStyle}>
-      <ImageThumbnail
+      <CellThumbnail
         image={image}
-        width={thumbSize}
-        height={thumbSize}
+        thumbSize={thumbSize}
         selected={selected}
-        rubberBandPending={pending}
+        pending={pending}
         selectMode={selectMode}
         sizes={sizes}
-        onClick={
-          onImageClick
-            ? (event) => {
-                onImageClick(image, event as React.MouseEvent);
-              }
-            : undefined
-        }
+        onImageClick={onImageClick}
+        onLongPress={onLongPress}
       />
     </div>
   );
@@ -170,6 +221,7 @@ export function ImageGrid({
   pendingIds,
   selectMode = false,
   onImageClick,
+  onLongPress,
   layout = "masonry",
   emptyState,
   sizes,
@@ -210,6 +262,7 @@ export function ImageGrid({
             pendingIds,
             selectMode,
             onImageClick,
+            onLongPress,
             sizes,
             columnWidth,
           };

@@ -15,10 +15,11 @@ export type TagCategoryKey =
   | "nature"
   | "location"
   | "mood"
+  | "character"
   | "uncategorized";
 
-/** Entry kind, matching db.EntryType{Season,Movie,Other}. */
-export type EntryType = "season" | "movie" | "other";
+/** Season kind, matching db.SeasonType{Season,Movie,Other}. */
+export type SeasonType = "season" | "movie" | "other";
 
 /**
  * Home list row. Mirrors `frontend.AnimeListItem`.
@@ -84,20 +85,20 @@ export interface AnimeFolderTreeNode {
 }
 
 /**
- * Structured entry under an anime (season/movie/other). Mirrors
- * `frontend.AnimeEntryInfo`.
+ * Structured season under an anime (season/movie/other). Mirrors
+ * `frontend.AnimeSeasonInfo`.
  */
-export interface Entry {
+export interface Season {
   id: number;
   name: string;
-  /** Narrowed to the valid entry-type keys we consume in the UI. */
-  type: EntryType;
+  /** Narrowed to the valid season-type keys we consume in the UI. */
+  type: SeasonType;
   /** Season number or release year, depending on `type`. */
-  entryNumber: number | null;
+  seasonNumber: number | null;
   airingSeason: string;
   airingYear: number | null;
   imageCount: number;
-  children: Entry[];
+  children: Season[];
 }
 
 /**
@@ -109,7 +110,7 @@ export interface AnimeDetail {
   characters: AnimeCharacter[];
   folders: AnimeFolder[];
   folderTree: AnimeFolderTreeNode | null;
-  entries: Entry[];
+  seasons: Season[];
 }
 
 /**
@@ -165,6 +166,7 @@ export interface Character {
 /** Anime-scoped search filters posted to the search endpoints. */
 export interface SearchFilters {
   animeId?: number;
+  seasonId?: number;
   includeTagIds?: number[];
   excludeTagIds?: number[];
   includeCharacterIds?: number[];

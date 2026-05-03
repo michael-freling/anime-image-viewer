@@ -1,11 +1,11 @@
 /**
- * EntriesTab -- list and management of entries (seasons, movies, parts) for an
+ * SeasonsTab -- list and management of seasons (seasons, movies, parts) for an
  * anime. Spec: ux-design.md section 3.2.2.
  *
  * Features:
- *   - Renders entries with type badge, name, airing info, image count.
- *   - Clicking a row navigates to Images tab filtered to that entry.
- *   - "Add entry" button opens a dialog to create a new entry.
+ *   - Renders seasons with type badge, name, airing info, image count.
+ *   - Clicking a row navigates to Images tab filtered to that season.
+ *   - "Add season" button opens a dialog to create a new season.
  *   - Per-row edit button opens a dialog to rename / change type / airing.
  *   - Per-row delete button shows a confirmation dialog, then deletes.
  */
@@ -38,16 +38,16 @@ import { useAnimeDetail } from "../../hooks/use-anime-detail";
 import { useImageImport } from "../../hooks/use-image-import";
 import { qk } from "../../lib/query-keys";
 import {
-  useCreateEntry,
-  useDeleteEntry,
-  useRenameEntry,
-  useUpdateEntryAiring,
-  useUpdateEntryType,
-} from "../../hooks/use-entry-mutations";
-import { ENTRY_TYPE_CONFIGS } from "../../lib/constants";
+  useCreateSeason,
+  useDeleteSeason,
+  useRenameSeason,
+  useUpdateSeasonAiring,
+  useUpdateSeasonType,
+} from "../../hooks/use-season-mutations";
+import { SEASON_TYPE_CONFIGS } from "../../lib/constants";
 import { formatCount } from "../../lib/format";
 import { toast } from "../../components/ui/toaster";
-import type { Entry, EntryType } from "../../types";
+import type { Season, SeasonType } from "../../types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -59,7 +59,7 @@ function parseAnimeId(raw: string | undefined): number {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-const ENTRY_TYPE_OPTIONS: { value: EntryType; label: string }[] = [
+const SEASON_TYPE_OPTIONS: { value: SeasonType; label: string }[] = [
   { value: "season", label: "Season" },
   { value: "movie", label: "Movie" },
   { value: "other", label: "Other" },
@@ -74,135 +74,135 @@ const AIRING_SEASON_OPTIONS: { value: string; label: string }[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// EntryFormDialog -- shared dialog for create and edit
+// SeasonFormDialog -- shared dialog for create and edit
 // ---------------------------------------------------------------------------
 
-interface EntryFormState {
+interface SeasonFormState {
   name: string;
-  type: EntryType;
-  entryNumber: string; // kept as string for the input; parsed on submit
+  type: SeasonType;
+  seasonNumber: string; // kept as string for the input; parsed on submit
   airingSeason: string;
   airingYear: string; // kept as string for the input
 }
 
-function emptyFormState(): EntryFormState {
+function emptyFormState(): SeasonFormState {
   return {
     name: "",
     type: "season",
-    entryNumber: "",
+    seasonNumber: "",
     airingSeason: "",
     airingYear: "",
   };
 }
 
-function formStateFromEntry(entry: Entry): EntryFormState {
+function formStateFromSeason(season: Season): SeasonFormState {
   return {
-    name: entry.name,
-    type: entry.type,
-    entryNumber: entry.entryNumber != null ? String(entry.entryNumber) : "",
-    airingSeason: entry.airingSeason,
-    airingYear: entry.airingYear != null ? String(entry.airingYear) : "",
+    name: season.name,
+    type: season.type,
+    seasonNumber: season.seasonNumber != null ? String(season.seasonNumber) : "",
+    airingSeason: season.airingSeason,
+    airingYear: season.airingYear != null ? String(season.airingYear) : "",
   };
 }
 
-interface EntryFormDialogProps {
+interface SeasonFormDialogProps {
   open: boolean;
   onClose: () => void;
   /** When set we are editing; when null we are creating. */
-  editingEntry: Entry | null;
+  editingSeason: Season | null;
   animeId: number;
 }
 
-function EntryFormDialog({
+function SeasonFormDialog({
   open,
   onClose,
-  editingEntry,
+  editingSeason,
   animeId,
-}: EntryFormDialogProps): JSX.Element {
-  const isEdit = editingEntry !== null;
-  const [form, setForm] = useState<EntryFormState>(
-    isEdit ? formStateFromEntry(editingEntry) : emptyFormState(),
+}: SeasonFormDialogProps): JSX.Element {
+  const isEdit = editingSeason !== null;
+  const [form, setForm] = useState<SeasonFormState>(
+    isEdit ? formStateFromSeason(editingSeason) : emptyFormState(),
   );
   const [saving, setSaving] = useState(false);
 
-  const createEntry = useCreateEntry();
-  const renameEntry = useRenameEntry();
-  const updateType = useUpdateEntryType();
-  const updateAiring = useUpdateEntryAiring();
+  const createSeason = useCreateSeason();
+  const renameSeason = useRenameSeason();
+  const updateType = useUpdateSeasonType();
+  const updateAiring = useUpdateSeasonAiring();
 
-  // Reset form state when the dialog opens or the entry changes.
+  // Reset form state when the dialog opens or the season changes.
   useEffect(() => {
     if (open) {
-      setForm(isEdit ? formStateFromEntry(editingEntry) : emptyFormState());
+      setForm(isEdit ? formStateFromSeason(editingSeason) : emptyFormState());
       setSaving(false);
     }
-  }, [open, editingEntry, isEdit]);
+  }, [open, editingSeason, isEdit]);
 
-  const handleChange = (field: keyof EntryFormState, value: string) => {
+  const handleChange = (field: keyof SeasonFormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = async () => {
     try {
       setSaving(true);
-      const parsedNumber = form.entryNumber
-        ? Number(form.entryNumber)
+      const parsedNumber = form.seasonNumber
+        ? Number(form.seasonNumber)
         : null;
       const parsedYear = form.airingYear ? Number(form.airingYear) : 0;
 
       if (isEdit) {
         // Fire parallel updates for the fields that changed.
         const promises: Promise<void>[] = [];
-        if (form.name !== editingEntry.name) {
+        if (form.name !== editingSeason.name) {
           promises.push(
-            renameEntry.mutateAsync({
+            renameSeason.mutateAsync({
               animeId,
-              entryId: editingEntry.id,
+              seasonId: editingSeason.id,
               newName: form.name,
             }),
           );
         }
         if (
-          form.type !== editingEntry.type ||
-          parsedNumber !== editingEntry.entryNumber
+          form.type !== editingSeason.type ||
+          parsedNumber !== editingSeason.seasonNumber
         ) {
           promises.push(
             updateType.mutateAsync({
               animeId,
-              entryId: editingEntry.id,
-              entryType: form.type,
-              entryNumber: parsedNumber,
+              seasonId: editingSeason.id,
+              seasonType: form.type,
+              seasonNumber: parsedNumber,
             }),
           );
         }
         if (
-          form.airingSeason !== editingEntry.airingSeason ||
-          parsedYear !== (editingEntry.airingYear ?? 0)
+          form.airingSeason !== editingSeason.airingSeason ||
+          parsedYear !== (editingSeason.airingYear ?? 0)
         ) {
           promises.push(
             updateAiring.mutateAsync({
               animeId,
-              entryId: editingEntry.id,
+              seasonId: editingSeason.id,
               airingSeason: form.airingSeason,
               airingYear: parsedYear,
             }),
           );
         }
         await Promise.all(promises);
-        toast.success("Entry updated");
+        toast.success("Season updated");
       } else {
-        await createEntry.mutateAsync({
+        await createSeason.mutateAsync({
           animeId,
-          entryType: form.type,
-          entryNumber: parsedNumber,
+          seasonType: form.type,
+          seasonNumber: parsedNumber,
           displayName: form.name,
         });
-        toast.success("Entry created");
+        toast.success("Season created");
       }
       onClose();
     } catch (err) {
       toast.error(
-        isEdit ? "Failed to update entry" : "Failed to create entry",
+        isEdit ? "Failed to update season" : "Failed to create season",
         err instanceof Error ? err.message : String(err),
       );
     } finally {
@@ -227,7 +227,7 @@ function EntryFormDialog({
         <Dialog.Backdrop bg="blackAlpha.600" />
         <Dialog.Positioner>
           <Dialog.Content
-            data-testid="entry-form-dialog"
+            data-testid="season-form-dialog"
             bg="bg.surface"
             color="fg"
             borderRadius="lg"
@@ -238,7 +238,7 @@ function EntryFormDialog({
           >
             <Dialog.Header px="5" pt="4">
               <Dialog.Title fontSize="md" fontWeight="600">
-                {isEdit ? "Edit entry" : "Add entry"}
+                {isEdit ? "Edit season" : "Add season"}
               </Dialog.Title>
             </Dialog.Header>
             <Dialog.Body px="5" py="3">
@@ -249,7 +249,7 @@ function EntryFormDialog({
                     Type
                   </Text>
                   <select
-                    data-testid="entry-form-type"
+                    data-testid="season-form-type"
                     value={form.type}
                     onChange={(e) => handleChange("type", e.target.value)}
                     style={{
@@ -264,7 +264,7 @@ function EntryFormDialog({
                       borderColor: "var(--chakra-colors-border, #333)",
                     }}
                   >
-                    {ENTRY_TYPE_OPTIONS.map((opt) => (
+                    {SEASON_TYPE_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>
@@ -278,7 +278,7 @@ function EntryFormDialog({
                     Name
                   </Text>
                   <Input
-                    data-testid="entry-form-name"
+                    data-testid="season-form-name"
                     size="sm"
                     value={form.name}
                     onChange={(e) => handleChange("name", e.target.value)}
@@ -286,17 +286,17 @@ function EntryFormDialog({
                   />
                 </Box>
 
-                {/* Entry number */}
+                {/* Season number */}
                 <Box>
                   <Text fontSize="xs" fontWeight="600" color="fg.secondary" mb="1">
                     Number
                   </Text>
                   <Input
-                    data-testid="entry-form-number"
+                    data-testid="season-form-number"
                     size="sm"
                     type="number"
-                    value={form.entryNumber}
-                    onChange={(e) => handleChange("entryNumber", e.target.value)}
+                    value={form.seasonNumber}
+                    onChange={(e) => handleChange("seasonNumber", e.target.value)}
                     placeholder="e.g. 1, 2, 3"
                   />
                 </Box>
@@ -307,7 +307,7 @@ function EntryFormDialog({
                     Airing season
                   </Text>
                   <select
-                    data-testid="entry-form-airing-season"
+                    data-testid="season-form-airing-season"
                     value={form.airingSeason}
                     onChange={(e) =>
                       handleChange("airingSeason", e.target.value)
@@ -338,7 +338,7 @@ function EntryFormDialog({
                     Airing year
                   </Text>
                   <Input
-                    data-testid="entry-form-airing-year"
+                    data-testid="season-form-airing-year"
                     size="sm"
                     type="number"
                     value={form.airingYear}
@@ -362,7 +362,7 @@ function EntryFormDialog({
                 size="sm"
                 onClick={onClose}
                 disabled={saving}
-                data-testid="entry-form-cancel"
+                data-testid="season-form-cancel"
               >
                 Cancel
               </Button>
@@ -375,9 +375,9 @@ function EntryFormDialog({
                 onClick={handleSubmit}
                 loading={saving}
                 loadingText={isEdit ? "Saving..." : "Creating..."}
-                data-testid="entry-form-submit"
+                data-testid="season-form-submit"
               >
-                {isEdit ? "Save" : "Add entry"}
+                {isEdit ? "Save" : "Add season"}
               </Button>
             </Dialog.Footer>
           </Dialog.Content>
@@ -388,39 +388,39 @@ function EntryFormDialog({
 }
 
 // ---------------------------------------------------------------------------
-// EntryRow -- a single row in the entry list
+// SeasonRow -- a single row in the season list
 // ---------------------------------------------------------------------------
 
-function EntryRow({
-  entry,
+function SeasonRow({
+  season,
   animeId,
   depth,
   onEdit,
   onDelete,
   onUpload,
 }: {
-  entry: Entry;
+  season: Season;
   animeId: number;
   depth: number;
-  onEdit: (entry: Entry) => void;
-  onDelete: (entry: Entry) => void;
-  onUpload: (entryId: number) => void;
+  onEdit: (season: Season) => void;
+  onDelete: (season: Season) => void;
+  onUpload: (seasonId: number) => void;
 }): JSX.Element {
   const navigate = useNavigate();
-  const config = ENTRY_TYPE_CONFIGS[entry.type] ?? ENTRY_TYPE_CONFIGS.other;
-  const airing = [entry.airingSeason, entry.airingYear]
+  const config = SEASON_TYPE_CONFIGS[season.type] ?? SEASON_TYPE_CONFIGS.other;
+  const airing = [season.airingSeason, season.airingYear]
     .filter(Boolean)
     .join(" ");
 
   const handleNavigate = useCallback(() => {
-    navigate(`/anime/${animeId}/images?entry=${entry.id}`);
-  }, [navigate, animeId, entry.id]);
+    navigate(`/search?anime=${animeId}&season=${season.id}`);
+  }, [navigate, animeId, season.id]);
 
   return (
     <Box
-      data-testid="entry-row"
-      data-entry-id={entry.id}
-      data-entry-type={entry.type}
+      data-testid="season-row"
+      data-season-id={season.id}
+      data-season-type={season.type}
       as="li"
       listStyleType="none"
     >
@@ -462,7 +462,7 @@ function EntryRow({
         >
           {/* Type badge */}
           <Box
-            data-testid="entry-row-badge"
+            data-testid="season-row-badge"
             minW="28px"
             h="28px"
             px="2"
@@ -479,12 +479,12 @@ function EntryRow({
           </Box>
           <Box flex="1" minW={0}>
             <Text fontSize="sm" fontWeight="600" color="fg" lineClamp={1}>
-              {entry.name ||
-                `${config.label} ${entry.entryNumber ?? ""}`.trim()}
+              {season.name ||
+                `${config.label} ${season.seasonNumber ?? ""}`.trim()}
             </Text>
             <Flex gap="3" mt="1" fontSize="xs" color="fg.secondary">
               {airing && <Text>{airing}</Text>}
-              <Text>{formatCount(entry.imageCount, "image", "images")}</Text>
+              <Text>{formatCount(season.imageCount, "image", "images")}</Text>
             </Flex>
           </Box>
           <Box as="span" color="fg.muted" aria-hidden="true">
@@ -498,11 +498,11 @@ function EntryRow({
             type="button"
             variant="ghost"
             size="xs"
-            aria-label={`Upload images to ${entry.name || "entry"}`}
-            data-testid="entry-upload-btn"
+            aria-label={`Upload images to ${season.name || "season"}`}
+            data-testid="season-upload-btn"
             onClick={(e: React.MouseEvent) => {
               e.stopPropagation();
-              onUpload(entry.id);
+              onUpload(season.id);
             }}
           >
             <Upload size={14} />
@@ -511,11 +511,11 @@ function EntryRow({
             type="button"
             variant="ghost"
             size="xs"
-            aria-label={`Edit ${entry.name || "entry"}`}
-            data-testid="entry-edit-btn"
+            aria-label={`Edit ${season.name || "season"}`}
+            data-testid="season-edit-btn"
             onClick={(e: React.MouseEvent) => {
               e.stopPropagation();
-              onEdit(entry);
+              onEdit(season);
             }}
           >
             <Pencil size={14} />
@@ -525,11 +525,11 @@ function EntryRow({
             variant="ghost"
             size="xs"
             color="danger"
-            aria-label={`Delete ${entry.name || "entry"}`}
-            data-testid="entry-delete-btn"
+            aria-label={`Delete ${season.name || "season"}`}
+            data-testid="season-delete-btn"
             onClick={(e: React.MouseEvent) => {
               e.stopPropagation();
-              onDelete(entry);
+              onDelete(season);
             }}
           >
             <Trash2 size={14} />
@@ -541,10 +541,10 @@ function EntryRow({
 }
 
 // ---------------------------------------------------------------------------
-// EntriesTab -- main component
+// SeasonsTab -- main component
 // ---------------------------------------------------------------------------
 
-export function EntriesTab(): JSX.Element {
+export function SeasonsTab(): JSX.Element {
   const { animeId: rawId } = useParams<{ animeId: string }>();
   const animeId = parseAnimeId(rawId);
   const { importImages } = useImageImport();
@@ -552,67 +552,67 @@ export function EntriesTab(): JSX.Element {
 
   // Dialog state
   const [formOpen, setFormOpen] = useState(false);
-  const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
-  const [deletingEntry, setDeletingEntry] = useState<Entry | null>(null);
+  const [editingSeason, setEditingSeason] = useState<Season | null>(null);
+  const [deletingSeason, setDeletingSeason] = useState<Season | null>(null);
 
-  const deleteEntry = useDeleteEntry();
+  const deleteSeason = useDeleteSeason();
 
   const handleOpenCreate = useCallback(() => {
-    setEditingEntry(null);
+    setEditingSeason(null);
     setFormOpen(true);
   }, []);
 
-  const handleOpenEdit = useCallback((entry: Entry) => {
-    setEditingEntry(entry);
+  const handleOpenEdit = useCallback((season: Season) => {
+    setEditingSeason(season);
     setFormOpen(true);
   }, []);
 
   const handleCloseForm = useCallback(() => {
     setFormOpen(false);
-    setEditingEntry(null);
+    setEditingSeason(null);
   }, []);
 
-  const handleOpenDelete = useCallback((entry: Entry) => {
-    setDeletingEntry(entry);
+  const handleOpenDelete = useCallback((season: Season) => {
+    setDeletingSeason(season);
   }, []);
 
   const handleCloseDelete = useCallback(() => {
-    setDeletingEntry(null);
+    setDeletingSeason(null);
   }, []);
 
-  const handleUploadToEntry = useCallback(
-    async (entryId: number) => {
-      const entry = data?.entries
-        ?.flatMap((e) => [e, ...(e.children ?? [])])
-        .find((e) => e.id === entryId);
-      const label = entry?.name || `Entry #${entryId}`;
-      await importImages(entryId, label, qk.anime.detail(animeId));
+  const handleUploadToSeason = useCallback(
+    async (seasonId: number) => {
+      const season = data?.seasons
+        ?.flatMap((s) => [s, ...(s.children ?? [])])
+        .find((s) => s.id === seasonId);
+      const label = season?.name || `Season #${seasonId}`;
+      await importImages(seasonId, label, qk.anime.detail(animeId));
     },
-    [data?.entries, animeId, importImages],
+    [data?.seasons, animeId, importImages],
   );
 
   const handleConfirmDelete = useCallback(async () => {
-    if (!deletingEntry) return;
+    if (!deletingSeason) return;
     try {
-      await deleteEntry.mutateAsync({
+      await deleteSeason.mutateAsync({
         animeId,
-        entryId: deletingEntry.id,
+        seasonId: deletingSeason.id,
       });
-      toast.success("Entry deleted");
-      setDeletingEntry(null);
+      toast.success("Season deleted");
+      setDeletingSeason(null);
     } catch (err) {
       toast.error(
-        "Failed to delete entry",
+        "Failed to delete season",
         err instanceof Error ? err.message : String(err),
       );
     }
-  }, [deletingEntry, deleteEntry, animeId]);
+  }, [deletingSeason, deleteSeason, animeId]);
 
   if (isError) {
     return (
-      <Box p="4" data-testid="entries-tab">
+      <Box p="4" data-testid="seasons-tab">
         <ErrorAlert
-          title="Could not load entries"
+          title="Could not load seasons"
           message={error instanceof Error ? error.message : String(error ?? "")}
           onRetry={() => {
             void refetch();
@@ -624,7 +624,7 @@ export function EntriesTab(): JSX.Element {
 
   if (isLoading) {
     return (
-      <Box p="4" data-testid="entries-tab-loading">
+      <Box p="4" data-testid="seasons-tab-loading">
         <Stack gap="2">
           <RowSkeleton />
           <RowSkeleton />
@@ -634,36 +634,36 @@ export function EntriesTab(): JSX.Element {
     );
   }
 
-  const entries = data?.entries ?? [];
+  const seasons = data?.seasons ?? [];
 
-  if (entries.length === 0) {
+  if (seasons.length === 0) {
     return (
-      <Box p="4" data-testid="entries-tab">
+      <Box p="4" data-testid="seasons-tab">
         <EmptyState
           icon={ListOrdered}
-          title="No entries yet"
-          description="Add a season, movie, or other entry to organise this anime's images."
+          title="No seasons yet"
+          description="Add a season, movie, or other season to organise this anime's images."
           action={
             <Button
               type="button"
               size="sm"
               variant="solid"
               onClick={handleOpenCreate}
-              data-testid="add-entry-empty-btn"
+              data-testid="add-season-empty-btn"
             >
               <Box as="span" aria-hidden="true" display="inline-flex" mr="2">
                 <Plus size={14} />
               </Box>
-              Add entry
+              Add season
             </Button>
           }
         />
         {/* Dialog is rendered even when the list is empty so the user can create. */}
-        <EntryFormDialog
-          key={editingEntry?.id ?? "create"}
+        <SeasonFormDialog
+          key={editingSeason?.id ?? "create"}
           open={formOpen}
           onClose={handleCloseForm}
-          editingEntry={editingEntry}
+          editingSeason={editingSeason}
           animeId={animeId}
         />
       </Box>
@@ -671,7 +671,7 @@ export function EntriesTab(): JSX.Element {
   }
 
   return (
-    <Box p={{ base: "3", md: "4" }} data-testid="entries-tab">
+    <Box p={{ base: "3", md: "4" }} data-testid="seasons-tab">
       {/* Toolbar */}
       <Flex mb="3" justifyContent="flex-end">
         <Button
@@ -679,38 +679,38 @@ export function EntriesTab(): JSX.Element {
           size="sm"
           variant="solid"
           onClick={handleOpenCreate}
-          data-testid="add-entry-btn"
+          data-testid="add-season-btn"
         >
           <Box as="span" aria-hidden="true" display="inline-flex" mr="2">
             <Plus size={14} />
           </Box>
-          Add entry
+          Add season
         </Button>
       </Flex>
 
-      {/* Entry list */}
+      {/* Season list */}
       <Stack as="ul" role="list" gap="2">
-        {entries.map((entry) => (
-          <Box key={entry.id}>
-            <EntryRow
-              entry={entry}
+        {seasons.map((season) => (
+          <Box key={season.id}>
+            <SeasonRow
+              season={season}
               animeId={animeId}
               depth={0}
               onEdit={handleOpenEdit}
               onDelete={handleOpenDelete}
-              onUpload={handleUploadToEntry}
+              onUpload={handleUploadToSeason}
             />
-            {entry.children && entry.children.length > 0 ? (
+            {season.children && season.children.length > 0 ? (
               <Stack as="ul" role="list" gap="2" mt="2">
-                {entry.children.map((child) => (
-                  <EntryRow
+                {season.children.map((child) => (
+                  <SeasonRow
                     key={child.id}
-                    entry={child}
+                    season={child}
                     animeId={animeId}
                     depth={1}
                     onEdit={handleOpenEdit}
                     onDelete={handleOpenDelete}
-                    onUpload={handleUploadToEntry}
+                    onUpload={handleUploadToSeason}
                   />
                 ))}
               </Stack>
@@ -720,21 +720,21 @@ export function EntriesTab(): JSX.Element {
       </Stack>
 
       {/* Create / Edit dialog */}
-      <EntryFormDialog
-        key={editingEntry?.id ?? "create"}
+      <SeasonFormDialog
+        key={editingSeason?.id ?? "create"}
         open={formOpen}
         onClose={handleCloseForm}
-        editingEntry={editingEntry}
+        editingSeason={editingSeason}
         animeId={animeId}
       />
 
       {/* Delete confirmation dialog */}
       <ConfirmDialog
-        open={deletingEntry !== null}
+        open={deletingSeason !== null}
         onClose={handleCloseDelete}
         onConfirm={handleConfirmDelete}
-        title="Delete entry"
-        description={`Are you sure you want to delete "${deletingEntry?.name || "this entry"}" and all of its sub-entries? This cannot be undone.`}
+        title="Delete season"
+        description={`Are you sure you want to delete "${deletingSeason?.name || "this season"}" and all of its sub-seasons? This cannot be undone.`}
         confirmLabel="Delete"
         variant="danger"
       />
@@ -742,4 +742,4 @@ export function EntriesTab(): JSX.Element {
   );
 }
 
-export default EntriesTab;
+export default SeasonsTab;

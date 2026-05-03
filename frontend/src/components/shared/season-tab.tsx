@@ -1,6 +1,6 @@
 /**
- * Horizontal entry sub-filter tab. Spec: ui-design.md §3.2.1 and wireframe
- * `02-anime-detail-desktop.svg` (entry sub-filter bar).
+ * Horizontal season sub-filter tab. Spec: ui-design.md §3.2.1 and wireframe
+ * `02-anime-detail-desktop.svg` (season sub-filter bar).
  *
  * Each tab is a button so keyboard users can activate it with Enter/Space,
  * and right-click exposes a context menu (rename, delete, upload…) via
@@ -16,7 +16,7 @@ import { MouseEvent } from "react";
 
 const ChakraButton = chakra("button");
 
-export interface EntryTabProps {
+export interface SeasonTabProps {
   label: string;
   count?: number;
   active?: boolean;
@@ -24,13 +24,13 @@ export interface EntryTabProps {
   onContextMenu?: (e: MouseEvent) => void;
 }
 
-export function EntryTab({
+export function SeasonTab({
   label,
   count,
   active = false,
   onClick,
   onContextMenu,
-}: EntryTabProps): JSX.Element {
+}: SeasonTabProps): JSX.Element {
   return (
     <ChakraButton
       type="button"
@@ -66,7 +66,7 @@ export function EntryTab({
       {typeof count === "number" && (
         <Box
           as="span"
-          data-testid="entry-tab-count"
+          data-testid="season-tab-count"
           display="inline-flex"
           alignItems="center"
           justifyContent="center"
@@ -85,4 +85,4 @@ export function EntryTab({
   );
 }
 
-export default EntryTab;
+export default SeasonTab;

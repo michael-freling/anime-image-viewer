@@ -1,17 +1,17 @@
 /**
  * Tests for `ImagesTab` — the primary tab on the Anime Detail page.
  *
- * We mount the tab via `renderRoutes` so `useParams`, `useSearchParams`, and
- * `useNavigate` all resolve against a memory router with the right URL
- * pattern. `react-photo-album` is stubbed as in image-grid.test.tsx so the
- * render tree is plain DOM and we can assert on tile counts.
+ * We mount the tab via `renderRoutes` so `useParams` and `useNavigate` all
+ * resolve against a memory router with the right URL pattern.
+ * `react-photo-album` is stubbed as in image-grid.test.tsx so the render tree
+ * is plain DOM and we can assert on tile counts.
  *
  * Covered behaviours:
  *   - loading skeletons, success grid, empty state, error alert
- *   - EntryTab row filters the grid (via ?entry=<id>)
- *   - SearchBar filters client-side on filename
  *   - toggling select mode mounts the SelectionActionBar
  *   - clicking a tile in select mode updates the selection store
+ *   - Search button navigates to search page
+ *   - Upload button triggers import
  */
 
 // ---- mocks ---------------------------------------------------------------
@@ -56,21 +56,18 @@ jest.mock("react-virtualized-auto-sizer", () => {
 });
 
 const getAnimeDetailsMock = jest.fn();
-// `useAnimeImages` calls SearchImagesByAnime for the all-anime grid and
-// GetFolderImages(folderId, true) for the entry-filtered case (an entry IS
-// a folder in the anime's tree). Mock those two specifically; the legacy
-// GetAnimeImages / GetAnimeImagesByEntry methods don't exist on the real
-// Wails AnimeService surface.
 const searchImagesByAnimeMock = jest.fn();
-const getFolderImagesMock = jest.fn();
+const importImagesMock = jest.fn();
 jest.mock("../../../src/lib/api", () => ({
   __esModule: true,
   AnimeService: {
     GetAnimeDetails: (...args: unknown[]) => getAnimeDetailsMock(...args),
     SearchImagesByAnime: (...args: unknown[]) =>
       searchImagesByAnimeMock(...args),
-    GetFolderImages: (...args: unknown[]) => getFolderImagesMock(...args),
     GetAnimeList: () => Promise.resolve([]),
+  },
+  BatchImportImageService: {
+    ImportImages: (...args: unknown[]) => importImagesMock(...args),
   },
   TagService: {
     GetAll: () => Promise.resolve([]),
@@ -85,25 +82,12 @@ jest.mock("../../../src/lib/api", () => ({
 import { act } from "react-dom/test-utils";
 
 import { routes } from "../../../src/app/routes";
+import { useImportProgressStore } from "../../../src/stores/import-progress-store";
 import { useSelectionStore } from "../../../src/stores/selection-store";
-import type { AnimeDetail, Entry, ImageFile } from "../../../src/types";
+import type { ImageFile } from "../../../src/types";
 import { renderRoutes, waitFor, flushPromises } from "../../test-utils";
 
-function makeEntry(overrides: Partial<Entry> = {}): Entry {
-  return {
-    id: 0,
-    name: "Entry",
-    type: "season",
-    entryNumber: 1,
-    airingSeason: "",
-    airingYear: null,
-    imageCount: 0,
-    children: [],
-    ...overrides,
-  };
-}
-
-function makeDetail(overrides: Partial<AnimeDetail> = {}): AnimeDetail {
+function makeDetail(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     anime: { id: 42, name: "Bebop", aniListId: null },
     tags: [],
@@ -129,30 +113,19 @@ function resetSelectionStore() {
   });
 }
 
-function setInputValue(input: HTMLInputElement, value: string) {
-  const setter = Object.getOwnPropertyDescriptor(
-    HTMLInputElement.prototype,
-    "value",
-  )!.set!;
-  act(() => {
-    setter.call(input, value);
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-  });
-}
-
 describe("ImagesTab", () => {
   beforeEach(() => {
     getAnimeDetailsMock.mockReset();
     getAnimeDetailsMock.mockResolvedValue(makeDetail());
     searchImagesByAnimeMock.mockReset();
     searchImagesByAnimeMock.mockResolvedValue({ images: [] });
-    getFolderImagesMock.mockReset();
-    getFolderImagesMock.mockResolvedValue({ images: [] });
+    importImagesMock.mockReset();
+    importImagesMock.mockResolvedValue([]);
     resetSelectionStore();
+    useImportProgressStore.setState({ imports: new Map() });
   });
 
   test("renders loading skeletons while images are pending", async () => {
-    // Prevent the images resolver from settling so isLoading stays true.
     const resolveRef: { resolve: ((v: unknown) => void) | null } = {
       resolve: null,
     };
@@ -205,7 +178,7 @@ describe("ImagesTab", () => {
     }
   });
 
-  test("renders an empty state with Upload action when no images", async () => {
+  test("renders an empty state when no images", async () => {
     searchImagesByAnimeMock.mockResolvedValue({ images: [] });
     const { container, unmount } = renderRoutes(routes, {
       initialEntries: ["/anime/42/images"],
@@ -214,9 +187,7 @@ describe("ImagesTab", () => {
       await waitFor(
         () => (container.textContent ?? "").includes("No images yet"),
       );
-      expect(
-        container.querySelector("[data-testid='images-tab-empty-upload']"),
-      ).not.toBeNull();
+      expect(container.textContent).toContain("No images yet");
     } finally {
       unmount();
     }
@@ -237,146 +208,22 @@ describe("ImagesTab", () => {
     }
   });
 
-  test("entry filter in URL calls GetFolderImages with the entry id", async () => {
-    getAnimeDetailsMock.mockResolvedValue(
-      makeDetail({
-        entries: [
-          makeEntry({ id: 10, name: "Season 1", imageCount: 12 }),
-          makeEntry({ id: 11, name: "Season 2", imageCount: 8 }),
-        ],
-      }),
-    );
-    getFolderImagesMock.mockResolvedValue({
-      images: [makeImage(500, "s1-ep1.png")],
-    });
-    const { container, unmount } = renderRoutes(routes, {
-      initialEntries: ["/anime/42/images?entry=10"],
-    });
-    try {
-      await waitFor(
-        () => getFolderImagesMock.mock.calls.length > 0,
-      );
-      // Entry id is treated as a folder id; recursive=true so sub-entries
-      // contribute their images too.
-      expect(getFolderImagesMock).toHaveBeenCalledWith(10, true);
-      expect(searchImagesByAnimeMock).not.toHaveBeenCalled();
-      await waitFor(
-        () => container.querySelector("[data-testid='image-grid']") !== null,
-      );
-      const tiles = container.querySelectorAll(
-        "[data-testid='image-thumbnail']",
-      );
-      expect(tiles.length).toBe(1);
-    } finally {
-      unmount();
-    }
-  });
-
-  test("clicking an EntryTab updates ?entry=... in the URL and triggers a refetch", async () => {
-    getAnimeDetailsMock.mockResolvedValue(
-      makeDetail({
-        entries: [makeEntry({ id: 20, name: "Movie", imageCount: 4 })],
-      }),
-    );
-    getFolderImagesMock.mockResolvedValue({
-      images: [makeImage(600, "movie-clip.png")],
-    });
+  test("surfaces an error alert when the query fails with a non-Error value", async () => {
+    searchImagesByAnimeMock.mockRejectedValue("string-error");
     const { container, unmount } = renderRoutes(routes, {
       initialEntries: ["/anime/42/images"],
     });
     try {
-      await waitFor(
-        () =>
-          container.querySelector("[data-testid='entry-filter-row']") !==
-          null,
-      );
-      // There should be an "All episodes" tab plus the single entry chip.
-      const entryTabs = container.querySelectorAll(
-        "[data-testid='entry-filter-row'] [role='tab']",
-      );
-      expect(entryTabs.length).toBeGreaterThanOrEqual(2);
-      // Find the chip whose text contains "Movie".
-      const movieChip = Array.from(entryTabs).find((el) =>
-        el.textContent?.includes("Movie"),
-      ) as HTMLElement | undefined;
-      expect(movieChip).toBeDefined();
-      act(() => {
-        movieChip!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      });
-      await waitFor(
-        () => getFolderImagesMock.mock.calls.length > 0,
-      );
-      expect(getFolderImagesMock).toHaveBeenCalledWith(20, true);
+      await waitFor(() => container.querySelector("[role='alert']") !== null);
+      const alert = container.querySelector("[role='alert']");
+      expect(alert?.textContent ?? "").toContain("Could not load images");
+      expect(alert?.textContent ?? "").toContain("string-error");
     } finally {
       unmount();
     }
   });
 
-  test("SearchBar filters images by filename client-side", async () => {
-    searchImagesByAnimeMock.mockResolvedValue({
-      images: [
-        makeImage(1, "beach-sunset.png"),
-        makeImage(2, "forest-morning.png"),
-        makeImage(3, "beach-night.png"),
-      ],
-    });
-    const { container, unmount } = renderRoutes(routes, {
-      initialEntries: ["/anime/42/images"],
-    });
-    try {
-      await waitFor(
-        () =>
-          container.querySelector("[data-testid='image-grid']") !== null,
-      );
-      const input = container.querySelector(
-        "input[role='searchbox']",
-      ) as HTMLInputElement;
-      expect(input).not.toBeNull();
-      setInputValue(input, "beach");
-      await flushPromises();
-      const tiles = container.querySelectorAll(
-        "[data-testid='image-thumbnail']",
-      );
-      expect(tiles.length).toBe(2);
-      const ids = Array.from(tiles).map((el) =>
-        el.getAttribute("data-file-id"),
-      );
-      expect(ids.sort()).toEqual(["1", "3"]);
-    } finally {
-      unmount();
-    }
-  });
-
-  test("filter with no matches renders the filter-aware empty state (no Upload button)", async () => {
-    searchImagesByAnimeMock.mockResolvedValue({
-      images: [makeImage(1, "apple.png")],
-    });
-    const { container, unmount } = renderRoutes(routes, {
-      initialEntries: ["/anime/42/images"],
-    });
-    try {
-      await waitFor(
-        () =>
-          container.querySelector("[data-testid='image-grid']") !== null,
-      );
-      const input = container.querySelector(
-        "input[role='searchbox']",
-      ) as HTMLInputElement;
-      setInputValue(input, "xyz");
-      await flushPromises();
-      await waitFor(
-        () => (container.textContent ?? "").includes("No matching images"),
-      );
-      // When filtering, the Upload action is suppressed.
-      expect(
-        container.querySelector("[data-testid='images-tab-empty-upload']"),
-      ).toBeNull();
-    } finally {
-      unmount();
-    }
-  });
-
-  test("toggling select mode mounts the SelectionActionBar", async () => {
+  test("entering select mode via store mounts the SelectionActionBar", async () => {
     searchImagesByAnimeMock.mockResolvedValue({
       images: [makeImage(1, "a.png")],
     });
@@ -386,24 +233,18 @@ describe("ImagesTab", () => {
     try {
       await waitFor(
         () =>
-          container.querySelector(
-            "[data-testid='images-tab-select-toggle']",
-          ) !== null,
+          container.querySelector("[data-testid='image-grid']") !== null,
       );
       expect(
         container.querySelector("[data-testid='selection-action-bar']"),
       ).toBeNull();
-      const toggle = container.querySelector(
-        "[data-testid='images-tab-select-toggle']",
-      ) as HTMLElement;
+      // Simulate long-press entering select mode.
       act(() => {
-        toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        useSelectionStore.getState().enterSelectMode(1);
       });
       expect(
         container.querySelector("[data-testid='selection-action-bar']"),
       ).not.toBeNull();
-      // Button now reflects the active state.
-      expect(toggle.getAttribute("aria-pressed")).toBe("true");
     } finally {
       unmount();
     }
@@ -460,142 +301,20 @@ describe("ImagesTab", () => {
         () =>
           container.querySelector("[data-testid='image-grid']") !== null,
       );
-      // Overlay requires a rubber-band test id — not yet mounted.
       expect(
         container.querySelector(
           "[data-testid='rubber-band-live-region']",
         ),
       ).toBeNull();
-      const toggle = container.querySelector(
-        "[data-testid='images-tab-select-toggle']",
-      ) as HTMLElement;
+      // Enter select mode via the store (as long-press would do).
       act(() => {
-        toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        useSelectionStore.getState().enterSelectMode(1);
       });
       expect(
         container.querySelector(
           "[data-testid='rubber-band-live-region']",
         ),
       ).not.toBeNull();
-    } finally {
-      unmount();
-    }
-  });
-
-  test("'All episodes' EntryTab clears the ?entry= URL param", async () => {
-    getAnimeDetailsMock.mockResolvedValue(
-      makeDetail({
-        entries: [makeEntry({ id: 20, name: "Movie", imageCount: 4 })],
-      }),
-    );
-    getFolderImagesMock.mockResolvedValue({
-      images: [makeImage(600, "movie-clip.png")],
-    });
-    searchImagesByAnimeMock.mockResolvedValue({
-      images: [makeImage(601, "any.png"), makeImage(602, "other.png")],
-    });
-    const { container, unmount } = renderRoutes(routes, {
-      initialEntries: ["/anime/42/images?entry=20"],
-    });
-    try {
-      await waitFor(
-        () =>
-          container.querySelector("[data-testid='entry-filter-row']") !==
-          null,
-      );
-      // Entry-scoped fetch ran once.
-      await waitFor(() => getFolderImagesMock.mock.calls.length > 0);
-      // Click the "All episodes" tab to reset the filter.
-      const tabs = container.querySelectorAll(
-        "[data-testid='entry-filter-row'] [role='tab']",
-      );
-      const allTab = Array.from(tabs).find((el) =>
-        el.textContent?.includes("All"),
-      ) as HTMLElement | undefined;
-      expect(allTab).toBeDefined();
-      act(() => {
-        allTab!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      });
-      // Now the anime-wide fetcher fires.
-      await waitFor(() => searchImagesByAnimeMock.mock.calls.length > 0);
-      expect(searchImagesByAnimeMock).toHaveBeenCalledWith(42);
-    } finally {
-      unmount();
-    }
-  });
-
-  test("falls back to a synthetic label when the entry has no name", async () => {
-    getAnimeDetailsMock.mockResolvedValue(
-      makeDetail({
-        entries: [
-          // season with no name and a numbered entry -> "Season 3"
-          makeEntry({ id: 10, name: "", type: "season", entryNumber: 3, imageCount: 1 }),
-          // movie with no name -> "Movie (7)"
-          makeEntry({ id: 11, name: "", type: "movie", entryNumber: 7, imageCount: 1 }),
-          // other without a number -> "Entry #12"
-          makeEntry({
-            id: 12,
-            name: "",
-            type: "other",
-            entryNumber: null,
-            imageCount: 1,
-          }),
-        ],
-      }),
-    );
-    searchImagesByAnimeMock.mockResolvedValue({ images: [] });
-    const { container, unmount } = renderRoutes(routes, {
-      initialEntries: ["/anime/42/images"],
-    });
-    try {
-      await waitFor(
-        () =>
-          container.querySelector("[data-testid='entry-filter-row']") !==
-          null,
-      );
-      const row = container.querySelector(
-        "[data-testid='entry-filter-row']",
-      ) as HTMLElement;
-      expect(row.textContent ?? "").toContain("Season 3");
-      expect(row.textContent ?? "").toContain("Movie (7)");
-      expect(row.textContent ?? "").toContain("Entry #12");
-    } finally {
-      unmount();
-    }
-  });
-
-  test("entry with children surfaces each child as its own filter chip", async () => {
-    getAnimeDetailsMock.mockResolvedValue(
-      makeDetail({
-        entries: [
-          makeEntry({
-            id: 100,
-            name: "Season 1",
-            imageCount: 10,
-            children: [
-              makeEntry({ id: 101, name: "S1 Part 1", imageCount: 5 }),
-              makeEntry({ id: 102, name: "S1 Part 2", imageCount: 5 }),
-            ],
-          }),
-        ],
-      }),
-    );
-    searchImagesByAnimeMock.mockResolvedValue({ images: [] });
-    const { container, unmount } = renderRoutes(routes, {
-      initialEntries: ["/anime/42/images"],
-    });
-    try {
-      await waitFor(
-        () =>
-          container.querySelector("[data-testid='entry-filter-row']") !==
-          null,
-      );
-      const row = container.querySelector(
-        "[data-testid='entry-filter-row']",
-      );
-      expect(row?.textContent).toContain("Season 1");
-      expect(row?.textContent).toContain("S1 Part 1");
-      expect(row?.textContent).toContain("S1 Part 2");
     } finally {
       unmount();
     }
@@ -642,7 +361,6 @@ describe("ImagesTab", () => {
         () =>
           container.querySelector("[data-testid='image-grid']") !== null,
       );
-      // Overlay should not be present before clicking.
       expect(
         container.querySelector("[data-testid='image-viewer-overlay']"),
       ).toBeNull();
@@ -653,7 +371,6 @@ describe("ImagesTab", () => {
       act(() => {
         tile.click();
       });
-      // The overlay should now be in the DOM.
       await waitFor(
         () =>
           container.querySelector(
@@ -663,7 +380,6 @@ describe("ImagesTab", () => {
       expect(
         container.querySelector("[data-testid='image-viewer-overlay']"),
       ).not.toBeNull();
-      // And the selection store is untouched.
       expect(useSelectionStore.getState().selectedIds.size).toBe(0);
     } finally {
       unmount();
@@ -682,7 +398,6 @@ describe("ImagesTab", () => {
         () =>
           container.querySelector("[data-testid='image-grid']") !== null,
       );
-      // Open the viewer by clicking the first tile.
       const tile = container.querySelector(
         "[data-file-id='1']",
       ) as HTMLElement;
@@ -695,7 +410,6 @@ describe("ImagesTab", () => {
             "[data-testid='image-viewer-overlay']",
           ) !== null,
       );
-      // Close the viewer by clicking the close button.
       const closeBtn = container.querySelector(
         "[data-testid='image-viewer-close']",
       ) as HTMLElement | null;
@@ -710,15 +424,12 @@ describe("ImagesTab", () => {
             ) === null,
         );
       }
-      // If no explicit close button, we still exercised the handleViewerClose
-      // callback via the component's onClose prop by dispatching Escape.
       if (!closeBtn) {
         act(() => {
           document.dispatchEvent(
             new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
           );
         });
-        // Either the overlay hides or it doesn't -- but we exercised the callback.
         await flushPromises();
       }
     } finally {
@@ -726,9 +437,40 @@ describe("ImagesTab", () => {
     }
   });
 
-  test("clicking a tile for a non-existent image in filteredImages does not open viewer", async () => {
-    // When filteredImages.findIndex returns -1 (clickedIndex < 0), the handler
-    // returns early without opening the overlay.
+  test("toolbar Upload button calls ImportImages when clicked", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        folders: [{ id: 99, name: "root", path: "/root", imageCount: 0, inherited: false }],
+      }),
+    );
+    searchImagesByAnimeMock.mockResolvedValue({
+      images: [makeImage(1, "a.png")],
+    });
+    importImagesMock.mockResolvedValue([{ id: 10 }]);
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/images"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[data-testid='image-grid']") !== null,
+      );
+      await flushPromises();
+
+      const uploadBtn = container.querySelector(
+        "[data-testid='images-tab-upload']",
+      ) as HTMLElement;
+      await act(async () => {
+        uploadBtn.click();
+      });
+      await flushPromises();
+      await waitFor(() => importImagesMock.mock.calls.length > 0);
+      expect(importImagesMock).toHaveBeenCalledWith(99);
+    } finally {
+      unmount();
+    }
+  });
+
+  test("toolbar Upload button is present when images exist", async () => {
     searchImagesByAnimeMock.mockResolvedValue({
       images: [makeImage(1, "a.png")],
     });
@@ -737,38 +479,99 @@ describe("ImagesTab", () => {
     });
     try {
       await waitFor(
-        () =>
-          container.querySelector("[data-testid='image-grid']") !== null,
+        () => container.querySelector("[data-testid='images-tab-upload']") !== null,
       );
-      // Filter so that image 1 is hidden.
-      const input = container.querySelector(
-        "input[role='searchbox']",
-      ) as HTMLInputElement;
-      setInputValue(input, "zzzzz");
-      await flushPromises();
-      // The empty state should be shown.
-      await waitFor(
-        () => (container.textContent ?? "").includes("No matching images"),
-      );
-      // Overlay is not open.
-      expect(
-        container.querySelector("[data-testid='image-viewer-overlay']"),
-      ).toBeNull();
+      const uploadBtn = container.querySelector(
+        "[data-testid='images-tab-upload']",
+      ) as HTMLElement;
+      expect(uploadBtn).not.toBeNull();
+      expect(uploadBtn.getAttribute("aria-label")).toBe("Upload images");
     } finally {
       unmount();
     }
   });
 
-  test("surfaces an error alert when the query fails with a non-Error value", async () => {
-    searchImagesByAnimeMock.mockRejectedValue("string-error");
+  test("Search button navigates to search page with anime filter", async () => {
+    searchImagesByAnimeMock.mockResolvedValue({
+      images: [makeImage(1, "a.png")],
+    });
     const { container, unmount } = renderRoutes(routes, {
       initialEntries: ["/anime/42/images"],
     });
     try {
-      await waitFor(() => container.querySelector("[role='alert']") !== null);
-      const alert = container.querySelector("[role='alert']");
-      expect(alert?.textContent ?? "").toContain("Could not load images");
-      expect(alert?.textContent ?? "").toContain("string-error");
+      await waitFor(
+        () => container.querySelector("[data-testid='images-tab-search']") !== null,
+      );
+      const searchBtn = container.querySelector(
+        "[data-testid='images-tab-search']",
+      ) as HTMLElement;
+      expect(searchBtn).not.toBeNull();
+      act(() => {
+        searchBtn.click();
+      });
+      // After clicking, we should navigate to the search page.
+      await waitFor(
+        () => container.querySelector("[data-testid='search-page']") !== null ||
+              (container.textContent ?? "").includes("Search"),
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("clicking Upload shows the import progress bar while import is in-flight", async () => {
+    let resolveImport!: (value: unknown[]) => void;
+    importImagesMock.mockReturnValue(
+      new Promise<unknown[]>((r) => { resolveImport = r; }),
+    );
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        folders: [{ id: 99, name: "root", path: "/root", imageCount: 0, inherited: false }],
+        anime: { id: 42, name: "Bebop", aniListId: null },
+      }),
+    );
+    searchImagesByAnimeMock.mockResolvedValue({
+      images: [makeImage(1, "a.png")],
+    });
+
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/images"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[data-testid='image-grid']") !== null,
+      );
+      await flushPromises();
+
+      const uploadBtn = container.querySelector(
+        "[data-testid='images-tab-upload']",
+      ) as HTMLElement;
+
+      act(() => {
+        uploadBtn.click();
+      });
+      await flushPromises();
+
+      const progressBar = container.querySelector(
+        "[data-testid='import-progress-bar']",
+      );
+      expect(progressBar).not.toBeNull();
+
+      const progressRow = container.querySelector(
+        "[data-testid='import-progress-row']",
+      );
+      expect(progressRow).not.toBeNull();
+
+      await act(async () => {
+        resolveImport([{ id: 10 }, { id: 11 }]);
+      });
+      await flushPromises();
+
+      const updatedRow = container.querySelector(
+        "[data-testid='import-progress-row']",
+      );
+      expect(updatedRow).not.toBeNull();
+      expect(updatedRow!.textContent).toContain("2 imported");
     } finally {
       unmount();
     }

@@ -1,9 +1,11 @@
 /**
  * Barrel export for the Settings page.
  *
- * Re-exports both the named `SettingsPage` component and the default export
- * so `createBrowserRouter` and test utilities can reach the page through
- * the directory entry point.
+ * Re-exports the layout component (used by the router) and individual
+ * section components for nested route rendering.
  */
-export { default, SettingsPage } from "./settings-page";
-export type { SettingsSectionId } from "./settings-page";
+export { default, SettingsLayout, SETTINGS_TABS } from "./settings-layout";
+export { GeneralSection } from "./sections/general-section";
+export { AppearanceSection } from "./sections/appearance-section";
+export { BackupSection } from "./sections/backup-section";
+export { AboutSection } from "./sections/about-section";

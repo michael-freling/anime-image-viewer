@@ -52,6 +52,7 @@ describe("filterStateToSearchParams", () => {
       includeCharacterIds: [],
       excludeCharacterIds: [],
       animeId: null,
+      seasonId: null,
     };
     expect(filterStateToSearchParams(state)).toEqual({
       q: "hello",
@@ -68,6 +69,7 @@ describe("filterStateToSearchParams", () => {
       includeCharacterIds: [],
       excludeCharacterIds: [],
       animeId: null,
+      seasonId: null,
     };
     const encoded = filterStateToSearchParams(state);
     const params = new URLSearchParams(encoded);
@@ -85,6 +87,7 @@ describe("filterStateToSearchParams", () => {
       includeCharacterIds: [],
       excludeCharacterIds: [],
       animeId: 42,
+      seasonId: null,
     };
     const encoded = filterStateToSearchParams(state);
     expect(encoded).toEqual({ anime: "42" });
@@ -159,6 +162,7 @@ describe("addIncludeId / addExcludeId / removeTagId", () => {
       includeCharacterIds: [],
       excludeCharacterIds: [],
       animeId: null,
+      seasonId: null,
     };
     const next = removeTagId(state, 1);
     expect(next.includeIds).toEqual([2]);
@@ -341,5 +345,59 @@ describe("addExcludeCharacterId no-op", () => {
     };
     const next = addExcludeCharacterId(state, 7);
     expect(next).toBe(state);
+  });
+});
+
+describe("season URL param", () => {
+  test("parses ?season=10", () => {
+    const params = new URLSearchParams("anime=42&season=10");
+    const state = filterStateFromSearchParams(params);
+    expect(state.seasonId).toBe(10);
+    expect(state.animeId).toBe(42);
+  });
+
+  test("serialises seasonId to URL", () => {
+    const state: SearchFilterState = {
+      ...EMPTY_FILTER_STATE,
+      animeId: 42,
+      seasonId: 10,
+    };
+    const encoded = filterStateToSearchParams(state);
+    expect(encoded).toEqual({ anime: "42", season: "10" });
+  });
+
+  test("round-trips season param through URL", () => {
+    const state: SearchFilterState = {
+      ...EMPTY_FILTER_STATE,
+      animeId: 42,
+      seasonId: 5,
+    };
+    const encoded = filterStateToSearchParams(state);
+    const decoded = filterStateFromSearchParams(new URLSearchParams(encoded));
+    expect(decoded.seasonId).toBe(5);
+    expect(decoded.animeId).toBe(42);
+  });
+
+  test("invalid season param returns null", () => {
+    const params = new URLSearchParams("season=abc");
+    const state = filterStateFromSearchParams(params);
+    expect(state.seasonId).toBeNull();
+  });
+
+  test("season filter makes state non-empty", () => {
+    expect(
+      isEmptyFilterState({ ...EMPTY_FILTER_STATE, seasonId: 5 }),
+    ).toBe(false);
+  });
+
+  test("null seasonId is omitted from serialized params", () => {
+    const state: SearchFilterState = {
+      ...EMPTY_FILTER_STATE,
+      animeId: 42,
+      seasonId: null,
+    };
+    const encoded = filterStateToSearchParams(state);
+    expect(encoded).toEqual({ anime: "42" });
+    expect(encoded).not.toHaveProperty("season");
   });
 });

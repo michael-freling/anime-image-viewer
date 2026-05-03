@@ -4,7 +4,7 @@
  *
  * Calls `AnimeService.GetAnimeDetails(id)` which returns
  * `AnimeDetailsResponse`. The Wails-bound DTO mirrors Go field names
- * (`entryType: string`); we narrow it to our domain `Entry.type: EntryType`
+ * (`entryType: string`); we narrow it to our domain `Season.type: SeasonType`
  * here so consumers see the typed shape from `types/index.ts`.
  *
  * Only enabled when the caller passes a positive, finite integer so guards
@@ -13,13 +13,13 @@
 import { useQuery, UseQueryResult } from "@tanstack/react-query";
 import { AnimeService } from "../lib/api";
 import { qk } from "../lib/query-keys";
-import type { AnimeDetail, Entry, EntryType } from "../types";
+import type { AnimeDetail, Season, SeasonType } from "../types";
 
 function isValidAnimeId(animeId: number): boolean {
   return Number.isInteger(animeId) && animeId > 0;
 }
 
-const ENTRY_TYPES: ReadonlySet<EntryType> = new Set<EntryType>([
+const SEASON_TYPES: ReadonlySet<SeasonType> = new Set<SeasonType>([
   "season",
   "movie",
   "other",
@@ -27,24 +27,24 @@ const ENTRY_TYPES: ReadonlySet<EntryType> = new Set<EntryType>([
 
 /**
  * Coerce the backend's free-form `entryType` string to our narrowed
- * `EntryType` union. Unknown values fall back to "other" so the UI can still
+ * `SeasonType` union. Unknown values fall back to "other" so the UI can still
  * render the row.
  */
-function narrowEntryType(raw: string | null | undefined): EntryType {
-  if (raw && (ENTRY_TYPES as Set<string>).has(raw)) {
-    return raw as EntryType;
+function narrowSeasonType(raw: string | null | undefined): SeasonType {
+  if (raw && (SEASON_TYPES as Set<string>).has(raw)) {
+    return raw as SeasonType;
   }
   return "other";
 }
 
 /**
- * Map a single backend entry node (`AnimeEntryInfo`) to the domain `Entry`
+ * Map a single backend season node (`AnimeSeasonInfo`) to the domain `Season`
  * shape, recursing into children. Tolerates missing fields so the test
  * fixtures can pass minimal payloads.
  */
-function mapEntry(node: Record<string, unknown>): Entry {
+function mapSeason(node: Record<string, unknown>): Season {
   const children = Array.isArray(node.children)
-    ? (node.children as Record<string, unknown>[]).map(mapEntry)
+    ? (node.children as Record<string, unknown>[]).map(mapSeason)
     : [];
   // Accept either `entryType` (real bindings) or the legacy `type` (used by
   // some tests / hand-written fixtures so the mapper is round-trip safe).
@@ -54,9 +54,11 @@ function mapEntry(node: Record<string, unknown>): Entry {
   return {
     id: Number(node.id ?? 0),
     name: String(node.name ?? ""),
-    type: narrowEntryType(rawType),
-    entryNumber:
-      node.entryNumber == null ? null : Number(node.entryNumber),
+    type: narrowSeasonType(rawType),
+    seasonNumber:
+      (node.entryNumber ?? node.seasonNumber) == null
+        ? null
+        : Number(node.entryNumber ?? node.seasonNumber),
     airingSeason: String(node.airingSeason ?? ""),
     airingYear: node.airingYear == null ? null : Number(node.airingYear),
     imageCount: Number(node.imageCount ?? 0),
@@ -73,13 +75,13 @@ export function useAnimeDetail(
       const res = (await AnimeService.GetAnimeDetails(
         animeId,
       )) as unknown as Record<string, unknown>;
-      const rawEntries = Array.isArray(res.entries)
+      const rawSeasons = Array.isArray(res.entries)
         ? (res.entries as Record<string, unknown>[])
         : [];
-      const entries = rawEntries.map(mapEntry);
+      const seasons = rawSeasons.map(mapSeason);
       return {
         ...(res as unknown as AnimeDetail),
-        entries,
+        seasons,
       };
     },
     enabled: isValidAnimeId(animeId),

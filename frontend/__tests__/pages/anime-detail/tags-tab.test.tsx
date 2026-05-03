@@ -58,7 +58,7 @@ jest.mock("../../../src/components/ui/toaster", () => ({
 
 import { toast } from "../../../src/components/ui/toaster";
 import { routes } from "../../../src/app/routes";
-import type { AnimeDerivedTag, AnimeDetail } from "../../../src/types";
+import type { AnimeDerivedTag } from "../../../src/types";
 import { renderRoutes, waitFor } from "../../test-utils";
 import { act } from "react-dom/test-utils";
 
@@ -71,7 +71,7 @@ function makeDerivedTag(
   return { id, name, category, imageCount };
 }
 
-function makeDetail(overrides: Partial<AnimeDetail> = {}): AnimeDetail {
+function makeDetail(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     anime: { id: 42, name: "Bebop", aniListId: null },
     tags: [],

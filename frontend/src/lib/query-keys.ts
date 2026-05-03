@@ -19,12 +19,12 @@ export const qk = {
     all: ["anime"] as const,
     list: () => [...qk.anime.all, "list"] as const,
     detail: (animeId: number) => [...qk.anime.all, "detail", animeId] as const,
-    images: (animeId: number, entryId?: number | null) =>
-      entryId == null
+    images: (animeId: number, seasonId?: number | null) =>
+      seasonId == null
         ? ([...qk.anime.all, "images", animeId] as const)
-        : ([...qk.anime.all, "images", animeId, "entry", entryId] as const),
-    entries: (animeId: number) =>
-      [...qk.anime.all, "entries", animeId] as const,
+        : ([...qk.anime.all, "images", animeId, "season", seasonId] as const),
+    seasons: (animeId: number) =>
+      [...qk.anime.all, "seasons", animeId] as const,
     characters: (animeId: number) =>
       [...qk.anime.all, "characters", animeId] as const,
   },

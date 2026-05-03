@@ -100,15 +100,20 @@ describe("HomePage", () => {
     searchAniListMock.mockResolvedValue([]);
   });
 
-  test("renders the page header with the AnimeVault title", async () => {
+  test("renders the page header with a search bar (no title)", async () => {
     listAnimeMock.mockResolvedValue(ANIME);
     const r = renderWithClient(<HomePage />);
     try {
-      await waitFor(() =>
-        (r.container.textContent ?? "").includes("AnimeVault"),
+      await waitFor(
+        () => r.container.querySelector("input[placeholder='Search anime...']") !== null,
       );
+      // The "AnimeVault" heading has been removed.
       const h1 = r.container.querySelector("h1");
-      expect(h1?.textContent).toBe("AnimeVault");
+      expect(h1).toBeNull();
+      // Search bar is present.
+      expect(
+        r.container.querySelector("input[placeholder='Search anime...']"),
+      ).not.toBeNull();
     } finally {
       r.unmount();
     }
@@ -157,9 +162,6 @@ describe("HomePage", () => {
       expect(text).toContain("Cowboy Bebop");
       expect(text).toContain("Attack on Titan");
       expect(text).toContain("One Piece");
-      // Subtitle counts anime + images (3 anime · 172 images).
-      expect(text).toContain("3 anime");
-      expect(text).toContain("172 images");
     } finally {
       r.unmount();
     }

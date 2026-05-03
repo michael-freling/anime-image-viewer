@@ -50,15 +50,15 @@ declare module "*/bindings/github.com/michael-freling/anime-image-viewer/interna
     children: AnimeFolderTreeNode[];
   }
 
-  export interface AnimeEntryInfo {
+  export interface AnimeSeasonInfo {
     id: number;
     name: string;
-    entryType: string;
-    entryNumber: number | null;
+    seasonType: string;
+    seasonNumber: number | null;
     airingSeason: string;
     airingYear: number | null;
     imageCount: number;
-    children: AnimeEntryInfo[];
+    children: AnimeSeasonInfo[];
   }
 
   export interface UnassignedFolder {
@@ -111,7 +111,7 @@ declare module "*/bindings/github.com/michael-freling/anime-image-viewer/interna
     characters: AnimeCharacterInfo[];
     folders: AnimeFolderInfo[];
     folderTree: AnimeFolderTreeNode | null;
-    entries: AnimeEntryInfo[];
+    seasons: AnimeSeasonInfo[];
   }
 
   export interface SearchImagesRequest {

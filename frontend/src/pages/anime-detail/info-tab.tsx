@@ -85,13 +85,13 @@ export function InfoTab(): JSX.Element {
   }
 
   const anime = data.anime;
-  const entryCount = data.entries.length;
-  const totalImages = data.entries.reduce((total, entry) => {
-    const childSum = (entry.children ?? []).reduce(
+  const seasonCount = data.seasons.length;
+  const totalImages = data.seasons.reduce((total, season) => {
+    const childSum = (season.children ?? []).reduce(
       (cs, c) => cs + (c.imageCount ?? 0),
       0,
     );
-    return total + (entry.imageCount ?? 0) + childSum;
+    return total + (season.imageCount ?? 0) + childSum;
   }, 0);
   const folderCount = data.folders.length;
   const aniListUrl = anime.aniListId
@@ -153,9 +153,9 @@ export function InfoTab(): JSX.Element {
 
         <Flex gap="4" wrap="wrap">
           <InfoField
-            label="Entries"
-            value={formatCount(entryCount, "entry", "entries")}
-            testId="info-field-entries"
+            label="Seasons"
+            value={formatCount(seasonCount, "season", "seasons")}
+            testId="info-field-seasons"
           />
           <InfoField
             label="Images"
@@ -183,7 +183,7 @@ export function InfoTab(): JSX.Element {
             Danger zone
           </Text>
           <Text fontSize="sm" color="fg.secondary" mt="1">
-            Deleting this anime removes all of its entries and associated
+            Deleting this anime removes all of its seasons and associated
             metadata. Image files on disk are not affected.
           </Text>
           <Button

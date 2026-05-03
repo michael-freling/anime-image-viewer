@@ -1,8 +1,8 @@
 /**
- * Entry CRUD mutation hooks.
+ * Season CRUD mutation hooks.
  *
  * Each mutation calls the corresponding `AnimeService` binding and invalidates
- * the anime detail query on success so the entries tab reflects the new state
+ * the anime detail query on success so the seasons tab reflects the new state
  * without a manual refetch.
  */
 import {
@@ -12,20 +12,20 @@ import {
 } from "@tanstack/react-query";
 import { AnimeService } from "../lib/api";
 import { qk } from "../lib/query-keys";
-import type { Entry, EntryType } from "../types";
+import type { Season, SeasonType } from "../types";
 
-/** Map the backend `AnimeEntryInfo` response to the domain `Entry`. */
-function mapEntryResponse(raw: Record<string, unknown>): Entry {
+/** Map the backend `AnimeSeasonInfo` response to the domain `Season`. */
+function mapSeasonResponse(raw: Record<string, unknown>): Season {
   const children = Array.isArray(raw.children)
-    ? (raw.children as Record<string, unknown>[]).map(mapEntryResponse)
+    ? (raw.children as Record<string, unknown>[]).map(mapSeasonResponse)
     : [];
   const rawType =
     (raw.entryType as string | undefined) ?? (raw.type as string | undefined);
   return {
     id: Number(raw.id ?? 0),
     name: String(raw.name ?? ""),
-    type: (rawType ?? "other") as EntryType,
-    entryNumber: raw.entryNumber == null ? null : Number(raw.entryNumber),
+    type: (rawType ?? "other") as SeasonType,
+    seasonNumber: raw.entryNumber == null ? null : Number(raw.entryNumber),
     airingSeason: String(raw.airingSeason ?? ""),
     airingYear: raw.airingYear == null ? null : Number(raw.airingYear),
     imageCount: Number(raw.imageCount ?? 0),
@@ -37,28 +37,28 @@ function mapEntryResponse(raw: Record<string, unknown>): Entry {
 // Create
 // ---------------------------------------------------------------------------
 
-export interface CreateEntryVariables {
+export interface CreateSeasonVariables {
   animeId: number;
-  entryType: EntryType;
-  entryNumber: number | null;
+  seasonType: SeasonType;
+  seasonNumber: number | null;
   displayName: string;
 }
 
-export function useCreateEntry(): UseMutationResult<
-  Entry,
+export function useCreateSeason(): UseMutationResult<
+  Season,
   Error,
-  CreateEntryVariables
+  CreateSeasonVariables
 > {
   const queryClient = useQueryClient();
-  return useMutation<Entry, Error, CreateEntryVariables>({
-    mutationFn: async ({ animeId, entryType, entryNumber, displayName }) => {
-      const res = (await AnimeService.CreateAnimeEntry(
+  return useMutation<Season, Error, CreateSeasonVariables>({
+    mutationFn: async ({ animeId, seasonType, seasonNumber, displayName }) => {
+      const res = (await AnimeService.CreateAnimeSeason(
         animeId,
-        entryType,
-        entryNumber,
+        seasonType,
+        seasonNumber,
         displayName,
       )) as unknown as Record<string, unknown>;
-      return mapEntryResponse(res);
+      return mapSeasonResponse(res);
     },
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({
@@ -72,21 +72,21 @@ export function useCreateEntry(): UseMutationResult<
 // Rename
 // ---------------------------------------------------------------------------
 
-export interface RenameEntryVariables {
+export interface RenameSeasonVariables {
   animeId: number;
-  entryId: number;
+  seasonId: number;
   newName: string;
 }
 
-export function useRenameEntry(): UseMutationResult<
+export function useRenameSeason(): UseMutationResult<
   void,
   Error,
-  RenameEntryVariables
+  RenameSeasonVariables
 > {
   const queryClient = useQueryClient();
-  return useMutation<void, Error, RenameEntryVariables>({
-    mutationFn: async ({ entryId, newName }) => {
-      await AnimeService.RenameEntry(entryId, newName);
+  return useMutation<void, Error, RenameSeasonVariables>({
+    mutationFn: async ({ seasonId, newName }) => {
+      await AnimeService.RenameSeason(seasonId, newName);
     },
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({
@@ -100,22 +100,22 @@ export function useRenameEntry(): UseMutationResult<
 // Update type
 // ---------------------------------------------------------------------------
 
-export interface UpdateEntryTypeVariables {
+export interface UpdateSeasonTypeVariables {
   animeId: number;
-  entryId: number;
-  entryType: EntryType;
-  entryNumber: number | null;
+  seasonId: number;
+  seasonType: SeasonType;
+  seasonNumber: number | null;
 }
 
-export function useUpdateEntryType(): UseMutationResult<
+export function useUpdateSeasonType(): UseMutationResult<
   void,
   Error,
-  UpdateEntryTypeVariables
+  UpdateSeasonTypeVariables
 > {
   const queryClient = useQueryClient();
-  return useMutation<void, Error, UpdateEntryTypeVariables>({
-    mutationFn: async ({ entryId, entryType, entryNumber }) => {
-      await AnimeService.UpdateEntryType(entryId, entryType, entryNumber);
+  return useMutation<void, Error, UpdateSeasonTypeVariables>({
+    mutationFn: async ({ seasonId, seasonType, seasonNumber }) => {
+      await AnimeService.UpdateSeasonType(seasonId, seasonType, seasonNumber);
     },
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({
@@ -129,23 +129,23 @@ export function useUpdateEntryType(): UseMutationResult<
 // Update airing info
 // ---------------------------------------------------------------------------
 
-export interface UpdateEntryAiringVariables {
+export interface UpdateSeasonAiringVariables {
   animeId: number;
-  entryId: number;
+  seasonId: number;
   airingSeason: string;
   airingYear: number;
 }
 
-export function useUpdateEntryAiring(): UseMutationResult<
+export function useUpdateSeasonAiring(): UseMutationResult<
   void,
   Error,
-  UpdateEntryAiringVariables
+  UpdateSeasonAiringVariables
 > {
   const queryClient = useQueryClient();
-  return useMutation<void, Error, UpdateEntryAiringVariables>({
-    mutationFn: async ({ entryId, airingSeason, airingYear }) => {
-      await AnimeService.UpdateEntryAiringInfo(
-        entryId,
+  return useMutation<void, Error, UpdateSeasonAiringVariables>({
+    mutationFn: async ({ seasonId, airingSeason, airingYear }) => {
+      await AnimeService.UpdateSeasonAiringInfo(
+        seasonId,
         airingSeason,
         airingYear,
       );
@@ -162,20 +162,20 @@ export function useUpdateEntryAiring(): UseMutationResult<
 // Delete
 // ---------------------------------------------------------------------------
 
-export interface DeleteEntryVariables {
+export interface DeleteSeasonVariables {
   animeId: number;
-  entryId: number;
+  seasonId: number;
 }
 
-export function useDeleteEntry(): UseMutationResult<
+export function useDeleteSeason(): UseMutationResult<
   void,
   Error,
-  DeleteEntryVariables
+  DeleteSeasonVariables
 > {
   const queryClient = useQueryClient();
-  return useMutation<void, Error, DeleteEntryVariables>({
-    mutationFn: async ({ entryId }) => {
-      await AnimeService.DeleteEntry(entryId);
+  return useMutation<void, Error, DeleteSeasonVariables>({
+    mutationFn: async ({ seasonId }) => {
+      await AnimeService.DeleteSeason(seasonId);
     },
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({

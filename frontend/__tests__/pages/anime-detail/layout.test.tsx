@@ -58,10 +58,9 @@ import { act } from "react-dom/test-utils";
 
 import { routes } from "../../../src/app/routes";
 import { useSelectionStore } from "../../../src/stores/selection-store";
-import type { AnimeDetail } from "../../../src/types";
 import { renderRoutes, waitFor } from "../../test-utils";
 
-function makeDetail(overrides: Partial<AnimeDetail> = {}): AnimeDetail {
+function makeDetail(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     anime: { id: 42, name: "Bebop", aniListId: null },
     tags: [],
@@ -161,20 +160,25 @@ describe("AnimeDetailLayout (via routes)", () => {
     }
   });
 
-  test("Back button exists inside the header", async () => {
+  test("layout renders tab bar without breadcrumb", async () => {
     const { container, unmount } = renderRoutes(routes, {
       initialEntries: ["/anime/42/images"],
     });
     try {
       await waitFor(
         () =>
-          container.querySelector("[data-testid='anime-detail-back']") !==
+          container.querySelector("[data-testid='anime-detail-layout']") !==
           null,
       );
-      const back = container.querySelector(
-        "[data-testid='anime-detail-back']",
-      );
-      expect(back?.getAttribute("aria-label")).toBe("Back to home");
+      const layout = container.querySelector(
+        "[data-testid='anime-detail-layout']",
+      )!;
+      // Breadcrumb has been removed; "Home" link should not appear.
+      expect(layout.textContent ?? "").not.toContain("Home");
+      // Tab bar should still render.
+      expect(
+        container.querySelector("[data-testid='anime-detail-tab-bar']"),
+      ).not.toBeNull();
     } finally {
       unmount();
     }
@@ -217,7 +221,7 @@ describe("AnimeDetailLayout (via routes)", () => {
     }
   });
 
-  test("Upload button appears when anime has folders and calls ImportImages", async () => {
+  test("layout does not render an upload button (upload is on the images toolbar)", async () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
         folders: [
@@ -231,18 +235,12 @@ describe("AnimeDetailLayout (via routes)", () => {
     try {
       await waitFor(
         () =>
-          container.querySelector("[data-testid='anime-detail-upload']") !==
+          container.querySelector("[data-testid='anime-detail-layout']") !==
           null,
       );
-      act(() => {
-        (
-          container.querySelector(
-            "[data-testid='anime-detail-upload']",
-          ) as HTMLElement
-        ).click();
-      });
-      await waitFor(() => importImagesMock.mock.calls.length > 0);
-      expect(importImagesMock).toHaveBeenCalledWith(10);
+      expect(
+        container.querySelector("[data-testid='anime-detail-upload']"),
+      ).toBeNull();
     } finally {
       unmount();
     }

@@ -61,7 +61,7 @@ jest.mock("../../../src/lib/api", () => ({
 import { act } from "react-dom/test-utils";
 import { routes } from "../../../src/app/routes";
 import { toast } from "../../../src/components/ui/toaster";
-import type { AnimeCharacter, AnimeDetail } from "../../../src/types";
+import type { AnimeCharacter } from "../../../src/types";
 import { renderRoutes, waitFor } from "../../test-utils";
 
 function makeCharacter(
@@ -77,7 +77,7 @@ function makeCharacter(
   return ch;
 }
 
-function makeDetail(overrides: Partial<AnimeDetail> = {}): AnimeDetail {
+function makeDetail(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     anime: { id: 42, name: "Bebop", aniListId: null },
     tags: [],
@@ -194,9 +194,9 @@ describe("CharactersTab", () => {
       const cards = container.querySelectorAll(
         "[data-testid='character-card']",
       );
-      expect(cards[0].textContent).toContain("1 image");
-      expect(cards[0].textContent).not.toContain("1 images");
-      expect(cards[1].textContent).toContain("5 images");
+      expect(cards[0].textContent).toContain("5 images");
+      expect(cards[1].textContent).toContain("1 image");
+      expect(cards[1].textContent).not.toContain("1 images");
     } finally {
       unmount();
     }

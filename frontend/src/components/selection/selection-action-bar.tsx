@@ -36,6 +36,8 @@ export interface SelectionActionBarProps {
   totalVisible?: number;
   /** Opens the Image Tag Editor for the selected ids. */
   onEditTags?: () => void;
+  /** Opens the unified Image Editor (seasons + characters + tags). */
+  onEdit?: () => void;
 }
 
 /**
@@ -58,6 +60,7 @@ export function SelectionActionBar({
   visibleIds,
   totalVisible,
   onEditTags,
+  onEdit,
 }: SelectionActionBarProps): ReactElement | null {
   const selectMode = useSelectionStore((s) => s.selectMode);
   const selectedIds = useSelectionStore((s) => s.selectedIds);
@@ -132,6 +135,19 @@ export function SelectionActionBar({
           </Button>
 
           <Box flex="1" />
+
+          {onEdit ? (
+            <Button
+              size="xs"
+              colorPalette="indigo"
+              onClick={onEdit}
+              disabled={count === 0}
+              data-testid="selection-edit"
+              aria-label="Edit selected images"
+            >
+              Edit
+            </Button>
+          ) : null}
 
           {onEditTags ? (
             <Button

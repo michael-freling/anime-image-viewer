@@ -19,13 +19,12 @@
  *
  * Phase D4 scope — see frontend-design.md §2 (pages/tags directory).
  */
-import { Box, Button, Stack } from "@chakra-ui/react";
+import { Box, Button, Flex, Heading, Stack, Text } from "@chakra-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, TagIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 
-import { PageHeader } from "../../components/layout/page-header";
 import { EmptyState } from "../../components/shared/empty-state";
 import { ErrorAlert } from "../../components/shared/error-alert";
 import { RowSkeleton } from "../../components/shared/loading-skeleton";
@@ -237,13 +236,9 @@ export function TagManagementPage(): JSX.Element {
 
   /* ------------------------------ page body ------------------------------ */
 
-  const subtitle = useMemo(() => {
+  const tagCountLabel = useMemo(() => {
     if (tagsQuery.isLoading || tagsQuery.isError) return undefined;
-    return `${formatCount(tags.length, "tag")} across ${formatCount(
-      TAG_CATEGORY_ORDER.length,
-      "category",
-      "categories",
-    )}`;
+    return formatCount(tags.length, "tag");
   }, [tagsQuery.isLoading, tagsQuery.isError, tags.length]);
 
   let body: JSX.Element;
@@ -344,10 +339,44 @@ export function TagManagementPage(): JSX.Element {
 
   return (
     <Box data-testid="tag-management-page" position="relative" minHeight="100%">
-      <PageHeader
-        title="Tags"
-        subtitle={subtitle}
-        actions={
+      <Box
+        as="header"
+        position="sticky"
+        top="0"
+        zIndex="sticky"
+        bg="bg.surface"
+        borderBottomWidth="1px"
+        borderBottomColor="border"
+        backdropFilter="saturate(180%) blur(8px)"
+        px={{ base: "4", md: "6" }}
+        py="3"
+      >
+        <Flex
+          direction={{ base: "row", md: "row" }}
+          align="center"
+          gap={{ base: "3", md: "4" }}
+          wrap={{ base: "wrap", md: "nowrap" }}
+        >
+          <Flex align="baseline" gap="2" shrink={0}>
+            <Heading as="h1" fontWeight="600" fontSize="md" color="fg" lineHeight="1.2">
+              Tags
+            </Heading>
+            {tagCountLabel && (
+              <Text fontSize="xs" color="fg.muted">
+                {tagCountLabel}
+              </Text>
+            )}
+          </Flex>
+
+          <Box flex="1" maxW="480px" minW="0">
+            <SearchBar
+              value={search}
+              onChange={setSearch}
+              placeholder="Search tags..."
+              size="md"
+            />
+          </Box>
+
           <Button
             type="button"
             size="sm"
@@ -356,22 +385,15 @@ export function TagManagementPage(): JSX.Element {
             _hover={{ bg: "primary.hover" }}
             onClick={() => openCreate()}
             data-testid="tag-management-new"
+            ml="auto"
           >
             <Plus size={16} aria-hidden="true" />
             New tag
           </Button>
-        }
-      />
+        </Flex>
+      </Box>
 
       <Stack gap="4" pt="4">
-        <Box px={{ base: "4", md: "6" }}>
-          <SearchBar
-            value={search}
-            onChange={setSearch}
-            placeholder="Search tags"
-            size="md"
-          />
-        </Box>
         {body}
       </Stack>
 

@@ -1,14 +1,12 @@
 /**
- * SettingsPage smoke tests.
+ * Settings layout + routing tests.
  *
- * Focus: the tab bar navigates between sections, and both responsive
- * variants render into the DOM (visibility is handled by CSS, not by
- * conditional rendering).
+ * Focus: the UnderlineTabBar renders all four tab links, the index route
+ * redirects to /settings/general, and each sub-route renders the correct
+ * section component.
  *
- * Rationale for `jest.mock("../../../src/lib/api", ...)`: each section
- * dispatches Wails service calls on mount. Mocking at module boundary
- * keeps these tests fast, deterministic, and decoupled from binding
- * generation.
+ * Uses `renderRoutes` (createMemoryRouter + RouterProvider) so nested
+ * routes and `<Navigate>` redirects behave exactly like in production.
  */
 const getConfigMock = jest.fn();
 const updateConfigMock = jest.fn();
@@ -33,10 +31,15 @@ jest.mock("../../../src/lib/api", () => ({
   },
 }));
 
-import { act } from "react-dom/test-utils";
+import { Navigate } from "react-router";
+import type { RouteObject } from "react-router";
 
-import { SettingsPage } from "../../../src/pages/settings";
-import { renderWithClient, waitFor } from "../../test-utils";
+import { SettingsLayout } from "../../../src/pages/settings/settings-layout";
+import { GeneralSection } from "../../../src/pages/settings/sections/general-section";
+import { AppearanceSection } from "../../../src/pages/settings/sections/appearance-section";
+import { BackupSection } from "../../../src/pages/settings/sections/backup-section";
+import { AboutSection } from "../../../src/pages/settings/sections/about-section";
+import { renderRoutes, waitFor } from "../../test-utils";
 
 const sampleConfig = {
   imageRootDirectory: "/root",
@@ -49,7 +52,21 @@ const sampleConfig = {
   idleMinutes: 15,
 };
 
-describe("SettingsPage", () => {
+const settingsRoutes: RouteObject[] = [
+  {
+    path: "settings",
+    element: <SettingsLayout />,
+    children: [
+      { index: true, element: <Navigate to="general" replace /> },
+      { path: "general", element: <GeneralSection /> },
+      { path: "appearance", element: <AppearanceSection /> },
+      { path: "backup", element: <BackupSection /> },
+      { path: "about", element: <AboutSection /> },
+    ],
+  },
+];
+
+describe("SettingsLayout", () => {
   beforeEach(() => {
     getConfigMock.mockReset();
     updateConfigMock.mockReset();
@@ -59,120 +76,113 @@ describe("SettingsPage", () => {
     deleteBackupMock.mockReset();
     selectDirectoryMock.mockReset();
 
-    // Default: every query resolves quickly so the page stabilises.
     getConfigMock.mockResolvedValue(sampleConfig);
     listBackupsMock.mockResolvedValue([]);
   });
 
-  test("renders the page header and all four tab triggers", async () => {
-    const r = renderWithClient(<SettingsPage />);
+  test("renders the tab bar with all four tab links", async () => {
+    const r = renderRoutes(settingsRoutes, {
+      initialEntries: ["/settings/general"],
+    });
     try {
-      expect(r.container.textContent).toContain("Settings");
-      // Tab triggers exist for all four sections.
-      expect(r.container.querySelector("[data-testid='settings-tab-general']")).not.toBeNull();
-      expect(
-        r.container.querySelector("[data-testid='settings-tab-appearance']"),
-      ).not.toBeNull();
-      expect(r.container.querySelector("[data-testid='settings-tab-backup']")).not.toBeNull();
-      expect(r.container.querySelector("[data-testid='settings-tab-about']")).not.toBeNull();
-    } finally {
-      r.unmount();
-    }
-  });
-
-  test("General tab is selected by default", () => {
-    const r = renderWithClient(<SettingsPage />);
-    try {
-      const generalTab = r.container.querySelector(
-        "[data-testid='settings-tab-general']",
-      ) as HTMLElement;
-      expect(generalTab.getAttribute("aria-selected")).toBe("true");
-      expect(generalTab.getAttribute("data-active")).toBe("true");
-    } finally {
-      r.unmount();
-    }
-  });
-
-  test("clicking Appearance tab reveals the appearance panel", async () => {
-    const r = renderWithClient(<SettingsPage />);
-    try {
-      const appearanceTab = r.container.querySelector(
-        "[data-testid='settings-tab-appearance']",
-      ) as HTMLElement;
-      await act(async () => {
-        appearanceTab.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      });
-
-      // The desktop tabpanel should now wrap the appearance section.
-      const panel = r.container.querySelector(
-        "[data-testid='settings-tabpanel-appearance']",
+      await waitFor(
+        () => r.container.querySelector("[data-testid='settings-layout']") !== null,
       );
-      expect(panel).not.toBeNull();
-      // The theme radiogroup is inside the appearance section.
+      const nav = r.container.querySelector("nav[aria-label='Settings']");
+      expect(nav).not.toBeNull();
+      expect(nav!.textContent).toContain("General");
+      expect(nav!.textContent).toContain("Appearance");
+      expect(nav!.textContent).toContain("Backup");
+      expect(nav!.textContent).toContain("About");
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("index route /settings redirects to /settings/general", async () => {
+    const r = renderRoutes(settingsRoutes, {
+      initialEntries: ["/settings"],
+    });
+    try {
+      await waitFor(
+        () => r.container.querySelector("[data-testid='general-section']") !== null,
+      );
+      expect(r.container.querySelector("[data-testid='general-section']")).not.toBeNull();
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("/settings/general renders the GeneralSection", async () => {
+    const r = renderRoutes(settingsRoutes, {
+      initialEntries: ["/settings/general"],
+    });
+    try {
+      await waitFor(
+        () => r.container.querySelector("[data-testid='general-section']") !== null,
+      );
+      expect(r.container.querySelector("[data-testid='general-section']")).not.toBeNull();
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("/settings/appearance renders the AppearanceSection", async () => {
+    const r = renderRoutes(settingsRoutes, {
+      initialEntries: ["/settings/appearance"],
+    });
+    try {
+      await waitFor(
+        () => r.container.querySelector("[data-testid='appearance-section']") !== null,
+      );
+      expect(r.container.querySelector("[data-testid='appearance-section']")).not.toBeNull();
       expect(r.container.querySelector("[data-testid='theme-radiogroup']")).not.toBeNull();
     } finally {
       r.unmount();
     }
   });
 
-  test("clicking Backup tab reveals the backup panel", async () => {
-    const r = renderWithClient(<SettingsPage />);
+  test("/settings/backup renders the BackupSection", async () => {
+    const r = renderRoutes(settingsRoutes, {
+      initialEntries: ["/settings/backup"],
+    });
     try {
-      const backupTab = r.container.querySelector(
-        "[data-testid='settings-tab-backup']",
-      ) as HTMLElement;
-      await act(async () => {
-        backupTab.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      });
-      const panel = r.container.querySelector("[data-testid='settings-tabpanel-backup']");
-      expect(panel).not.toBeNull();
+      await waitFor(
+        () => r.container.querySelector("[data-testid='backup-section']") !== null,
+      );
       expect(r.container.querySelector("[data-testid='backup-section']")).not.toBeNull();
     } finally {
       r.unmount();
     }
   });
 
-  test("clicking About tab reveals the about panel", async () => {
-    const r = renderWithClient(<SettingsPage />);
+  test("/settings/about renders the AboutSection", async () => {
+    const r = renderRoutes(settingsRoutes, {
+      initialEntries: ["/settings/about"],
+    });
     try {
-      const aboutTab = r.container.querySelector(
-        "[data-testid='settings-tab-about']",
-      ) as HTMLElement;
-      await act(async () => {
-        aboutTab.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      });
-      const panel = r.container.querySelector("[data-testid='settings-tabpanel-about']");
-      expect(panel).not.toBeNull();
+      await waitFor(
+        () => r.container.querySelector("[data-testid='about-section']") !== null,
+      );
+      expect(r.container.querySelector("[data-testid='about-section']")).not.toBeNull();
       expect(r.container.querySelector("[data-testid='about-version']")).not.toBeNull();
     } finally {
       r.unmount();
     }
   });
 
-  test("mounts both desktop and mobile layouts — CSS decides which is visible", async () => {
-    const r = renderWithClient(<SettingsPage />);
+  test("General tab link has active state when on /settings/general", async () => {
+    const r = renderRoutes(settingsRoutes, {
+      initialEntries: ["/settings/general"],
+    });
     try {
-      // Wait for config to settle so section content actually renders.
       await waitFor(
-        () =>
-          r.container.querySelector("[data-testid='settings-desktop']") !== null,
+        () => r.container.querySelector("[data-testid='settings-layout']") !== null,
       );
-      expect(r.container.querySelector("[data-testid='settings-desktop']")).not.toBeNull();
-      expect(r.container.querySelector("[data-testid='settings-mobile']")).not.toBeNull();
-    } finally {
-      r.unmount();
-    }
-  });
-
-  test("mobile layout surfaces every section group with a label", () => {
-    const r = renderWithClient(<SettingsPage />);
-    try {
-      expect(r.container.querySelector("[data-testid='settings-group-general']")).not.toBeNull();
-      expect(
-        r.container.querySelector("[data-testid='settings-group-appearance']"),
-      ).not.toBeNull();
-      expect(r.container.querySelector("[data-testid='settings-group-backup']")).not.toBeNull();
-      expect(r.container.querySelector("[data-testid='settings-group-about']")).not.toBeNull();
+      const nav = r.container.querySelector("nav[aria-label='Settings']");
+      const activeTab = nav!.querySelector("[data-active='true']");
+      expect(activeTab).not.toBeNull();
+      expect(activeTab!.textContent).toContain("General");
     } finally {
       r.unmount();
     }

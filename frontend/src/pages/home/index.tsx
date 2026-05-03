@@ -23,12 +23,10 @@ import { FolderOpen, Plus, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
-import { PageHeader } from "../../components/layout/page-header";
 import { NewAnimeCard } from "../../components/shared/anime-card";
 import { EmptyState } from "../../components/shared/empty-state";
 import { ErrorAlert } from "../../components/shared/error-alert";
 import { SearchBar } from "../../components/shared/search-bar";
-import { formatCount } from "../../lib/format";
 import { useAnimeList } from "../../hooks/use-anime-list";
 import type { AnimeSummary } from "../../types";
 import { AnimeGrid } from "./anime-grid";
@@ -85,12 +83,6 @@ export function HomePage(): JSX.Element {
   const handleCardClick = (animeId: number) => {
     navigate(`/anime/${animeId}`);
   };
-
-  const totalImages = items.reduce((sum, a) => sum + a.imageCount, 0);
-  const subtitle =
-    items.length > 0
-      ? `${formatCount(items.length, "anime", "anime")} · ${formatCount(totalImages, "image")}`
-      : undefined;
 
   // Visible grid body varies by (isLoading, isError, items.length).
   let body: JSX.Element;
@@ -175,11 +167,38 @@ export function HomePage(): JSX.Element {
       position="relative"
       minHeight="100%"
     >
-      <PageHeader
-        title="AnimeVault"
-        subtitle={subtitle}
-        actions={
-          <Stack direction="row" gap="2">
+      <Box
+        as="header"
+        position="sticky"
+        top="0"
+        zIndex="sticky"
+        bg="bg.surface"
+        borderBottomWidth="1px"
+        borderBottomColor="border"
+        backdropFilter="saturate(180%) blur(8px)"
+        px={{ base: "4", md: "6" }}
+        py="3"
+      >
+        <Stack
+          direction={{ base: "column", md: "row" }}
+          align={{ base: "stretch", md: "center" }}
+          gap={{ base: "3", md: "4" }}
+        >
+          <Box flex="1">
+            <SearchBar
+              value={search}
+              onChange={setSearch}
+              placeholder="Search anime..."
+              size="md"
+            />
+          </Box>
+
+          <Stack
+            direction="row"
+            gap="2"
+            flexShrink={0}
+            justify={{ base: "flex-start", md: "flex-end" }}
+          >
             <Button
               type="button"
               size="sm"
@@ -203,18 +222,10 @@ export function HomePage(): JSX.Element {
               New anime
             </Button>
           </Stack>
-        }
-      />
+        </Stack>
+      </Box>
 
       <Stack gap="4" pt="4">
-        <Box px={{ base: "4", md: "6" }}>
-          <SearchBar
-            value={search}
-            onChange={setSearch}
-            placeholder="Search anime"
-            size="md"
-          />
-        </Box>
         {body}
       </Stack>
 

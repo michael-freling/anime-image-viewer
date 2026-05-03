@@ -27,7 +27,7 @@ export {
   type AnimeTagInfo,
   type AnimeFolderInfo,
   type AnimeFolderTreeNode,
-  type AnimeEntryInfo,
+  type AnimeSeasonInfo,
   type UnassignedFolder,
   type FolderAnimeStatus,
   type AniListSearchResult,

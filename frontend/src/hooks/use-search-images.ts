@@ -122,6 +122,7 @@ export function useSearchImages(
         sort: filters.sort,
       }),
       {
+        seasonId: filters.seasonId ?? null,
         includeCharacterIds: [...includeCharIds].sort((a, b) => a - b),
         excludeCharacterIds: [...excludeCharIds].sort((a, b) => a - b),
       },
@@ -132,10 +133,22 @@ export function useSearchImages(
 
       let images: ImageFile[];
 
-      // Anime-anchored search with no include tag filters: hit the dedicated
-      // SearchImagesByAnime endpoint so the result is anime-scoped without
-      // requiring a tagId.
-      if (filters.animeId != null && includeIds.length === 0) {
+      // Season-scoped search: when both animeId and seasonId are set with no
+      // include tags, fetch images from that specific season folder.
+      if (
+        filters.animeId != null &&
+        filters.seasonId != null &&
+        includeIds.length === 0
+      ) {
+        const resp = (await AnimeService.GetFolderImages(
+          filters.seasonId,
+          true,
+        )) as SearchResponse;
+        images = resp?.images ?? [];
+      } else if (filters.animeId != null && includeIds.length === 0) {
+        // Anime-anchored search with no include tag filters: hit the dedicated
+        // SearchImagesByAnime endpoint so the result is anime-scoped without
+        // requiring a tagId.
         const resp = (await AnimeService.SearchImagesByAnime(
           filters.animeId,
         )) as SearchResponse;

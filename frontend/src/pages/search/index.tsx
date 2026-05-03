@@ -1,5 +1,5 @@
 /**
- * Search page — hero bar + inline filters + full-width masonry results.
+ * Search page — single toolbar row + inline filters + full-width masonry results.
  *
  * Spec: ui-design.md §3.4 (search screen layout) + wireframe
  * `04-search-desktop.svg`. Also touches §4.2 (Image Tile), §4.3 (Tag Chip),
@@ -20,7 +20,7 @@
  */
 import { Box, Button, Flex, Stack, Text } from "@chakra-ui/react";
 import { useDebouncedValue } from "@mantine/hooks";
-import { Search as SearchIcon, CheckSquare, SquareDashed } from "lucide-react";
+import { Search as SearchIcon, ChevronDown, ChevronRight, Filter } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -31,24 +31,24 @@ import {
 import { useNavigate, useSearchParams } from "react-router";
 
 import { ImageViewerOverlay } from "../../components/image-viewer";
-import { PageHeader } from "../../components/layout/page-header";
 import { EmptyState } from "../../components/shared/empty-state";
 import { ErrorAlert } from "../../components/shared/error-alert";
+import { FilterChip } from "../../components/shared/filter-chip";
 import { ImageGrid } from "../../components/shared/image-grid";
 import {
   ImageThumbnailSkeleton,
 } from "../../components/shared/loading-skeleton";
 import { SearchBar } from "../../components/shared/search-bar";
+import { Collapsible } from "../../components/ui/collapsible";
 import { RubberBandOverlay } from "../../components/selection/rubber-band-overlay";
 import { SelectionActionBar } from "../../components/selection/selection-action-bar";
 import { useAnimeDetail } from "../../hooks/use-anime-detail";
 import { useImageSelection } from "../../hooks/use-image-selection";
 import { useSearchImages } from "../../hooks/use-search-images";
-import { useTagMap, useTags } from "../../hooks/use-tags";
+import { useTags } from "../../hooks/use-tags";
 import { useSelectionStore } from "../../stores/selection-store";
 import type { ImageFile, Tag } from "../../types";
 
-import { ActiveFiltersBar } from "./active-filters-bar";
 import { CharacterPicker } from "./character-picker";
 import {
   cycleCharacterId,
@@ -56,10 +56,9 @@ import {
   filterStateFromSearchParams,
   filterStateToSearchParams,
   isEmptyFilterState,
-  removeCharacterId,
-  removeTagId,
   type SearchFilterState,
 } from "./filter-state";
+import { SeasonPicker } from "./season-picker";
 import { TagPicker } from "./tag-picker";
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -132,14 +131,6 @@ export function SearchPage(): JSX.Element {
     [searchParams, updateState],
   );
 
-  const handleRemoveTag = useCallback(
-    (id: number) => {
-      const current = filterStateFromSearchParams(searchParams);
-      updateState(removeTagId(current, id));
-    },
-    [searchParams, updateState],
-  );
-
   const handleCycleCharacter = useCallback(
     (id: number) => {
       const current = filterStateFromSearchParams(searchParams);
@@ -148,17 +139,17 @@ export function SearchPage(): JSX.Element {
     [searchParams, updateState],
   );
 
-  const handleRemoveCharacter = useCallback(
-    (id: number) => {
+  const handleSelectSeason = useCallback(
+    (seasonId: number | null) => {
       const current = filterStateFromSearchParams(searchParams);
-      updateState(removeCharacterId(current, id));
+      updateState({ ...current, seasonId });
     },
     [searchParams, updateState],
   );
 
   const handleRemoveAnime = useCallback(() => {
     const current = filterStateFromSearchParams(searchParams);
-    updateState({ ...current, animeId: null });
+    updateState({ ...current, animeId: null, seasonId: null });
   }, [searchParams, updateState]);
 
   const handleClearAll = useCallback(() => {
@@ -168,10 +159,10 @@ export function SearchPage(): JSX.Element {
 
   // React Query hooks.
   const tagsQuery = useTags();
-  const tagMapQuery = useTagMap();
   const animeDetailQuery = useAnimeDetail(urlState.animeId ?? 0);
   const searchQuery = useSearchImages({
     animeId: urlState.animeId ?? undefined,
+    seasonId: urlState.seasonId ?? undefined,
     includeTagIds: urlState.includeIds,
     excludeTagIds: urlState.excludeIds,
     includeCharacterIds: urlState.includeCharacterIds,
@@ -206,14 +197,13 @@ export function SearchPage(): JSX.Element {
     }));
   }, [urlState.animeId, animeDetailQuery.data]);
 
-  // Character map for the active-filters-bar chip labels.
-  const characterMap = useMemo(() => {
-    const map = new Map<number, { id: number; name: string }>();
-    for (const c of pickerCharacters) {
-      map.set(c.id, { id: c.id, name: c.name });
+  // Seasons come from the anime detail when an anime is selected.
+  const pickerSeasons = useMemo(() => {
+    if (urlState.animeId == null || !animeDetailQuery.data?.seasons) {
+      return [];
     }
-    return map;
-  }, [pickerCharacters]);
+    return animeDetailQuery.data.seasons;
+  }, [urlState.animeId, animeDetailQuery.data]);
 
   const images = searchQuery.data ?? [];
   const filteredImages = useMemo(
@@ -224,7 +214,6 @@ export function SearchPage(): JSX.Element {
   // Select-mode wiring.
   const selectMode = useSelectionStore((s) => s.selectMode);
   const selectedIds = useSelectionStore((s) => s.selectedIds);
-  const toggleSelectMode = useSelectionStore((s) => s.toggleSelectMode);
   const setSelected = useSelectionStore((s) => s.setSelected);
 
 
@@ -307,13 +296,57 @@ export function SearchPage(): JSX.Element {
     [handleClick, selectMode, filteredImages],
   );
 
-  const handleToggleSelectMode = useCallback(() => {
-    toggleSelectMode();
-  }, [toggleSelectMode]);
+  const handleLongPress = useCallback(
+    (image: ImageFile) => {
+      useSelectionStore.getState().enterSelectMode(image.id);
+    },
+    [],
+  );
 
   const isEmpty = isEmptyFilterState(urlState);
   const isLoading = searchQuery.isLoading && !searchQuery.data;
   const hasError = searchQuery.isError;
+
+  // Collapsible filter panel: expanded when no filters are active (so the
+  // user discovers the pickers), collapsed when filters are pre-set (e.g.
+  // navigating from anime detail with a character filter).
+  const [filterPanelOpen, setFilterPanelOpen] = useState(
+    () => isEmptyFilterState(filterStateFromSearchParams(searchParams)),
+  );
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    count += urlState.includeIds.length;
+    count += urlState.excludeIds.length;
+    count += urlState.includeCharacterIds.length;
+    count += urlState.excludeCharacterIds.length;
+    if (urlState.animeId != null) count += 1;
+    if (urlState.seasonId != null) count += 1;
+    if (urlState.query.trim().length > 0) count += 1;
+    return count;
+  }, [urlState]);
+
+  const handleToggleFilterPanel = useCallback(() => {
+    setFilterPanelOpen((prev) => !prev);
+  }, []);
+
+  // Auto-expand the filter panel when all filters are cleared so the user
+  // can discover the pickers again.
+  useEffect(() => {
+    if (isEmpty) {
+      setFilterPanelOpen(true);
+    }
+  }, [isEmpty]);
+
+  // Clear season when anime changes or is removed (seasons are anime-specific).
+  const prevAnimeIdRef = useRef(urlState.animeId);
+  useEffect(() => {
+    if (prevAnimeIdRef.current !== urlState.animeId && urlState.seasonId != null) {
+      const current = filterStateFromSearchParams(searchParams);
+      updateState({ ...current, seasonId: null });
+    }
+    prevAnimeIdRef.current = urlState.animeId;
+  }, [urlState.animeId]);
 
   // Reset rubber-band pending state when filters change so stale ids don't
   // leak into the new result set.
@@ -326,26 +359,7 @@ export function SearchPage(): JSX.Element {
     if (!selectMode) setPendingIds(new Set<number>());
   }, [selectMode]);
 
-  const selectToggleButton = (
-    <Button
-      type="button"
-      data-testid="search-select-mode-toggle"
-      onClick={handleToggleSelectMode}
-      size="sm"
-      variant={selectMode ? "solid" : "outline"}
-      colorPalette="indigo"
-      aria-pressed={selectMode}
-    >
-      <Flex align="center" gap="2">
-        {selectMode ? (
-          <CheckSquare size={14} aria-hidden="true" />
-        ) : (
-          <SquareDashed size={14} aria-hidden="true" />
-        )}
-        <span>{selectMode ? "Exit select" : "Select"}</span>
-      </Flex>
-    </Button>
-  );
+  const Chevron = filterPanelOpen ? ChevronDown : ChevronRight;
 
   return (
     <Box
@@ -360,71 +374,133 @@ export function SearchPage(): JSX.Element {
         },
       }}
     >
-      <PageHeader title="Search" actions={selectToggleButton} />
+      {/* Single sticky toolbar row */}
+      <Box
+        as="header"
+        position="sticky"
+        top="0"
+        zIndex="sticky"
+        bg="bg.surface"
+        borderBottomWidth="1px"
+        borderColor="border"
+        px={{ base: "4", md: "6" }}
+        py="3"
+      >
+        <Flex align="center" gap="3">
+          <Box flex="1" minW={0}>
+            <SearchBar
+              value={inputValue}
+              onChange={setInputValue}
+              placeholder="Search images..."
+              size="md"
+            />
+          </Box>
+          <Button
+            type="button"
+            data-testid="search-filter-toggle"
+            onClick={handleToggleFilterPanel}
+            size="sm"
+            variant="outline"
+            aria-expanded={filterPanelOpen}
+            aria-controls="search-filter-panel"
+          >
+            <Flex align="center" gap="2">
+              <Filter size={14} aria-hidden="true" />
+              <span>
+                Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+              </span>
+              <Chevron size={14} aria-hidden="true" />
+            </Flex>
+          </Button>
+        </Flex>
+      </Box>
 
       {selectMode && (
         <SelectionActionBar
           visibleIds={visibleIds}
           totalVisible={filteredImages.length}
+          onEdit={() =>
+            navigate(
+              urlState.animeId != null
+                ? `/images/edit?anime=${urlState.animeId}`
+                : "/images/edit",
+            )
+          }
           onEditTags={() => navigate("/images/edit/tags")}
         />
       )}
 
-      <Box
-        as="section"
-        aria-label="Search hero"
-        px={{ base: "4", md: "6" }}
-        py="4"
-        borderBottomWidth="1px"
-        borderBottomColor="border"
-        bg="bg.surface"
-      >
-        <SearchBar
-          value={inputValue}
-          onChange={setInputValue}
-          placeholder="Search images by filename or tag..."
-          size="lg"
-        />
-      </Box>
+      <Collapsible open={filterPanelOpen}>
+        <Box
+          id="search-filter-panel"
+          px={{ base: "4", md: "6" }}
+        >
+          {/* Active filter summary: anime chip + clear all */}
+          {activeFilterCount > 0 && (
+            <Flex
+              data-testid="filter-active-row"
+              align="center"
+              gap="2"
+              py="2"
+              wrap="wrap"
+            >
+              {animeDetailQuery.data?.anime.name && (
+                <FilterChip
+                  label={animeDetailQuery.data.anime.name}
+                  variant="include"
+                  onRemove={handleRemoveAnime}
+                />
+              )}
+              <Box flex="1" />
+              <Button
+                type="button"
+                data-testid="search-clear-all"
+                onClick={handleClearAll}
+                size="sm"
+                variant="ghost"
+                color="primary"
+                fontSize="sm"
+                fontWeight="500"
+              >
+                Clear all
+              </Button>
+            </Flex>
+          )}
 
-      <ActiveFiltersBar
-        state={urlState}
-        tagMap={tagMapQuery.data}
-        characterMap={characterMap}
-        animeName={animeDetailQuery.data?.anime.name}
-        onRemoveAnime={handleRemoveAnime}
-        onRemove={handleRemoveTag}
-        onRemoveCharacter={handleRemoveCharacter}
-        onClearAll={handleClearAll}
-        totalLabel={
-          !isEmpty && !isLoading && !hasError
-            ? formatResultCount(filteredImages.length)
-            : undefined
-        }
-      />
+          {/* Season picker: shown when an anime filter is active and the
+              anime has seasons. */}
+          {urlState.animeId != null && pickerSeasons.length > 0 && (
+            <SeasonPicker
+              seasons={pickerSeasons}
+              selectedSeasonId={urlState.seasonId}
+              onSelectSeason={handleSelectSeason}
+            />
+          )}
 
-      {/* Character picker: shown above the tag picker when an anime filter
-          is active and the anime has characters. */}
-      {urlState.animeId != null && pickerCharacters.length > 0 && (
-        <CharacterPicker
-          characters={pickerCharacters}
-          includedIds={urlState.includeCharacterIds}
-          excludedIds={urlState.excludeCharacterIds}
-          onCycleCharacter={handleCycleCharacter}
-        />
-      )}
+          {/* Character picker: shown when an anime filter is active and the
+              anime has characters. */}
+          {urlState.animeId != null && pickerCharacters.length > 0 && (
+            <CharacterPicker
+              characters={pickerCharacters}
+              includedIds={urlState.includeCharacterIds}
+              excludedIds={urlState.excludeCharacterIds}
+              onCycleCharacter={handleCycleCharacter}
+            />
+          )}
 
-      {/* Tag picker: always shown when the library has tags so the user
-          can discover filters without having typed anything yet. When an
-          anime filter is active, shows only that anime's tags. */}
-      {pickerTags.length > 0 && (
-        <TagPicker
-          tags={pickerTags}
-          includedIds={urlState.includeIds}
-          excludedIds={urlState.excludeIds}
-          onCycleTag={handleCycleTag}
-        />
-      )}
+          {/* Tag picker: always shown when the library has tags so the user
+              can discover filters without having typed anything yet. When an
+              anime filter is active, shows only that anime's tags. */}
+          {pickerTags.length > 0 && (
+            <TagPicker
+              tags={pickerTags}
+              includedIds={urlState.includeIds}
+              excludedIds={urlState.excludeIds}
+              onCycleTag={handleCycleTag}
+            />
+          )}
+        </Box>
+      </Collapsible>
 
       <Box
         as="section"
@@ -482,6 +558,7 @@ export function SearchPage(): JSX.Element {
             pendingIds={pendingIds}
             selectMode={selectMode}
             onImageClick={handleImageClick}
+            onLongPress={handleLongPress}
             emptyState={
               <EmptyState
                 icon={SearchIcon}

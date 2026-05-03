@@ -59,6 +59,7 @@ const searchImagesMock = jest.fn();
 const getAllTagsMock = jest.fn();
 const getAnimeDetailsMock = jest.fn();
 const searchImagesByAnimeMock = jest.fn();
+const getFolderImagesMock = jest.fn();
 
 const getImageTagIDsMock = jest.fn();
 const getImageCharacterIDsMock = jest.fn();
@@ -68,6 +69,7 @@ jest.mock("../../../src/lib/api", () => ({
   AnimeService: {
     GetAnimeDetails: (...args: unknown[]) => getAnimeDetailsMock(...args),
     SearchImagesByAnime: (...args: unknown[]) => searchImagesByAnimeMock(...args),
+    GetFolderImages: (...args: unknown[]) => getFolderImagesMock(...args),
     GetImageTagIDs: (...args: unknown[]) => getImageTagIDsMock(...args),
   },
   CharacterService: {
@@ -138,6 +140,8 @@ describe("SearchPage", () => {
     getAnimeDetailsMock.mockResolvedValue(null);
     searchImagesByAnimeMock.mockReset();
     searchImagesByAnimeMock.mockResolvedValue({ images: [] });
+    getFolderImagesMock.mockReset();
+    getFolderImagesMock.mockResolvedValue({ images: [] });
     getImageTagIDsMock.mockReset();
     getImageTagIDsMock.mockResolvedValue({});
     getImageCharacterIDsMock.mockReset();
@@ -145,14 +149,18 @@ describe("SearchPage", () => {
     resetSelectionStore();
   });
 
-  test("renders the page header with title 'Search'", async () => {
+  test("renders the toolbar with search bar and filters button", async () => {
     const { container, unmount } = renderWithClient(<SearchPage />, {
       routerInitialEntries: ["/search"],
     });
     try {
-      // PageHeader renders an <h1> with the given title.
-      const heading = container.querySelector("h1");
-      expect(heading?.textContent).toBe("Search");
+      // The toolbar renders a search input and a filters toggle button.
+      const input = container.querySelector("input[role='searchbox']");
+      expect(input).not.toBeNull();
+      const filterToggle = container.querySelector(
+        "[data-testid='search-filter-toggle']",
+      );
+      expect(filterToggle).not.toBeNull();
     } finally {
       unmount();
     }
@@ -182,6 +190,7 @@ describe("SearchPage", () => {
     });
     try {
       // Wait for tag picker to appear once useTags resolves.
+      // With no filters, the collapsible panel is expanded by default.
       await waitFor(
         () =>
           container.querySelector("[data-testid='tag-picker']") !== null,
@@ -210,16 +219,16 @@ describe("SearchPage", () => {
           new MouseEvent("click", { bubbles: true }),
         );
       });
-      // The active filter bar picks up the new include chip.
+      // The filter toggle button shows the filter count.
       await waitFor(
         () =>
-          container.querySelector("[data-testid='active-filters-bar']") !==
+          container.querySelector("[data-testid='search-filter-toggle']") !==
           null,
       );
-      const bar = container.querySelector(
-        "[data-testid='active-filters-bar']",
+      const filterBtn = container.querySelector(
+        "[data-testid='search-filter-toggle']",
       );
-      expect(bar?.textContent).toContain("Outdoor");
+      expect(filterBtn?.textContent).toContain("Filters (1)");
       // And the data layer was called with that include id flattened to a
       // single tagId on the wire (Wails's SearchImagesRequest is single-tag;
       // the hook narrows includeTagIds[0] -> tagId).
@@ -234,35 +243,39 @@ describe("SearchPage", () => {
     }
   });
 
-  test("clicking X on an active filter chip removes it", async () => {
+  test("clear all button removes all filters", async () => {
     const { container, unmount } = renderWithClient(<SearchPage />, {
       routerInitialEntries: ["/search?tag=1"],
     });
     try {
-      // Wait for the bar + tagMap to resolve so the chip label is the tag
-      // name rather than the `#id` fallback.
+      // With filters present, the panel starts collapsed. Toggle it open.
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='search-filter-toggle']") !== null,
+      );
+      const toggle = container.querySelector(
+        "[data-testid='search-filter-toggle']",
+      ) as HTMLElement;
+      act(() => {
+        toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      // Wait for the clear all button to appear inside the expanded panel.
       await waitFor(
         () =>
           container.querySelector(
-            "[aria-label='Remove filter Outdoor']",
+            "[data-testid='search-clear-all']",
           ) !== null,
       );
-      const removeBtn = container.querySelector(
-        "[aria-label='Remove filter Outdoor']",
-      ) as HTMLElement | null;
-      expect(removeBtn).not.toBeNull();
+      const clearBtn = container.querySelector(
+        "[data-testid='search-clear-all']",
+      ) as HTMLElement;
+      expect(clearBtn).not.toBeNull();
       act(() => {
-        removeBtn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        clearBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       });
-      // After removal the active-filters-bar either unmounts or stops
-      // rendering the Outdoor label.
+      // After clearing, the empty state shows.
       await waitFor(
-        () =>
-          !(
-            container
-              .querySelector("[data-testid='active-filters-bar']")
-              ?.textContent?.includes("Outdoor") ?? false
-          ),
+        () => (container.textContent ?? "").includes("Start searching"),
       );
     } finally {
       unmount();
@@ -274,24 +287,17 @@ describe("SearchPage", () => {
       routerInitialEntries: ["/search?q=beach&tag=2&exclude=3"],
     });
     try {
-      // Wait for tagMap to resolve so the bar's chips show the tag names
-      // rather than the `#id` fallback.
+      // With filters present, the filter toggle shows count.
+      // tag=2 + exclude=3 + q=beach = 3 active filters.
       await waitFor(
         () =>
-          (container.querySelector(
-            "[data-testid='active-filters-bar']",
-          )?.textContent ?? "").includes("Sunny"),
+          container.querySelector("[data-testid='search-filter-toggle']") !==
+          null,
       );
-      const bar = container.querySelector("[data-testid='active-filters-bar']");
-      // Both the include + exclude chip render from the URL.
-      expect(bar?.textContent).toContain("Sunny");
-      expect(bar?.textContent).toContain("Indoor");
-      // The include chip carries the `+` prefix.
-      const include = container.querySelector("[data-variant='include']");
-      expect(include?.textContent).toContain("Sunny");
-      // The exclude chip carries the `−` prefix.
-      const exclude = container.querySelector("[data-variant='exclude']");
-      expect(exclude?.textContent).toContain("Indoor");
+      const filterBtn = container.querySelector(
+        "[data-testid='search-filter-toggle']",
+      );
+      expect(filterBtn?.textContent).toContain("Filters (3)");
 
       // The search bar input shows the URL query.
       const input = container.querySelector("input[role='searchbox']") as
@@ -309,6 +315,41 @@ describe("SearchPage", () => {
           return arg?.tagId === 2;
         }),
       );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("select mode (via enterSelectMode) mounts the selection action bar", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [makeImage(100, "sunset.png")],
+    });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?tag=1"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='image-grid']") !== null,
+      );
+      // Not in select mode yet.
+      expect(
+        container.querySelector("[data-testid='selection-action-bar']"),
+      ).toBeNull();
+      // Simulate entering select mode (as long-press would do).
+      act(() => {
+        useSelectionStore.getState().enterSelectMode(100);
+      });
+      expect(
+        container.querySelector("[data-testid='selection-action-bar']"),
+      ).not.toBeNull();
+      // Exiting select mode removes the bar.
+      act(() => {
+        useSelectionStore.getState().toggleSelectMode();
+      });
+      expect(
+        container.querySelector("[data-testid='selection-action-bar']"),
+      ).toBeNull();
     } finally {
       unmount();
     }
@@ -408,42 +449,6 @@ describe("SearchPage", () => {
     }
   });
 
-  test("select mode toggle mounts the selection action bar", async () => {
-    const { container, unmount } = renderWithClient(<SearchPage />, {
-      routerInitialEntries: ["/search"],
-    });
-    try {
-      await waitFor(
-        () =>
-          container.querySelector(
-            "[data-testid='search-select-mode-toggle']",
-          ) !== null,
-      );
-      // Not in select mode yet.
-      expect(
-        container.querySelector("[data-testid='selection-action-bar']"),
-      ).toBeNull();
-      const toggle = container.querySelector(
-        "[data-testid='search-select-mode-toggle']",
-      ) as HTMLElement;
-      act(() => {
-        toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      });
-      expect(
-        container.querySelector("[data-testid='selection-action-bar']"),
-      ).not.toBeNull();
-      // Clicking again exits select mode.
-      act(() => {
-        toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      });
-      expect(
-        container.querySelector("[data-testid='selection-action-bar']"),
-      ).toBeNull();
-    } finally {
-      unmount();
-    }
-  });
-
   test("back-button restores filters via MemoryRouter's initial entry", async () => {
     // Multiple initial entries simulate a history stack: the user previously
     // was at /search with a filter, then navigated to a blank /search. We
@@ -452,13 +457,16 @@ describe("SearchPage", () => {
       routerInitialEntries: ["/search", "/search?tag=2"],
     });
     try {
-      // Wait for tagMap to resolve so the bar's chips show "Sunny" rather
-      // than the `#2` fallback.
+      // The last entry wins as the "current" location — tag=2 means
+      // 1 active filter is shown in the filter toggle button.
       await waitFor(() =>
-        (container.textContent ?? "").includes("Sunny"),
+        container.querySelector("[data-testid='search-filter-toggle']") !==
+        null,
       );
-      // The last entry wins as the "current" location — tag=2 -> Sunny.
-      expect(container.textContent).toContain("Sunny");
+      const filterBtn = container.querySelector(
+        "[data-testid='search-filter-toggle']",
+      );
+      expect(filterBtn?.textContent).toContain("Filters (1)");
     } finally {
       unmount();
     }
@@ -513,6 +521,17 @@ describe("SearchPage", () => {
       routerInitialEntries: ["/search?tag=1"],
     });
     try {
+      // With tag=1 set, the filter panel starts collapsed. Toggle it open.
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='search-filter-toggle']") !== null,
+      );
+      const toggle = container.querySelector(
+        "[data-testid='search-filter-toggle']",
+      ) as HTMLElement;
+      act(() => {
+        toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
       await waitFor(
         () =>
           container.querySelector("[data-testid='tag-picker']") !== null,
@@ -524,13 +543,11 @@ describe("SearchPage", () => {
           (h as HTMLElement).dispatchEvent(new MouseEvent("click", { bubbles: true }));
         });
       });
-      // Wait for the ActiveFiltersBar to show the Outdoor chip as include.
-      await waitFor(
-        () =>
-          (container.querySelector(
-            "[data-testid='active-filters-bar']",
-          )?.textContent ?? "").includes("Outdoor"),
-      );
+      // The tag chip for Outdoor (id=1) should show as active (included).
+      await waitFor(() => {
+        const chips = container.querySelectorAll("[data-testid='tag-chip']");
+        return Array.from(chips).some((el) => el.textContent?.includes("Outdoor"));
+      });
       // Click the Outdoor chip inside the picker — cycles include -> exclude.
       const outdoorChip = Array.from(
         container.querySelectorAll("[data-testid='tag-chip']"),
@@ -541,14 +558,16 @@ describe("SearchPage", () => {
           new MouseEvent("click", { bubbles: true }),
         );
       });
-      // After cycling, the filter bar should still show Outdoor but now as
-      // an exclude chip (with the `−` prefix from FilterChip variant=exclude).
+      // After cycling, the filter toggle still shows 1 active filter (the exclude).
       await waitFor(
         () =>
-          container.querySelector("[data-variant='exclude']") !== null,
+          container.querySelector("[data-testid='search-filter-toggle']") !==
+          null,
       );
-      const excludeChip = container.querySelector("[data-variant='exclude']");
-      expect(excludeChip?.textContent).toContain("Outdoor");
+      const filterBtn = container.querySelector(
+        "[data-testid='search-filter-toggle']",
+      );
+      expect(filterBtn?.textContent).toContain("Filters (1)");
     } finally {
       unmount();
     }
@@ -741,17 +760,23 @@ describe("SearchPage", () => {
       routerInitialEntries: ["/search?tag=1&anime=42"],
     });
     try {
-      // Wait for the active-filters-bar to show the anime name chip.
+      // With filters present, the panel starts collapsed. Toggle it open.
       await waitFor(
         () =>
-          (container.querySelector(
-            "[data-testid='active-filters-bar']",
-          )?.textContent ?? "").includes("Bebop"),
+          container.querySelector("[data-testid='search-filter-toggle']") !== null,
       );
-      const bar = container.querySelector(
-        "[data-testid='active-filters-bar']",
+      const toggle = container.querySelector(
+        "[data-testid='search-filter-toggle']",
+      ) as HTMLElement;
+      act(() => {
+        toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      // Wait for the anime chip to render inside the filter panel.
+      await waitFor(
+        () =>
+          (container.textContent ?? "").includes("Bebop"),
       );
-      expect(bar?.textContent).toContain("Bebop");
 
       // Wait for the tag picker to render with the anime's scoped tags.
       await waitFor(
@@ -799,7 +824,19 @@ describe("SearchPage", () => {
       routerInitialEntries: ["/search?anime=42"],
     });
     try {
-      // Wait for the anime chip to render.
+      // Open the filter panel (collapsed when filters are active).
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='search-filter-toggle']") !== null,
+      );
+      const toggle = container.querySelector(
+        "[data-testid='search-filter-toggle']",
+      ) as HTMLElement;
+      act(() => {
+        toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      // Wait for the anime chip to render in the filter panel.
       await waitFor(
         () =>
           container.querySelector(
@@ -823,10 +860,6 @@ describe("SearchPage", () => {
             "[aria-label='Remove filter Bebop']",
           ) === null,
       );
-      // The active-filters-bar should no longer show "Bebop".
-      const bar = container.querySelector("[data-testid='active-filters-bar']");
-      // Either bar is gone entirely or doesn't contain Bebop.
-      expect(bar?.textContent ?? "").not.toContain("Bebop");
     } finally {
       unmount();
     }
@@ -870,6 +903,108 @@ describe("SearchPage", () => {
 
       // Selection store should remain empty (no selection happened).
       expect(useSelectionStore.getState().selectedIds.size).toBe(0);
+    } finally {
+      unmount();
+    }
+  });
+
+  test("season picker renders when anime has seasons and season filter increases active count", async () => {
+    getAnimeDetailsMock.mockResolvedValue({
+      anime: { id: 42, name: "Bebop", aniListId: null },
+      tags: [],
+      characters: [],
+      folders: [],
+      folderTree: null,
+      entries: [
+        { id: 100, name: "Season 1", entryType: "season", entryNumber: 1, airingSeason: "spring", airingYear: 2020, imageCount: 10, children: [] },
+        { id: 101, name: "Season 2", entryType: "season", entryNumber: 2, airingSeason: "fall", airingYear: 2021, imageCount: 5, children: [] },
+      ],
+    });
+    searchImagesByAnimeMock.mockResolvedValue({ images: [] });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?anime=42"],
+    });
+    try {
+      // Open the filter panel (collapsed when filters are active).
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='search-filter-toggle']") !== null,
+      );
+      const toggle = container.querySelector(
+        "[data-testid='search-filter-toggle']",
+      ) as HTMLElement;
+      act(() => {
+        toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      // Wait for the season picker to render.
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='season-picker']") !== null,
+      );
+      const seasonPicker = container.querySelector("[data-testid='season-picker']");
+      expect(seasonPicker).not.toBeNull();
+      expect(seasonPicker?.textContent).toContain("Season 1");
+      expect(seasonPicker?.textContent).toContain("Season 2");
+      expect(seasonPicker?.textContent).toContain("All seasons");
+
+      // Click Season 1 to set the season filter.
+      const season1Btn = container.querySelector(
+        "[data-testid='season-picker-item-100']",
+      ) as HTMLElement;
+      expect(season1Btn).not.toBeNull();
+      act(() => {
+        season1Btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      // The filter count should increase (anime=1 + season=1 = 2).
+      await waitFor(() => {
+        const filterBtn = container.querySelector(
+          "[data-testid='search-filter-toggle']",
+        );
+        return filterBtn?.textContent?.includes("Filters (2)") ?? false;
+      });
+    } finally {
+      unmount();
+    }
+  });
+
+  test("season picker is not rendered when anime has no seasons", async () => {
+    getAnimeDetailsMock.mockResolvedValue({
+      anime: { id: 42, name: "Bebop", aniListId: null },
+      tags: [{ id: 11, name: "Space", category: "scene", imageCount: 3 }],
+      characters: [],
+      folders: [],
+      folderTree: null,
+      entries: [],
+    });
+    searchImagesByAnimeMock.mockResolvedValue({ images: [] });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?anime=42"],
+    });
+    try {
+      // Open the filter panel.
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='search-filter-toggle']") !== null,
+      );
+      const toggle = container.querySelector(
+        "[data-testid='search-filter-toggle']",
+      ) as HTMLElement;
+      act(() => {
+        toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      // Wait for tag picker (which is always shown).
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='tag-picker']") !== null,
+      );
+
+      // Season picker should NOT be rendered.
+      expect(
+        container.querySelector("[data-testid='season-picker']"),
+      ).toBeNull();
     } finally {
       unmount();
     }

@@ -102,11 +102,11 @@ export function TagChip({
       px={sizing.px}
       py={sizing.py}
       fontSize={sizing.fontSize}
-      fontWeight="500"
+      fontWeight={active ? "600" : "500"}
       bg={bodyBg}
       color={tokens.fg}
       opacity={excluded ? 0.6 : 1}
-      border="1px solid"
+      border={active ? "2px solid" : "1px solid"}
       borderColor={excluded ? "border.muted" : tokens.fg}
       borderRadius="pill"
       cursor={onClick ? "pointer" : "default"}

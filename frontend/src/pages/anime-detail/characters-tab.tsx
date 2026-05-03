@@ -167,7 +167,10 @@ export function CharactersTab(): JSX.Element {
   const { data, isLoading, isError, error, refetch } = useAnimeDetail(animeId);
 
   const characters = useMemo(
-    () => data?.characters ?? [],
+    () =>
+      [...(data?.characters ?? [])].sort(
+        (a, b) => b.imageCount - a.imageCount || a.name.localeCompare(b.name),
+      ),
     [data],
   );
 

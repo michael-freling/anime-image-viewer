@@ -89,10 +89,10 @@ describe("app routes", () => {
           el.querySelector("[data-testid='images-tab-loading']") !== null,
       },
       {
-        url: "/anime/42/entries",
+        url: "/anime/42/seasons",
         check: (el) =>
-          el.querySelector("[data-testid='entries-tab']") !== null ||
-          el.querySelector("[data-testid='entries-tab-loading']") !== null,
+          el.querySelector("[data-testid='seasons-tab']") !== null ||
+          el.querySelector("[data-testid='seasons-tab-loading']") !== null,
       },
       {
         url: "/anime/42/characters",
@@ -154,10 +154,10 @@ describe("app routes", () => {
       ?.querySelector("[role='tab']");
     expect(images?.getAttribute("aria-current")).toBe("page");
     // Sibling tabs stay inactive.
-    const entries = container
-      .querySelector("[data-testid='anime-detail-tab-entries']")
+    const seasons = container
+      .querySelector("[data-testid='anime-detail-tab-seasons']")
       ?.querySelector("[role='tab']");
-    expect(entries?.getAttribute("aria-current")).toBeNull();
+    expect(seasons?.getAttribute("aria-current")).toBeNull();
     unmount();
   });
 

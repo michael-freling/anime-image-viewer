@@ -23,7 +23,7 @@ const tabBarRoutes = [
     element: <AnimeDetailTabBar />,
     children: [
       { path: "images", element: <div /> },
-      { path: "entries", element: <div /> },
+      { path: "seasons", element: <div /> },
       { path: "characters", element: <div /> },
       { path: "tags", element: <div /> },
       { path: "info", element: <div /> },
@@ -50,7 +50,7 @@ describe("AnimeDetailTabBar", () => {
       );
       expect(ids).toEqual([
         "images",
-        "entries",
+        "seasons",
         "characters",
         "tags",
         "info",
@@ -103,14 +103,14 @@ describe("AnimeDetailTabBar", () => {
   test("exports a public tab list that matches the rendered tabs", () => {
     expect(ANIME_DETAIL_TABS.map((t) => t.to)).toEqual([
       "images",
-      "entries",
+      "seasons",
       "characters",
       "tags",
       "info",
     ]);
     expect(ANIME_DETAIL_TABS.map((t) => t.label)).toEqual([
       "Images",
-      "Entries",
+      "Seasons",
       "Characters",
       "Tags",
       "Info",

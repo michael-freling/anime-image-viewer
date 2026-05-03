@@ -4,11 +4,11 @@
  * Values come from the design docs and should change in one place when the
  * specs update:
  *   - Thumbnail widths: frontend-design.md §4
- *   - Entry type configs: ui-design.md §3.2.2 / service.go entry types
+ *   - Season type configs: ui-design.md §3.2.2 / service.go season types
  *   - Tag category colors: ui-design.md §4.3
  */
 
-import type { EntryType, TagCategoryKey } from "../types";
+import type { SeasonType, TagCategoryKey } from "../types";
 
 /**
  * Thumbnail width tiers served by the resize endpoint.
@@ -19,22 +19,22 @@ export const THUMBNAIL_WIDTHS = [520, 1040, 1920] as const;
 export type ThumbnailWidth = (typeof THUMBNAIL_WIDTHS)[number];
 
 /**
- * Entry type UI config. The backend stores entry types as lowercase strings
- * (`db.EntryTypeSeason`/`Movie`/`Other`), which we narrow into the UI-facing
- * `EntryType` union.
+ * Season type UI config. The backend stores season types as lowercase strings
+ * (`db.SeasonTypeSeason`/`Movie`/`Other`), which we narrow into the UI-facing
+ * `SeasonType` union.
  *
  * `label` is the long form ("Season"); `badge` is the single-letter badge
- * shown on Entry tabs and the Entries table (S/M/O).
+ * shown on Season tabs and the Seasons table (S/M/O).
  * `colorKey` maps to a semantic token in theme.ts.
  */
-export interface EntryTypeConfig {
-  type: EntryType;
+export interface SeasonTypeConfig {
+  type: SeasonType;
   label: string;
   badge: string;
   colorKey: TagCategoryKey;
 }
 
-export const ENTRY_TYPE_CONFIGS: Record<EntryType, EntryTypeConfig> = {
+export const SEASON_TYPE_CONFIGS: Record<SeasonType, SeasonTypeConfig> = {
   season: {
     type: "season",
     label: "Season",
@@ -74,6 +74,7 @@ export const TAG_CATEGORY_KEY_MAP: Record<string, TagCategoryKey> = {
   mood: "mood",
   "mood/genre": "mood",
   genre: "mood",
+  character: "character",
   uncategorized: "uncategorized",
   "": "uncategorized",
 };
@@ -90,6 +91,7 @@ export const TAG_CATEGORY_TOKENS: Record<
   nature: { bg: "tag.nature.bg", fg: "tag.nature.fg" },
   location: { bg: "tag.location.bg", fg: "tag.location.fg" },
   mood: { bg: "tag.mood.bg", fg: "tag.mood.fg" },
+  character: { bg: "tag.character.bg", fg: "tag.character.fg" },
   uncategorized: {
     bg: "tag.uncategorized.bg",
     fg: "tag.uncategorized.fg",
@@ -98,6 +100,8 @@ export const TAG_CATEGORY_TOKENS: Record<
 
 /**
  * Order used when rendering grouped tag categories (ui-design §3.5).
+ * "character" is intentionally excluded — characters are managed on the
+ * anime detail page, not in the global tag management view.
  */
 export const TAG_CATEGORY_ORDER: readonly TagCategoryKey[] = [
   "scene",

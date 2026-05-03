@@ -2,24 +2,21 @@
  * AnimeDetailLayout — the shell for the /anime/:animeId page.
  *
  * Spec: ui-design.md §3.2 "Anime Detail (Tabbed Page)", frontend-design.md §3
- * (nested route tree under /anime/:animeId). The shell owns the header + tab
- * bar and renders the active tab inside `<Outlet />`.
+ * (nested route tree under /anime/:animeId). The shell owns the tab bar
+ * (with a breadcrumb prefix) and renders the active tab inside `<Outlet />`.
  *
  * Data fetching for the shared shell (anime detail metadata) happens here so
  * every tab can read it from the React Query cache without re-fetching. Tabs
  * with their own datasets (images, tags) call their specific hooks.
  */
 import { Box } from "@chakra-ui/react";
-import { useCallback } from "react";
 import { Outlet, useParams } from "react-router";
 
+import { UnderlineTabBar } from "../../components/shared/underline-tab-bar";
 import { ErrorAlert } from "../../components/shared/error-alert";
 import { useAnimeDetail } from "../../hooks/use-anime-detail";
-import { useImageImport } from "../../hooks/use-image-import";
-import { qk } from "../../lib/query-keys";
 
-import { AnimeDetailHeader } from "./header";
-import { AnimeDetailTabBar } from "./tab-bar";
+import { ANIME_DETAIL_TABS } from "./tab-bar";
 
 function parseAnimeId(raw: string | undefined): number {
   if (!raw) return NaN;
@@ -32,22 +29,12 @@ export function AnimeDetailLayout(): JSX.Element {
   const animeId = parseAnimeId(rawId);
   const validId = Number.isFinite(animeId) && animeId > 0;
 
-  const { importImages } = useImageImport();
-
   // Keep the detail query enabled for any positive integer; the hook guards
   // against invalid ids internally but we also render a plain error alert
   // for obviously bad URLs so the page never renders a broken header.
-  const { data, isError, error, refetch } = useAnimeDetail(
+  const { isError, error, refetch } = useAnimeDetail(
     validId ? animeId : 0,
   );
-
-  const rootFolder = data?.folders?.[0];
-
-  const handleUpload = useCallback(async () => {
-    if (!rootFolder) return;
-    const label = data?.anime.name ?? "Anime";
-    await importImages(rootFolder.id, label, qk.anime.detail(animeId));
-  }, [rootFolder, data?.anime.name, animeId, importImages]);
 
   if (!validId) {
     return (
@@ -59,8 +46,6 @@ export function AnimeDetailLayout(): JSX.Element {
       </Box>
     );
   }
-
-  const entryCount = data?.entries?.length ?? 0;
 
   return (
     <Box
@@ -79,13 +64,12 @@ export function AnimeDetailLayout(): JSX.Element {
         },
       }}
     >
-      <AnimeDetailHeader
-        detail={data}
-        totalImages={0}
-        entryCount={entryCount}
-        onUpload={rootFolder ? handleUpload : undefined}
+      <UnderlineTabBar
+        items={ANIME_DETAIL_TABS}
+        ariaLabel="Anime detail tabs"
+        testId="anime-detail-tab-bar"
+        testIdPrefix="anime-detail-tab"
       />
-      <AnimeDetailTabBar />
 
       {isError ? (
         <Box p="4">

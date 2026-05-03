@@ -21,6 +21,21 @@ export function useImageImport() {
   useWailsEvent<ImportProgressEvent>("ImportImages:progress", (data) => {
     const id = activeIdRef.current;
     if (!id) return;
+
+    // Validate data before forwarding to the store.
+    if (!Number.isFinite(data.total)) {
+      console.warn("[useImageImport] Wails event has non-finite total:", data);
+      return;
+    }
+
+    // Skip updates for entries that are already finished to prevent late
+    // Wails events from overwriting the final state.
+    const entry = useImportProgressStore.getState().imports.get(id);
+    if (entry?.done) {
+      console.warn("[useImageImport] Skipping late progress event for finished import:", id);
+      return;
+    }
+
     update(id, { total: data.total, completed: data.completed, failed: data.failed });
   });
 
@@ -30,18 +45,22 @@ export function useImageImport() {
       activeIdRef.current = id;
       start(id, label, 0);
       try {
-        await BatchImportImageService.ImportImages(directoryId);
+        const result = await BatchImportImageService.ImportImages(directoryId);
+        const count = Array.isArray(result) ? result.length : 0;
+        update(id, { total: count, completed: count });
         finish(id);
+        // Clear immediately after finish to close the race window where a
+        // late Wails event could arrive during the await below.
+        activeIdRef.current = null;
         if (invalidateKey) {
           await queryClient.invalidateQueries({ queryKey: invalidateKey });
         }
       } catch {
         finish(id);
-      } finally {
         activeIdRef.current = null;
       }
     },
-    [start, finish, queryClient],
+    [start, update, finish, queryClient],
   );
 
   return { importImages };

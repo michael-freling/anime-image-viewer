@@ -35,10 +35,7 @@ export function CharacterPicker({
   return (
     <Box
       data-testid="character-picker"
-      px={{ base: "4", md: "6" }}
-      py="4"
-      borderTopWidth="1px"
-      borderTopColor="border"
+      py="3"
     >
       <Box mb="3">
         <Text

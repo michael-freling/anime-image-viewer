@@ -26,13 +26,15 @@ function percent(progress: ImportProgress): number {
 }
 
 function rowLabel(progress: ImportProgress): string {
+  const total = Number.isFinite(progress.total) ? progress.total : 0;
+  const completed = Number.isFinite(progress.completed) ? progress.completed : 0;
   if (progress.done) {
     if (progress.failed && progress.failed > 0) {
-      return `${progress.completed} of ${progress.total} imported · ${progress.failed} failed`;
+      return `${completed} of ${total} imported · ${progress.failed} failed`;
     }
-    return `Complete · ${progress.total} imported`;
+    return total > 0 ? `Complete · ${total} imported` : "Complete";
   }
-  return `${progress.completed} / ${progress.total}`;
+  return `${completed} / ${total}`;
 }
 
 export function ImportProgressBar(): ReactElement | null {

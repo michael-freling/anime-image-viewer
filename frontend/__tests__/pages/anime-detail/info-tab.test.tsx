@@ -59,15 +59,15 @@ jest.mock("../../../src/components/ui/toaster", () => ({
 import { act } from "react-dom/test-utils";
 
 import { routes } from "../../../src/app/routes";
-import type { AnimeDetail, AnimeFolder, Entry } from "../../../src/types";
+import type { AnimeFolder, Season } from "../../../src/types";
 import { flushPromises, renderRoutes, waitFor } from "../../test-utils";
 
-function makeEntry(overrides: Partial<Entry> = {}): Entry {
+function makeSeason(overrides: Partial<Season> = {}): Season {
   return {
     id: 0,
-    name: "Entry",
+    name: "Season",
     type: "season",
-    entryNumber: 1,
+    seasonNumber: 1,
     airingSeason: "",
     airingYear: null,
     imageCount: 0,
@@ -87,7 +87,7 @@ function makeFolder(overrides: Partial<AnimeFolder> = {}): AnimeFolder {
   };
 }
 
-function makeDetail(overrides: Partial<AnimeDetail> = {}): AnimeDetail {
+function makeDetail(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     anime: { id: 42, name: "Bebop", aniListId: 101 },
     tags: [],
@@ -115,7 +115,7 @@ describe("InfoTab", () => {
           makeFolder({ id: 1, name: "a", path: "/a", imageCount: 2 }),
           makeFolder({ id: 2, name: "b", path: "/b", imageCount: 5 }),
         ],
-        entries: [makeEntry({ id: 1, imageCount: 3 })],
+        entries: [makeSeason({ id: 1, imageCount: 3 })],
       }),
     );
     const { container, unmount } = renderRoutes(routes, {
@@ -143,9 +143,9 @@ describe("InfoTab", () => {
       );
 
       const entriesField = container.querySelector(
-        "[data-testid='info-field-entries']",
+        "[data-testid='info-field-seasons']",
       );
-      expect(entriesField?.textContent).toContain("1 entry");
+      expect(entriesField?.textContent).toContain("1 season");
 
       const imagesField = container.querySelector(
         "[data-testid='info-field-images']",
@@ -305,12 +305,12 @@ describe("InfoTab", () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
         entries: [
-          makeEntry({
+          makeSeason({
             id: 1,
             imageCount: 4,
             children: [
-              makeEntry({ id: 2, imageCount: 5 }),
-              makeEntry({ id: 3, imageCount: 6 }),
+              makeSeason({ id: 2, imageCount: 5 }),
+              makeSeason({ id: 3, imageCount: 6 }),
             ],
           }),
         ],
@@ -380,7 +380,7 @@ describe("InfoTab", () => {
       makeDetail({
         entries: [
           // children undefined → ?? [] kicks in.
-          { ...makeEntry({ id: 1, imageCount: 7 }), children: undefined as unknown as Entry[] },
+          { ...makeSeason({ id: 1, imageCount: 7 }), children: undefined as unknown as Season[] },
         ],
       }),
     );
@@ -408,7 +408,7 @@ describe("InfoTab", () => {
       makeDetail({
         entries: [
           {
-            ...makeEntry({ id: 1 }),
+            ...makeSeason({ id: 1 }),
             imageCount: undefined as unknown as number,
           },
         ],
