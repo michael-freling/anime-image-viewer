@@ -457,7 +457,7 @@ func TestMigrateCharactersFromTags(t *testing.T) {
 		assert.Len(t, remaining, 1)
 	})
 
-	t.Run("character tags without AnimeID are skipped", func(t *testing.T) {
+	t.Run("orphan character tag with no file associations fails migration", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		dsn := DSNFromFilePath(tmpDir, "migrate_no_anime_test.sqlite")
 		client, err := NewClient(dsn, WithNopLogger())
@@ -466,18 +466,413 @@ func TestMigrateCharactersFromTags(t *testing.T) {
 
 		require.NoError(t, client.Migrate())
 
-		// Create a character tag without AnimeID
+		// Create a character tag without AnimeID and NO file associations
 		tags := []Tag{
 			{ID: 801, Name: "OrphanChar", Category: "character", AnimeID: nil},
 		}
 		require.NoError(t, client.connection.Create(&tags).Error)
 
+		// Migration should FAIL because the orphan has no file associations
+		err = client.Migrate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot migrate character tags without AnimeID")
+		assert.Contains(t, err.Error(), "OrphanChar")
+
+		// The tag should NOT be deleted (transaction rolled back)
+		var remainingTags []Tag
+		require.NoError(t, client.connection.Where("id = ?", 801).Find(&remainingTags).Error)
+		assert.Len(t, remainingTags, 1, "orphaned character tag should still exist after failed migration")
+	})
+
+	t.Run("orphan character tag with file associations derives AnimeID", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		dsn := DSNFromFilePath(tmpDir, "migrate_derive_anime_test.sqlite")
+		client, err := NewClient(dsn, WithNopLogger())
+		require.NoError(t, err)
+		t.Cleanup(func() { client.Close() })
+
 		require.NoError(t, client.Migrate())
 
-		// No character should be created (AnimeID was nil)
+		// Build a file tree: grandparent dir (with AnimeID) -> parent dir -> image file
+		animeID := uint(42)
+		files := []File{
+			{ID: 1, ParentID: 0, Name: "anime-root", Type: FileTypeDirectory, AnimeID: &animeID},
+			{ID: 2, ParentID: 1, Name: "season-1", Type: FileTypeDirectory},
+			{ID: 3, ParentID: 2, Name: "image.jpg", Type: FileTypeImage},
+		}
+		require.NoError(t, client.connection.Create(&files).Error)
+
+		// Create a character tag without AnimeID, associated with the image
+		tags := []Tag{
+			{ID: 801, Name: "DerivedChar", Category: "character", AnimeID: nil, CreatedAt: 1000, UpdatedAt: 1001},
+		}
+		require.NoError(t, client.connection.Create(&tags).Error)
+
+		fileTags := []FileTag{
+			{TagID: 801, FileID: 3, AddedBy: FileTagAddedByUser, CreatedAt: 1100},
+		}
+		require.NoError(t, client.connection.Create(&fileTags).Error)
+
+		// Migration should succeed by deriving AnimeID from the file tree
+		require.NoError(t, client.Migrate())
+
+		// Verify Character was created with the derived AnimeID
 		var characters []Character
 		require.NoError(t, client.connection.Find(&characters).Error)
-		assert.Empty(t, characters)
+		assert.Len(t, characters, 1)
+		assert.Equal(t, "DerivedChar", characters[0].Name)
+		assert.Equal(t, uint(42), characters[0].AnimeID)
+
+		// Verify FileCharacter was created
+		var fileCharacters []FileCharacter
+		require.NoError(t, client.connection.Find(&fileCharacters).Error)
+		assert.Len(t, fileCharacters, 1)
+		assert.Equal(t, uint(801), fileCharacters[0].CharacterID)
+		assert.Equal(t, uint(3), fileCharacters[0].FileID)
+
+		// Verify old character tag was deleted
+		var remainingTags []Tag
+		require.NoError(t, client.connection.Where("category = ?", "character").Find(&remainingTags).Error)
+		assert.Empty(t, remainingTags)
+
+		// Running again should be a no-op
+		require.NoError(t, client.Migrate())
+	})
+
+	t.Run("orphan with files resolving to multiple anime fails migration", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		dsn := DSNFromFilePath(tmpDir, "migrate_multi_anime_test.sqlite")
+		client, err := NewClient(dsn, WithNopLogger())
+		require.NoError(t, err)
+		t.Cleanup(func() { client.Close() })
+
+		require.NoError(t, client.Migrate())
+
+		// Two different anime roots
+		animeID1 := uint(10)
+		animeID2 := uint(20)
+		files := []File{
+			{ID: 1, ParentID: 0, Name: "anime-a", Type: FileTypeDirectory, AnimeID: &animeID1},
+			{ID: 2, ParentID: 1, Name: "img-a.jpg", Type: FileTypeImage},
+			{ID: 3, ParentID: 0, Name: "anime-b", Type: FileTypeDirectory, AnimeID: &animeID2},
+			{ID: 4, ParentID: 3, Name: "img-b.jpg", Type: FileTypeImage},
+		}
+		require.NoError(t, client.connection.Create(&files).Error)
+
+		// Character tag associated with files from BOTH anime
+		tags := []Tag{
+			{ID: 801, Name: "AmbiguousChar", Category: "character", AnimeID: nil},
+		}
+		require.NoError(t, client.connection.Create(&tags).Error)
+
+		fileTags := []FileTag{
+			{TagID: 801, FileID: 2, AddedBy: FileTagAddedByUser, CreatedAt: 1100},
+			{TagID: 801, FileID: 4, AddedBy: FileTagAddedByUser, CreatedAt: 1200},
+		}
+		require.NoError(t, client.connection.Create(&fileTags).Error)
+
+		// Migration should FAIL because files resolve to multiple anime
+		err = client.Migrate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot migrate character tags without AnimeID")
+		assert.Contains(t, err.Error(), "AmbiguousChar")
+		assert.Contains(t, err.Error(), "multiple anime")
+	})
+
+	t.Run("handles pre-existing character rows from partial migration", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		dsn := DSNFromFilePath(tmpDir, "migrate_dup_test.sqlite")
+		client, err := NewClient(dsn, WithNopLogger())
+		require.NoError(t, err)
+		t.Cleanup(func() { client.Close() })
+
+		require.NoError(t, client.Migrate())
+
+		animeID := uint(100)
+
+		// Simulate a previous partial migration: Character row exists but the Tag
+		// row was NOT deleted (e.g. app crashed between Create and Delete).
+		preExisting := Character{
+			ID: 901, Name: "PreExisting", AnimeID: animeID, CreatedAt: 9000, UpdatedAt: 9001,
+		}
+		require.NoError(t, client.connection.Create(&preExisting).Error)
+
+		// Also simulate a pre-existing FileCharacter
+		preExistingFC := FileCharacter{
+			CharacterID: 901, FileID: 10, AddedBy: FileTagAddedByUser, CreatedAt: 9100,
+		}
+		require.NoError(t, client.connection.Create(&preExistingFC).Error)
+
+		// Now insert the corresponding character tag (as if the old tag was not cleaned up)
+		tags := []Tag{
+			{ID: 901, Name: "PreExisting", Category: "character", AnimeID: &animeID, CreatedAt: 9000, UpdatedAt: 9001},
+			{ID: 902, Name: "NewChar", Category: "character", AnimeID: &animeID, CreatedAt: 9200, UpdatedAt: 9201},
+		}
+		require.NoError(t, client.connection.Create(&tags).Error)
+
+		fileTags := []FileTag{
+			{TagID: 901, FileID: 10, AddedBy: FileTagAddedByUser, CreatedAt: 9100},
+			{TagID: 902, FileID: 20, AddedBy: FileTagAddedByUser, CreatedAt: 9300},
+		}
+		require.NoError(t, client.connection.Create(&fileTags).Error)
+
+		// Migration should succeed despite duplicate Character ID 901
+		require.NoError(t, client.Migrate())
+
+		// Verify both characters exist
+		var characters []Character
+		require.NoError(t, client.connection.Order("id").Find(&characters).Error)
+		assert.Len(t, characters, 2)
+		assert.Equal(t, uint(901), characters[0].ID)
+		assert.Equal(t, uint(902), characters[1].ID)
+
+		// Verify FileCharacter for the new character exists
+		var fileCharacters []FileCharacter
+		require.NoError(t, client.connection.Where("character_id = ?", 902).Find(&fileCharacters).Error)
+		assert.Len(t, fileCharacters, 1)
+		assert.Equal(t, uint(20), fileCharacters[0].FileID)
+
+		// Verify old character tags were deleted
+		var remainingTags []Tag
+		require.NoError(t, client.connection.Where("category = ?", "character").Find(&remainingTags).Error)
+		assert.Empty(t, remainingTags)
+
+		// Running again should be a no-op
+		require.NoError(t, client.Migrate())
+
+		require.NoError(t, client.connection.Find(&characters).Error)
+		assert.Len(t, characters, 2)
+	})
+
+	t.Run("mixed tags: valid migrates, orphan with derivable anime also migrates", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		dsn := DSNFromFilePath(tmpDir, "migrate_mixed_test.sqlite")
+		client, err := NewClient(dsn, WithNopLogger())
+		require.NoError(t, err)
+		t.Cleanup(func() { client.Close() })
+
+		require.NoError(t, client.Migrate())
+
+		animeID := uint(100)
+
+		// Create a file tree so the orphan can derive its AnimeID
+		files := []File{
+			{ID: 1, ParentID: 0, Name: "anime-root", Type: FileTypeDirectory, AnimeID: &animeID},
+			{ID: 20, ParentID: 1, Name: "img-orphan.jpg", Type: FileTypeImage},
+		}
+		require.NoError(t, client.connection.Create(&files).Error)
+
+		tags := []Tag{
+			{ID: 1001, Name: "ValidChar", Category: "character", AnimeID: &animeID, CreatedAt: 1000, UpdatedAt: 1001},
+			{ID: 1002, Name: "OrphanChar", Category: "character", AnimeID: nil, CreatedAt: 2000, UpdatedAt: 2001},
+			{ID: 1003, Name: "NormalTag", Category: "", CreatedAt: 3000, UpdatedAt: 3001},
+		}
+		require.NoError(t, client.connection.Create(&tags).Error)
+
+		fileTags := []FileTag{
+			{TagID: 1001, FileID: 10, AddedBy: FileTagAddedByUser, CreatedAt: 1100},
+			{TagID: 1002, FileID: 20, AddedBy: FileTagAddedByUser, CreatedAt: 2100},
+			{TagID: 1003, FileID: 30, AddedBy: FileTagAddedByUser, CreatedAt: 3100},
+		}
+		require.NoError(t, client.connection.Create(&fileTags).Error)
+
+		require.NoError(t, client.Migrate())
+
+		// Both valid and orphan characters should be migrated
+		var characters []Character
+		require.NoError(t, client.connection.Order("id").Find(&characters).Error)
+		assert.Len(t, characters, 2)
+		assert.Equal(t, "ValidChar", characters[0].Name)
+		assert.Equal(t, uint(100), characters[0].AnimeID)
+		assert.Equal(t, "OrphanChar", characters[1].Name)
+		assert.Equal(t, uint(100), characters[1].AnimeID) // derived from file tree
+
+		// FileCharacter for both characters should exist
+		var fileCharacters []FileCharacter
+		require.NoError(t, client.connection.Order("character_id").Find(&fileCharacters).Error)
+		assert.Len(t, fileCharacters, 2)
+		assert.Equal(t, uint(1001), fileCharacters[0].CharacterID)
+		assert.Equal(t, uint(1002), fileCharacters[1].CharacterID)
+
+		// Both character tags should be deleted
+		var remainingCharTags []Tag
+		require.NoError(t, client.connection.Where("category = ?", "character").Find(&remainingCharTags).Error)
+		assert.Empty(t, remainingCharTags)
+
+		// Normal tag should remain
+		var normalTags []Tag
+		require.NoError(t, client.connection.Where("id = ?", 1003).Find(&normalTags).Error)
+		assert.Len(t, normalTags, 1)
+
+		// Normal tag's FileTag should remain
+		var normalFileTags []FileTag
+		require.NoError(t, client.connection.Where("tag_id = ?", 1003).Find(&normalFileTags).Error)
+		assert.Len(t, normalFileTags, 1)
+	})
+
+	t.Run("mixed tags: valid migrates but unresolvable orphan fails migration", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		dsn := DSNFromFilePath(tmpDir, "migrate_mixed_fail_test.sqlite")
+		client, err := NewClient(dsn, WithNopLogger())
+		require.NoError(t, err)
+		t.Cleanup(func() { client.Close() })
+
+		require.NoError(t, client.Migrate())
+
+		animeID := uint(100)
+		tags := []Tag{
+			{ID: 1001, Name: "ValidChar", Category: "character", AnimeID: &animeID, CreatedAt: 1000, UpdatedAt: 1001},
+			{ID: 1002, Name: "OrphanChar", Category: "character", AnimeID: nil, CreatedAt: 2000, UpdatedAt: 2001},
+		}
+		require.NoError(t, client.connection.Create(&tags).Error)
+
+		// No file associations for the orphan, so it cannot be resolved
+		fileTags := []FileTag{
+			{TagID: 1001, FileID: 10, AddedBy: FileTagAddedByUser, CreatedAt: 1100},
+		}
+		require.NoError(t, client.connection.Create(&fileTags).Error)
+
+		// Migration should FAIL because the orphan cannot be resolved
+		err = client.Migrate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot migrate character tags without AnimeID")
+		assert.Contains(t, err.Error(), "OrphanChar")
+
+		// Transaction rolled back: no characters should have been created
+		var characters []Character
+		require.NoError(t, client.connection.Find(&characters).Error)
+		assert.Empty(t, characters, "no characters should exist after failed migration")
+
+		// Both character tags should still exist (transaction rolled back)
+		var remainingTags []Tag
+		require.NoError(t, client.connection.Where("category = ?", "character").Find(&remainingTags).Error)
+		assert.Len(t, remainingTags, 2)
+	})
+
+	t.Run("orphan with files but no anime in parent chain fails migration", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		dsn := DSNFromFilePath(tmpDir, "migrate_no_anime_chain_test.sqlite")
+		client, err := NewClient(dsn, WithNopLogger())
+		require.NoError(t, err)
+		t.Cleanup(func() { client.Close() })
+
+		require.NoError(t, client.Migrate())
+
+		// File tree WITHOUT any AnimeID: root dir -> child dir -> image
+		files := []File{
+			{ID: 1, ParentID: 0, Name: "root-dir", Type: FileTypeDirectory},
+			{ID: 2, ParentID: 1, Name: "child-dir", Type: FileTypeDirectory},
+			{ID: 3, ParentID: 2, Name: "image.jpg", Type: FileTypeImage},
+		}
+		require.NoError(t, client.connection.Create(&files).Error)
+
+		// Orphan character tag (no AnimeID) with FileTag to the image
+		tags := []Tag{
+			{ID: 801, Name: "NoAnimeChar", Category: "character", AnimeID: nil, CreatedAt: 1000, UpdatedAt: 1001},
+		}
+		require.NoError(t, client.connection.Create(&tags).Error)
+
+		fileTags := []FileTag{
+			{TagID: 801, FileID: 3, AddedBy: FileTagAddedByUser, CreatedAt: 1100},
+		}
+		require.NoError(t, client.connection.Create(&fileTags).Error)
+
+		// Migration should FAIL because walk-up finds no AnimeID in the chain
+		err = client.Migrate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot migrate character tags without AnimeID")
+		assert.Contains(t, err.Error(), "files have no anime in parent chain")
+
+		// Tag should still exist (transaction rolled back)
+		var remainingTags []Tag
+		require.NoError(t, client.connection.Where("id = ?", 801).Find(&remainingTags).Error)
+		assert.Len(t, remainingTags, 1, "orphaned character tag should still exist after failed migration")
+	})
+
+	t.Run("multiple orphans with mixed derivability fails migration", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		dsn := DSNFromFilePath(tmpDir, "migrate_mixed_orphans_test.sqlite")
+		client, err := NewClient(dsn, WithNopLogger())
+		require.NoError(t, err)
+		t.Cleanup(func() { client.Close() })
+
+		require.NoError(t, client.Migrate())
+
+		// File tree WITH anime: anime root -> image1
+		animeID := uint(42)
+		files := []File{
+			{ID: 1, ParentID: 0, Name: "anime-root", Type: FileTypeDirectory, AnimeID: &animeID},
+			{ID: 2, ParentID: 1, Name: "image1.jpg", Type: FileTypeImage},
+		}
+		require.NoError(t, client.connection.Create(&files).Error)
+
+		// File tree WITHOUT anime: plain dir -> image2
+		plainFiles := []File{
+			{ID: 3, ParentID: 0, Name: "plain-dir", Type: FileTypeDirectory},
+			{ID: 4, ParentID: 3, Name: "image2.jpg", Type: FileTypeImage},
+		}
+		require.NoError(t, client.connection.Create(&plainFiles).Error)
+
+		// Two orphan character tags (no AnimeID)
+		tags := []Tag{
+			{ID: 801, Name: "DerivableChar", Category: "character", AnimeID: nil, CreatedAt: 1000, UpdatedAt: 1001},
+			{ID: 802, Name: "UnresolvableChar", Category: "character", AnimeID: nil, CreatedAt: 2000, UpdatedAt: 2001},
+		}
+		require.NoError(t, client.connection.Create(&tags).Error)
+
+		fileTags := []FileTag{
+			{TagID: 801, FileID: 2, AddedBy: FileTagAddedByUser, CreatedAt: 1100},
+			{TagID: 802, FileID: 4, AddedBy: FileTagAddedByUser, CreatedAt: 2100},
+		}
+		require.NoError(t, client.connection.Create(&fileTags).Error)
+
+		// Migration should FAIL because at least one orphan is unresolvable
+		err = client.Migrate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "UnresolvableChar")
+		assert.NotContains(t, err.Error(), "DerivableChar")
+
+		// No characters should exist (full transaction rollback)
+		var characters []Character
+		require.NoError(t, client.connection.Find(&characters).Error)
+		assert.Empty(t, characters, "no characters should exist after failed migration")
+
+		// Both tags should still exist
+		var remainingTags []Tag
+		require.NoError(t, client.connection.Where("category = ?", "character").Find(&remainingTags).Error)
+		assert.Len(t, remainingTags, 2)
+	})
+
+	t.Run("orphan with file association pointing to nonexistent file derives nothing", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		dsn := DSNFromFilePath(tmpDir, "migrate_nonexistent_file_test.sqlite")
+		client, err := NewClient(dsn, WithNopLogger())
+		require.NoError(t, err)
+		t.Cleanup(func() { client.Close() })
+
+		require.NoError(t, client.Migrate())
+
+		// No files at all — just a character tag with a FileTag pointing to nonexistent file
+		tags := []Tag{
+			{ID: 801, Name: "GhostFileChar", Category: "character", AnimeID: nil, CreatedAt: 1000, UpdatedAt: 1001},
+		}
+		require.NoError(t, client.connection.Create(&tags).Error)
+
+		fileTags := []FileTag{
+			{TagID: 801, FileID: 999, AddedBy: FileTagAddedByUser, CreatedAt: 1100},
+		}
+		require.NoError(t, client.connection.Create(&fileTags).Error)
+
+		// Migration should FAIL because walkUpForAnime returns 0 for nonexistent file
+		err = client.Migrate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot migrate character tags without AnimeID")
+		assert.Contains(t, err.Error(), "files have no anime in parent chain")
+
+		// Tag should still exist (transaction rolled back)
+		var remainingTags []Tag
+		require.NoError(t, client.connection.Where("id = ?", 801).Find(&remainingTags).Error)
+		assert.Len(t, remainingTags, 1, "orphaned character tag should still exist after failed migration")
 	})
 }
 

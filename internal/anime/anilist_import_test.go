@@ -36,7 +36,7 @@ func TestImportFromAniList_FollowsChainAndDeduplicatesCharacters(t *testing.T) {
 	te := newTester(t)
 	ctx := context.Background()
 
-	// BFS: each season has its own entry in detailResults. The BFS traversal
+	// BFS: each season has its own item in detailResults. The BFS traversal
 	// fetches each one individually via flat SEQUEL/PREQUEL relations.
 	mock := &mockAniListClient{
 		detailResults: map[int]*anilist.MediaDetail{
@@ -181,9 +181,9 @@ func TestImportFromAniList_FollowsChainAndDeduplicatesCharacters(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify result counts:
-	// 3 season entries (Season 1, 2, 3) + 1 movie = 4 entries.
+	// 3 seasons (Season 1, 2, 3) + 1 movie = 4 seasons created.
 	// 3 unique characters (Eren, Mikasa, Armin) -- Eren deduped across seasons.
-	assert.Equal(t, 4, result.EntriesCreated)
+	assert.Equal(t, 4, result.SeasonsCreated)
 	assert.Equal(t, 3, result.CharactersCreated)
 
 	// Verify AniListID is set on the anime record.
@@ -192,24 +192,24 @@ func TestImportFromAniList_FollowsChainAndDeduplicatesCharacters(t *testing.T) {
 	require.NotNil(t, animeRow.AniListID)
 	assert.Equal(t, 100, *animeRow.AniListID)
 
-	// Verify entries were created.
-	entries, err := svc.GetAnimeEntries(created.ID)
+	// Verify seasons were created.
+	seasons, err := svc.GetAnimeSeasons(created.ID)
 	require.NoError(t, err)
 	var seasonCount, movieCount int
 	seasonNames := make(map[uint]string)
-	for _, e := range entries {
-		switch e.EntryType {
-		case db.EntryTypeSeason:
+	for _, e := range seasons {
+		switch e.SeasonType {
+		case db.SeasonTypeSeason:
 			seasonCount++
-			if e.EntryNumber != nil {
-				seasonNames[*e.EntryNumber] = e.Name
+			if e.SeasonNumber != nil {
+				seasonNames[*e.SeasonNumber] = e.Name
 			}
-		case db.EntryTypeMovie:
+		case db.SeasonTypeMovie:
 			movieCount++
 		}
 	}
-	assert.Equal(t, 3, seasonCount, "expected 3 season entries")
-	assert.Equal(t, 1, movieCount, "expected 1 movie entry")
+	assert.Equal(t, 3, seasonCount, "expected 3 seasons")
+	assert.Equal(t, 1, movieCount, "expected 1 movie season")
 
 	// Verify folder names use AniList titles instead of "Season N".
 	assert.Equal(t, "Attack on Titan", seasonNames[1])
@@ -230,14 +230,14 @@ func TestImportFromAniList_FollowsChainAndDeduplicatesCharacters(t *testing.T) {
 	assert.True(t, charNames["Mikasa Ackerman"])
 	assert.True(t, charNames["Armin Arlert"])
 
-	// Verify airing info on season 1 entry.
+	// Verify airing info on season 1.
 	rootFolder, err := svc.FindAnimeRootFolder(created.ID)
 	require.NoError(t, err)
 	require.NotNil(t, rootFolder)
 	children, err := te.dbClient.File().FindDirectChildDirectories(rootFolder.ID)
 	require.NoError(t, err)
 	for _, child := range children {
-		if child.EntryType == db.EntryTypeSeason && child.EntryNumber != nil && *child.EntryNumber == 1 {
+		if child.SeasonType == db.SeasonTypeSeason && child.SeasonNumber != nil && *child.SeasonNumber == 1 {
 			assert.Equal(t, db.AiringSeasonSpring, child.AiringSeason)
 			require.NotNil(t, child.AiringYear)
 			assert.Equal(t, uint(2013), *child.AiringYear)
@@ -247,7 +247,7 @@ func TestImportFromAniList_FollowsChainAndDeduplicatesCharacters(t *testing.T) {
 
 	// Verify movie has airing info from the individually-fetched detail.
 	for _, child := range children {
-		if child.EntryType == db.EntryTypeMovie {
+		if child.SeasonType == db.SeasonTypeMovie {
 			assert.Equal(t, db.AiringSeasonSummer, child.AiringSeason, "movie should have SUMMER season from fetched detail")
 			require.NotNil(t, child.AiringYear, "movie should have airing year from fetched detail")
 			assert.Equal(t, uint(2015), *child.AiringYear, "movie should have year 2015 from fetched detail")
@@ -351,17 +351,17 @@ func TestImportFromAniList_SelectMiddleSeason(t *testing.T) {
 	result, err := svc.ImportFromAniList(ctx, created.ID, 200)
 	require.NoError(t, err)
 
-	assert.Equal(t, 3, result.EntriesCreated, "all 3 seasons should be created")
+	assert.Equal(t, 3, result.SeasonsCreated, "all 3 seasons should be created")
 
-	entries, err := svc.GetAnimeEntries(created.ID)
+	seasons, err := svc.GetAnimeSeasons(created.ID)
 	require.NoError(t, err)
 	seasonCount := 0
 	seasonNames := make(map[uint]string)
-	for _, e := range entries {
-		if e.EntryType == db.EntryTypeSeason {
+	for _, e := range seasons {
+		if e.SeasonType == db.SeasonTypeSeason {
 			seasonCount++
-			if e.EntryNumber != nil {
-				seasonNames[*e.EntryNumber] = e.Name
+			if e.SeasonNumber != nil {
+				seasonNames[*e.SeasonNumber] = e.Name
 			}
 		}
 	}
@@ -379,10 +379,10 @@ func TestImportFromAniList_SelectMiddleSeason(t *testing.T) {
 	children, err := te.dbClient.File().FindDirectChildDirectories(rootFolder.ID)
 	require.NoError(t, err)
 	for _, child := range children {
-		if child.EntryType != db.EntryTypeSeason || child.EntryNumber == nil {
+		if child.SeasonType != db.SeasonTypeSeason || child.SeasonNumber == nil {
 			continue
 		}
-		switch *child.EntryNumber {
+		switch *child.SeasonNumber {
 		case 1:
 			require.NotNil(t, child.AiringYear)
 			assert.Equal(t, uint(2020), *child.AiringYear)
@@ -399,7 +399,7 @@ func TestImportFromAniList_SelectMiddleSeason(t *testing.T) {
 	assert.Equal(t, 3, mock.callCount, "BFS should make 3 API calls (one per season)")
 }
 
-func TestImportFromAniList_SkipsDuplicateEntries(t *testing.T) {
+func TestImportFromAniList_SkipsDuplicateSeasons(t *testing.T) {
 	te := newTester(t)
 	ctx := context.Background()
 
@@ -453,21 +453,21 @@ func TestImportFromAniList_SkipsDuplicateEntries(t *testing.T) {
 	require.NoError(t, err)
 
 	// Pre-create Season 1 manually.
-	_, err = svc.CreateEntry(ctx, created.ID, db.EntryTypeSeason, nil, "")
+	_, err = svc.CreateSeason(ctx, created.ID, db.SeasonTypeSeason, nil, "")
 	require.NoError(t, err)
 
 	// Run import. Season 1 already exists, so only Season 2 should be created.
 	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
 	require.NoError(t, err)
 
-	assert.Equal(t, 1, result.EntriesCreated, "only Season 2 should be newly created")
+	assert.Equal(t, 1, result.SeasonsCreated, "only Season 2 should be newly created")
 
-	// Verify total season entries: Season 1 (pre-existing) + Season 2 (new).
-	entries, err := svc.GetAnimeEntries(created.ID)
+	// Verify total seasons: Season 1 (pre-existing) + Season 2 (new).
+	seasons, err := svc.GetAnimeSeasons(created.ID)
 	require.NoError(t, err)
 	seasonCount := 0
-	for _, e := range entries {
-		if e.EntryType == db.EntryTypeSeason {
+	for _, e := range seasons {
+		if e.SeasonType == db.SeasonTypeSeason {
 			seasonCount++
 		}
 	}
@@ -479,7 +479,7 @@ func TestImportFromAniList_SkipsDuplicateEntries(t *testing.T) {
 	children, err := te.dbClient.File().FindDirectChildDirectories(rootFolder.ID)
 	require.NoError(t, err)
 	for _, child := range children {
-		if child.EntryType == db.EntryTypeSeason && child.EntryNumber != nil && *child.EntryNumber == 1 {
+		if child.SeasonType == db.SeasonTypeSeason && child.SeasonNumber != nil && *child.SeasonNumber == 1 {
 			assert.Equal(t, db.AiringSeasonFall, child.AiringSeason)
 			require.NotNil(t, child.AiringYear)
 			assert.Equal(t, uint(2022), *child.AiringYear)
@@ -628,14 +628,14 @@ func TestImportFromAniList_SanitizesMovieNames(t *testing.T) {
 	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
 	require.NoError(t, err)
 
-	// 1 season + 1 movie = 2 entries.
-	assert.Equal(t, 2, result.EntriesCreated)
+	// 1 season + 1 movie = 2 seasons.
+	assert.Equal(t, 2, result.SeasonsCreated)
 
 	// Verify the movie folder name has ":" replaced with "-".
-	entries, err := svc.GetAnimeEntries(created.ID)
+	seasons, err := svc.GetAnimeSeasons(created.ID)
 	require.NoError(t, err)
-	for _, e := range entries {
-		if e.EntryType == db.EntryTypeMovie {
+	for _, e := range seasons {
+		if e.SeasonType == db.SeasonTypeMovie {
 			assert.Equal(t, "Series- The Movie", e.Name, "colon should be replaced with dash")
 			break
 		}
@@ -677,7 +677,7 @@ func TestImportFromAniList_GroupsParts(t *testing.T) {
 	//
 	// Expected:
 	// 1 season group: "The Final Season" with 3 parts (implicit Part 1, Part 2, Part 3)
-	// result.EntriesCreated = 1 (season) + 3 (parts) = 4
+	// result.SeasonsCreated = 1 (season) + 3 (parts) = 4
 	mock := &mockAniListClient{
 		detailResults: map[int]*anilist.MediaDetail{
 			100: {
@@ -751,24 +751,24 @@ func TestImportFromAniList_GroupsParts(t *testing.T) {
 	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
 	require.NoError(t, err)
 
-	// 1 season group + 3 sub-entries (parts) = 4 entries created.
-	assert.Equal(t, 4, result.EntriesCreated)
+	// 1 season group + 3 sub-seasons (parts) = 4 seasons created.
+	assert.Equal(t, 4, result.SeasonsCreated)
 
-	// Verify 1 season entry with the base title.
-	entries, err := svc.GetAnimeEntries(created.ID)
+	// Verify 1 season with the base title.
+	seasons, err := svc.GetAnimeSeasons(created.ID)
 	require.NoError(t, err)
 	seasonCount := 0
-	var seasonEntry AnimeEntry
-	for _, e := range entries {
-		if e.EntryType == db.EntryTypeSeason {
+	var seasonItem AnimeSeason
+	for _, e := range seasons {
+		if e.SeasonType == db.SeasonTypeSeason {
 			seasonCount++
-			seasonEntry = e
+			seasonItem = e
 		}
 	}
 	assert.Equal(t, 1, seasonCount, "expected 1 season group")
-	assert.Equal(t, "The Final Season", seasonEntry.Name)
+	assert.Equal(t, "The Final Season", seasonItem.Name)
 
-	// Verify 3 sub-entries under the season.
+	// Verify 3 sub-seasons under the season.
 	rootFolder, err := svc.FindAnimeRootFolder(created.ID)
 	require.NoError(t, err)
 	require.NotNil(t, rootFolder)
@@ -777,28 +777,28 @@ func TestImportFromAniList_GroupsParts(t *testing.T) {
 
 	var seasonFileID uint
 	for _, child := range seasonChildren {
-		if child.EntryType == db.EntryTypeSeason {
+		if child.SeasonType == db.SeasonTypeSeason {
 			seasonFileID = child.ID
 			break
 		}
 	}
 	require.NotZero(t, seasonFileID)
 
-	subEntries, err := te.dbClient.File().FindDirectChildDirectories(seasonFileID)
+	subSeasons, err := te.dbClient.File().FindDirectChildDirectories(seasonFileID)
 	require.NoError(t, err)
-	assert.Len(t, subEntries, 3, "expected 3 part sub-entries")
+	assert.Len(t, subSeasons, 3, "expected 3 part sub-seasons")
 
 	subNames := make(map[string]bool)
 	subAiring := make(map[string]db.File) // name -> file record
-	for _, sub := range subEntries {
+	for _, sub := range subSeasons {
 		subNames[sub.Name] = true
 		subAiring[sub.Name] = sub
 	}
-	assert.True(t, subNames["Part 1"], "expected Part 1 sub-entry")
-	assert.True(t, subNames["Part 2"], "expected Part 2 sub-entry")
-	assert.True(t, subNames["Part 3"], "expected Part 3 sub-entry")
+	assert.True(t, subNames["Part 1"], "expected Part 1 sub-season")
+	assert.True(t, subNames["Part 2"], "expected Part 2 sub-season")
+	assert.True(t, subNames["Part 3"], "expected Part 3 sub-season")
 
-	// Verify airing info on each part sub-entry.
+	// Verify airing info on each part sub-season.
 	// Part 1 = WINTER 2021, Part 2 = WINTER 2022, Part 3 = SPRING 2023.
 	p1 := subAiring["Part 1"]
 	assert.Equal(t, db.AiringSeasonWinter, p1.AiringSeason, "Part 1 should have WINTER season")
@@ -827,8 +827,8 @@ func TestImportFromAniList_MixedSingleAndMultiPart(t *testing.T) {
 	//
 	// Expected:
 	// 3 groups: "Attack on Titan" (1), "Attack on Titan Season 2" (1),
-	//           "Attack on Titan Season 3" (2 entries -> Part 1, Part 2)
-	// result.EntriesCreated = 3 (seasons) + 2 (parts in Season 3) = 5
+	//           "Attack on Titan Season 3" (2 parts -> Part 1, Part 2)
+	// result.SeasonsCreated = 3 (seasons) + 2 (parts in Season 3) = 5
 	mock := &mockAniListClient{
 		detailResults: map[int]*anilist.MediaDetail{
 			100: {
@@ -926,19 +926,19 @@ func TestImportFromAniList_MixedSingleAndMultiPart(t *testing.T) {
 	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
 	require.NoError(t, err)
 
-	// 3 season groups + 2 part sub-entries = 5 entries created.
-	assert.Equal(t, 5, result.EntriesCreated)
+	// 3 season groups + 2 part sub-seasons = 5 seasons created.
+	assert.Equal(t, 5, result.SeasonsCreated)
 
-	// Verify 3 season entries.
-	entries, err := svc.GetAnimeEntries(created.ID)
+	// Verify 3 seasons.
+	seasons, err := svc.GetAnimeSeasons(created.ID)
 	require.NoError(t, err)
 	seasonCount := 0
 	seasonNames := make(map[uint]string)
-	for _, e := range entries {
-		if e.EntryType == db.EntryTypeSeason {
+	for _, e := range seasons {
+		if e.SeasonType == db.SeasonTypeSeason {
 			seasonCount++
-			if e.EntryNumber != nil {
-				seasonNames[*e.EntryNumber] = e.Name
+			if e.SeasonNumber != nil {
+				seasonNames[*e.SeasonNumber] = e.Name
 			}
 		}
 	}
@@ -947,7 +947,7 @@ func TestImportFromAniList_MixedSingleAndMultiPart(t *testing.T) {
 	assert.Equal(t, "Attack on Titan Season 2", seasonNames[2])
 	assert.Equal(t, "Attack on Titan Season 3", seasonNames[3])
 
-	// Verify Season 3 has 2 sub-entries (Part 1, Part 2).
+	// Verify Season 3 has 2 sub-seasons (Part 1, Part 2).
 	rootFolder, err := svc.FindAnimeRootFolder(created.ID)
 	require.NoError(t, err)
 	require.NotNil(t, rootFolder)
@@ -956,33 +956,33 @@ func TestImportFromAniList_MixedSingleAndMultiPart(t *testing.T) {
 
 	var season3FileID uint
 	for _, child := range seasonChildren {
-		if child.EntryType == db.EntryTypeSeason && child.EntryNumber != nil && *child.EntryNumber == 3 {
+		if child.SeasonType == db.SeasonTypeSeason && child.SeasonNumber != nil && *child.SeasonNumber == 3 {
 			season3FileID = child.ID
 			break
 		}
 	}
-	require.NotZero(t, season3FileID, "Season 3 entry should exist")
+	require.NotZero(t, season3FileID, "Season 3 should exist")
 
-	subEntries, err := te.dbClient.File().FindDirectChildDirectories(season3FileID)
+	subSeasons, err := te.dbClient.File().FindDirectChildDirectories(season3FileID)
 	require.NoError(t, err)
-	assert.Len(t, subEntries, 2, "expected 2 part sub-entries under Season 3")
+	assert.Len(t, subSeasons, 2, "expected 2 part sub-seasons under Season 3")
 
 	subNames := make(map[string]bool)
-	for _, sub := range subEntries {
+	for _, sub := range subSeasons {
 		subNames[sub.Name] = true
 	}
-	assert.True(t, subNames["Part 1"], "expected Part 1 sub-entry")
-	assert.True(t, subNames["Part 2"], "expected Part 2 sub-entry")
+	assert.True(t, subNames["Part 1"], "expected Part 1 sub-season")
+	assert.True(t, subNames["Part 2"], "expected Part 2 sub-season")
 
-	// Verify Season 1 and Season 2 have no sub-entries.
+	// Verify Season 1 and Season 2 have no sub-seasons.
 	for _, child := range seasonChildren {
-		if child.EntryType != db.EntryTypeSeason || child.EntryNumber == nil {
+		if child.SeasonType != db.SeasonTypeSeason || child.SeasonNumber == nil {
 			continue
 		}
-		if *child.EntryNumber == 1 || *child.EntryNumber == 2 {
+		if *child.SeasonNumber == 1 || *child.SeasonNumber == 2 {
 			subs, err := te.dbClient.File().FindDirectChildDirectories(child.ID)
 			require.NoError(t, err)
-			assert.Len(t, subs, 0, "Season %d should have no sub-entries", *child.EntryNumber)
+			assert.Len(t, subs, 0, "Season %d should have no sub-seasons", *child.SeasonNumber)
 		}
 	}
 }
@@ -1099,7 +1099,7 @@ func TestImportFromAniList_DetailReturnsNil(t *testing.T) {
 
 	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
 	require.NoError(t, err)
-	assert.Equal(t, 0, result.EntriesCreated)
+	assert.Equal(t, 0, result.SeasonsCreated)
 	assert.Equal(t, 0, result.CharactersCreated)
 }
 
@@ -1151,8 +1151,8 @@ func TestImportFromAniList_SkipsNonAnimeRelations(t *testing.T) {
 	require.NoError(t, err)
 
 	// Only 1 season (the root), no sequel followed.
-	assert.Equal(t, 1, result.EntriesCreated)
-	assert.Equal(t, 1, mock.callCount, "BFS should only fetch the root entry")
+	assert.Equal(t, 1, result.SeasonsCreated)
+	assert.Equal(t, 1, mock.callCount, "BFS should only fetch the root season")
 }
 
 func TestImportFromAniList_MovieWithParentRelation(t *testing.T) {
@@ -1204,7 +1204,7 @@ func TestImportFromAniList_MovieWithParentRelation(t *testing.T) {
 	require.NoError(t, err)
 
 	// 1 season + 1 movie = 2
-	assert.Equal(t, 2, result.EntriesCreated)
+	assert.Equal(t, 2, result.SeasonsCreated)
 }
 
 func TestImportFromAniList_SkipsBackgroundCharacters(t *testing.T) {
@@ -1302,7 +1302,7 @@ func TestImportFromAniList_FollowsONAFormat(t *testing.T) {
 	require.NoError(t, err)
 
 	// 2 seasons created from ONA entries.
-	assert.Equal(t, 2, result.EntriesCreated)
+	assert.Equal(t, 2, result.SeasonsCreated)
 	assert.Equal(t, 2, mock.callCount)
 }
 
@@ -1357,15 +1357,15 @@ func TestImportFromAniList_MovieWithZeroYear(t *testing.T) {
 	require.NoError(t, err)
 
 	// 1 season + 1 movie = 2
-	assert.Equal(t, 2, result.EntriesCreated)
+	assert.Equal(t, 2, result.SeasonsCreated)
 
 	// Verify the movie now has the year from the fetched detail (was 0 on edge).
-	entries, err := svc.GetAnimeEntries(created.ID)
+	seasons, err := svc.GetAnimeSeasons(created.ID)
 	require.NoError(t, err)
-	for _, e := range entries {
-		if e.EntryType == db.EntryTypeMovie {
-			require.NotNil(t, e.EntryNumber, "movie should have year from fetched detail")
-			assert.Equal(t, uint(2021), *e.EntryNumber, "movie year should be 2021 from fetched detail")
+	for _, e := range seasons {
+		if e.SeasonType == db.SeasonTypeMovie {
+			require.NotNil(t, e.SeasonNumber, "movie should have year from fetched detail")
+			assert.Equal(t, uint(2021), *e.SeasonNumber, "movie year should be 2021 from fetched detail")
 		}
 	}
 
@@ -1375,7 +1375,7 @@ func TestImportFromAniList_MovieWithZeroYear(t *testing.T) {
 	children, err := te.dbClient.File().FindDirectChildDirectories(rootFolder.ID)
 	require.NoError(t, err)
 	for _, child := range children {
-		if child.EntryType == db.EntryTypeMovie {
+		if child.SeasonType == db.SeasonTypeMovie {
 			assert.Equal(t, db.AiringSeasonSummer, child.AiringSeason, "movie should have SUMMER season")
 			require.NotNil(t, child.AiringYear, "movie should have airing year")
 			assert.Equal(t, uint(2021), *child.AiringYear, "movie should have year 2021")
@@ -1467,7 +1467,7 @@ func TestImportFromAniList_BFSDeduplication(t *testing.T) {
 	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
 	require.NoError(t, err)
 
-	assert.Equal(t, 3, result.EntriesCreated)
+	assert.Equal(t, 3, result.SeasonsCreated)
 	// BFS should make exactly 3 calls, even though 300 was discovered twice.
 	assert.Equal(t, 3, mock.callCount)
 }
@@ -1523,15 +1523,15 @@ func TestImportFromAniList_SameYearSortsById(t *testing.T) {
 	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
 	require.NoError(t, err)
 
-	assert.Equal(t, 2, result.EntriesCreated)
+	assert.Equal(t, 2, result.SeasonsCreated)
 
 	// Verify season order: S1 (ID 100) should be Season 1, S2 (ID 300) should be Season 2
-	entries, err := svc.GetAnimeEntries(created.ID)
+	seasons, err := svc.GetAnimeSeasons(created.ID)
 	require.NoError(t, err)
 	seasonNames := make(map[uint]string)
-	for _, e := range entries {
-		if e.EntryType == db.EntryTypeSeason && e.EntryNumber != nil {
-			seasonNames[*e.EntryNumber] = e.Name
+	for _, e := range seasons {
+		if e.SeasonType == db.SeasonTypeSeason && e.SeasonNumber != nil {
+			seasonNames[*e.SeasonNumber] = e.Name
 		}
 	}
 	assert.Equal(t, "Same Year S1", seasonNames[1])
@@ -1620,13 +1620,13 @@ func TestImportFromAniList_DuplicateMovieDedup(t *testing.T) {
 	require.NoError(t, err)
 
 	// 2 seasons + 1 movie (deduped) = 3
-	assert.Equal(t, 3, result.EntriesCreated)
+	assert.Equal(t, 3, result.SeasonsCreated)
 
-	entries, err := svc.GetAnimeEntries(created.ID)
+	seasons, err := svc.GetAnimeSeasons(created.ID)
 	require.NoError(t, err)
 	movieCount := 0
-	for _, e := range entries {
-		if e.EntryType == db.EntryTypeMovie {
+	for _, e := range seasons {
+		if e.SeasonType == db.SeasonTypeMovie {
 			movieCount++
 		}
 	}
@@ -1736,29 +1736,29 @@ func TestImportFromAniList_RomajiOnlyTitles(t *testing.T) {
 	require.NoError(t, err)
 
 	// 1 season + 1 movie = 2
-	assert.Equal(t, 2, result.EntriesCreated)
+	assert.Equal(t, 2, result.SeasonsCreated)
 
 	// Verify the season name uses Romaji.
-	entries, err := svc.GetAnimeEntries(created.ID)
+	seasons, err := svc.GetAnimeSeasons(created.ID)
 	require.NoError(t, err)
-	for _, e := range entries {
-		if e.EntryType == db.EntryTypeSeason {
+	for _, e := range seasons {
+		if e.SeasonType == db.SeasonTypeSeason {
 			assert.Equal(t, "Shingeki no Kyojin", e.Name)
 		}
-		if e.EntryType == db.EntryTypeMovie {
+		if e.SeasonType == db.SeasonTypeMovie {
 			assert.Equal(t, "Shingeki no Kyojin Movie", e.Name)
 		}
 	}
 }
 
-func TestImportFromAniList_ReimportUpdatesExistingSubEntryAiringInfo(t *testing.T) {
+func TestImportFromAniList_ReimportUpdatesExistingSubSeasonAiringInfo(t *testing.T) {
 	te := newTester(t)
 	ctx := context.Background()
 
 	// Multi-part group: "The Final Season" with Part 1, Part 2, Part 3.
 	// First import creates everything. Second import (re-import) should update
-	// airing info on existing sub-entries even though the parent season and
-	// sub-entries already exist.
+	// airing info on existing sub-seasons even though the parent season and
+	// sub-seasons already exist.
 	mock := &mockAniListClient{
 		detailResults: map[int]*anilist.MediaDetail{
 			100: {
@@ -1828,12 +1828,12 @@ func TestImportFromAniList_ReimportUpdatesExistingSubEntryAiringInfo(t *testing.
 	created, err := svc.Create(ctx, "AoT Reimport")
 	require.NoError(t, err)
 
-	// First import: creates season + 3 parts = 4 entries.
+	// First import: creates season + 3 parts = 4 seasons.
 	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
 	require.NoError(t, err)
-	assert.Equal(t, 4, result.EntriesCreated, "first import should create 4 entries")
+	assert.Equal(t, 4, result.SeasonsCreated, "first import should create 4 seasons")
 
-	// Verify sub-entries have airing info after first import.
+	// Verify sub-seasons have airing info after first import.
 	rootFolder, err := svc.FindAnimeRootFolder(created.ID)
 	require.NoError(t, err)
 	seasonChildren, err := te.dbClient.File().FindDirectChildDirectories(rootFolder.ID)
@@ -1841,19 +1841,19 @@ func TestImportFromAniList_ReimportUpdatesExistingSubEntryAiringInfo(t *testing.
 
 	var seasonFileID uint
 	for _, child := range seasonChildren {
-		if child.EntryType == db.EntryTypeSeason {
+		if child.SeasonType == db.SeasonTypeSeason {
 			seasonFileID = child.ID
 			break
 		}
 	}
 	require.NotZero(t, seasonFileID)
 
-	subEntries, err := te.dbClient.File().FindDirectChildDirectories(seasonFileID)
+	subSeasons, err := te.dbClient.File().FindDirectChildDirectories(seasonFileID)
 	require.NoError(t, err)
-	require.Len(t, subEntries, 3, "expected 3 sub-entries after first import")
+	require.Len(t, subSeasons, 3, "expected 3 sub-seasons after first import")
 
 	// Verify initial airing info is set.
-	for _, sub := range subEntries {
+	for _, sub := range subSeasons {
 		switch sub.Name {
 		case "Part 1":
 			assert.Equal(t, db.AiringSeasonWinter, sub.AiringSeason)
@@ -1882,15 +1882,15 @@ func TestImportFromAniList_ReimportUpdatesExistingSubEntryAiringInfo(t *testing.
 	// Second import (re-import): nothing new created, but airing info updated.
 	result2, err := svc.ImportFromAniList(ctx, created.ID, 100)
 	require.NoError(t, err)
-	assert.Equal(t, 0, result2.EntriesCreated, "re-import should not create new entries")
+	assert.Equal(t, 0, result2.SeasonsCreated, "re-import should not create new seasons")
 
-	// Verify sub-entries now have the updated airing info.
-	subEntries2, err := te.dbClient.File().FindDirectChildDirectories(seasonFileID)
+	// Verify sub-seasons now have the updated airing info.
+	subSeasons2, err := te.dbClient.File().FindDirectChildDirectories(seasonFileID)
 	require.NoError(t, err)
-	require.Len(t, subEntries2, 3, "should still have 3 sub-entries")
+	require.Len(t, subSeasons2, 3, "should still have 3 sub-seasons")
 
 	subAiring := make(map[string]db.File)
-	for _, sub := range subEntries2 {
+	for _, sub := range subSeasons2 {
 		subAiring[sub.Name] = sub
 	}
 
@@ -1912,12 +1912,12 @@ func TestImportFromAniList_ReimportUpdatesExistingSubEntryAiringInfo(t *testing.
 	require.NotNil(t, p3.AiringYear, "Part 3 should have airing year set")
 	assert.Equal(t, uint(2023), *p3.AiringYear, "Part 3 should have year 2023")
 
-	// Also verify the parent season entry got updated airing info.
+	// Also verify the parent season got updated airing info.
 	// The parent uses the first part's info (Part 1 = FALL 2020).
 	seasonChildren2, err := te.dbClient.File().FindDirectChildDirectories(rootFolder.ID)
 	require.NoError(t, err)
 	for _, child := range seasonChildren2 {
-		if child.EntryType == db.EntryTypeSeason && child.ID == seasonFileID {
+		if child.SeasonType == db.SeasonTypeSeason && child.ID == seasonFileID {
 			assert.Equal(t, db.AiringSeasonFall, child.AiringSeason, "parent season should have updated FALL season")
 			require.NotNil(t, child.AiringYear, "parent season should have airing year set")
 			assert.Equal(t, uint(2020), *child.AiringYear, "parent season should have updated year 2020")
@@ -1968,16 +1968,16 @@ func TestImportFromAniList_MovieDetailFetchFailsFallsBack(t *testing.T) {
 	require.NoError(t, err)
 
 	// 1 season + 1 movie = 2
-	assert.Equal(t, 2, result.EntriesCreated)
+	assert.Equal(t, 2, result.SeasonsCreated)
 
 	// Verify movie uses fallback data from the relation edge.
-	entries, err := svc.GetAnimeEntries(created.ID)
+	seasons, err := svc.GetAnimeSeasons(created.ID)
 	require.NoError(t, err)
-	for _, e := range entries {
-		if e.EntryType == db.EntryTypeMovie {
+	for _, e := range seasons {
+		if e.SeasonType == db.SeasonTypeMovie {
 			assert.Equal(t, "Fallback Movie", e.Name, "movie name should come from relation edge")
-			require.NotNil(t, e.EntryNumber, "movie should have year from relation edge")
-			assert.Equal(t, uint(2021), *e.EntryNumber)
+			require.NotNil(t, e.SeasonNumber, "movie should have year from relation edge")
+			assert.Equal(t, uint(2021), *e.SeasonNumber)
 		}
 	}
 
@@ -1987,7 +1987,7 @@ func TestImportFromAniList_MovieDetailFetchFailsFallsBack(t *testing.T) {
 	children, err := te.dbClient.File().FindDirectChildDirectories(rootFolder.ID)
 	require.NoError(t, err)
 	for _, child := range children {
-		if child.EntryType == db.EntryTypeMovie {
+		if child.SeasonType == db.SeasonTypeMovie {
 			assert.Equal(t, db.AiringSeasonFall, child.AiringSeason, "movie should have FALL season from edge fallback")
 			require.NotNil(t, child.AiringYear, "movie should have airing year from edge fallback")
 			assert.Equal(t, uint(2021), *child.AiringYear, "movie should have year 2021 from edge fallback")
@@ -2048,16 +2048,16 @@ func TestImportFromAniList_MovieDetailOverridesEdgeData(t *testing.T) {
 	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
 	require.NoError(t, err)
 
-	assert.Equal(t, 2, result.EntriesCreated)
+	assert.Equal(t, 2, result.SeasonsCreated)
 
 	// Verify movie uses the fetched detail's English title (not edge Romaji).
-	entries, err := svc.GetAnimeEntries(created.ID)
+	seasons, err := svc.GetAnimeSeasons(created.ID)
 	require.NoError(t, err)
-	for _, e := range entries {
-		if e.EntryType == db.EntryTypeMovie {
+	for _, e := range seasons {
+		if e.SeasonType == db.SeasonTypeMovie {
 			assert.Equal(t, "The Complete Movie Title", e.Name, "movie name should prefer fetched detail's English title")
-			require.NotNil(t, e.EntryNumber, "movie should have year from fetched detail")
-			assert.Equal(t, uint(2020), *e.EntryNumber)
+			require.NotNil(t, e.SeasonNumber, "movie should have year from fetched detail")
+			assert.Equal(t, uint(2020), *e.SeasonNumber)
 		}
 	}
 
@@ -2067,7 +2067,7 @@ func TestImportFromAniList_MovieDetailOverridesEdgeData(t *testing.T) {
 	children, err := te.dbClient.File().FindDirectChildDirectories(rootFolder.ID)
 	require.NoError(t, err)
 	for _, child := range children {
-		if child.EntryType == db.EntryTypeMovie {
+		if child.SeasonType == db.SeasonTypeMovie {
 			assert.Equal(t, db.AiringSeasonWinter, child.AiringSeason, "movie should have WINTER season from detail")
 			require.NotNil(t, child.AiringYear, "movie should have airing year from detail")
 			assert.Equal(t, uint(2020), *child.AiringYear, "movie should have year 2020 from detail")
@@ -2122,7 +2122,7 @@ func TestImportFromAniList_ReimportUpdatesExistingMovieAiringInfo(t *testing.T) 
 	// First import: creates season + movie.
 	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
 	require.NoError(t, err)
-	assert.Equal(t, 2, result.EntriesCreated)
+	assert.Equal(t, 2, result.SeasonsCreated)
 
 	// Verify initial movie airing info.
 	rootFolder, err := svc.FindAnimeRootFolder(created.ID)
@@ -2130,7 +2130,7 @@ func TestImportFromAniList_ReimportUpdatesExistingMovieAiringInfo(t *testing.T) 
 	children, err := te.dbClient.File().FindDirectChildDirectories(rootFolder.ID)
 	require.NoError(t, err)
 	for _, child := range children {
-		if child.EntryType == db.EntryTypeMovie {
+		if child.SeasonType == db.SeasonTypeMovie {
 			assert.Equal(t, db.AiringSeasonSpring, child.AiringSeason)
 			require.NotNil(t, child.AiringYear)
 			assert.Equal(t, uint(2021), *child.AiringYear)
@@ -2145,13 +2145,13 @@ func TestImportFromAniList_ReimportUpdatesExistingMovieAiringInfo(t *testing.T) 
 	// Second import: movie already exists, but airing info should be updated.
 	result2, err := svc.ImportFromAniList(ctx, created.ID, 100)
 	require.NoError(t, err)
-	assert.Equal(t, 0, result2.EntriesCreated, "re-import should not create new entries")
+	assert.Equal(t, 0, result2.SeasonsCreated, "re-import should not create new seasons")
 
 	// Verify movie airing info was updated.
 	children2, err := te.dbClient.File().FindDirectChildDirectories(rootFolder.ID)
 	require.NoError(t, err)
 	for _, child := range children2 {
-		if child.EntryType == db.EntryTypeMovie {
+		if child.SeasonType == db.SeasonTypeMovie {
 			assert.Equal(t, db.AiringSeasonSummer, child.AiringSeason, "movie should have updated SUMMER season")
 			require.NotNil(t, child.AiringYear, "movie should have airing year")
 			assert.Equal(t, uint(2022), *child.AiringYear, "movie should have updated year 2022")

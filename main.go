@@ -97,7 +97,9 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("db.NewClient: %w", err)
 	}
-	dbClient.Migrate()
+	if err := dbClient.Migrate(); err != nil {
+		return fmt.Errorf("db.Migrate: %w", err)
+	}
 
 	clientConn, err := grpc.NewClient("localhost:50051",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),

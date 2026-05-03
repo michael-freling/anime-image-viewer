@@ -16,6 +16,6 @@ type AniListSearchResult struct {
 
 // AniListImportResult is the outcome of importing from AniList.
 type AniListImportResult struct {
-	EntriesCreated    int `json:"entriesCreated"`
+	SeasonsCreated    int `json:"seasonsCreated"`
 	CharactersCreated int `json:"charactersCreated"`
 }
