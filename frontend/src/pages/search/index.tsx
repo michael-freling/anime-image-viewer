@@ -248,6 +248,10 @@ export function SearchPage(): JSX.Element {
 
   const handleRubberBandCommit = useCallback(
     (ids: Set<number>, isAdditive: boolean) => {
+      if (ids.size === 0) {
+        setPendingIds(new Set<number>());
+        return;
+      }
       if (isAdditive) {
         const next = new Set<number>(selectedIds);
         for (const id of ids) next.add(id);
@@ -426,7 +430,6 @@ export function SearchPage(): JSX.Element {
                 : "/images/edit",
             )
           }
-          onEditTags={() => navigate("/images/edit/tags")}
         />
       )}
 

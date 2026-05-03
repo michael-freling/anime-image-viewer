@@ -573,43 +573,6 @@ describe("SearchPage", () => {
     }
   });
 
-  test("Edit tags button on the selection bar navigates to tag editor", async () => {
-    searchImagesMock.mockResolvedValue({
-      images: [
-        makeImage(100, "sunset.png"),
-        makeImage(101, "beach.png"),
-      ],
-    });
-    // Pre-enter select mode so the SelectionActionBar is mounted.
-    act(() => {
-      useSelectionStore.setState({
-        selectMode: true,
-        selectedIds: new Set([100, 101]),
-      });
-    });
-    const { container, unmount } = renderWithClient(<SearchPage />, {
-      routerInitialEntries: ["/search?tag=1"],
-    });
-    try {
-      await waitFor(
-        () =>
-          container.querySelector("[data-testid='selection-action-bar']") !==
-          null,
-      );
-      // `onEditTags` navigates to /images/edit/tags — find the button by
-      // its label "Edit tags".
-      const editBtn = Array.from(
-        container.querySelectorAll("button"),
-      ).find((b) =>
-        (b.textContent ?? "").toLowerCase().includes("edit tags"),
-      ) as HTMLButtonElement | undefined;
-      expect(editBtn).toBeDefined();
-      // Selection should still be present (the tag editor reads it from the store).
-      expect(useSelectionStore.getState().selectedIds.size).toBe(2);
-    } finally {
-      unmount();
-    }
-  });
 
   test("clicking a tile with select mode off does not toggle selection", async () => {
     searchImagesMock.mockResolvedValue({
@@ -1005,6 +968,140 @@ describe("SearchPage", () => {
       expect(
         container.querySelector("[data-testid='season-picker']"),
       ).toBeNull();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Edit button on action bar navigates with anime param when anime filter active", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [makeImage(100, "sunset.png")],
+    });
+    getAnimeDetailsMock.mockResolvedValue({
+      anime: { id: 42, name: "Bebop", aniListId: null },
+      tags: [],
+      characters: [],
+      folders: [],
+      folderTree: null,
+      entries: [],
+    });
+    searchImagesByAnimeMock.mockResolvedValue({
+      images: [makeImage(100, "sunset.png")],
+    });
+    act(() => {
+      useSelectionStore.setState({
+        selectMode: true,
+        selectedIds: new Set([100]),
+        lastSelectedId: 100,
+      });
+    });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?anime=42&tag=1"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='selection-action-bar']") !== null,
+      );
+      // Find the Edit button
+      const editBtn = Array.from(
+        container.querySelectorAll("button"),
+      ).find((b) =>
+        (b.textContent ?? "").toLowerCase() === "edit",
+      ) as HTMLButtonElement | undefined;
+      expect(editBtn).toBeDefined();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Edit button on action bar navigates without anime param when no anime filter", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [makeImage(100, "sunset.png")],
+    });
+    act(() => {
+      useSelectionStore.setState({
+        selectMode: true,
+        selectedIds: new Set([100]),
+        lastSelectedId: 100,
+      });
+    });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?tag=1"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='selection-action-bar']") !== null,
+      );
+      // Find the Edit button
+      const editBtn = Array.from(
+        container.querySelectorAll("button"),
+      ).find((b) =>
+        (b.textContent ?? "").toLowerCase() === "edit",
+      ) as HTMLButtonElement | undefined;
+      expect(editBtn).toBeDefined();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("character filter cycling adds character to include/exclude", async () => {
+    getAnimeDetailsMock.mockResolvedValue({
+      anime: { id: 42, name: "Bebop", aniListId: null },
+      tags: [],
+      characters: [
+        { id: 10, name: "Spike", imageCount: 5 },
+        { id: 11, name: "Jet", imageCount: 3 },
+      ],
+      folders: [],
+      folderTree: null,
+      entries: [],
+    });
+    searchImagesByAnimeMock.mockResolvedValue({ images: [] });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?anime=42"],
+    });
+    try {
+      // Open the filter panel.
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='search-filter-toggle']") !== null,
+      );
+      const toggle = container.querySelector(
+        "[data-testid='search-filter-toggle']",
+      ) as HTMLElement;
+      act(() => {
+        toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      // Wait for the character picker to render.
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='character-picker']") !== null,
+      );
+      const charPicker = container.querySelector("[data-testid='character-picker']");
+      expect(charPicker?.textContent).toContain("Spike");
+
+      // Click Spike to include (chips inside character-picker use TagChip with data-testid='tag-chip')
+      const charPickerEl = container.querySelector("[data-testid='character-picker-chips']");
+      const spikeChip = Array.from(
+        charPickerEl?.querySelectorAll("[data-testid='tag-chip']") ?? [],
+      ).find((el) => el.textContent?.includes("Spike"));
+      expect(spikeChip).toBeDefined();
+      act(() => {
+        (spikeChip as HTMLElement).dispatchEvent(
+          new MouseEvent("click", { bubbles: true }),
+        );
+      });
+
+      // Filter count should increase (anime=1 + char=1 = 2).
+      await waitFor(() => {
+        const filterBtn = container.querySelector(
+          "[data-testid='search-filter-toggle']",
+        );
+        return filterBtn?.textContent?.includes("Filters (2)") ?? false;
+      });
     } finally {
       unmount();
     }

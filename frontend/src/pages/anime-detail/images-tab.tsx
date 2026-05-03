@@ -110,8 +110,11 @@ export function ImagesTab(): JSX.Element {
     finalIds: Set<number>,
     isAdditive: boolean,
   ) => {
+    if (finalIds.size === 0) {
+      setPendingIds(new Set());
+      return;
+    }
     if (isAdditive) {
-      // Merge pending with existing selection.
       const current = useSelectionStore.getState().selectedIds;
       const next = new Set<number>(current);
       finalIds.forEach((id) => next.add(id));
@@ -141,7 +144,6 @@ export function ImagesTab(): JSX.Element {
         visibleIds={visibleIds}
         totalVisible={images.length}
         onEdit={() => navigate(`/images/edit?anime=${animeId}`)}
-        onEditTags={() => navigate("/images/edit/tags")}
       />
 
       {/* Toolbar: Search + Upload */}
