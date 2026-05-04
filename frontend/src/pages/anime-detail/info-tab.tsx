@@ -8,9 +8,9 @@
  * (delete anime) is self-contained: ConfirmDialog → AnimeService.DeleteAnime
  * → navigate to home.
  */
-import { Box, Button, Flex, Stack, Text } from "@chakra-ui/react";
+import { Box, Button, Dialog, Flex, Portal, Stack, Text, chakra } from "@chakra-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, Trash2 } from "lucide-react";
+import { ExternalLink, Link as LinkIcon, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
@@ -19,9 +19,13 @@ import { RowSkeleton } from "../../components/shared/loading-skeleton";
 import { ConfirmDialog } from "../../components/ui/confirm-dialog";
 import { toast } from "../../components/ui/toaster";
 import { useAnimeDetail } from "../../hooks/use-anime-detail";
+import { useAniListSearch } from "../../hooks/use-anilist-search";
 import { AnimeService } from "../../lib/api";
+import type { AniListSearchResult } from "../../lib/api";
 import { formatCount } from "../../lib/format";
 import { qk } from "../../lib/query-keys";
+
+const ChakraInput = chakra("input");
 
 function parseAnimeId(raw: string | undefined): number {
   if (!raw) return 0;
@@ -57,6 +61,10 @@ export function InfoTab(): JSX.Element {
   const queryClient = useQueryClient();
   const { data, isLoading, isError, error, refetch } = useAnimeDetail(animeId);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [aniListDialogOpen, setAniListDialogOpen] = useState(false);
+  const [aniListQuery, setAniListQuery] = useState("");
+  const [aniListImporting, setAniListImporting] = useState(false);
+  const aniListSearch = useAniListSearch(aniListQuery);
 
   if (isError) {
     return (
@@ -121,7 +129,7 @@ export function InfoTab(): JSX.Element {
           testId="info-field-anilist"
           value={
             aniListUrl ? (
-              <Flex gap="2" align="center">
+              <Flex gap="2" align="center" wrap="wrap">
                 <Text color="fg.secondary">#{anime.aniListId}</Text>
                 <Button
                   as="a"
@@ -134,19 +142,74 @@ export function InfoTab(): JSX.Element {
                     rel: "noopener noreferrer",
                   }}
                 >
-                  <Box
-                    as="span"
-                    aria-hidden="true"
-                    display="inline-flex"
-                    mr="2"
-                  >
+                  <Box as="span" aria-hidden="true" display="inline-flex" mr="1">
                     <ExternalLink size={12} />
                   </Box>
-                  Open in AniList
+                  Open
+                </Button>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  data-testid="info-anilist-reimport"
+                  disabled={aniListImporting}
+                  loading={aniListImporting}
+                  loadingText="Importing..."
+                  onClick={async () => {
+                    setAniListImporting(true);
+                    try {
+                      const result = await AnimeService.ImportFromAniList(animeId, anime.aniListId!);
+                      await queryClient.invalidateQueries({ queryKey: qk.anime.detail(animeId) });
+                      toast.success(
+                        "AniList import complete",
+                        `Created ${result.seasonsCreated} season(s), ${result.charactersCreated} character(s).`,
+                      );
+                    } catch (err) {
+                      toast.error("Import failed", err instanceof Error ? err.message : String(err));
+                    } finally {
+                      setAniListImporting(false);
+                    }
+                  }}
+                >
+                  <Box as="span" aria-hidden="true" display="inline-flex" mr="1">
+                    <RefreshCw size={12} />
+                  </Box>
+                  Re-import
+                </Button>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  data-testid="info-anilist-change"
+                  disabled={aniListImporting}
+                  onClick={() => {
+                    setAniListQuery(anime.name);
+                    setAniListDialogOpen(true);
+                  }}
+                >
+                  <Box as="span" aria-hidden="true" display="inline-flex" mr="1">
+                    <LinkIcon size={12} />
+                  </Box>
+                  Change
                 </Button>
               </Flex>
             ) : (
-              <Text color="fg.muted">Not linked</Text>
+              <Flex gap="2" align="center">
+                <Text color="fg.muted">Not linked</Text>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  data-testid="info-anilist-link-btn"
+                  disabled={aniListImporting}
+                  onClick={() => {
+                    setAniListQuery(anime.name);
+                    setAniListDialogOpen(true);
+                  }}
+                >
+                  <Box as="span" aria-hidden="true" display="inline-flex" mr="1">
+                    <LinkIcon size={12} />
+                  </Box>
+                  Link AniList
+                </Button>
+              </Flex>
             )
           }
         />
@@ -227,7 +290,165 @@ export function InfoTab(): JSX.Element {
         cancelLabel="Cancel"
         variant="danger"
       />
+
+      <AniListSearchDialog
+        open={aniListDialogOpen}
+        onClose={() => {
+          setAniListDialogOpen(false);
+          setAniListQuery("");
+        }}
+        query={aniListQuery}
+        onQueryChange={setAniListQuery}
+        results={aniListSearch.data ?? []}
+        loading={aniListSearch.isLoading}
+        importing={aniListImporting}
+        onSelect={async (result: AniListSearchResult) => {
+          setAniListImporting(true);
+          try {
+            const importResult = await AnimeService.ImportFromAniList(animeId, result.id);
+            await queryClient.invalidateQueries({ queryKey: qk.anime.detail(animeId) });
+            toast.success(
+              "AniList linked",
+              `Created ${importResult.seasonsCreated} season(s), ${importResult.charactersCreated} character(s).`,
+            );
+            setAniListDialogOpen(false);
+            setAniListQuery("");
+          } catch (err) {
+            toast.error("Import failed", err instanceof Error ? err.message : String(err));
+          } finally {
+            setAniListImporting(false);
+          }
+        }}
+      />
     </Box>
+  );
+}
+
+function AniListSearchDialog({
+  open,
+  onClose,
+  query,
+  onQueryChange,
+  results,
+  loading,
+  importing,
+  onSelect,
+}: {
+  open: boolean;
+  onClose: () => void;
+  query: string;
+  onQueryChange: (q: string) => void;
+  results: AniListSearchResult[];
+  loading: boolean;
+  importing: boolean;
+  onSelect: (result: AniListSearchResult) => void;
+}): JSX.Element {
+  return (
+    <Dialog.Root
+      open={open}
+      onOpenChange={(d) => { if (!d.open && !importing) onClose(); }}
+      closeOnEscape={!importing}
+      closeOnInteractOutside={!importing}
+    >
+      <Portal>
+        <Dialog.Backdrop bg="blackAlpha.600" />
+        <Dialog.Positioner>
+          <Dialog.Content
+            data-testid="anilist-search-dialog"
+            bg="bg.surface"
+            color="fg"
+            borderRadius="lg"
+            borderWidth="1px"
+            borderColor="border"
+            maxWidth="520px"
+          >
+            <Dialog.Header px="5" pt="4">
+              <Dialog.Title fontSize="md" fontWeight="600">
+                Link AniList
+              </Dialog.Title>
+            </Dialog.Header>
+            <Dialog.Body px="5" py="2">
+              <Stack gap="3">
+                <ChakraInput
+                  data-testid="anilist-search-input"
+                  type="text"
+                  value={query}
+                  onChange={(e) => onQueryChange(e.target.value)}
+                  disabled={importing}
+                  placeholder="Search AniList..."
+                  aria-label="Search AniList"
+                  width="100%"
+                  height="40px"
+                  px="3"
+                  borderRadius="md"
+                  borderWidth="1px"
+                  borderColor="border"
+                  bg="bg.surface"
+                  color="fg"
+                  fontSize="sm"
+                  _focus={{
+                    outline: "none",
+                    borderColor: "primary",
+                    boxShadow: "0 0 0 2px var(--chakra-colors-primary)",
+                  }}
+                />
+                {loading && query.trim().length > 0 && (
+                  <Text fontSize="xs" color="fg.secondary">Searching...</Text>
+                )}
+                {results.length > 0 && (
+                  <Box
+                    data-testid="anilist-search-results"
+                    borderWidth="1px"
+                    borderColor="border"
+                    borderRadius="md"
+                    maxHeight="240px"
+                    overflowY="auto"
+                  >
+                    {results.map((result) => (
+                      <Box
+                        key={result.id}
+                        data-testid="anilist-search-result-item"
+                        px="3"
+                        py="2"
+                        cursor={importing ? "not-allowed" : "pointer"}
+                        opacity={importing ? 0.6 : 1}
+                        _hover={importing ? {} : { bg: "bg.subtle" }}
+                        onClick={() => { if (!importing) onSelect(result); }}
+                        fontSize="sm"
+                        borderBottom="1px solid"
+                        borderColor="border"
+                      >
+                        <Box fontWeight="500">
+                          {result.titleRomaji || result.titleEnglish}
+                        </Box>
+                        {result.titleEnglish && result.titleEnglish !== result.titleRomaji && (
+                          <Box fontSize="xs" opacity={0.6}>{result.titleEnglish}</Box>
+                        )}
+                        <Box fontSize="xs" opacity={0.6}>
+                          ID: {result.id}
+                          {result.format ? ` · ${result.format}` : ""}
+                          {result.seasonYear ? ` · ${result.seasonYear}` : ""}
+                        </Box>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+              </Stack>
+            </Dialog.Body>
+            <Dialog.Footer px="5" pb="4" pt="3" display="flex" justifyContent="flex-end">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onClose}
+                disabled={importing}
+              >
+                Cancel
+              </Button>
+            </Dialog.Footer>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Portal>
+    </Dialog.Root>
   );
 }
 
