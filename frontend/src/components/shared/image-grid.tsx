@@ -133,6 +133,17 @@ function CellThumbnail({
 
   const longPressHandlers = useLongPress({ onLongPress: handleLongPress });
 
+  const handleClick = useCallback(
+    (event: React.MouseEvent | React.KeyboardEvent) => {
+      if (longPressHandlers.firedRef.current) {
+        longPressHandlers.firedRef.current = false;
+        return;
+      }
+      onImageClick?.(image, event as React.MouseEvent);
+    },
+    [onImageClick, image, longPressHandlers.firedRef],
+  );
+
   return (
     <div
       {...longPressHandlers}
@@ -146,13 +157,7 @@ function CellThumbnail({
         rubberBandPending={pending}
         selectMode={selectMode}
         sizes={sizes}
-        onClick={
-          onImageClick
-            ? (event) => {
-                onImageClick(image, event as React.MouseEvent);
-              }
-            : undefined
-        }
+        onClick={handleClick}
       />
     </div>
   );
@@ -194,6 +199,9 @@ function Cell({
     paddingRight: CELL_GAP,
     paddingBottom: CELL_GAP,
     boxSizing: "border-box",
+    // Elevate selected/pending cells so their borders aren't clipped by
+    // adjacent rows in the same stacking context.
+    zIndex: selected || pending ? 1 : undefined,
   };
 
   // The thumbnail size should account for the gap padding.

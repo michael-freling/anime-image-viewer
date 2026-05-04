@@ -93,19 +93,14 @@ export function ImageThumbnail({
       overflow="hidden"
       bg="bg.surfaceAlt"
       cursor={onClick ? "pointer" : "default"}
-      // Selected and pending variants layer their tints on top of the img.
-      boxShadow={
+      outline={
         selected
-          ? "inset 0 0 0 4px var(--chakra-colors-primary)"
+          ? "4px solid var(--chakra-colors-primary)"
           : rubberBandPending
-            ? "inset 0 0 0 3px var(--chakra-colors-primary)"
+            ? "3px dashed var(--chakra-colors-primary)"
             : undefined
       }
-      // Rubber-band pending shows a dashed border via outline so it stacks
-      // over the image without shifting layout.
-      outline={rubberBandPending ? "3px dashed" : undefined}
-      outlineColor={rubberBandPending ? "primary" : undefined}
-      outlineOffset="-3px"
+      outlineOffset={selected ? "-4px" : rubberBandPending ? "-3px" : undefined}
       transition="filter 0.15s ease-out"
       _hover={onClick ? { filter: "brightness(1.1)" } : undefined}
       _focusVisible={{

@@ -38,7 +38,6 @@ import { ImageOff, Tag as TagIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
-import { PageHeader } from "../../components/layout/page-header";
 import { CategorySection } from "../../components/shared/category-section";
 import { EmptyState } from "../../components/shared/empty-state";
 import { ErrorAlert } from "../../components/shared/error-alert";
@@ -230,39 +229,6 @@ export function ImageTagEditorPage(): JSX.Element {
     navigate(-1);
   }, [pending, navigate]);
 
-  const headerSubtitle =
-    totalSelected > 0
-      ? `${formatCount(totalSelected, "image")} selected`
-      : "No images selected";
-
-  const headerActions = (
-    <Flex gap="2" align="center">
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        onClick={handleCancel}
-        data-testid="image-tag-editor-cancel"
-      >
-        Cancel
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        bg="primary"
-        color="bg.surface"
-        _hover={{ bg: "primary.hover" }}
-        onClick={handleSave}
-        disabled={!pending.hasChanges || saveMutation.isPending}
-        loading={saveMutation.isPending}
-        loadingText="Saving…"
-        data-testid="image-tag-editor-save"
-      >
-        Save
-      </Button>
-    </Flex>
-  );
-
   /* --------------------- render branches --------------------- */
 
   // Hard empty — no ids in URL or store. We bail out before calling hooks
@@ -270,7 +236,6 @@ export function ImageTagEditorPage(): JSX.Element {
   if (totalSelected === 0) {
     return (
       <Box data-testid="image-tag-editor-page">
-        <PageHeader title="Edit Tags" subtitle="No images selected" />
         <Box px={{ base: "4", md: "6" }} py="8">
           <EmptyState
             icon={ImageOff}
@@ -307,43 +272,44 @@ export function ImageTagEditorPage(): JSX.Element {
 
   return (
     <Box data-testid="image-tag-editor-page" position="relative">
-      <PageHeader
-        title="Edit Tags"
-        subtitle={headerSubtitle}
-        actions={headerActions}
-      />
-
-      {/* Selected images strip — small colored rectangles for each image id.
-          Horizontally scrollable on narrow viewports. */}
-      <Box
-        as="section"
-        aria-label="Selected images"
-        data-testid="image-tag-editor-strip"
+      {/* Toolbar */}
+      <Flex
+        data-testid="image-tag-editor-toolbar"
+        align="center"
+        gap="3"
         px={{ base: "4", md: "6" }}
         py="3"
-        bg="bg.surface"
         borderBottomWidth="1px"
-        borderBottomColor="border"
-        overflowX="auto"
+        borderColor="border"
       >
-        <Flex gap="2" align="center" minWidth="max-content">
-          {selectedImageIds.map((id) => (
-            <Box
-              key={id}
-              data-testid="image-tag-editor-strip-item"
-              data-file-id={id}
-              flexShrink={0}
-              width={{ base: "40px", md: "48px" }}
-              height={{ base: "40px", md: "48px" }}
-              borderRadius="sm"
-              bg="primary.subtle"
-              borderWidth="1px"
-              borderColor="primary"
-              aria-label={`Image ${id}`}
-            />
-          ))}
-        </Flex>
-      </Box>
+        <Text fontSize="sm" color="fg.muted" flex="1">
+          {formatCount(totalSelected, "image")} selected
+        </Text>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={handleCancel}
+          data-testid="image-tag-editor-cancel"
+        >
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          bg="primary"
+          color="bg.surface"
+          _hover={{ bg: "primary.hover" }}
+          onClick={handleSave}
+          disabled={!pending.hasChanges || saveMutation.isPending}
+          loading={saveMutation.isPending}
+          loadingText="Saving…"
+          data-testid="image-tag-editor-save"
+        >
+          Save
+        </Button>
+      </Flex>
+
 
       {/* Sticky filter + pending changes bar. */}
       <Box

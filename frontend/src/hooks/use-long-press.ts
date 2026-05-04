@@ -25,6 +25,8 @@ interface UseLongPressReturn {
   onPointerMove: (e: React.PointerEvent) => void;
   onPointerCancel: (e: React.PointerEvent) => void;
   onContextMenu: (e: React.SyntheticEvent) => void;
+  /** True if the most recent gesture was consumed by a long-press. */
+  firedRef: React.MutableRefObject<boolean>;
 }
 
 const DEFAULT_THRESHOLD = 500;
@@ -116,5 +118,6 @@ export function useLongPress(options: UseLongPressOptions): UseLongPressReturn {
     onPointerMove,
     onPointerCancel,
     onContextMenu,
+    firedRef,
   };
 }

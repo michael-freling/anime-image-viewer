@@ -25,7 +25,6 @@ import {
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
-import { PageHeader } from "../../components/layout/page-header";
 import { CategorySection } from "../../components/shared/category-section";
 import { EmptyState } from "../../components/shared/empty-state";
 import { ErrorAlert } from "../../components/shared/error-alert";
@@ -274,119 +273,70 @@ export function ImageEditorPage(): JSX.Element {
     characterPending.hasChanges ||
     selectedSeasonId !== null;
 
-  /* ─── Save mutations ─────────────────────────────────────────────────── */
+  /* ─── Unified save mutation ──────────────────────────────────────────── */
 
-  const saveTagsMutation = useMutation({
+  const saveAllMutation = useMutation({
     mutationFn: async () => {
-      await dispatchTagMutation(
-        selectedImageIds,
-        [...tagPending.adding],
-        [...tagPending.removing],
-      );
+      if (tagPending.hasChanges) {
+        await dispatchTagMutation(
+          selectedImageIds,
+          [...tagPending.adding],
+          [...tagPending.removing],
+        );
+      }
+      if (characterPending.hasChanges) {
+        await dispatchCharacterMutation(
+          selectedImageIds,
+          [...characterPending.adding],
+          [...characterPending.removing],
+        );
+      }
+      if (selectedSeasonId !== null) {
+        await AnimeService.MoveFilesToSeason(selectedImageIds, selectedSeasonId);
+      }
     },
     onSuccess: () => {
       toast.success(
-        "Tags updated",
-        tagPending.count === 1
-          ? "1 tag change applied."
-          : `${tagPending.count} tag changes applied.`,
+        "Changes saved",
+        totalPendingChanges === 1
+          ? "1 change applied."
+          : `${totalPendingChanges} changes applied.`,
       );
       queryClient.invalidateQueries({
         queryKey: qk.tags.stats(selectedImageIds),
       });
       queryClient.invalidateQueries({ queryKey: qk.tags.list() });
+      queryClient.invalidateQueries({
+        queryKey: ["characters", "stats", selectedImageIds],
+      });
+      queryClient.invalidateQueries({ queryKey: ["search"] });
       if (animeId > 0) {
         queryClient.invalidateQueries({
           queryKey: qk.anime.detail(animeId),
         });
       }
       tagPending.clear();
-    },
-    onError: (err: unknown) => {
-      const message =
-        err instanceof Error ? err.message : "Unable to save tag changes.";
-      toast.error("Couldn't save tags", message);
-    },
-  });
-
-  const saveCharactersMutation = useMutation({
-    mutationFn: async () => {
-      await dispatchCharacterMutation(
-        selectedImageIds,
-        [...characterPending.adding],
-        [...characterPending.removing],
-      );
-    },
-    onSuccess: () => {
-      toast.success(
-        "Characters updated",
-        characterPending.count === 1
-          ? "1 character change applied."
-          : `${characterPending.count} character changes applied.`,
-      );
-      queryClient.invalidateQueries({
-        queryKey: ["characters", "stats", selectedImageIds],
-      });
-      if (animeId > 0) {
-        queryClient.invalidateQueries({
-          queryKey: qk.anime.detail(animeId),
-        });
-      }
       characterPending.clear();
-    },
-    onError: (err: unknown) => {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Unable to save character changes.";
-      toast.error("Couldn't save characters", message);
-    },
-  });
-
-  const saveSeasonMutation = useMutation({
-    mutationFn: async () => {
-      if (selectedSeasonId === null) return;
-      await AnimeService.MoveFilesToSeason(selectedImageIds, selectedSeasonId);
-    },
-    onSuccess: () => {
-      toast.success(
-        "Images moved",
-        `${selectedImageIds.length} image${selectedImageIds.length === 1 ? "" : "s"} moved to the selected season.`,
-      );
-      if (animeId > 0) {
-        queryClient.invalidateQueries({
-          queryKey: qk.anime.detail(animeId),
-        });
-      }
       setSelectedSeasonId(null);
+      const store = useSelectionStore.getState();
+      if (store.selectMode) {
+        store.toggleSelectMode();
+      }
+      navigate(-1);
     },
     onError: (err: unknown) => {
       const message =
-        err instanceof Error ? err.message : "Unable to move files.";
-      toast.error("Couldn't move files", message);
+        err instanceof Error ? err.message : "Unable to save changes.";
+      toast.error("Couldn't save", message);
     },
   });
 
   /* ─── Handlers ─────────────────────────────────────────────────────── */
 
-  const handleSaveTags = useCallback(() => {
-    if (!tagPending.hasChanges || selectedImageIds.length === 0) return;
-    saveTagsMutation.mutate();
-  }, [tagPending.hasChanges, selectedImageIds.length, saveTagsMutation]);
-
-  const handleSaveCharacters = useCallback(() => {
-    if (!characterPending.hasChanges || selectedImageIds.length === 0) return;
-    saveCharactersMutation.mutate();
-  }, [
-    characterPending.hasChanges,
-    selectedImageIds.length,
-    saveCharactersMutation,
-  ]);
-
-  const handleSaveSeason = useCallback(() => {
-    if (selectedSeasonId === null || selectedImageIds.length === 0) return;
-    saveSeasonMutation.mutate();
-  }, [selectedSeasonId, selectedImageIds.length, saveSeasonMutation]);
+  const handleSave = useCallback(() => {
+    if (!hasAnyChanges || selectedImageIds.length === 0) return;
+    saveAllMutation.mutate();
+  }, [hasAnyChanges, selectedImageIds.length, saveAllMutation]);
 
   const handleCancel = useCallback(() => {
     if (hasAnyChanges) {
@@ -406,30 +356,10 @@ export function ImageEditorPage(): JSX.Element {
 
   /* ─── Render ───────────────────────────────────────────────────────── */
 
-  const headerSubtitle =
-    totalSelected > 0
-      ? `${formatCount(totalSelected, "image")} selected`
-      : "No images selected";
-
-  const headerActions = (
-    <Flex gap="2" align="center">
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        onClick={handleCancel}
-        data-testid="image-editor-cancel"
-      >
-        Cancel
-      </Button>
-    </Flex>
-  );
-
   // Empty state
   if (totalSelected === 0) {
     return (
       <Box data-testid="image-editor-page">
-        <PageHeader title="Edit Images" subtitle="No images selected" />
         <Box px={{ base: "4", md: "6" }} py="8">
           <EmptyState
             icon={ImageOff}
@@ -473,42 +403,44 @@ export function ImageEditorPage(): JSX.Element {
 
   return (
     <Box data-testid="image-editor-page" position="relative">
-      <PageHeader
-        title="Edit Images"
-        subtitle={headerSubtitle}
-        actions={headerActions}
-      />
-
-      {/* Selected images strip */}
-      <Box
-        as="section"
-        aria-label="Selected images"
-        data-testid="image-editor-strip"
+      {/* Toolbar */}
+      <Flex
+        data-testid="image-editor-toolbar"
+        align="center"
+        gap="3"
         px={{ base: "4", md: "6" }}
         py="3"
-        bg="bg.surface"
         borderBottomWidth="1px"
-        borderBottomColor="border"
-        overflowX="auto"
+        borderColor="border"
       >
-        <Flex gap="2" align="center" minWidth="max-content">
-          {selectedImageIds.map((id) => (
-            <Box
-              key={id}
-              data-testid="image-editor-strip-item"
-              data-file-id={id}
-              flexShrink={0}
-              width={{ base: "40px", md: "48px" }}
-              height={{ base: "40px", md: "48px" }}
-              borderRadius="sm"
-              bg="primary.subtle"
-              borderWidth="1px"
-              borderColor="primary"
-              aria-label={`Image ${id}`}
-            />
-          ))}
-        </Flex>
-      </Box>
+        <Text fontSize="sm" color="fg.muted" flex="1">
+          {formatCount(totalSelected, "image")} selected
+        </Text>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={handleCancel}
+          data-testid="image-editor-cancel"
+        >
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          bg="primary"
+          color="bg.surface"
+          _hover={{ bg: "primary.hover" }}
+          onClick={handleSave}
+          disabled={!hasAnyChanges || saveAllMutation.isPending}
+          loading={saveAllMutation.isPending}
+          loadingText="Saving..."
+          data-testid="image-editor-save"
+        >
+          Save
+        </Button>
+      </Flex>
+
 
       {/* Error state */}
       {hasError && (
@@ -554,25 +486,6 @@ export function ImageEditorPage(): JSX.Element {
                 open={seasonOpen}
                 onToggle={() => setSeasonOpen(!seasonOpen)}
                 testId="image-editor-season-section"
-                actions={
-                  <Button
-                    type="button"
-                    size="xs"
-                    bg="primary"
-                    color="bg.surface"
-                    _hover={{ bg: "primary.hover" }}
-                    onClick={handleSaveSeason}
-                    disabled={
-                      selectedSeasonId === null ||
-                      saveSeasonMutation.isPending
-                    }
-                    loading={saveSeasonMutation.isPending}
-                    loadingText="Moving..."
-                    data-testid="image-editor-season-save"
-                  >
-                    Move
-                  </Button>
-                }
               >
                 <Stack gap="1" pl="2">
                   {flatSeasons.map((s) => (
@@ -635,25 +548,6 @@ export function ImageEditorPage(): JSX.Element {
                 open={charactersOpen}
                 onToggle={() => setCharactersOpen(!charactersOpen)}
                 testId="image-editor-characters-section"
-                actions={
-                  <Button
-                    type="button"
-                    size="xs"
-                    bg="primary"
-                    color="bg.surface"
-                    _hover={{ bg: "primary.hover" }}
-                    onClick={handleSaveCharacters}
-                    disabled={
-                      !characterPending.hasChanges ||
-                      saveCharactersMutation.isPending
-                    }
-                    loading={saveCharactersMutation.isPending}
-                    loadingText="Saving..."
-                    data-testid="image-editor-characters-save"
-                  >
-                    Save Characters
-                  </Button>
-                }
               >
                 <CharacterList
                   characters={animeCharacters}
@@ -699,24 +593,6 @@ export function ImageEditorPage(): JSX.Element {
               open={tagsOpen}
               onToggle={() => setTagsOpen(!tagsOpen)}
               testId="image-editor-tags-section"
-              actions={
-                <Button
-                  type="button"
-                  size="xs"
-                  bg="primary"
-                  color="bg.surface"
-                  _hover={{ bg: "primary.hover" }}
-                  onClick={handleSaveTags}
-                  disabled={
-                    !tagPending.hasChanges || saveTagsMutation.isPending
-                  }
-                  loading={saveTagsMutation.isPending}
-                  loadingText="Saving..."
-                  data-testid="image-editor-tags-save"
-                >
-                  Save Tags
-                </Button>
-              }
             >
               {/* Search */}
               <Box mb="3" maxW="420px">

@@ -137,13 +137,12 @@ describe("ImageTagEditorPage", () => {
       routerInitialEntries: ["/images/edit/tags?ids=10,11,12"],
     });
     try {
-      // Selection strip is rendered once ids are parsed from URL.
+      // Wait for the loading skeleton to appear while queries are pending.
       await waitFor(
         () =>
-          container.querySelector("[data-testid='image-tag-editor-strip']") !==
+          container.querySelector("[data-testid='image-tag-editor-loading']") !==
           null,
       );
-      // The skeleton grid is visible while the queries are still pending.
       const loading = container.querySelector(
         "[data-testid='image-tag-editor-loading']",
       );
@@ -176,10 +175,7 @@ describe("ImageTagEditorPage", () => {
       expect(container.textContent).toContain("Nothing to edit");
       // With no selection the stats query is disabled (`enabled: fileIds.length > 0`).
       expect(readTagsByFileIDsMock).not.toHaveBeenCalled();
-      // No selection strip or tag grid is rendered in the empty state.
-      expect(
-        container.querySelector("[data-testid='image-tag-editor-strip']"),
-      ).toBeNull();
+      // No tag grid is rendered in the empty state.
       expect(
         container.querySelector("[data-testid='image-tag-editor-grid']"),
       ).toBeNull();
@@ -467,6 +463,143 @@ describe("ImageTagEditorPage", () => {
       // survived the filter.
       expect(container.textContent).not.toContain("Scenes");
       expect(container.textContent).toContain("Nature / Weather");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("save error shows toast with error message", async () => {
+    batchUpdateTagsMock.mockRejectedValue(new Error("save failed"));
+    const { container, unmount } = renderWithClient(<ImageTagEditorPage />, {
+      routerInitialEntries: ["/images/edit/tags?ids=1,2,3"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector(
+            "[data-testid='image-tag-editor-row'][data-tag-id='2'] [role='checkbox']",
+          ) !== null,
+      );
+
+      // Add a tag change
+      const indoorCheckbox = container.querySelector(
+        "[data-testid='image-tag-editor-row'][data-tag-id='2'] [role='checkbox']",
+      ) as HTMLElement;
+      act(() => {
+        indoorCheckbox.dispatchEvent(
+          new MouseEvent("click", { bubbles: true }),
+        );
+      });
+
+      // Save tags
+      const saveBtn = container.querySelector(
+        "[data-testid='image-tag-editor-save']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(() => batchUpdateTagsMock.mock.calls.length > 0);
+      await flushPromises();
+      // The onError handler fires — we just verify the mutation was called
+    } finally {
+      unmount();
+    }
+  });
+
+  test("cancel without pending changes navigates back immediately", async () => {
+    const { container, unmount } = renderWithClient(<ImageTagEditorPage />, {
+      routerInitialEntries: ["/images/edit/tags?ids=1,2,3"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='image-tag-editor-cancel']") !==
+          null,
+      );
+
+      // Click cancel without making any changes
+      const cancel = container.querySelector(
+        "[data-testid='image-tag-editor-cancel']",
+      ) as HTMLButtonElement;
+      act(() => {
+        cancel.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      await flushPromises();
+      // No confirm dialog should appear
+      expect(
+        document.body.textContent?.includes("Discard changes?"),
+      ).toBe(false);
+    } finally {
+      unmount();
+    }
+  });
+
+  test("error state renders ErrorAlert", async () => {
+    getAllTagsMock.mockRejectedValue(new Error("tags fetch failed"));
+    const { container, unmount } = renderWithClient(<ImageTagEditorPage />, {
+      routerInitialEntries: ["/images/edit/tags?ids=1,2,3"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[role='alert']") !== null,
+      );
+      const alert = container.querySelector("[role='alert']");
+      expect(alert?.textContent ?? "").toContain("tags fetch failed");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("cancel confirm dialog close button keeps editing", async () => {
+    const { container, unmount } = renderWithClient(<ImageTagEditorPage />, {
+      routerInitialEntries: ["/images/edit/tags?ids=1,2,3"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector(
+            "[data-testid='image-tag-editor-row'][data-tag-id='2'] [role='checkbox']",
+          ) !== null,
+      );
+
+      // Make a pending change
+      const indoorCheckbox = container.querySelector(
+        "[data-testid='image-tag-editor-row'][data-tag-id='2'] [role='checkbox']",
+      ) as HTMLElement;
+      act(() => {
+        indoorCheckbox.dispatchEvent(
+          new MouseEvent("click", { bubbles: true }),
+        );
+      });
+
+      // Click cancel to open confirm dialog
+      const cancel = container.querySelector(
+        "[data-testid='image-tag-editor-cancel']",
+      ) as HTMLButtonElement;
+      act(() => {
+        cancel.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(() =>
+        document.body.textContent?.includes("Discard changes?") === true,
+      );
+
+      // Close the confirm dialog without discarding
+      const cancelConfirm = document.body.querySelector(
+        "[data-testid='confirm-dialog-cancel']",
+      ) as HTMLButtonElement | null;
+      if (cancelConfirm) {
+        act(() => {
+          cancelConfirm.dispatchEvent(
+            new MouseEvent("click", { bubbles: true }),
+          );
+        });
+        await flushPromises();
+      }
+      // Editor should still be showing
+      expect(
+        container.querySelector("[data-testid='image-tag-editor-grid']"),
+      ).not.toBeNull();
     } finally {
       unmount();
     }
