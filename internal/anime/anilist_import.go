@@ -234,10 +234,12 @@ func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID
 		return nil, fmt.Errorf("GetAnimeSeasons: %w", err)
 	}
 	existingSeasonsByNum := make(map[uint]AnimeSeason)
+	existingSeasonsByName := make(map[string]AnimeSeason)
 	for _, e := range existingSeasons {
 		if e.SeasonType == db.SeasonTypeSeason && e.SeasonNumber != nil {
 			existingSeasonsByNum[*e.SeasonNumber] = e
 		}
+		existingSeasonsByName[strings.ToLower(e.Name)] = e
 	}
 
 	// Create season entries from groups.
@@ -252,6 +254,16 @@ func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID
 		if existing, ok := existingSeasonsByNum[seasonNum]; ok {
 			if err := s.updateSeasonAiringInfo(ctx, existing.ID, first.Season, first.SeasonYear); err != nil {
 				return nil, fmt.Errorf("updateSeasonAiringInfo for existing season %d: %w", seasonNum, err)
+			}
+			parentID = existing.ID
+		} else if existing, ok := existingSeasonsByName[strings.ToLower(displayName)]; ok {
+			// Legacy folder exists with matching name but missing entry_type metadata.
+			// Backfill its metadata and use it as the parent.
+			if err := s.dbClient.File().UpdateSeasonFields(ctx, existing.ID, db.SeasonTypeSeason, &seasonNum); err != nil {
+				return nil, fmt.Errorf("backfill season fields for %q: %w", displayName, err)
+			}
+			if err := s.updateSeasonAiringInfo(ctx, existing.ID, first.Season, first.SeasonYear); err != nil {
+				return nil, fmt.Errorf("updateSeasonAiringInfo for legacy season %q: %w", displayName, err)
 			}
 			parentID = existing.ID
 		} else {
@@ -329,6 +341,19 @@ func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID
 		if movieSeasonYear > 0 {
 			y := uint(movieSeasonYear)
 			year = &y
+		}
+		// Check if a folder with this name already exists (legacy or previously created).
+		if existing, ok := existingSeasonsByName[strings.ToLower(displayName)]; ok {
+			// Backfill metadata if missing.
+			if existing.SeasonType != db.SeasonTypeMovie {
+				if err := s.dbClient.File().UpdateSeasonFields(ctx, existing.ID, db.SeasonTypeMovie, year); err != nil {
+					return nil, fmt.Errorf("backfill movie fields for %q: %w", displayName, err)
+				}
+			}
+			if err := s.updateSeasonAiringInfo(ctx, existing.ID, movieSeason, movieSeasonYear); err != nil {
+				return nil, fmt.Errorf("updateSeasonAiringInfo for existing movie %s: %w", displayName, err)
+			}
+			continue
 		}
 		created, err := s.CreateSeason(ctx, animeID, db.SeasonTypeMovie, year, displayName)
 		if err != nil {
