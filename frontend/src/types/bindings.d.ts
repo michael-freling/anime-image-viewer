@@ -87,7 +87,7 @@ declare module "*/bindings/github.com/michael-freling/anime-image-viewer/interna
   }
 
   export interface AniListImportResult {
-    entriesCreated: number;
+    seasonsCreated: number;
     charactersCreated: number;
   }
 

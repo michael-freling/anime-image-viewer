@@ -384,7 +384,7 @@ describe("CreateAnimeDialog", () => {
     });
     createAnimeMock.mockResolvedValue({ id: 99, name: "Shingeki no Kyojin" });
     importFromAniListMock.mockResolvedValue({
-      entriesCreated: 3,
+      seasonsCreated: 3,
       charactersCreated: 10,
     });
 
