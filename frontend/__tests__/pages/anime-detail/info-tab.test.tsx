@@ -46,11 +46,12 @@ jest.mock("../../../src/lib/api", () => ({
 }));
 
 const mockAniListSearchData = jest.fn();
+let mockAniListSearchLoading = false;
 jest.mock("../../../src/hooks/use-anilist-search", () => ({
   __esModule: true,
   useAniListSearch: (query: string) => ({
     data: mockAniListSearchData(query),
-    isLoading: false,
+    isLoading: mockAniListSearchLoading,
   }),
 }));
 
@@ -118,7 +119,7 @@ describe("InfoTab", () => {
     mockAniListSearchData.mockReset();
     toastSuccessMock.mockReset();
     toastErrorMock.mockReset();
-    // Default: search hook returns no results
+    mockAniListSearchLoading = false;
     mockAniListSearchData.mockReturnValue([]);
   });
 
@@ -768,13 +769,7 @@ describe("InfoTab", () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({ anime: { id: 42, name: "Bebop", aniListId: null } }),
     );
-    // Override mock to return loading state
-    const useAniListSearchModule = require("../../../src/hooks/use-anilist-search");
-    const originalUseAniListSearch = useAniListSearchModule.useAniListSearch;
-    useAniListSearchModule.useAniListSearch = (query: string) => ({
-      data: mockAniListSearchData(query),
-      isLoading: true,
-    });
+    mockAniListSearchLoading = true;
     const { container, unmount } = renderRoutes(routes, {
       initialEntries: ["/anime/42/info"],
     });
@@ -796,7 +791,6 @@ describe("InfoTab", () => {
       const dialog = document.querySelector("[data-testid='anilist-search-dialog']");
       expect(dialog?.textContent).toContain("Searching...");
     } finally {
-      useAniListSearchModule.useAniListSearch = originalUseAniListSearch;
       unmount();
     }
   });
