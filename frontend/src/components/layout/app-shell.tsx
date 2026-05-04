@@ -14,11 +14,15 @@
  * affect every other component in the app).
  */
 import { Box } from "@chakra-ui/react";
-import { Outlet } from "react-router";
+import { useEffect, useRef } from "react";
+import { Outlet, useLocation } from "react-router";
+import { useSelectionStore } from "../../stores/selection-store";
 import { useUIStore } from "../../stores/ui-store";
 import { ImportProgressBar } from "../shared/import-progress-bar";
 import { BottomTabBar } from "./bottom-tab-bar";
 import { IconRail } from "./icon-rail";
+
+const EDITOR_PATHS = ["/images/edit", "/images/edit/tags"];
 
 /**
  * Data attribute toggled based on `sidebarExpanded` so CSS can pin the rail
@@ -26,6 +30,22 @@ import { IconRail } from "./icon-rail";
  */
 export function AppShell(): JSX.Element {
   const sidebarExpanded = useUIStore((state) => state.sidebarExpanded);
+  const location = useLocation();
+  const prevPathRef = useRef(location.pathname);
+
+  useEffect(() => {
+    const prev = prevPathRef.current;
+    prevPathRef.current = location.pathname;
+    if (prev === location.pathname) return;
+    // Don't reset when navigating TO an editor page (selection is intentional)
+    if (EDITOR_PATHS.includes(location.pathname)) return;
+    // Don't reset when coming BACK from an editor page (cancel preserves state)
+    if (EDITOR_PATHS.includes(prev)) return;
+    const store = useSelectionStore.getState();
+    if (store.selectMode) {
+      store.toggleSelectMode();
+    }
+  }, [location.pathname]);
 
   return (
     <Box
