@@ -25,11 +25,13 @@ jest.mock("react-photo-album", () => {
 
 const getAnimeDetailsMock = jest.fn();
 const deleteAnimeMock = jest.fn();
+const importFromAniListMock = jest.fn();
 jest.mock("../../../src/lib/api", () => ({
   __esModule: true,
   AnimeService: {
     GetAnimeDetails: (...args: unknown[]) => getAnimeDetailsMock(...args),
     DeleteAnime: (...args: unknown[]) => deleteAnimeMock(...args),
+    ImportFromAniList: (...args: unknown[]) => importFromAniListMock(...args),
     GetAnimeImages: () => Promise.resolve({ images: [] }),
     GetAnimeImagesByEntry: () => Promise.resolve({ images: [] }),
     GetAnimeList: () => Promise.resolve([]),
@@ -41,6 +43,15 @@ jest.mock("../../../src/lib/api", () => ({
   SearchService: {
     SearchImages: () => Promise.resolve({ images: [] }),
   },
+}));
+
+const mockAniListSearchData = jest.fn();
+jest.mock("../../../src/hooks/use-anilist-search", () => ({
+  __esModule: true,
+  useAniListSearch: (query: string) => ({
+    data: mockAniListSearchData(query),
+    isLoading: false,
+  }),
 }));
 
 const toastSuccessMock = jest.fn();
@@ -103,8 +114,12 @@ describe("InfoTab", () => {
   beforeEach(() => {
     getAnimeDetailsMock.mockReset();
     deleteAnimeMock.mockReset();
+    importFromAniListMock.mockReset();
+    mockAniListSearchData.mockReset();
     toastSuccessMock.mockReset();
     toastErrorMock.mockReset();
+    // Default: search hook returns no results
+    mockAniListSearchData.mockReturnValue([]);
   });
 
   test("renders title, AniList link, entries/images/folders counts", async () => {
@@ -532,6 +547,398 @@ describe("InfoTab", () => {
         await flushPromises();
       });
       expect(deleteAnimeMock).toHaveBeenCalledWith(42);
+      expect(toastErrorMock).toHaveBeenCalled();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Re-import button calls ImportFromAniList and shows success toast", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({ anime: { id: 42, name: "Bebop", aniListId: 1234 } }),
+    );
+    importFromAniListMock.mockResolvedValue({ seasonsCreated: 2, charactersCreated: 3 });
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/info"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[data-testid='info-tab']") !== null,
+      );
+      const btn = container.querySelector<HTMLButtonElement>(
+        "[data-testid='info-anilist-reimport']",
+      )!;
+      expect(btn).not.toBeNull();
+      await act(async () => {
+        btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await flushPromises();
+      });
+      expect(importFromAniListMock).toHaveBeenCalledWith(42, 1234);
+      expect(toastSuccessMock).toHaveBeenCalled();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Re-import button shows error toast when ImportFromAniList rejects", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({ anime: { id: 42, name: "Bebop", aniListId: 1234 } }),
+    );
+    importFromAniListMock.mockRejectedValue(new Error("network error"));
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/info"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[data-testid='info-tab']") !== null,
+      );
+      const btn = container.querySelector<HTMLButtonElement>(
+        "[data-testid='info-anilist-reimport']",
+      )!;
+      expect(btn).not.toBeNull();
+      await act(async () => {
+        btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await flushPromises();
+      });
+      expect(importFromAniListMock).toHaveBeenCalledWith(42, 1234);
+      expect(toastErrorMock).toHaveBeenCalled();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Change button opens the AniList search dialog", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({ anime: { id: 42, name: "Bebop", aniListId: 1234 } }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/info"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[data-testid='info-tab']") !== null,
+      );
+      const btn = container.querySelector<HTMLButtonElement>(
+        "[data-testid='info-anilist-change']",
+      )!;
+      expect(btn).not.toBeNull();
+      act(() => {
+        btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () => document.querySelector("[data-testid='anilist-search-dialog']") !== null,
+      );
+      const dialog = document.querySelector("[data-testid='anilist-search-dialog']");
+      expect(dialog).not.toBeNull();
+      const input = document.querySelector("[data-testid='anilist-search-input']");
+      expect(input).not.toBeNull();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Link AniList button opens search dialog when not linked", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({ anime: { id: 42, name: "Bebop", aniListId: null } }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/info"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[data-testid='info-tab']") !== null,
+      );
+      const btn = container.querySelector<HTMLButtonElement>(
+        "[data-testid='info-anilist-link-btn']",
+      )!;
+      expect(btn).not.toBeNull();
+      act(() => {
+        btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () => document.querySelector("[data-testid='anilist-search-dialog']") !== null,
+      );
+      const dialog = document.querySelector("[data-testid='anilist-search-dialog']");
+      expect(dialog).not.toBeNull();
+      const input = document.querySelector("[data-testid='anilist-search-input']");
+      expect(input).not.toBeNull();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("selecting a search result imports and closes the dialog", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({ anime: { id: 42, name: "Bebop", aniListId: null } }),
+    );
+    mockAniListSearchData.mockReturnValue([
+      {
+        id: 999,
+        titleRomaji: "Cowboy Bebop",
+        titleEnglish: "Cowboy Bebop",
+        titleNative: "",
+        format: "TV",
+        status: "FINISHED",
+        season: "SPRING",
+        seasonYear: 1998,
+        episodes: 26,
+        coverImageUrl: "",
+      },
+    ]);
+    importFromAniListMock.mockResolvedValue({ seasonsCreated: 1, charactersCreated: 5 });
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/info"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[data-testid='info-tab']") !== null,
+      );
+      // Open the dialog
+      const linkBtn = container.querySelector<HTMLButtonElement>(
+        "[data-testid='info-anilist-link-btn']",
+      )!;
+      act(() => {
+        linkBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () => document.querySelector("[data-testid='anilist-search-dialog']") !== null,
+      );
+      // Wait for search results to appear
+      await waitFor(
+        () => document.querySelector("[data-testid='anilist-search-result-item']") !== null,
+      );
+      const resultItem = document.querySelector<HTMLElement>(
+        "[data-testid='anilist-search-result-item']",
+      )!;
+      expect(resultItem).not.toBeNull();
+      // Click the result item
+      await act(async () => {
+        resultItem.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await flushPromises();
+      });
+      expect(importFromAniListMock).toHaveBeenCalledWith(42, 999);
+      expect(toastSuccessMock).toHaveBeenCalled();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Cancel button in search dialog closes it", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({ anime: { id: 42, name: "Bebop", aniListId: null } }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/info"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[data-testid='info-tab']") !== null,
+      );
+      // Open the dialog
+      const linkBtn = container.querySelector<HTMLButtonElement>(
+        "[data-testid='info-anilist-link-btn']",
+      )!;
+      act(() => {
+        linkBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () => document.querySelector("[data-testid='anilist-search-dialog']") !== null,
+      );
+      // Find and click the Cancel button inside the dialog
+      const dialogButtons = Array.from(
+        document.querySelectorAll("[data-testid='anilist-search-dialog'] button"),
+      );
+      const cancelBtn = dialogButtons.find(
+        (b) => (b.textContent ?? "").trim() === "Cancel",
+      ) as HTMLButtonElement | undefined;
+      expect(cancelBtn).toBeDefined();
+      await act(async () => {
+        cancelBtn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await flushPromises();
+      });
+      // Dialog should be closed -- no longer in DOM (or marked closed)
+      // Give time for the state update to propagate
+      await flushPromises();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("search dialog shows loading state when isLoading is true", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({ anime: { id: 42, name: "Bebop", aniListId: null } }),
+    );
+    // Override mock to return loading state
+    const useAniListSearchModule = require("../../../src/hooks/use-anilist-search");
+    const originalUseAniListSearch = useAniListSearchModule.useAniListSearch;
+    useAniListSearchModule.useAniListSearch = (query: string) => ({
+      data: mockAniListSearchData(query),
+      isLoading: true,
+    });
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/info"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[data-testid='info-tab']") !== null,
+      );
+      const linkBtn = container.querySelector<HTMLButtonElement>(
+        "[data-testid='info-anilist-link-btn']",
+      )!;
+      act(() => {
+        linkBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () => document.querySelector("[data-testid='anilist-search-dialog']") !== null,
+      );
+      // The query is pre-filled with the anime name "Bebop" which is non-empty,
+      // and isLoading is true, so "Searching..." text should appear
+      const dialog = document.querySelector("[data-testid='anilist-search-dialog']");
+      expect(dialog?.textContent).toContain("Searching...");
+    } finally {
+      useAniListSearchModule.useAniListSearch = originalUseAniListSearch;
+      unmount();
+    }
+  });
+
+  test("search result displays titleEnglish subtitle when different from titleRomaji", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({ anime: { id: 42, name: "Bebop", aniListId: null } }),
+    );
+    mockAniListSearchData.mockReturnValue([
+      {
+        id: 777,
+        titleRomaji: "Kauboi Bibappu",
+        titleEnglish: "Cowboy Bebop",
+        titleNative: "",
+        format: "",
+        status: "FINISHED",
+        season: "SPRING",
+        seasonYear: 0,
+        episodes: 26,
+        coverImageUrl: "",
+      },
+    ]);
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/info"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[data-testid='info-tab']") !== null,
+      );
+      const linkBtn = container.querySelector<HTMLButtonElement>(
+        "[data-testid='info-anilist-link-btn']",
+      )!;
+      act(() => {
+        linkBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () => document.querySelector("[data-testid='anilist-search-result-item']") !== null,
+      );
+      const item = document.querySelector("[data-testid='anilist-search-result-item']");
+      // titleRomaji is displayed as the main title
+      expect(item?.textContent).toContain("Kauboi Bibappu");
+      // titleEnglish is displayed as subtitle since it differs from titleRomaji
+      expect(item?.textContent).toContain("Cowboy Bebop");
+      // format is empty so no separator for format; seasonYear is 0 so no separator for year
+      expect(item?.textContent).toContain("ID: 777");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("search result falls back to titleEnglish when titleRomaji is empty", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({ anime: { id: 42, name: "Bebop", aniListId: null } }),
+    );
+    mockAniListSearchData.mockReturnValue([
+      {
+        id: 555,
+        titleRomaji: "",
+        titleEnglish: "English Only Title",
+        titleNative: "",
+        format: "MOVIE",
+        status: "FINISHED",
+        season: "SUMMER",
+        seasonYear: 2023,
+        episodes: 1,
+        coverImageUrl: "",
+      },
+    ]);
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/info"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[data-testid='info-tab']") !== null,
+      );
+      const linkBtn = container.querySelector<HTMLButtonElement>(
+        "[data-testid='info-anilist-link-btn']",
+      )!;
+      act(() => {
+        linkBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () => document.querySelector("[data-testid='anilist-search-result-item']") !== null,
+      );
+      const item = document.querySelector("[data-testid='anilist-search-result-item']");
+      // Falls back to titleEnglish since titleRomaji is empty
+      expect(item?.textContent).toContain("English Only Title");
+      // format and seasonYear are displayed
+      expect(item?.textContent).toContain("MOVIE");
+      expect(item?.textContent).toContain("2023");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("selecting a search result shows error toast when import fails", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({ anime: { id: 42, name: "Bebop", aniListId: null } }),
+    );
+    mockAniListSearchData.mockReturnValue([
+      {
+        id: 888,
+        titleRomaji: "Some Anime",
+        titleEnglish: "Some Anime EN",
+        titleNative: "",
+        format: "TV",
+        status: "FINISHED",
+        season: "FALL",
+        seasonYear: 2020,
+        episodes: 12,
+        coverImageUrl: "",
+      },
+    ]);
+    importFromAniListMock.mockRejectedValue(new Error("server error"));
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/info"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[data-testid='info-tab']") !== null,
+      );
+      // Open the dialog
+      const linkBtn = container.querySelector<HTMLButtonElement>(
+        "[data-testid='info-anilist-link-btn']",
+      )!;
+      act(() => {
+        linkBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () => document.querySelector("[data-testid='anilist-search-dialog']") !== null,
+      );
+      await waitFor(
+        () => document.querySelector("[data-testid='anilist-search-result-item']") !== null,
+      );
+      const resultItem = document.querySelector<HTMLElement>(
+        "[data-testid='anilist-search-result-item']",
+      )!;
+      await act(async () => {
+        resultItem.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await flushPromises();
+      });
+      expect(importFromAniListMock).toHaveBeenCalledWith(42, 888);
       expect(toastErrorMock).toHaveBeenCalled();
     } finally {
       unmount();
