@@ -46,9 +46,8 @@ function mapSeason(node: Record<string, unknown>): Season {
   const children = Array.isArray(node.children)
     ? (node.children as Record<string, unknown>[]).map(mapSeason)
     : [];
-  // Accept either `entryType` (real bindings) or the legacy `type` (used by
-  // some tests / hand-written fixtures so the mapper is round-trip safe).
   const rawType =
+    (node.seasonType as string | undefined) ??
     (node.entryType as string | undefined) ??
     (node.type as string | undefined);
   return {
@@ -56,9 +55,9 @@ function mapSeason(node: Record<string, unknown>): Season {
     name: String(node.name ?? ""),
     type: narrowSeasonType(rawType),
     seasonNumber:
-      (node.entryNumber ?? node.seasonNumber) == null
+      (node.seasonNumber ?? node.entryNumber) == null
         ? null
-        : Number(node.entryNumber ?? node.seasonNumber),
+        : Number(node.seasonNumber ?? node.entryNumber),
     airingSeason: String(node.airingSeason ?? ""),
     airingYear: node.airingYear == null ? null : Number(node.airingYear),
     imageCount: Number(node.imageCount ?? 0),
@@ -75,8 +74,8 @@ export function useAnimeDetail(
       const res = (await AnimeService.GetAnimeDetails(
         animeId,
       )) as unknown as Record<string, unknown>;
-      const rawSeasons = Array.isArray(res.entries)
-        ? (res.entries as Record<string, unknown>[])
+      const rawSeasons = Array.isArray(res.seasons)
+        ? (res.seasons as Record<string, unknown>[])
         : [];
       const seasons = rawSeasons.map(mapSeason);
       return {

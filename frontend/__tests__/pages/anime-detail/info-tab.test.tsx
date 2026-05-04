@@ -94,7 +94,7 @@ function makeDetail(overrides: Record<string, unknown> = {}): Record<string, unk
     characters: [],
     folders: [],
     folderTree: null,
-    entries: [],
+    seasons: [],
     ...overrides,
   };
 }
@@ -115,7 +115,7 @@ describe("InfoTab", () => {
           makeFolder({ id: 1, name: "a", path: "/a", imageCount: 2 }),
           makeFolder({ id: 2, name: "b", path: "/b", imageCount: 5 }),
         ],
-        entries: [makeSeason({ id: 1, imageCount: 3 })],
+        seasons: [makeSeason({ id: 1, imageCount: 3 })],
       }),
     );
     const { container, unmount } = renderRoutes(routes, {
@@ -304,7 +304,7 @@ describe("InfoTab", () => {
   test("child entries contribute their imageCount to the total", async () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
-        entries: [
+        seasons: [
           makeSeason({
             id: 1,
             imageCount: 4,
@@ -378,7 +378,7 @@ describe("InfoTab", () => {
     // `(entry.children ?? []).reduce(...)` fallback.
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
-        entries: [
+        seasons: [
           // children undefined → ?? [] kicks in.
           { ...makeSeason({ id: 1, imageCount: 7 }), children: undefined as unknown as Season[] },
         ],
@@ -406,7 +406,7 @@ describe("InfoTab", () => {
     // entry.imageCount undefined → `(entry.imageCount ?? 0)` returns 0.
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
-        entries: [
+        seasons: [
           {
             ...makeSeason({ id: 1 }),
             imageCount: undefined as unknown as number,
@@ -435,6 +435,77 @@ describe("InfoTab", () => {
   test("delete error shows a toast and keeps the dialog open", async () => {
     getAnimeDetailsMock.mockResolvedValue(makeDetail());
     deleteAnimeMock.mockRejectedValue(new Error("db locked"));
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/info"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='info-tab']") !== null,
+      );
+      const btn = container.querySelector<HTMLButtonElement>(
+        "[data-testid='info-delete-anime']",
+      )!;
+      act(() => {
+        btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () =>
+          document.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      const confirmBtn = document.querySelector<HTMLButtonElement>(
+        "[data-testid='confirm-dialog-confirm']",
+      )!;
+      await act(async () => {
+        confirmBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await flushPromises();
+      });
+      expect(deleteAnimeMock).toHaveBeenCalledWith(42);
+      expect(toastErrorMock).toHaveBeenCalled();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("delete confirm dialog cancel button closes the dialog without deleting", async () => {
+    getAnimeDetailsMock.mockResolvedValue(makeDetail());
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/info"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='info-tab']") !== null,
+      );
+      const btn = container.querySelector<HTMLButtonElement>(
+        "[data-testid='info-delete-anime']",
+      )!;
+      act(() => {
+        btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(
+        () =>
+          document.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      // Click the Cancel button instead of Confirm
+      const cancelBtn = document.querySelector<HTMLButtonElement>(
+        "[data-testid='confirm-dialog-cancel']",
+      );
+      expect(cancelBtn).not.toBeNull();
+      await act(async () => {
+        cancelBtn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await flushPromises();
+      });
+      // The dialog should close and delete should NOT have been called
+      expect(deleteAnimeMock).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("delete error with non-Error rejection uses String()", async () => {
+    getAnimeDetailsMock.mockResolvedValue(makeDetail());
+    deleteAnimeMock.mockRejectedValue("string error value");
     const { container, unmount } = renderRoutes(routes, {
       initialEntries: ["/anime/42/info"],
     });

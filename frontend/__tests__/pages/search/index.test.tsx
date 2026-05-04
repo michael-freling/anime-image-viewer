@@ -716,7 +716,7 @@ describe("SearchPage", () => {
       ],
       folders: [],
       folderTree: null,
-      entries: [],
+      seasons: [],
     });
     searchImagesByAnimeMock.mockResolvedValue({ images: [] });
     const { container, unmount } = renderWithClient(<SearchPage />, {
@@ -780,7 +780,7 @@ describe("SearchPage", () => {
       tags: [],
       folders: [],
       folderTree: null,
-      entries: [],
+      seasons: [],
     });
     searchImagesByAnimeMock.mockResolvedValue({ images: [] });
     const { container, unmount } = renderWithClient(<SearchPage />, {
@@ -878,9 +878,9 @@ describe("SearchPage", () => {
       characters: [],
       folders: [],
       folderTree: null,
-      entries: [
-        { id: 100, name: "Season 1", entryType: "season", entryNumber: 1, airingSeason: "spring", airingYear: 2020, imageCount: 10, children: [] },
-        { id: 101, name: "Season 2", entryType: "season", entryNumber: 2, airingSeason: "fall", airingYear: 2021, imageCount: 5, children: [] },
+      seasons: [
+        { id: 100, name: "Season 1", seasonType: "season", seasonNumber: 1, airingSeason: "spring", airingYear: 2020, imageCount: 10, children: [] },
+        { id: 101, name: "Season 2", seasonType: "season", seasonNumber: 2, airingSeason: "fall", airingYear: 2021, imageCount: 5, children: [] },
       ],
     });
     searchImagesByAnimeMock.mockResolvedValue({ images: [] });
@@ -939,7 +939,7 @@ describe("SearchPage", () => {
       characters: [],
       folders: [],
       folderTree: null,
-      entries: [],
+      seasons: [],
     });
     searchImagesByAnimeMock.mockResolvedValue({ images: [] });
     const { container, unmount } = renderWithClient(<SearchPage />, {
@@ -983,7 +983,7 @@ describe("SearchPage", () => {
       characters: [],
       folders: [],
       folderTree: null,
-      entries: [],
+      seasons: [],
     });
     searchImagesByAnimeMock.mockResolvedValue({
       images: [makeImage(100, "sunset.png")],
@@ -1056,7 +1056,7 @@ describe("SearchPage", () => {
       ],
       folders: [],
       folderTree: null,
-      entries: [],
+      seasons: [],
     });
     searchImagesByAnimeMock.mockResolvedValue({ images: [] });
     const { container, unmount } = renderWithClient(<SearchPage />, {

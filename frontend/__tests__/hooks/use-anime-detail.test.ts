@@ -52,7 +52,7 @@ describe("useAnimeDetail", () => {
       tags: [],
       folders: [],
       folderTree: null,
-      entries: [],
+      seasons: [],
     };
     getAnimeDetailsMock.mockResolvedValue(payload);
 
@@ -63,16 +63,16 @@ describe("useAnimeDetail", () => {
     unmount();
   });
 
-  test("normalises season payloads — unknown entryType falls back to 'other'", async () => {
+  test("normalises season payloads — unknown seasonType falls back to 'other'", async () => {
     getAnimeDetailsMock.mockResolvedValue({
       anime: { id: 1, name: "X", aniListId: null },
       tags: [],
       folders: [],
       folderTree: null,
-      entries: [
-        // entryType: "specials" is NOT in the union -> narrows to "other".
-        { id: 1, name: "Specials", entryType: "specials", imageCount: 0 },
-        // entryType missing -> "other".
+      seasons: [
+        // seasonType: "specials" is NOT in the union -> narrows to "other".
+        { id: 1, name: "Specials", seasonType: "specials", imageCount: 0 },
+        // seasonType missing -> "other".
         { id: 2, name: "No type", imageCount: 0 },
         // legacy `type` field is honoured for backward compat.
         { id: 3, name: "Movie", type: "movie", imageCount: 0 },
@@ -91,7 +91,7 @@ describe("useAnimeDetail", () => {
       tags: [],
       folders: [],
       folderTree: null,
-      entries: [
+      seasons: [
         // Almost everything missing — mapSeason should fill in defaults.
         {},
       ],
@@ -116,9 +116,9 @@ describe("useAnimeDetail", () => {
       tags: [],
       folders: [],
       folderTree: null,
-      entries: [
+      seasons: [
         // children: null -> empty array, not a crash.
-        { id: 1, name: "S1", entryType: "season", children: null },
+        { id: 1, name: "S1", seasonType: "season", children: null },
       ],
     });
     const { result, unmount } = renderHookWithClient(() => useAnimeDetail(1));
@@ -133,15 +133,14 @@ describe("useAnimeDetail", () => {
       tags: [],
       folders: [],
       folderTree: null,
-      entries: [
+      seasons: [
         {
           id: 1,
           name: "S1",
-          entryType: "season",
+          seasonType: "season",
           imageCount: 5,
           children: [
-            // Child uses the legacy `type` instead of `entryType`.
-            { id: 2, name: "S1 Part 2", type: "season", imageCount: 1 },
+            { id: 2, name: "S1 Part 2", seasonType: "season", imageCount: 1 },
           ],
         },
       ],
@@ -154,14 +153,13 @@ describe("useAnimeDetail", () => {
     unmount();
   });
 
-  test("entries field that is not an array yields []", async () => {
+  test("seasons field that is not an array yields []", async () => {
     getAnimeDetailsMock.mockResolvedValue({
       anime: { id: 1, name: "X", aniListId: null },
       tags: [],
       folders: [],
       folderTree: null,
-      // entries is null on the wire — treat as empty.
-      entries: null,
+      seasons: null,
     });
     const { result, unmount } = renderHookWithClient(() => useAnimeDetail(1));
     await waitFor(() => result.current.isSuccess);

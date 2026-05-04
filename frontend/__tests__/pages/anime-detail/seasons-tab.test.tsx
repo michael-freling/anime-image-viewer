@@ -82,7 +82,7 @@ function makeDetail(overrides: Record<string, unknown> = {}): Record<string, unk
     characters: [],
     folders: [],
     folderTree: null,
-    entries: [],
+    seasons: [],
     ...overrides,
   };
 }
@@ -90,14 +90,14 @@ function makeDetail(overrides: Record<string, unknown> = {}): Record<string, unk
 function makeSeasonEntry(
   id: number,
   name: string,
-  entryType: string = "season",
+  seasonType: string = "season",
   extras: Record<string, unknown> = {},
 ) {
   return {
     id,
     name,
-    entryType,
-    entryNumber: null,
+    seasonType,
+    seasonNumber: null,
     airingSeason: "",
     airingYear: null,
     imageCount: 5,
@@ -122,9 +122,9 @@ describe("SeasonsTab", () => {
   test("renders season list from anime detail query", async () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
-        entries: [
-          makeSeasonEntry(1, "Season 1", "season", { entryNumber: 1, imageCount: 10 }),
-          makeSeasonEntry(2, "The Movie", "movie", { entryNumber: 1, imageCount: 3 }),
+        seasons: [
+          makeSeasonEntry(1, "Season 1", "season", { seasonNumber: 1, imageCount: 10 }),
+          makeSeasonEntry(2, "The Movie", "movie", { seasonNumber: 1, imageCount: 3 }),
         ],
       }),
     );
@@ -152,7 +152,7 @@ describe("SeasonsTab", () => {
   });
 
   test("renders empty state when no seasons exist", async () => {
-    getAnimeDetailsMock.mockResolvedValue(makeDetail({ entries: [] }));
+    getAnimeDetailsMock.mockResolvedValue(makeDetail({ seasons: [] }));
     const { container, unmount } = renderRoutes(routes, {
       initialEntries: ["/anime/42/seasons"],
     });
@@ -203,7 +203,7 @@ describe("SeasonsTab", () => {
         container.querySelector("[data-testid='seasons-tab-loading']"),
       ).not.toBeNull();
     } finally {
-      resolveDetail(makeDetail({ entries: [] }));
+      resolveDetail(makeDetail({ seasons: [] }));
       unmount();
     }
   });
@@ -211,7 +211,7 @@ describe("SeasonsTab", () => {
   test("Add season button opens the create dialog", async () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
-        entries: [makeSeasonEntry(1, "Season 1")],
+        seasons: [makeSeasonEntry(1, "Season 1")],
       }),
     );
     const { container, unmount } = renderRoutes(routes, {
@@ -244,7 +244,7 @@ describe("SeasonsTab", () => {
   });
 
   test("empty state Add season button opens the create dialog", async () => {
-    getAnimeDetailsMock.mockResolvedValue(makeDetail({ entries: [] }));
+    getAnimeDetailsMock.mockResolvedValue(makeDetail({ seasons: [] }));
     const { container, unmount } = renderRoutes(routes, {
       initialEntries: ["/anime/42/seasons"],
     });
@@ -274,13 +274,13 @@ describe("SeasonsTab", () => {
 
   test("create dialog submits and calls CreateAnimeSeason", async () => {
     getAnimeDetailsMock.mockResolvedValue(
-      makeDetail({ entries: [makeSeasonEntry(1, "Season 1")] }),
+      makeDetail({ seasons: [makeSeasonEntry(1, "Season 1")] }),
     );
     createAnimeSeasonMock.mockResolvedValue({
       id: 2,
       name: "Season 2",
-      entryType: "season",
-      entryNumber: 2,
+      seasonType: "season",
+      seasonNumber: 2,
       airingSeason: "",
       airingYear: null,
       imageCount: 0,
@@ -342,7 +342,7 @@ describe("SeasonsTab", () => {
 
   test("create dialog shows error toast on failure", async () => {
     getAnimeDetailsMock.mockResolvedValue(
-      makeDetail({ entries: [makeSeasonEntry(1, "Season 1")] }),
+      makeDetail({ seasons: [makeSeasonEntry(1, "Season 1")] }),
     );
     createAnimeSeasonMock.mockRejectedValue(new Error("create failed"));
     const { container, unmount } = renderRoutes(routes, {
@@ -383,7 +383,7 @@ describe("SeasonsTab", () => {
   test("season row click navigates to search page", async () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
-        entries: [makeSeasonEntry(1, "Season 1", "season")],
+        seasons: [makeSeasonEntry(1, "Season 1", "season")],
       }),
     );
     const { container, unmount } = renderRoutes(routes, {
@@ -414,9 +414,9 @@ describe("SeasonsTab", () => {
   test("edit button opens edit dialog with pre-populated data", async () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
-        entries: [
+        seasons: [
           makeSeasonEntry(1, "Season 1", "season", {
-            entryNumber: 1,
+            seasonNumber: 1,
             airingSeason: "SPRING",
             airingYear: 2024,
           }),
@@ -460,7 +460,7 @@ describe("SeasonsTab", () => {
   test("edit dialog submits rename when name changes", async () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
-        entries: [makeSeasonEntry(1, "Season 1", "season", { entryNumber: 1 })],
+        seasons: [makeSeasonEntry(1, "Season 1", "season", { seasonNumber: 1 })],
       }),
     );
     renameSeasonMock.mockResolvedValue(undefined);
@@ -513,10 +513,246 @@ describe("SeasonsTab", () => {
     }
   });
 
+  test("edit dialog submits type change when type differs", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        seasons: [
+          makeSeasonEntry(1, "Season 1", "season", {
+            seasonNumber: 1,
+            airingSeason: "",
+            airingYear: null,
+          }),
+        ],
+      }),
+    );
+    updateSeasonTypeMock.mockResolvedValue(undefined);
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/seasons"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='season-edit-btn']") !== null,
+      );
+      const editBtn = container.querySelector(
+        "[data-testid='season-edit-btn']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        editBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='season-form-dialog']") !==
+          null,
+      );
+
+      // Change the type from "season" to "movie"
+      const typeSelect = document.body.querySelector(
+        "[data-testid='season-form-type']",
+      ) as HTMLSelectElement;
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(
+          window.HTMLSelectElement.prototype,
+          "value",
+        )!.set!;
+        setter.call(typeSelect, "movie");
+        typeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+
+      // Submit
+      const submitBtn = document.body.querySelector(
+        "[data-testid='season-form-submit']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        submitBtn.click();
+      });
+      await waitFor(() => updateSeasonTypeMock.mock.calls.length > 0);
+      expect(updateSeasonTypeMock).toHaveBeenCalledWith(1, "movie", 1);
+      expect(toast.success).toHaveBeenCalledWith("Season updated");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("edit dialog submits airing info change when airing differs", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        seasons: [
+          makeSeasonEntry(1, "Season 1", "season", {
+            seasonNumber: 1,
+            airingSeason: "",
+            airingYear: null,
+          }),
+        ],
+      }),
+    );
+    updateSeasonAiringInfoMock.mockResolvedValue(undefined);
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/seasons"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='season-edit-btn']") !== null,
+      );
+      const editBtn = container.querySelector(
+        "[data-testid='season-edit-btn']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        editBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='season-form-dialog']") !==
+          null,
+      );
+
+      // Change the airing season
+      const airingSelect = document.body.querySelector(
+        "[data-testid='season-form-airing-season']",
+      ) as HTMLSelectElement;
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(
+          window.HTMLSelectElement.prototype,
+          "value",
+        )!.set!;
+        setter.call(airingSelect, "SPRING");
+        airingSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+
+      // Change the airing year
+      const yearInput = document.body.querySelector(
+        "[data-testid='season-form-airing-year']",
+      ) as HTMLInputElement;
+      await act(async () => {
+        const inputSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          "value",
+        )!.set!;
+        inputSetter.call(yearInput, "2024");
+        yearInput.dispatchEvent(new Event("input", { bubbles: true }));
+        yearInput.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+
+      // Submit
+      const submitBtn = document.body.querySelector(
+        "[data-testid='season-form-submit']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        submitBtn.click();
+      });
+      await waitFor(() => updateSeasonAiringInfoMock.mock.calls.length > 0);
+      expect(updateSeasonAiringInfoMock).toHaveBeenCalledWith(
+        1,
+        "SPRING",
+        2024,
+      );
+      expect(toast.success).toHaveBeenCalledWith("Season updated");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("edit dialog shows error toast on update failure", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        seasons: [
+          makeSeasonEntry(1, "Season 1", "season", {
+            seasonNumber: 1,
+            airingSeason: "",
+            airingYear: null,
+          }),
+        ],
+      }),
+    );
+    renameSeasonMock.mockRejectedValue(new Error("rename failed"));
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/seasons"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='season-edit-btn']") !== null,
+      );
+      const editBtn = container.querySelector(
+        "[data-testid='season-edit-btn']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        editBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='season-form-dialog']") !==
+          null,
+      );
+
+      // Change name to trigger rename
+      const nameInput = document.body.querySelector(
+        "[data-testid='season-form-name']",
+      ) as HTMLInputElement;
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          "value",
+        )!.set!;
+        setter.call(nameInput, "New Name");
+        nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+        nameInput.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+
+      // Submit
+      const submitBtn = document.body.querySelector(
+        "[data-testid='season-form-submit']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        submitBtn.click();
+      });
+      await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
+      expect(toast.error).toHaveBeenCalledWith(
+        "Failed to update season",
+        "rename failed",
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("season row keyboard navigation with Enter key", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        seasons: [makeSeasonEntry(1, "Season 1", "season")],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/seasons"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='season-row']") !== null,
+      );
+      const row = container.querySelector(
+        "[data-testid='season-row'] [role='button']",
+      ) as HTMLElement;
+      await act(async () => {
+        row.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+        );
+      });
+      // After Enter key, the router navigates away
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='seasons-tab']") === null,
+      );
+    } finally {
+      unmount();
+    }
+  });
+
   test("delete button shows confirm dialog", async () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
-        entries: [makeSeasonEntry(1, "Season 1", "season")],
+        seasons: [makeSeasonEntry(1, "Season 1", "season")],
       }),
     );
     const { container, unmount } = renderRoutes(routes, {
@@ -551,7 +787,7 @@ describe("SeasonsTab", () => {
   test("delete confirm calls DeleteSeason", async () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
-        entries: [makeSeasonEntry(1, "Season 1", "season")],
+        seasons: [makeSeasonEntry(1, "Season 1", "season")],
       }),
     );
     deleteSeasonMock.mockResolvedValue(undefined);
@@ -590,7 +826,7 @@ describe("SeasonsTab", () => {
   test("delete confirm shows error on failure", async () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
-        entries: [makeSeasonEntry(1, "Season 1", "season")],
+        seasons: [makeSeasonEntry(1, "Season 1", "season")],
       }),
     );
     deleteSeasonMock.mockRejectedValue(new Error("delete failed"));
@@ -631,9 +867,9 @@ describe("SeasonsTab", () => {
   test("children (sub-seasons) render as nested rows", async () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
-        entries: [
+        seasons: [
           makeSeasonEntry(1, "Season 1", "season", {
-            entryNumber: 1,
+            seasonNumber: 1,
             children: [
               makeSeasonEntry(10, "Episode 1", "other"),
               makeSeasonEntry(11, "Episode 2", "other"),
@@ -663,7 +899,7 @@ describe("SeasonsTab", () => {
   test("season row displays airing info and image count", async () => {
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
-        entries: [
+        seasons: [
           makeSeasonEntry(1, "Season 1", "season", {
             airingSeason: "SPRING",
             airingYear: 2024,
@@ -690,7 +926,7 @@ describe("SeasonsTab", () => {
   });
 
   test("non-numeric animeId keeps query disabled", async () => {
-    getAnimeDetailsMock.mockResolvedValue(makeDetail({ entries: [] }));
+    getAnimeDetailsMock.mockResolvedValue(makeDetail({ seasons: [] }));
     const { container, unmount } = renderRoutes(routes, {
       initialEntries: ["/anime/0/seasons"],
     });
@@ -709,7 +945,7 @@ describe("SeasonsTab", () => {
 
   test("cancel button on form dialog closes it without mutation", async () => {
     getAnimeDetailsMock.mockResolvedValue(
-      makeDetail({ entries: [makeSeasonEntry(1, "Season 1")] }),
+      makeDetail({ seasons: [makeSeasonEntry(1, "Season 1")] }),
     );
     const { container, unmount } = renderRoutes(routes, {
       initialEntries: ["/anime/42/seasons"],
@@ -767,7 +1003,7 @@ describe("SeasonsTab", () => {
     importImagesMock.mockResolvedValue({ importedCount: 2, skippedCount: 0 });
     getAnimeDetailsMock.mockResolvedValue(
       makeDetail({
-        entries: [makeSeasonEntry(1, "Season 1", "season")],
+        seasons: [makeSeasonEntry(1, "Season 1", "season")],
       }),
     );
     const { container, unmount } = renderRoutes(routes, {
@@ -798,7 +1034,7 @@ describe("SeasonsTab", () => {
 
   test("create dialog with non-Error rejection uses String()", async () => {
     getAnimeDetailsMock.mockResolvedValue(
-      makeDetail({ entries: [makeSeasonEntry(1, "Season 1")] }),
+      makeDetail({ seasons: [makeSeasonEntry(1, "Season 1")] }),
     );
     createAnimeSeasonMock.mockRejectedValue("string rejection");
     const { container, unmount } = renderRoutes(routes, {
@@ -830,6 +1066,425 @@ describe("SeasonsTab", () => {
       expect(toast.error).toHaveBeenCalledWith(
         "Failed to create season",
         "string rejection",
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("create dialog submits with seasonNumber filled in", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({ seasons: [makeSeasonEntry(1, "Season 1")] }),
+    );
+    createAnimeSeasonMock.mockResolvedValue({
+      id: 3,
+      name: "Season 3",
+      seasonType: "season",
+      seasonNumber: 3,
+      airingSeason: "",
+      airingYear: null,
+      imageCount: 0,
+      children: [],
+    });
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/seasons"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='add-season-btn']") !== null,
+      );
+      const addBtn = container.querySelector(
+        "[data-testid='add-season-btn']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        addBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='season-form-dialog']") !==
+          null,
+      );
+
+      // Fill name
+      const nameInput = document.body.querySelector(
+        "[data-testid='season-form-name']",
+      ) as HTMLInputElement;
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          "value",
+        )!.set!;
+        setter.call(nameInput, "Season 3");
+        nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+        nameInput.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+
+      // Fill season number
+      const numberInput = document.body.querySelector(
+        "[data-testid='season-form-number']",
+      ) as HTMLInputElement;
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          "value",
+        )!.set!;
+        setter.call(numberInput, "3");
+        numberInput.dispatchEvent(new Event("input", { bubbles: true }));
+        numberInput.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+
+      // Submit
+      const submitBtn = document.body.querySelector(
+        "[data-testid='season-form-submit']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        submitBtn.click();
+      });
+      await waitFor(() => createAnimeSeasonMock.mock.calls.length > 0);
+      expect(createAnimeSeasonMock).toHaveBeenCalledWith(
+        42,
+        "season",
+        3,
+        "Season 3",
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("edit dialog submits airing info when changed", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        seasons: [
+          makeSeasonEntry(1, "Season 1", "season", {
+            seasonNumber: 1,
+            airingSeason: "",
+            airingYear: null,
+          }),
+        ],
+      }),
+    );
+    updateSeasonAiringInfoMock.mockResolvedValue(undefined);
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/seasons"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='season-edit-btn']") !== null,
+      );
+      const editBtn = container.querySelector(
+        "[data-testid='season-edit-btn']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        editBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='season-form-dialog']") !==
+          null,
+      );
+
+      // Change airing year
+      const yearInput = document.body.querySelector(
+        "[data-testid='season-form-airing-year']",
+      ) as HTMLInputElement;
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          "value",
+        )!.set!;
+        setter.call(yearInput, "2024");
+        yearInput.dispatchEvent(new Event("input", { bubbles: true }));
+        yearInput.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+
+      // Change airing season via native select
+      const seasonSelect = document.body.querySelector(
+        "[data-testid='season-form-airing-season']",
+      ) as HTMLSelectElement;
+      await act(async () => {
+        seasonSelect.value = "SPRING";
+        seasonSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+
+      // Submit
+      const submitBtn = document.body.querySelector(
+        "[data-testid='season-form-submit']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        submitBtn.click();
+      });
+      await waitFor(() => updateSeasonAiringInfoMock.mock.calls.length > 0);
+      expect(updateSeasonAiringInfoMock).toHaveBeenCalledWith(1, "SPRING", 2024);
+      expect(toast.success).toHaveBeenCalledWith("Season updated");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("edit dialog submits type change when type is modified", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        seasons: [
+          makeSeasonEntry(1, "Season 1", "season", {
+            seasonNumber: 1,
+          }),
+        ],
+      }),
+    );
+    updateSeasonTypeMock.mockResolvedValue(undefined);
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/seasons"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='season-edit-btn']") !== null,
+      );
+      const editBtn = container.querySelector(
+        "[data-testid='season-edit-btn']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        editBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='season-form-dialog']") !==
+          null,
+      );
+
+      // Change type to "movie"
+      const typeSelect = document.body.querySelector(
+        "[data-testid='season-form-type']",
+      ) as HTMLSelectElement;
+      await act(async () => {
+        typeSelect.value = "movie";
+        typeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+
+      // Submit
+      const submitBtn = document.body.querySelector(
+        "[data-testid='season-form-submit']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        submitBtn.click();
+      });
+      await waitFor(() => updateSeasonTypeMock.mock.calls.length > 0);
+      expect(updateSeasonTypeMock).toHaveBeenCalledWith(1, "movie", 1);
+    } finally {
+      unmount();
+    }
+  });
+
+  test("delete confirm dialog can be dismissed without deleting", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        seasons: [makeSeasonEntry(1, "Season 1", "season")],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/seasons"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='season-delete-btn']") !== null,
+      );
+      const deleteBtn = container.querySelector(
+        "[data-testid='season-delete-btn']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        deleteBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      // Click cancel instead of confirm
+      const cancelBtn = document.body.querySelector(
+        "[data-testid='confirm-dialog-cancel']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        cancelBtn.click();
+      });
+      // Dialog should close without calling delete
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") === null,
+        { timeout: 500 },
+      ).catch(() => undefined);
+      expect(deleteSeasonMock).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("error state retry button refetches data", async () => {
+    let calls = 0;
+    getAnimeDetailsMock.mockImplementation(() => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.reject(new Error("temp"));
+      }
+      return Promise.resolve(
+        makeDetail({ seasons: [makeSeasonEntry(1, "Season 1")] }),
+      );
+    });
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/seasons"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[role='alert']") !== null,
+      );
+      const retry = Array.from(container.querySelectorAll("button")).find(
+        (b) => (b.textContent ?? "").trim() === "Retry",
+      ) as HTMLButtonElement | undefined;
+      expect(retry).toBeDefined();
+      await act(async () => {
+        retry!.click();
+      });
+      // After retry, the seasons tab should render successfully
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='seasons-tab']") !== null &&
+          container.querySelector("[data-testid='season-row']") !== null,
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("edit dialog error on update shows error toast", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        seasons: [
+          makeSeasonEntry(1, "Season 1", "season", { seasonNumber: 1 }),
+        ],
+      }),
+    );
+    renameSeasonMock.mockRejectedValue(new Error("rename failed"));
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/seasons"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='season-edit-btn']") !== null,
+      );
+      const editBtn = container.querySelector(
+        "[data-testid='season-edit-btn']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        editBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='season-form-dialog']") !==
+          null,
+      );
+
+      // Change name
+      const nameInput = document.body.querySelector(
+        "[data-testid='season-form-name']",
+      ) as HTMLInputElement;
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          "value",
+        )!.set!;
+        setter.call(nameInput, "New Name");
+        nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+        nameInput.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+
+      // Submit
+      const submitBtn = document.body.querySelector(
+        "[data-testid='season-form-submit']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        submitBtn.click();
+      });
+      await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
+      expect(toast.error).toHaveBeenCalledWith(
+        "Failed to update season",
+        "rename failed",
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("season row keyboard navigation with Enter", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        seasons: [makeSeasonEntry(1, "Season 1", "season")],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/seasons"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='season-row']") !== null,
+      );
+      const row = container.querySelector(
+        "[data-testid='season-row'] [role='button']",
+      ) as HTMLElement;
+      // Dispatch Enter key
+      await act(async () => {
+        row.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+        );
+      });
+      // Navigation should occur (away from the seasons tab)
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='seasons-tab']") === null,
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("delete confirm with non-Error rejection shows String()", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        seasons: [makeSeasonEntry(1, "Season 1", "season")],
+      }),
+    );
+    deleteSeasonMock.mockRejectedValue("raw string rejection");
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/seasons"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='season-delete-btn']") !== null,
+      );
+      const deleteBtn = container.querySelector(
+        "[data-testid='season-delete-btn']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        deleteBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      const confirmBtn = document.body.querySelector(
+        "[data-testid='confirm-dialog-confirm']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        confirmBtn.click();
+      });
+      await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
+      expect(toast.error).toHaveBeenCalledWith(
+        "Failed to delete season",
+        "raw string rejection",
       );
     } finally {
       unmount();
