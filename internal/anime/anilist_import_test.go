@@ -2159,3 +2159,98 @@ func TestImportFromAniList_ReimportUpdatesExistingMovieAiringInfo(t *testing.T) 
 		}
 	}
 }
+
+func TestImportFromAniList_MatchesExistingSeasonsByName(t *testing.T) {
+	te := newTester(t)
+	ctx := context.Background()
+
+	// AniList data: one TV season (ID 100) and one movie (ID 999).
+	// The TV season's display name will be "My Show" and the movie's will be "My Show The Movie".
+	mock := &mockAniListClient{
+		detailResults: map[int]*anilist.MediaDetail{
+			100: {
+				ID: 100,
+				Title: anilist.MediaTitle{
+					English: "My Show",
+				},
+				Format:     "TV",
+				Season:     "SPRING",
+				SeasonYear: 2020,
+				Relations: []anilist.MediaRelation{
+					{
+						RelationType: "SIDE_STORY",
+						ID:           999,
+						Title: anilist.MediaTitle{
+							English: "My Show The Movie",
+						},
+						Type:       "ANIME",
+						Format:     "MOVIE",
+						SeasonYear: 2021,
+					},
+				},
+			},
+			999: {
+				ID: 999,
+				Title: anilist.MediaTitle{
+					English: "My Show The Movie",
+				},
+				Format:     "MOVIE",
+				Season:     "FALL",
+				SeasonYear: 2021,
+			},
+		},
+	}
+
+	svc := te.serviceWithAniList(mock)
+	created, err := svc.Create(ctx, "My Show")
+	require.NoError(t, err)
+
+	// Pre-create a "legacy" season folder with matching name but SeasonTypeOther.
+	// SeasonTypeOther won't match existingSeasonsByNum (which requires SeasonTypeSeason),
+	// so the import must fall through to the name-based match path.
+	_, err = svc.CreateSeason(ctx, created.ID, db.SeasonTypeOther, nil, "My Show")
+	require.NoError(t, err)
+
+	// Pre-create a "legacy" movie folder with matching name but SeasonTypeOther.
+	// The import must find it by name and backfill SeasonTypeMovie.
+	_, err = svc.CreateSeason(ctx, created.ID, db.SeasonTypeOther, nil, "My Show The Movie")
+	require.NoError(t, err)
+
+	// Run import.
+	result, err := svc.ImportFromAniList(ctx, created.ID, 100)
+	require.NoError(t, err)
+
+	// Neither season nor movie should be newly created -- both matched by name.
+	assert.Equal(t, 0, result.SeasonsCreated, "no new seasons should be created when matched by name")
+
+	// Verify the season got its SeasonType backfilled to "season" and SeasonNumber set to 1.
+	rootFolder, err := svc.FindAnimeRootFolder(created.ID)
+	require.NoError(t, err)
+	require.NotNil(t, rootFolder)
+	children, err := te.dbClient.File().FindDirectChildDirectories(rootFolder.ID)
+	require.NoError(t, err)
+
+	var seasonFound, movieFound bool
+	for _, child := range children {
+		switch child.Name {
+		case "My Show":
+			seasonFound = true
+			assert.Equal(t, db.SeasonTypeSeason, child.SeasonType, "legacy season should be backfilled to SeasonTypeSeason")
+			require.NotNil(t, child.SeasonNumber, "legacy season should have SeasonNumber backfilled")
+			assert.Equal(t, uint(1), *child.SeasonNumber, "legacy season should be season number 1")
+			// Verify airing info was set.
+			assert.Equal(t, db.AiringSeasonSpring, child.AiringSeason, "season should have SPRING airing season")
+			require.NotNil(t, child.AiringYear, "season should have airing year set")
+			assert.Equal(t, uint(2020), *child.AiringYear, "season should have year 2020")
+		case "My Show The Movie":
+			movieFound = true
+			assert.Equal(t, db.SeasonTypeMovie, child.SeasonType, "legacy movie should be backfilled to SeasonTypeMovie")
+			// Verify airing info was set from the fetched movie detail.
+			assert.Equal(t, db.AiringSeasonFall, child.AiringSeason, "movie should have FALL airing season")
+			require.NotNil(t, child.AiringYear, "movie should have airing year set")
+			assert.Equal(t, uint(2021), *child.AiringYear, "movie should have year 2021")
+		}
+	}
+	assert.True(t, seasonFound, "should find the legacy season folder")
+	assert.True(t, movieFound, "should find the legacy movie folder")
+}

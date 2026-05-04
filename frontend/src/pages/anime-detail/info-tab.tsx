@@ -21,7 +21,7 @@ import { toast } from "../../components/ui/toaster";
 import { useAnimeDetail } from "../../hooks/use-anime-detail";
 import { useAniListSearch } from "../../hooks/use-anilist-search";
 import { AnimeService } from "../../lib/api";
-import type { AniListSearchResult } from "../../lib/api";
+import type { AniListImportResult, AniListSearchResult } from "../../lib/api";
 import { formatCount } from "../../lib/format";
 import { qk } from "../../lib/query-keys";
 
@@ -157,7 +157,7 @@ export function InfoTab(): JSX.Element {
                   onClick={async () => {
                     setAniListImporting(true);
                     try {
-                      const result = await AnimeService.ImportFromAniList(animeId, anime.aniListId!);
+                      const result = await AnimeService.ImportFromAniList(animeId, anime.aniListId!) as AniListImportResult;
                       await queryClient.invalidateQueries({ queryKey: qk.anime.detail(animeId) });
                       toast.success(
                         "AniList import complete",
@@ -305,7 +305,7 @@ export function InfoTab(): JSX.Element {
         onSelect={async (result: AniListSearchResult) => {
           setAniListImporting(true);
           try {
-            const importResult = await AnimeService.ImportFromAniList(animeId, result.id);
+            const importResult = await AnimeService.ImportFromAniList(animeId, result.id) as AniListImportResult;
             await queryClient.invalidateQueries({ queryKey: qk.anime.detail(animeId) });
             toast.success(
               "AniList linked",

@@ -75,7 +75,7 @@ export function useLongPress(options: UseLongPressOptions): UseLongPressReturn {
   );
 
   const onPointerUp = useCallback(
-    (_e: React.PointerEvent) => {
+    () => {
       clearTimer();
     },
     [clearTimer]
@@ -97,7 +97,7 @@ export function useLongPress(options: UseLongPressOptions): UseLongPressReturn {
   );
 
   const onPointerCancel = useCallback(
-    (_e: React.PointerEvent) => {
+    () => {
       clearTimer();
     },
     [clearTimer]
