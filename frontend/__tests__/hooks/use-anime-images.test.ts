@@ -57,4 +57,24 @@ describe("useAnimeImages", () => {
     expect(searchImagesByAnimeMock).not.toHaveBeenCalled();
     unmount();
   });
+
+  test("returns empty array when API response is null", async () => {
+    searchImagesByAnimeMock.mockResolvedValue(null);
+    const { result, unmount } = renderHookWithClient(() =>
+      useAnimeImages(5),
+    );
+    await waitFor(() => result.current.isSuccess);
+    expect(result.current.data).toEqual([]);
+    unmount();
+  });
+
+  test("returns empty array when API response has no images field", async () => {
+    searchImagesByAnimeMock.mockResolvedValue({});
+    const { result, unmount } = renderHookWithClient(() =>
+      useAnimeImages(6),
+    );
+    await waitFor(() => result.current.isSuccess);
+    expect(result.current.data).toEqual([]);
+    unmount();
+  });
 });

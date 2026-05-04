@@ -81,6 +81,24 @@ describe("AnimeCard", () => {
     }
   });
 
+  test("renders a cover image when coverImagePath is provided", () => {
+    const animeWithCover: AnimeSummary = {
+      ...ANIME,
+      coverImagePath: "/files/anime/cover.jpg",
+    };
+    const { container, unmount } = renderWithClient(
+      <AnimeCard anime={animeWithCover} />,
+    );
+    try {
+      const img = container.querySelector("img");
+      expect(img).not.toBeNull();
+      expect(img!.getAttribute("src")).toContain("cover.jpg");
+      expect(img!.getAttribute("alt")).toBe("Attack on Titan");
+    } finally {
+      unmount();
+    }
+  });
+
   test("title with leading whitespace falls back to '?' initial", () => {
     // Drives the `|| "?"` fallback branch: when the trimmed first character
     // resolves to an empty string the placeholder shows the question mark.
@@ -160,6 +178,21 @@ describe("AnimeCardSkeleton", () => {
       );
       expect(skeleton).not.toBeNull();
       expect(skeleton!.getAttribute("aria-label")).toBe("Loading anime");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("renders a skeleton placeholder with a custom label", () => {
+    const { container, unmount } = renderWithClient(
+      <AnimeCardSkeleton label="Loading list" />,
+    );
+    try {
+      const skeleton = container.querySelector(
+        "[data-testid='anime-card-skeleton']",
+      );
+      expect(skeleton).not.toBeNull();
+      expect(skeleton!.getAttribute("aria-label")).toBe("Loading list");
     } finally {
       unmount();
     }

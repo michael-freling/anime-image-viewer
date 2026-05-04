@@ -609,6 +609,68 @@ describe("ImageViewerOverlay", () => {
     }
   });
 
+  test("OpenImageInOS error is caught gracefully", async () => {
+    openImageInOSMock.mockRejectedValue(new Error("os error"));
+    const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const r = renderWithClient(
+      <ImageViewerOverlay
+        open
+        images={IMAGES}
+        currentIndex={1}
+        onIndexChange={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+    try {
+      await flushPromises();
+      const btn = byTestId(r.container, "image-viewer-open-in-os");
+      expect(btn).not.toBeNull();
+      act(() => {
+        btn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await flushPromises();
+      expect(openImageInOSMock).toHaveBeenCalledWith(20);
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "Failed to open image in OS:",
+        expect.any(Error),
+      );
+    } finally {
+      consoleSpy.mockRestore();
+      r.unmount();
+    }
+  });
+
+  test("ShowImageInExplorer error is caught gracefully", async () => {
+    showImageInExplorerMock.mockRejectedValue(new Error("explorer error"));
+    const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const r = renderWithClient(
+      <ImageViewerOverlay
+        open
+        images={IMAGES}
+        currentIndex={1}
+        onIndexChange={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+    try {
+      await flushPromises();
+      const btn = byTestId(r.container, "image-viewer-show-in-explorer");
+      expect(btn).not.toBeNull();
+      act(() => {
+        btn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await flushPromises();
+      expect(showImageInExplorerMock).toHaveBeenCalledWith(20);
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "Failed to show image in explorer:",
+        expect.any(Error),
+      );
+    } finally {
+      consoleSpy.mockRestore();
+      r.unmount();
+    }
+  });
+
   test("clamps currentIndex when it exceeds images.length without crashing", async () => {
     const r = renderWithClient(
       <ImageViewerOverlay

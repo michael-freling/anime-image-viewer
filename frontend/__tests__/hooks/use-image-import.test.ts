@@ -274,6 +274,74 @@ describe("useImageImport", () => {
     }
   });
 
+  test("progress event is skipped when entry is already done in store", async () => {
+    // Simulates a race: entry marked done in the store while activeIdRef still points to it.
+    let resolveImport!: (value: unknown[]) => void;
+    importImagesMock.mockReturnValue(
+      new Promise<unknown[]>((r) => {
+        resolveImport = r;
+      }),
+    );
+
+    const { result, unmount } = renderHookWithClient(() => useImageImport());
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      // Start the import (sets activeIdRef).
+      let importPromise: Promise<void>;
+      act(() => {
+        importPromise = result.current.importImages(42, "Naruto");
+      });
+      await flushPromises();
+
+      // Capture the Wails callback.
+      const wailsCallback = onMock.mock.calls[0][1] as (
+        event: { name: string; data: { total: number; completed: number; failed: number } },
+      ) => void;
+
+      // Send an initial progress event so the entry exists.
+      act(() => {
+        wailsCallback({
+          name: "ImportImages:progress",
+          data: { total: 10, completed: 5, failed: 0 },
+        });
+      });
+
+      // Manually mark the entry as done in the store (simulating the race).
+      const imports = useImportProgressStore.getState().imports;
+      const id = Array.from(imports.keys())[0];
+      useImportProgressStore.getState().finish(id);
+
+      // Now fire another progress event while activeIdRef is still set.
+      act(() => {
+        wailsCallback({
+          name: "ImportImages:progress",
+          data: { total: 10, completed: 8, failed: 0 },
+        });
+      });
+
+      // The entry should NOT have been updated by the second event.
+      // After finish(), completed is set to total (10), so it should still be 10.
+      // The second event tried to set completed=8 but was blocked by the done guard.
+      const entry = useImportProgressStore.getState().imports.get(id);
+      expect(entry!.done).toBe(true);
+      expect(entry!.total).toBe(10);
+      expect(entry!.completed).toBe(10); // finish() sets completed = total
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Skipping late progress event"),
+        expect.any(String),
+      );
+
+      // Clean up
+      await act(async () => {
+        resolveImport([]);
+        await importPromise!;
+      });
+    } finally {
+      warnSpy.mockRestore();
+      unmount();
+    }
+  });
+
   test("Wails event with non-finite total is ignored", () => {
     // Start an import so activeIdRef is set.
     let resolveImport!: () => void;

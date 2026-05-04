@@ -1033,6 +1033,73 @@ describe("CharactersTab", () => {
     }
   });
 
+  test("cancel create dialog from empty state resets state", async () => {
+    getAnimeDetailsMock.mockResolvedValue(makeDetail({ characters: [] }));
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/characters"],
+    });
+    try {
+      await waitFor(
+        () => (container.textContent ?? "").includes("No characters yet"),
+      );
+      const addBtn = container.querySelector(
+        "[data-testid='characters-tab-add']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        addBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='rename-dialog']") !== null,
+      );
+      // Click Cancel
+      const cancelBtn = document.body.querySelector(
+        "[data-testid='rename-dialog-cancel']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        cancelBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='rename-dialog']") === null,
+      );
+      expect(createCharacterMock).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("cancel create dialog from non-empty state resets state", async () => {
+    const { container, unmount } = renderWithCharacters();
+    try {
+      await waitForCards(container, 3);
+      const addBtn = container.querySelector(
+        "[data-testid='characters-tab-add']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        addBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='rename-dialog']") !== null,
+      );
+      // Click Cancel
+      const cancelBtn = document.body.querySelector(
+        "[data-testid='rename-dialog-cancel']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        cancelBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='rename-dialog']") === null,
+      );
+      expect(createCharacterMock).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+    }
+  });
+
   test("non-numeric animeId keeps query disabled", async () => {
     getAnimeDetailsMock.mockResolvedValue(makeDetail());
     const { container, unmount } = renderRoutes(routes, {
@@ -1046,6 +1113,146 @@ describe("CharactersTab", () => {
         { timeout: 200 },
       ).catch(() => undefined);
       expect(getAnimeDetailsMock).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("delete character with non-Error rejection shows String()", async () => {
+    deleteCharacterMock.mockRejectedValue("raw deletion string");
+    const { container, unmount } = renderWithCharacters();
+    try {
+      await waitForCards(container);
+      const deleteBtn = container.querySelector(
+        "[data-testid='character-card-delete']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        deleteBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      const confirmBtn = document.body.querySelector(
+        "[data-testid='confirm-dialog-confirm']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        confirmBtn.click();
+      });
+      await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
+      expect(toast.error).toHaveBeenCalledWith(
+        "Could not delete",
+        "raw deletion string",
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("convertToTag with non-Error rejection shows String()", async () => {
+    convertCharacterToTagMock.mockRejectedValue("convert string error");
+    const { container, unmount } = renderWithCharacters();
+    try {
+      await waitForCards(container);
+      // Open the Move to Tags confirm dialog
+      const moveBtn = container.querySelector(
+        "[data-testid='character-card-move-to-tag']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        moveBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='confirm-dialog']") !== null,
+      );
+      const confirmBtn = document.body.querySelector(
+        "[data-testid='confirm-dialog-confirm']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        confirmBtn.click();
+      });
+      await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
+      expect(toast.error).toHaveBeenCalledWith(
+        "Could not move",
+        "convert string error",
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("create character with non-Error rejection shows String()", async () => {
+    createCharacterMock.mockRejectedValue("create string error");
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        characters: [makeCharacter(1, "Spike", 10)],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/characters"],
+    });
+    try {
+      await waitForCards(container, 1);
+      const addBtn = container.querySelector(
+        "[data-testid='characters-tab-add']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        addBtn.click();
+      });
+      await waitFor(
+        () =>
+          document.body.querySelector("[data-testid='rename-dialog']") !== null,
+      );
+      // Fill in name
+      const input = document.body.querySelector(
+        "[data-testid='rename-dialog-input']",
+      ) as HTMLInputElement;
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          "value",
+        )!.set!;
+        setter.call(input, "New Char");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      // Submit
+      const submitBtn = document.body.querySelector(
+        "[data-testid='rename-dialog-submit']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        submitBtn.click();
+      });
+      await waitFor(() => (toast.error as jest.Mock).mock.calls.length > 0);
+      expect(toast.error).toHaveBeenCalledWith(
+        "Could not create",
+        "create string error",
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("characters with same imageCount are sorted alphabetically", async () => {
+    getAnimeDetailsMock.mockResolvedValue(
+      makeDetail({
+        characters: [
+          makeCharacter(1, "Zeta", 5),
+          makeCharacter(2, "Alpha", 5),
+          makeCharacter(3, "Mango", 5),
+        ],
+      }),
+    );
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/characters"],
+    });
+    try {
+      await waitForCards(container);
+      const cards = container.querySelectorAll("[data-testid='character-card']");
+      // Should be sorted alphabetically since imageCount is equal
+      expect(cards[0].textContent).toContain("Alpha");
+      expect(cards[1].textContent).toContain("Mango");
+      expect(cards[2].textContent).toContain("Zeta");
     } finally {
       unmount();
     }

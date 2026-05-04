@@ -129,4 +129,27 @@ describe("ImportProgressBar", () => {
     expect(r.container.textContent).toContain("4");
     r.unmount();
   });
+
+  test("finished rows with failures show 'N imported · M failed'", () => {
+    act(() => {
+      useImportProgressStore.getState().start("a", "Foo", 10);
+      useImportProgressStore.getState().update("a", { completed: 8, failed: 2 });
+      useImportProgressStore.getState().finish("a");
+    });
+    const r = render(createElement(ImportProgressBar));
+    // finish() sets completed=total, so "10 of 10 imported" is shown alongside the failed count
+    expect(r.container.textContent).toContain("10 of 10 imported");
+    expect(r.container.textContent).toContain("2 failed");
+    r.unmount();
+  });
+
+  test("finished rows with zero total show 'Complete' without count", () => {
+    act(() => {
+      useImportProgressStore.getState().start("a", "Empty", 0);
+      useImportProgressStore.getState().finish("a");
+    });
+    const r = render(createElement(ImportProgressBar));
+    expect(r.container.textContent).toContain("Complete");
+    r.unmount();
+  });
 });
