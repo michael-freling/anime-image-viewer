@@ -536,6 +536,21 @@ function SeasonRow({
           </Button>
         </Flex>
       </Box>
+      {season.children && season.children.length > 0 ? (
+        <Stack as="ul" role="list" gap="2" mt="2">
+          {season.children.map((child) => (
+            <SeasonRow
+              key={child.id}
+              season={child}
+              animeId={animeId}
+              depth={depth + 1}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onUpload={onUpload}
+            />
+          ))}
+        </Stack>
+      ) : null}
     </Box>
   );
 }
@@ -582,9 +597,11 @@ export function SeasonsTab(): JSX.Element {
 
   const handleUploadToSeason = useCallback(
     async (seasonId: number) => {
-      const season = data?.seasons
-        ?.flatMap((s) => [s, ...(s.children ?? [])])
-        .find((s) => s.id === seasonId);
+      const flattenSeasons = (list: Season[]): Season[] =>
+        list.flatMap((s) => [s, ...flattenSeasons(s.children ?? [])]);
+      const season = flattenSeasons(data?.seasons ?? []).find(
+        (s) => s.id === seasonId,
+      );
       const label = season?.name || `Season #${seasonId}`;
       await importImages(seasonId, label, qk.anime.detail(animeId));
     },
@@ -691,31 +708,15 @@ export function SeasonsTab(): JSX.Element {
       {/* Season list */}
       <Stack as="ul" role="list" gap="2">
         {seasons.map((season) => (
-          <Box key={season.id}>
-            <SeasonRow
-              season={season}
-              animeId={animeId}
-              depth={0}
-              onEdit={handleOpenEdit}
-              onDelete={handleOpenDelete}
-              onUpload={handleUploadToSeason}
-            />
-            {season.children && season.children.length > 0 ? (
-              <Stack as="ul" role="list" gap="2" mt="2">
-                {season.children.map((child) => (
-                  <SeasonRow
-                    key={child.id}
-                    season={child}
-                    animeId={animeId}
-                    depth={1}
-                    onEdit={handleOpenEdit}
-                    onDelete={handleOpenDelete}
-                    onUpload={handleUploadToSeason}
-                  />
-                ))}
-              </Stack>
-            ) : null}
-          </Box>
+          <SeasonRow
+            key={season.id}
+            season={season}
+            animeId={animeId}
+            depth={0}
+            onEdit={handleOpenEdit}
+            onDelete={handleOpenDelete}
+            onUpload={handleUploadToSeason}
+          />
         ))}
       </Stack>
 
