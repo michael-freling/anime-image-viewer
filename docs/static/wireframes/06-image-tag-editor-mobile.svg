@@ -1,0 +1,111 @@
+<svg viewBox="0 0 375 812" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="375" height="812" fill="#0f0f14"/>
+
+  <!-- Status bar -->
+  <text x="20" y="30" font-size="12" fill="#f1f5f9" font-weight="600">9:41</text>
+
+  <!-- Header -->
+  <text x="20" y="66" font-size="14" fill="#818cf8">Cancel</text>
+  <text x="188" y="66" font-size="18" fill="#f1f5f9" font-weight="700" text-anchor="middle">Edit Tags</text>
+  <text x="340" y="66" font-size="14" fill="#818cf8" text-anchor="end">Apply</text>
+
+  <!-- Selected images strip -->
+  <rect x="0" y="80" width="375" height="56" fill="#16161e"/>
+  <g transform="translate(20, 88)">
+    <rect width="40" height="40" rx="4" fill="#312e81" stroke="#818cf8" stroke-width="1.5"/>
+    <rect x="46" width="40" height="40" rx="4" fill="#831843" stroke="#818cf8" stroke-width="1.5"/>
+    <rect x="92" width="40" height="40" rx="4" fill="#14532d" stroke="#818cf8" stroke-width="1.5"/>
+    <rect x="138" width="40" height="40" rx="4" fill="#713f12" stroke="#818cf8" stroke-width="1.5"/>
+    <rect x="184" width="40" height="40" rx="4" fill="#3b0764" stroke="#818cf8" stroke-width="1.5"/>
+    <rect x="230" width="40" height="40" rx="4" fill="#1c1917" stroke="#818cf8" stroke-width="1.5"/>
+    <rect x="276" width="40" height="40" rx="4" fill="#881337" stroke="#818cf8" stroke-width="1.5"/>
+    <rect x="322" width="40" height="40" rx="4" fill="#134e4a" stroke="#818cf8" stroke-width="1.5"/>
+  </g>
+  <text x="188" y="148" font-size="12" fill="#64748b" text-anchor="middle">8 images selected</text>
+
+  <!-- Search -->
+  <rect x="20" y="160" width="335" height="36" rx="18" fill="#1e1e2e" stroke="#2d2d3f"/>
+  <text x="48" y="183" font-size="12" fill="#475569">Search tags...</text>
+
+  <!-- Pending changes -->
+  <rect x="20" y="206" width="335" height="40" rx="10" fill="#1a1a40" stroke="#818cf8" stroke-width="1"/>
+  <rect x="32" y="214" width="64" height="24" rx="12" fill="#1a3a2e" stroke="#6ee7b7" stroke-width="1"/>
+  <text x="64" y="231" font-size="10" fill="#6ee7b7" text-anchor="middle">+ Outdoor</text>
+  <rect x="104" y="214" width="64" height="24" rx="12" fill="#3b1a1a" stroke="#fca5a5" stroke-width="1"/>
+  <text x="136" y="231" font-size="10" fill="#fca5a5" text-anchor="middle">- Indoor</text>
+
+  <!-- Tag list (NO character names -- real tags only) -->
+  <!-- Scenes -->
+  <text x="20" y="278" font-size="14" fill="#f1f5f9" font-weight="600">Scenes</text>
+
+  <!-- Adding (green) -->
+  <g transform="translate(20, 292)">
+    <rect width="335" height="48" rx="8" fill="#0a2e1a" stroke="#6ee7b7" stroke-width="1"/>
+    <rect x="12" y="12" width="24" height="24" rx="4" fill="#6ee7b7"/>
+    <text x="24" y="30" font-size="14" fill="#0a0a0f" text-anchor="middle">V</text>
+    <text x="48" y="32" font-size="14" fill="#6ee7b7">Outdoor</text>
+    <text x="152" y="32" font-size="10" fill="#6ee7b7">adding</text>
+  </g>
+
+  <!-- Removing (red) -->
+  <g transform="translate(20, 346)">
+    <rect width="335" height="48" rx="8" fill="#2e0a0a" stroke="#fca5a5" stroke-width="1"/>
+    <rect x="12" y="12" width="24" height="24" rx="4" fill="transparent" stroke="#fca5a5" stroke-width="2"/>
+    <text x="48" y="32" font-size="14" fill="#fca5a5">Indoor</text>
+    <text x="140" y="32" font-size="10" fill="#fca5a5">removing</text>
+  </g>
+
+  <!-- Unchecked -->
+  <g transform="translate(20, 400)">
+    <rect width="335" height="48" rx="8" fill="#1e1e2e"/>
+    <rect x="12" y="12" width="24" height="24" rx="4" fill="transparent" stroke="#2d2d3f" stroke-width="2"/>
+    <text x="48" y="32" font-size="14" fill="#f1f5f9">Action</text>
+    <text x="310" y="32" font-size="11" fill="#64748b" text-anchor="end">156</text>
+  </g>
+
+  <g transform="translate(20, 454)">
+    <rect width="335" height="48" rx="8" fill="#1e1e2e"/>
+    <rect x="12" y="12" width="24" height="24" rx="4" fill="transparent" stroke="#2d2d3f" stroke-width="2"/>
+    <text x="48" y="32" font-size="14" fill="#f1f5f9">Romance</text>
+    <text x="310" y="32" font-size="11" fill="#64748b" text-anchor="end">42</text>
+  </g>
+
+  <!-- Locations -->
+  <text x="20" y="534" font-size="14" fill="#f1f5f9" font-weight="600">Locations</text>
+
+  <!-- Checked -->
+  <g transform="translate(20, 548)">
+    <rect width="335" height="48" rx="8" fill="#1e1e2e"/>
+    <rect x="12" y="12" width="24" height="24" rx="4" fill="#818cf8"/>
+    <text x="24" y="30" font-size="14" fill="#fff" text-anchor="middle">V</text>
+    <text x="48" y="32" font-size="14" fill="#f1f5f9">School</text>
+    <text x="310" y="32" font-size="11" fill="#64748b" text-anchor="end">89</text>
+  </g>
+
+  <g transform="translate(20, 602)">
+    <rect width="335" height="48" rx="8" fill="#1e1e2e"/>
+    <rect x="12" y="12" width="24" height="24" rx="4" fill="transparent" stroke="#2d2d3f" stroke-width="2"/>
+    <text x="48" y="32" font-size="14" fill="#f1f5f9">City</text>
+    <text x="310" y="32" font-size="11" fill="#64748b" text-anchor="end">67</text>
+  </g>
+
+  <!-- Mood -->
+  <text x="20" y="682" font-size="14" fill="#f1f5f9" font-weight="600">Mood / Weather</text>
+
+  <!-- Indeterminate -->
+  <g transform="translate(20, 696)">
+    <rect width="335" height="48" rx="8" fill="#1e1e2e"/>
+    <rect x="12" y="12" width="24" height="24" rx="4" fill="transparent" stroke="#818cf8" stroke-width="2"/>
+    <line x1="18" y1="24" x2="30" y2="24" stroke="#818cf8" stroke-width="2.5"/>
+    <text x="48" y="32" font-size="14" fill="#f1f5f9">Battle</text>
+    <text x="110" y="32" font-size="10" fill="#475569">(5/8)</text>
+    <text x="310" y="32" font-size="11" fill="#64748b" text-anchor="end">112</text>
+  </g>
+</svg>

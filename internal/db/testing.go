@@ -46,6 +46,11 @@ func NewTestClient(t *testing.T) TestClient {
 	t.Cleanup(func() {
 		require.NoError(t, client.Close())
 	})
+	// When using a shared in-memory database, character tags from previous tests
+	// may linger. Clear them before Migrate() so migrateCharactersFromTags does
+	// not fail on stale data. Errors are ignored because the tables may not
+	// exist yet on the first call.
+	_ = client.Truncate(Tag{}, FileTag{}, Character{}, FileCharacter{})
 	require.NoError(t, client.Migrate())
 	// delete auto created records and reset auto increment values
 	require.NoError(t, client.Truncate(Tag{}, Anime{}))

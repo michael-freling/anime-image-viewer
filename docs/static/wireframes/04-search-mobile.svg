@@ -1,0 +1,97 @@
+<svg viewBox="0 0 375 812" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .body { font-size: 12px; fill: #94a3b8; }
+      .small { font-size: 10px; fill: #64748b; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="375" height="812" fill="#0f0f14"/>
+
+  <!-- Status bar -->
+  <text x="20" y="30" font-size="12" fill="#f1f5f9" font-weight="600">9:41</text>
+
+  <!-- Search bar -->
+  <rect x="20" y="48" width="335" height="44" rx="22" fill="#1e1e2e" stroke="#818cf8" stroke-width="2"/>
+  <text x="48" y="76" font-size="14" fill="#f1f5f9">mikasa outdoor</text>
+  <rect x="320" y="60" width="24" height="24" rx="12" fill="#2d2d3f"/>
+  <text x="332" y="78" font-size="14" fill="#94a3b8" text-anchor="middle">x</text>
+
+  <!-- Filter chips (horizontal scroll) -->
+  <rect x="0" y="100" width="375" height="48" fill="#0f0f14"/>
+
+  <rect x="20" y="108" width="96" height="32" rx="16" fill="#1e1e2e" stroke="#2d2d3f"/>
+  <text x="44" y="129" font-size="11" fill="#64748b">Anime: All</text>
+
+  <rect x="124" y="108" width="96" height="32" rx="16" fill="#312e81" stroke="#818cf8"/>
+  <text x="148" y="129" font-size="11" fill="#818cf8">+ Outdoor</text>
+
+  <rect x="228" y="108" width="84" height="32" rx="16" fill="#3b1a1a" stroke="#fca5a5"/>
+  <text x="248" y="129" font-size="11" fill="#fca5a5">- Indoor</text>
+
+  <rect x="320" y="108" width="48" height="32" rx="16" fill="#1e1e2e" stroke="#2d2d3f"/>
+  <text x="328" y="129" font-size="11" fill="#64748b">Sort</text>
+
+  <!-- Results count -->
+  <text x="20" y="170" class="body" fill="#64748b">128 results</text>
+  <text x="340" y="170" font-size="11" fill="#818cf8" text-anchor="end">Clear all</text>
+
+  <!-- Results grid (2 columns) -->
+  <g transform="translate(20, 182)">
+    <rect width="166" height="120" rx="8" fill="#312e81"/>
+    <text x="83" y="66" font-size="11" fill="#818cf8" text-anchor="middle">Result 1</text>
+    <rect x="6" y="92" width="100" height="22" rx="4" fill="#0a0a0f" opacity="0.8"/>
+    <text x="56" y="108" font-size="9" fill="#f1f5f9" text-anchor="middle">Attack on Titan</text>
+  </g>
+  <g transform="translate(194, 182)">
+    <rect width="166" height="140" rx="8" fill="#831843"/>
+    <text x="83" y="76" font-size="11" fill="#f9a8d4" text-anchor="middle">Result 2</text>
+    <rect x="6" y="112" width="100" height="22" rx="4" fill="#0a0a0f" opacity="0.8"/>
+    <text x="56" y="128" font-size="9" fill="#f1f5f9" text-anchor="middle">Attack on Titan</text>
+  </g>
+
+  <g transform="translate(20, 310)">
+    <rect width="166" height="140" rx="8" fill="#14532d"/>
+    <text x="83" y="76" font-size="11" fill="#6ee7b7" text-anchor="middle">Result 3</text>
+  </g>
+  <g transform="translate(194, 330)">
+    <rect width="166" height="100" rx="8" fill="#713f12"/>
+    <text x="83" y="56" font-size="11" fill="#fcd34d" text-anchor="middle">Result 4</text>
+  </g>
+
+  <g transform="translate(20, 458)">
+    <rect width="166" height="100" rx="8" fill="#3b0764"/>
+    <text x="83" y="56" font-size="11" fill="#c4b5fd" text-anchor="middle">Result 5</text>
+  </g>
+  <g transform="translate(194, 438)">
+    <rect width="166" height="120" rx="8" fill="#1c1917"/>
+    <text x="83" y="66" font-size="11" fill="#a8a29e" text-anchor="middle">Result 6</text>
+  </g>
+
+  <g transform="translate(20, 566)">
+    <rect width="166" height="120" rx="8" fill="#881337"/>
+    <text x="83" y="66" font-size="11" fill="#fb7185" text-anchor="middle">Result 7</text>
+  </g>
+  <g transform="translate(194, 566)">
+    <rect width="166" height="100" rx="8" fill="#134e4a"/>
+    <text x="83" y="56" font-size="11" fill="#5eead4" text-anchor="middle">Result 8</text>
+  </g>
+
+  <!-- Bottom Tab Bar (4 items: Home, Search, Tags, Settings) -->
+  <rect x="0" y="748" width="375" height="64" fill="#16161e" stroke="#2d2d3f" stroke-width="1"/>
+  <g transform="translate(18, 756)">
+    <text x="36" y="40" font-size="10" fill="#64748b" text-anchor="middle">Home</text>
+  </g>
+  <g transform="translate(108, 756)">
+    <rect x="10" y="-2" width="52" height="28" rx="14" fill="#1e1e2e"/>
+    <text x="36" y="40" font-size="10" fill="#818cf8" text-anchor="middle" font-weight="500">Search</text>
+  </g>
+  <g transform="translate(198, 756)">
+    <text x="36" y="40" font-size="10" fill="#64748b" text-anchor="middle">Tags</text>
+  </g>
+  <g transform="translate(288, 756)">
+    <text x="36" y="40" font-size="10" fill="#64748b" text-anchor="middle">Settings</text>
+  </g>
+</svg>

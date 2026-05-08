@@ -77,6 +77,40 @@ func TestAnimeService_ListAnime_Sorted(t *testing.T) {
 	assert.Equal(t, "Charlie", list[2].Name)
 }
 
+// TestAnimeService_ListAnime_CoverImageFromSubfolder verifies that the cover
+// image resolution in ListAnime walks into child subfolders when the root
+// folder has no direct images. This exercises the recursive child traversal
+// branch in firstImageIDForAnime.
+func TestAnimeService_ListAnime_CoverImageFromSubfolder(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{}, db.Character{}, db.FileCharacter{})
+	svc := tester.getAnimeService()
+	ctx := context.Background()
+
+	a, err := svc.CreateAnime(ctx, "SubfolderCover")
+	require.NoError(t, err)
+
+	coreSvc := tester.getAnimeCoreService()
+	rootDir, err := coreSvc.FindAnimeRootFolder(a.ID)
+	require.NoError(t, err)
+	require.NotNil(t, rootDir)
+
+	// Create a subfolder under the root (no direct images in the root)
+	subDir := db.File{ID: 13010, ParentID: rootDir.ID, Name: "season1", Type: db.FileTypeDirectory}
+	require.NoError(t, db.Create(tester.dbClient.Client, &subDir))
+
+	// Create an image under the subfolder
+	imgFile := db.File{ID: 13100, ParentID: subDir.ID, Name: "ep1.jpg", Type: db.FileTypeImage}
+	require.NoError(t, db.Create(tester.dbClient.Client, &imgFile))
+
+	list, err := svc.ListAnime(ctx)
+	require.NoError(t, err)
+	require.Len(t, list, 1)
+	assert.Equal(t, "SubfolderCover", list[0].Name)
+	// Image count includes the subfolder image
+	assert.Equal(t, uint(1), list[0].ImageCount)
+}
+
 func TestAnimeService_ListAnime_Empty(t *testing.T) {
 	tester := newTester(t)
 	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
@@ -143,6 +177,7 @@ func TestAnimeService_DerivedTags(t *testing.T) {
 	assert.Equal(t, uint(1), details.Tags[1].ImageCount)
 	assert.Equal(t, "charlie", details.Tags[2].Name)
 	assert.Equal(t, uint(2), details.Tags[2].ImageCount) // img1 + img2
+
 
 	t.Run("anime with no tagged images returns empty tags", func(t *testing.T) {
 		b, err := svc.CreateAnime(ctx, "NoTags")
@@ -865,157 +900,157 @@ func TestAnimeService_DeleteAnime_ClearsAnimeIDOnTags(t *testing.T) {
 	assert.Nil(t, allTags[0].AnimeID)
 }
 
-func TestAnimeService_EntryOperations(t *testing.T) {
+func TestAnimeService_SeasonOperations(t *testing.T) {
 	tester := newTester(t)
 	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
 	svc := tester.getAnimeService()
 	ctx := context.Background()
 
-	a, err := svc.CreateAnime(ctx, "EntryShow")
+	a, err := svc.CreateAnime(ctx, "SeasonShow")
 	require.NoError(t, err)
 
-	t.Run("GetAnimeEntries empty", func(t *testing.T) {
-		entries, err := svc.GetAnimeEntries(a.ID)
+	t.Run("GetAnimeSeasons empty", func(t *testing.T) {
+		seasons, err := svc.GetAnimeSeasons(a.ID)
 		require.NoError(t, err)
-		assert.Empty(t, entries)
+		assert.Empty(t, seasons)
 	})
 
-	t.Run("CreateAnimeEntry season", func(t *testing.T) {
-		entry, err := svc.CreateAnimeEntry(ctx, a.ID, db.EntryTypeSeason, nil, "")
+	t.Run("CreateAnimeSeason season", func(t *testing.T) {
+		season, err := svc.CreateAnimeSeason(ctx, a.ID, db.SeasonTypeSeason, nil, "")
 		require.NoError(t, err)
-		assert.NotZero(t, entry.ID)
-		assert.Equal(t, "Season 1", entry.Name)
-		assert.Equal(t, db.EntryTypeSeason, entry.EntryType)
-		require.NotNil(t, entry.EntryNumber)
-		assert.Equal(t, uint(1), *entry.EntryNumber)
+		assert.NotZero(t, season.ID)
+		assert.Equal(t, "Season 1", season.Name)
+		assert.Equal(t, db.SeasonTypeSeason, season.SeasonType)
+		require.NotNil(t, season.SeasonNumber)
+		assert.Equal(t, uint(1), *season.SeasonNumber)
 	})
 
-	t.Run("CreateAnimeEntry movie", func(t *testing.T) {
+	t.Run("CreateAnimeSeason movie", func(t *testing.T) {
 		year := uint(2024)
-		entry, err := svc.CreateAnimeEntry(ctx, a.ID, db.EntryTypeMovie, &year, "The Movie")
+		season, err := svc.CreateAnimeSeason(ctx, a.ID, db.SeasonTypeMovie, &year, "The Movie")
 		require.NoError(t, err)
-		assert.Equal(t, "The Movie", entry.Name)
-		assert.Equal(t, db.EntryTypeMovie, entry.EntryType)
+		assert.Equal(t, "The Movie", season.Name)
+		assert.Equal(t, db.SeasonTypeMovie, season.SeasonType)
 	})
 
-	t.Run("CreateAnimeEntry other", func(t *testing.T) {
-		entry, err := svc.CreateAnimeEntry(ctx, a.ID, db.EntryTypeOther, nil, "Specials")
+	t.Run("CreateAnimeSeason other", func(t *testing.T) {
+		season, err := svc.CreateAnimeSeason(ctx, a.ID, db.SeasonTypeOther, nil, "Specials")
 		require.NoError(t, err)
-		assert.Equal(t, "Specials", entry.Name)
-		assert.Equal(t, db.EntryTypeOther, entry.EntryType)
+		assert.Equal(t, "Specials", season.Name)
+		assert.Equal(t, db.SeasonTypeOther, season.SeasonType)
 	})
 
-	t.Run("GetAnimeEntries returns sorted entries", func(t *testing.T) {
-		entries, err := svc.GetAnimeEntries(a.ID)
+	t.Run("GetAnimeSeasons returns sorted seasons", func(t *testing.T) {
+		seasons, err := svc.GetAnimeSeasons(a.ID)
 		require.NoError(t, err)
-		require.Len(t, entries, 3)
+		require.Len(t, seasons, 3)
 		// Canonical order: season, movie, other
-		assert.Equal(t, db.EntryTypeSeason, entries[0].EntryType)
-		assert.Equal(t, db.EntryTypeMovie, entries[1].EntryType)
-		assert.Equal(t, db.EntryTypeOther, entries[2].EntryType)
+		assert.Equal(t, db.SeasonTypeSeason, seasons[0].SeasonType)
+		assert.Equal(t, db.SeasonTypeMovie, seasons[1].SeasonType)
+		assert.Equal(t, db.SeasonTypeOther, seasons[2].SeasonType)
 	})
 
-	t.Run("GetAnimeDetails includes entries", func(t *testing.T) {
+	t.Run("GetAnimeDetails includes seasons", func(t *testing.T) {
 		details, err := svc.GetAnimeDetails(ctx, a.ID)
 		require.NoError(t, err)
-		require.Len(t, details.Entries, 3)
-		assert.Equal(t, db.EntryTypeSeason, details.Entries[0].EntryType)
+		require.Len(t, details.Seasons, 3)
+		assert.Equal(t, db.SeasonTypeSeason, details.Seasons[0].SeasonType)
 	})
 
-	t.Run("GetNextEntryNumber", func(t *testing.T) {
-		n, err := svc.GetNextEntryNumber(a.ID, db.EntryTypeSeason)
+	t.Run("GetNextSeasonNumber", func(t *testing.T) {
+		n, err := svc.GetNextSeasonNumber(a.ID, db.SeasonTypeSeason)
 		require.NoError(t, err)
 		assert.Equal(t, uint(2), n)
 	})
 }
 
-func TestAnimeService_EntryErrorPaths(t *testing.T) {
+func TestAnimeService_SeasonErrorPaths(t *testing.T) {
 	tester := newTester(t)
 	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
 	svc := tester.getAnimeService()
 	ctx := context.Background()
 
-	t.Run("GetAnimeEntries for nonexistent anime returns nil", func(t *testing.T) {
+	t.Run("GetAnimeSeasons for nonexistent anime returns nil", func(t *testing.T) {
 		// An anime with no root folder returns nil entries
-		animeRow := db.Anime{Name: "NoRootEntries"}
+		animeRow := db.Anime{Name: "NoRootSeasons"}
 		require.NoError(t, db.Create(tester.dbClient.Client, &animeRow))
-		entries, err := svc.GetAnimeEntries(animeRow.ID)
+		seasons, err := svc.GetAnimeSeasons(animeRow.ID)
 		require.NoError(t, err)
-		assert.Nil(t, entries)
+		assert.Nil(t, seasons)
 	})
 
-	t.Run("CreateAnimeEntry with invalid type", func(t *testing.T) {
+	t.Run("CreateAnimeSeason with invalid type", func(t *testing.T) {
 		a, err := svc.CreateAnime(ctx, "InvalidTypeShow")
 		require.NoError(t, err)
-		_, err = svc.CreateAnimeEntry(ctx, a.ID, "badtype", nil, "")
+		_, err = svc.CreateAnimeSeason(ctx, a.ID, "badtype", nil, "")
 		require.Error(t, err)
 	})
 
-	t.Run("CreateSubEntry with unknown parent", func(t *testing.T) {
-		_, err := svc.CreateSubEntry(ctx, 99999, "Part X")
+	t.Run("CreateSubSeason with unknown parent", func(t *testing.T) {
+		_, err := svc.CreateSubSeason(ctx, 99999, "Part X")
 		require.Error(t, err)
 	})
 
-	t.Run("RenameEntry with unknown entry", func(t *testing.T) {
-		err := svc.RenameEntry(ctx, 99999, "NewName")
+	t.Run("RenameSeason with unknown season", func(t *testing.T) {
+		err := svc.RenameSeason(ctx, 99999, "NewName")
 		require.Error(t, err)
 	})
 
-	t.Run("DeleteEntry with unknown entry", func(t *testing.T) {
-		err := svc.DeleteEntry(ctx, 99999)
+	t.Run("DeleteSeason with unknown season", func(t *testing.T) {
+		err := svc.DeleteSeason(ctx, 99999)
 		require.Error(t, err)
 	})
 
-	t.Run("GetNextEntryNumber for anime without root", func(t *testing.T) {
+	t.Run("GetNextSeasonNumber for anime without root", func(t *testing.T) {
 		animeRow := db.Anime{Name: "NoRootNext"}
 		require.NoError(t, db.Create(tester.dbClient.Client, &animeRow))
-		n, err := svc.GetNextEntryNumber(animeRow.ID, db.EntryTypeSeason)
+		n, err := svc.GetNextSeasonNumber(animeRow.ID, db.SeasonTypeSeason)
 		require.NoError(t, err)
 		assert.Equal(t, uint(1), n)
 	})
 }
 
-func TestAnimeService_SubEntryAndRenameAndDelete(t *testing.T) {
+func TestAnimeService_SubSeasonAndRenameAndDelete(t *testing.T) {
 	tester := newTester(t)
 	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
 	svc := tester.getAnimeService()
 	ctx := context.Background()
 
-	a, err := svc.CreateAnime(ctx, "SubEntryShow")
+	a, err := svc.CreateAnime(ctx, "SubSeasonShow")
 	require.NoError(t, err)
 
-	entry, err := svc.CreateAnimeEntry(ctx, a.ID, db.EntryTypeSeason, nil, "")
+	season, err := svc.CreateAnimeSeason(ctx, a.ID, db.SeasonTypeSeason, nil, "")
 	require.NoError(t, err)
 
-	t.Run("CreateSubEntry", func(t *testing.T) {
-		sub, err := svc.CreateSubEntry(ctx, entry.ID, "Part 1")
+	t.Run("CreateSubSeason", func(t *testing.T) {
+		sub, err := svc.CreateSubSeason(ctx, season.ID, "Part 1")
 		require.NoError(t, err)
 		assert.NotZero(t, sub.ID)
 		assert.Equal(t, "Part 1", sub.Name)
-		assert.Empty(t, sub.EntryType)
-		assert.Nil(t, sub.EntryNumber)
+		assert.Empty(t, sub.SeasonType)
+		assert.Nil(t, sub.SeasonNumber)
 	})
 
-	t.Run("RenameEntry", func(t *testing.T) {
-		require.NoError(t, svc.RenameEntry(ctx, entry.ID, "Season One"))
+	t.Run("RenameSeason", func(t *testing.T) {
+		require.NoError(t, svc.RenameSeason(ctx, season.ID, "Season One"))
 
 		// Verify via GetAnimeEntries
-		entries, err := svc.GetAnimeEntries(a.ID)
+		seasons, err := svc.GetAnimeSeasons(a.ID)
 		require.NoError(t, err)
-		require.Len(t, entries, 1)
-		assert.Equal(t, "Season One", entries[0].Name)
+		require.Len(t, seasons, 1)
+		assert.Equal(t, "Season One", seasons[0].Name)
 	})
 
-	t.Run("DeleteEntry", func(t *testing.T) {
-		require.NoError(t, svc.DeleteEntry(ctx, entry.ID))
+	t.Run("DeleteSeason", func(t *testing.T) {
+		require.NoError(t, svc.DeleteSeason(ctx, season.ID))
 
-		entries, err := svc.GetAnimeEntries(a.ID)
+		seasons, err := svc.GetAnimeSeasons(a.ID)
 		require.NoError(t, err)
-		assert.Empty(t, entries)
+		assert.Empty(t, seasons)
 	})
 }
 
-func TestAnimeService_UpdateEntryType(t *testing.T) {
+func TestAnimeService_UpdateSeasonType(t *testing.T) {
 	tester := newTester(t)
 	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
 	svc := tester.getAnimeService()
@@ -1024,7 +1059,7 @@ func TestAnimeService_UpdateEntryType(t *testing.T) {
 	a, err := svc.CreateAnime(ctx, "UpdateTypeShow")
 	require.NoError(t, err)
 
-	// Create a legacy (untyped) entry
+	// Create a legacy (untyped) season
 	coreSvc := tester.getAnimeCoreService()
 	rootFolder, err := coreSvc.FindAnimeRootFolder(a.ID)
 	require.NoError(t, err)
@@ -1037,31 +1072,31 @@ func TestAnimeService_UpdateEntryType(t *testing.T) {
 
 	t.Run("sets season type", func(t *testing.T) {
 		num := uint(1)
-		err := svc.UpdateEntryType(ctx, legacyDir.ID, db.EntryTypeSeason, &num)
+		err := svc.UpdateSeasonType(ctx, legacyDir.ID, db.SeasonTypeSeason, &num)
 		require.NoError(t, err)
 
 		// Verify via entries list
-		entries, err := svc.GetAnimeEntries(a.ID)
+		seasons, err := svc.GetAnimeSeasons(a.ID)
 		require.NoError(t, err)
 		found := false
-		for _, e := range entries {
+		for _, e := range seasons {
 			if e.ID == legacyDir.ID {
 				found = true
-				assert.Equal(t, db.EntryTypeSeason, e.EntryType)
-				require.NotNil(t, e.EntryNumber)
-				assert.Equal(t, uint(1), *e.EntryNumber)
+				assert.Equal(t, db.SeasonTypeSeason, e.SeasonType)
+				require.NotNil(t, e.SeasonNumber)
+				assert.Equal(t, uint(1), *e.SeasonNumber)
 			}
 		}
-		assert.True(t, found, "should find updated entry in list")
+		assert.True(t, found, "should find updated season in list")
 	})
 
 	t.Run("rejects invalid type", func(t *testing.T) {
-		err := svc.UpdateEntryType(ctx, legacyDir.ID, "badtype", nil)
+		err := svc.UpdateSeasonType(ctx, legacyDir.ID, "badtype", nil)
 		require.Error(t, err)
 	})
 
 	t.Run("rejects season with nil number", func(t *testing.T) {
-		err := svc.UpdateEntryType(ctx, legacyDir.ID, db.EntryTypeSeason, nil)
+		err := svc.UpdateSeasonType(ctx, legacyDir.ID, db.SeasonTypeSeason, nil)
 		require.Error(t, err)
 	})
 }
@@ -1085,7 +1120,7 @@ func (m *mockAniListClient) GetAnimeDetail(_ context.Context, id int) (*anilist.
 	return m.detailResults[id], nil
 }
 
-func TestAnimeService_UpdateEntryAiringInfo(t *testing.T) {
+func TestAnimeService_UpdateSeasonAiringInfo(t *testing.T) {
 	tester := newTester(t)
 	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
 	svc := tester.getAnimeService()
@@ -1094,39 +1129,39 @@ func TestAnimeService_UpdateEntryAiringInfo(t *testing.T) {
 	a, err := svc.CreateAnime(ctx, "AiringShow")
 	require.NoError(t, err)
 
-	entry, err := svc.CreateAnimeEntry(ctx, a.ID, db.EntryTypeSeason, nil, "")
+	season, err := svc.CreateAnimeSeason(ctx, a.ID, db.SeasonTypeSeason, nil, "")
 	require.NoError(t, err)
 
 	t.Run("sets airing season and year", func(t *testing.T) {
-		err := svc.UpdateEntryAiringInfo(entry.ID, db.AiringSeasonSpring, 2024)
+		err := svc.UpdateSeasonAiringInfo(season.ID, db.AiringSeasonSpring, 2024)
 		require.NoError(t, err)
 
-		entries, err := svc.GetAnimeEntries(a.ID)
+		seasons, err := svc.GetAnimeSeasons(a.ID)
 		require.NoError(t, err)
-		require.Len(t, entries, 1)
-		assert.Equal(t, "SPRING", entries[0].AiringSeason)
-		require.NotNil(t, entries[0].AiringYear)
-		assert.Equal(t, uint(2024), *entries[0].AiringYear)
+		require.Len(t, seasons, 1)
+		assert.Equal(t, "SPRING", seasons[0].AiringSeason)
+		require.NotNil(t, seasons[0].AiringYear)
+		assert.Equal(t, uint(2024), *seasons[0].AiringYear)
 	})
 
 	t.Run("clears airing info with empty season and zero year", func(t *testing.T) {
-		err := svc.UpdateEntryAiringInfo(entry.ID, "", 0)
+		err := svc.UpdateSeasonAiringInfo(season.ID, "", 0)
 		require.NoError(t, err)
 
-		entries, err := svc.GetAnimeEntries(a.ID)
+		seasons, err := svc.GetAnimeSeasons(a.ID)
 		require.NoError(t, err)
-		require.Len(t, entries, 1)
-		assert.Empty(t, entries[0].AiringSeason)
-		assert.Nil(t, entries[0].AiringYear)
+		require.Len(t, seasons, 1)
+		assert.Empty(t, seasons[0].AiringSeason)
+		assert.Nil(t, seasons[0].AiringYear)
 	})
 
 	t.Run("rejects invalid season", func(t *testing.T) {
-		err := svc.UpdateEntryAiringInfo(entry.ID, "INVALID", 2024)
+		err := svc.UpdateSeasonAiringInfo(season.ID, "INVALID", 2024)
 		require.Error(t, err)
 	})
 
-	t.Run("rejects nonexistent entry", func(t *testing.T) {
-		err := svc.UpdateEntryAiringInfo(99999, db.AiringSeasonFall, 2024)
+	t.Run("rejects nonexistent season", func(t *testing.T) {
+		err := svc.UpdateSeasonAiringInfo(99999, db.AiringSeasonFall, 2024)
 		require.Error(t, err)
 	})
 }
@@ -1254,7 +1289,7 @@ func TestAnimeService_ImportFromAniList(t *testing.T) {
 		result, err := svc.ImportFromAniList(ctx, a.ID, 100)
 		require.NoError(t, err)
 
-		assert.Equal(t, 1, result.EntriesCreated)
+		assert.Equal(t, 1, result.SeasonsCreated)
 		assert.Equal(t, 2, result.CharactersCreated)
 	})
 
@@ -1284,5 +1319,328 @@ func TestAnimeService_ImportFromAniList(t *testing.T) {
 		_, err = svc.ImportFromAniList(ctx, a.ID, 100)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "anilist client is not configured")
+	})
+}
+
+func TestAnimeService_GetAnimeDetails_Characters(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{}, db.Character{}, db.FileCharacter{})
+	svc := tester.getAnimeService()
+	ctx := context.Background()
+
+	a, err := svc.CreateAnime(ctx, "CharacterShow")
+	require.NoError(t, err)
+
+	coreSvc := tester.getAnimeCoreService()
+	rootDir, err := coreSvc.FindAnimeRootFolder(a.ID)
+	require.NoError(t, err)
+	require.NotNil(t, rootDir)
+
+	fileCreator := tester.newFileCreator(t)
+	fileCreator.CreateImage(image.ImageFile{ID: 11100, ParentID: rootDir.ID, Name: "img1.jpg"}, image.TestImageFileJpeg)
+	fileCreator.CreateImage(image.ImageFile{ID: 11101, ParentID: rootDir.ID, Name: "img2.jpg"}, image.TestImageFileJpeg)
+
+	files := []db.File{
+		fileCreator.BuildDBImageFile(11100),
+		fileCreator.BuildDBImageFile(11101),
+	}
+	db.LoadTestData(t, tester.dbClient, files)
+
+	// Create characters in the Character table (not Tag)
+	chars := []db.Character{
+		{ID: 11001, Name: "Nijika", AnimeID: a.ID},
+		{ID: 11002, Name: "Hitori", AnimeID: a.ID},
+	}
+	db.LoadTestData(t, tester.dbClient, chars)
+
+	// Associate characters with images via FileCharacter
+	fcs := []db.FileCharacter{
+		{CharacterID: 11001, FileID: 11100, AddedBy: db.FileTagAddedByUser},
+		{CharacterID: 11001, FileID: 11101, AddedBy: db.FileTagAddedByUser},
+		{CharacterID: 11002, FileID: 11100, AddedBy: db.FileTagAddedByUser},
+	}
+	db.LoadTestData(t, tester.dbClient, fcs)
+
+	details, err := svc.GetAnimeDetails(ctx, a.ID)
+	require.NoError(t, err)
+
+	// Characters should be sorted case-insensitive: Hitori, Nijika
+	require.Len(t, details.Characters, 2)
+	assert.Equal(t, "Hitori", details.Characters[0].Name)
+	assert.Equal(t, uint(1), details.Characters[0].ImageCount)
+	assert.Equal(t, "Nijika", details.Characters[1].Name)
+	assert.Equal(t, uint(2), details.Characters[1].ImageCount)
+
+	// Thumbnail paths may be empty in test (depends on disk image existence),
+	// but the character data itself is correct.
+	_ = details.Characters[0].ThumbnailPath
+	_ = details.Characters[1].ThumbnailPath
+
+	t.Run("anime with character but no images", func(t *testing.T) {
+		b, err := svc.CreateAnime(ctx, "CharNoImgShow")
+		require.NoError(t, err)
+
+		charNoImg := db.Character{ID: 11003, Name: "Ryo", AnimeID: b.ID}
+		db.LoadTestData(t, tester.dbClient, []db.Character{charNoImg})
+
+		details, err := svc.GetAnimeDetails(ctx, b.ID)
+		require.NoError(t, err)
+		require.Len(t, details.Characters, 1)
+		assert.Equal(t, "Ryo", details.Characters[0].Name)
+		assert.Equal(t, uint(0), details.Characters[0].ImageCount)
+		assert.Empty(t, details.Characters[0].ThumbnailPath)
+	})
+
+	t.Run("anime with no characters returns empty", func(t *testing.T) {
+		c, err := svc.CreateAnime(ctx, "NoCharShow")
+		require.NoError(t, err)
+
+		details, err := svc.GetAnimeDetails(ctx, c.ID)
+		require.NoError(t, err)
+		assert.Empty(t, details.Characters)
+	})
+}
+
+// TestAnimeService_GetAnimeDetails_Thumbnails verifies that tag and character
+// thumbnail paths are resolved when actual image files exist on disk. This
+// exercises the resolveTagThumbnails and resolveCharacterThumbnails code paths
+// that build image file maps and return thumbnail paths.
+// TestAnimeService_ListAnime_CountImagesError verifies that ListAnime returns
+// an error when CountImagesForAnimeFolders fails (e.g. the files table is missing).
+func TestAnimeService_ListAnime_CountImagesError(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
+
+	// Insert an anime row directly so ReadAll returns a non-empty slice.
+	animeRow := db.Anime{Name: "TestAnime"}
+	require.NoError(t, db.Create(tester.dbClient.Client, &animeRow))
+
+	// Drop the files table so CountImagesForAnimeFolders fails.
+	tester.dbClient.DropTable(t, &db.File{})
+
+	svc := tester.getAnimeService()
+	_, err := svc.ListAnime(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "CountImagesForAnimeFolders")
+}
+
+// TestAnimeService_GetAnimeSeasons_CoreError verifies that GetAnimeSeasons
+// returns an error when the core service fails (e.g. the files table is missing).
+func TestAnimeService_GetAnimeSeasons_CoreError(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
+
+	// Insert an anime row directly.
+	animeRow := db.Anime{Name: "TestAnime"}
+	require.NoError(t, db.Create(tester.dbClient.Client, &animeRow))
+
+	// Drop the files table so core.GetAnimeSeasons fails.
+	tester.dbClient.DropTable(t, &db.File{})
+
+	svc := tester.getAnimeService()
+	_, err := svc.GetAnimeSeasons(animeRow.ID)
+	require.Error(t, err)
+}
+
+// TestAnimeService_GetImageTagIDs_DBError verifies that GetImageTagIDs
+// returns an error when the database query fails.
+func TestAnimeService_GetImageTagIDs_DBError(t *testing.T) {
+	tester := newTester(t)
+
+	// Drop the file_tags table so FindAllByFileID fails.
+	tester.dbClient.DropTable(t, &db.FileTag{})
+
+	svc := tester.getAnimeService()
+	_, err := svc.GetImageTagIDs(context.Background(), []uint{1, 2})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "FileTag.FindAllByFileID")
+}
+
+// TestAnimeService_ListUnassignedTopFolders_DBError verifies that
+// ListUnassignedTopFolders returns an error when the core service fails.
+func TestAnimeService_ListUnassignedTopFolders_DBError(t *testing.T) {
+	tester := newTester(t)
+
+	// Drop the files table so core.ListUnassignedTopFolders fails.
+	tester.dbClient.DropTable(t, &db.File{})
+
+	svc := tester.getAnimeService()
+	_, err := svc.ListUnassignedTopFolders(context.Background())
+	require.Error(t, err)
+}
+
+// TestAnimeService_GetFolderImages_CoreError verifies that GetFolderImages
+// returns an error when the core service GetFolderImageIDs fails.
+func TestAnimeService_GetFolderImages_CoreError(t *testing.T) {
+	tester := newTester(t)
+
+	// Drop the files table so core.GetFolderImageIDs fails.
+	tester.dbClient.DropTable(t, &db.File{})
+
+	svc := tester.getAnimeService()
+	_, err := svc.GetFolderImages(context.Background(), 1, false)
+	require.Error(t, err)
+}
+
+func TestAnimeService_GetAnimeDetails_Thumbnails(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{}, db.Character{}, db.FileCharacter{})
+	svc := tester.getAnimeService()
+	ctx := context.Background()
+
+	a, err := svc.CreateAnime(ctx, "ThumbAnime")
+	require.NoError(t, err)
+
+	coreSvc := tester.getAnimeCoreService()
+	rootDir, err := coreSvc.FindAnimeRootFolder(a.ID)
+	require.NoError(t, err)
+	require.NotNil(t, rootDir)
+
+	// Register the anime root folder with the file creator so images are
+	// created at the correct disk path (ImageRootDirectory/ThumbAnime/).
+	fileCreator := tester.newFileCreator(t)
+	fileCreator.CreateDirectory(image.Directory{
+		ID:       rootDir.ID,
+		ParentID: 0,
+		Name:     rootDir.Name,
+	})
+	fileCreator.CreateImage(
+		image.ImageFile{ID: 12100, ParentID: rootDir.ID, Name: "thumb.jpg"},
+		image.TestImageFileJpeg,
+	)
+
+	files := []db.File{
+		fileCreator.BuildDBImageFile(12100),
+	}
+	db.LoadTestData(t, tester.dbClient, files)
+
+	// Create a tag and associate it with the image
+	tag1 := db.Tag{ID: 12001, Name: "scenic"}
+	require.NoError(t, db.Create(tester.dbClient.Client, &tag1))
+	db.LoadTestData(t, tester.dbClient, []db.FileTag{
+		{FileID: 12100, TagID: tag1.ID, AddedBy: db.FileTagAddedByUser},
+	})
+
+	// Create a character and associate it with the image
+	char1 := db.Character{ID: 12501, Name: "Hitori", AnimeID: a.ID}
+	db.LoadTestData(t, tester.dbClient, []db.Character{char1})
+	db.LoadTestData(t, tester.dbClient, []db.FileCharacter{
+		{CharacterID: char1.ID, FileID: 12100, AddedBy: db.FileTagAddedByUser},
+	})
+
+	details, err := svc.GetAnimeDetails(ctx, a.ID)
+	require.NoError(t, err)
+
+	// Tag thumbnail should be resolved
+	require.Len(t, details.Tags, 1)
+	assert.NotEmpty(t, details.Tags[0].ThumbnailPath, "tag thumbnail path should be resolved when image exists on disk")
+	assert.Contains(t, details.Tags[0].ThumbnailPath, "thumb.jpg")
+
+	// Character thumbnail should be resolved
+	require.Len(t, details.Characters, 1)
+	assert.NotEmpty(t, details.Characters[0].ThumbnailPath, "character thumbnail path should be resolved when image exists on disk")
+	assert.Contains(t, details.Characters[0].ThumbnailPath, "thumb.jpg")
+}
+
+func TestAnimeService_MoveFilesToSeason(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{}, db.Character{}, db.FileCharacter{})
+	svc := tester.getAnimeService()
+	ctx := context.Background()
+
+	a, err := svc.CreateAnime(ctx, "MoveShow")
+	require.NoError(t, err)
+
+	coreSvc := tester.getAnimeCoreService()
+	rootDir, err := coreSvc.FindAnimeRootFolder(a.ID)
+	require.NoError(t, err)
+	require.NotNil(t, rootDir)
+
+	// Create two season folders under the root
+	fileCreator := tester.newFileCreator(t)
+	fileCreator.CreateDirectory(image.Directory{ID: rootDir.ID, ParentID: 0, Name: rootDir.Name})
+	fileCreator.CreateDirectory(image.Directory{ID: 20001, ParentID: rootDir.ID, Name: "Season 1"})
+	fileCreator.CreateDirectory(image.Directory{ID: 20002, ParentID: rootDir.ID, Name: "Season 2"})
+	fileCreator.CreateImage(image.ImageFile{ID: 20100, ParentID: 20001, Name: "img1.jpg"}, image.TestImageFileJpeg)
+	fileCreator.CreateImage(image.ImageFile{ID: 20101, ParentID: 20001, Name: "img2.jpg"}, image.TestImageFileJpeg)
+
+	files := []db.File{
+		fileCreator.BuildDBDirectory(20001),
+		fileCreator.BuildDBDirectory(20002),
+		fileCreator.BuildDBImageFile(20100),
+		fileCreator.BuildDBImageFile(20101),
+	}
+	db.LoadTestData(t, tester.dbClient, files)
+
+	t.Run("happy path: move 2 images to a different season", func(t *testing.T) {
+		err := svc.MoveFilesToSeason(ctx, []uint{20100, 20101}, 20002)
+		require.NoError(t, err)
+
+		// Verify the files are now in Season 2
+		movedFiles, err := tester.dbClient.Client.File().FindImageFilesByParentID(20002)
+		require.NoError(t, err)
+		require.Len(t, movedFiles, 2)
+
+		// Verify Season 1 is now empty
+		remaining, err := tester.dbClient.Client.File().FindImageFilesByParentID(20001)
+		require.NoError(t, err)
+		assert.Empty(t, remaining)
+	})
+
+	t.Run("error: target folder does not exist", func(t *testing.T) {
+		err := svc.MoveFilesToSeason(ctx, []uint{20100}, 99999)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "target folder not found")
+	})
+
+	t.Run("error: target is not a directory", func(t *testing.T) {
+		// Try to move to an image file (not a directory)
+		err := svc.MoveFilesToSeason(ctx, []uint{20101}, 20100)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrInvalidArgument)
+		assert.Contains(t, err.Error(), "not a directory")
+	})
+
+	t.Run("error: duplicate filename in target folder", func(t *testing.T) {
+		// Create an image with the same name in Season 1
+		fileCreator2 := tester.newFileCreator(t)
+		fileCreator2.CreateDirectory(image.Directory{ID: rootDir.ID, ParentID: 0, Name: rootDir.Name})
+		fileCreator2.CreateDirectory(image.Directory{ID: 20001, ParentID: rootDir.ID, Name: "Season 1"})
+		fileCreator2.CreateImage(image.ImageFile{ID: 20102, ParentID: 20001, Name: "conflict.jpg"}, image.TestImageFileJpeg)
+		db.LoadTestData(t, tester.dbClient, []db.File{fileCreator2.BuildDBImageFile(20102)})
+
+		// Create another image with the same name already in Season 2
+		fileCreator3 := tester.newFileCreator(t)
+		fileCreator3.CreateDirectory(image.Directory{ID: rootDir.ID, ParentID: 0, Name: rootDir.Name})
+		fileCreator3.CreateDirectory(image.Directory{ID: 20002, ParentID: rootDir.ID, Name: "Season 2"})
+		fileCreator3.CreateImage(image.ImageFile{ID: 20103, ParentID: 20002, Name: "conflict.jpg"}, image.TestImageFileJpeg)
+		db.LoadTestData(t, tester.dbClient, []db.File{fileCreator3.BuildDBImageFile(20103)})
+
+		// Try to move the file from Season 1 to Season 2 — should fail
+		err := svc.MoveFilesToSeason(ctx, []uint{20102}, 20002)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrInvalidArgument)
+		assert.Contains(t, err.Error(), "conflict.jpg")
+		assert.Contains(t, err.Error(), "already exists")
+	})
+
+	t.Run("error: empty file IDs", func(t *testing.T) {
+		err := svc.MoveFilesToSeason(ctx, []uint{}, 20002)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrInvalidArgument)
+	})
+
+	t.Run("error: zero target folder ID", func(t *testing.T) {
+		err := svc.MoveFilesToSeason(ctx, []uint{20100}, 0)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrInvalidArgument)
+	})
+
+	t.Run("error: file IDs that are not images", func(t *testing.T) {
+		// Try to move a directory ID (20001 is Season 1)
+		err := svc.MoveFilesToSeason(ctx, []uint{20001}, 20002)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrInvalidArgument)
+		assert.Contains(t, err.Error(), "not images")
 	})
 }

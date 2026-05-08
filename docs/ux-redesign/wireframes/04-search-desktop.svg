@@ -1,0 +1,158 @@
+<svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 11px; fill: #555; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1440" height="900" fill="#0f0f14"/>
+
+  <!-- Icon rail (64px) -->
+  <rect x="0" y="0" width="64" height="900" fill="#16161e"/>
+  <rect x="12" y="14" width="40" height="40" rx="10" fill="#818cf8"/>
+  <text x="32" y="40" font-size="20" fill="#fff" font-weight="700" text-anchor="middle">A</text>
+  <!-- Search (active) -->
+  <g transform="translate(0, 156)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="#1e1e2e"/>
+    <circle cx="29" cy="23" r="9" fill="none" stroke="#818cf8" stroke-width="2"/>
+    <line x1="35" y1="29" x2="43" y2="37" stroke="#818cf8" stroke-width="2"/>
+    <text x="32" y="68" font-size="11" fill="#818cf8" text-anchor="middle" font-weight="500">Search</text>
+  </g>
+
+  <!-- ==================== SEARCH BAR (large, top) ==================== -->
+  <rect x="64" y="0" width="1376" height="52" fill="#16161e"/>
+
+  <rect x="200" y="10" width="1040" height="34" rx="17" fill="#1e1e2e" stroke="#818cf8" stroke-width="1.5"/>
+  <text x="228" y="32" font-size="13" fill="#f1f5f9">mikasa outdoor</text>
+  <line x1="340" y1="18" x2="340" y2="36" stroke="#818cf8" stroke-width="1.5"/>
+  <rect x="1204" y="17" width="24" height="20" rx="10" fill="#2d2d3f"/>
+  <text x="1216" y="32" font-size="12" fill="#94a3b8" text-anchor="middle">x</text>
+
+  <!-- ==================== INLINE FILTER BAR ==================== -->
+  <rect x="64" y="52" width="1376" height="36" fill="#16161e"/>
+
+  <!-- Anime filter -->
+  <rect x="84" y="58" width="100" height="24" rx="12" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="100" y="74" font-size="11" fill="#64748b">Anime:</text>
+  <text x="146" y="74" font-size="11" fill="#f1f5f9">All</text>
+  <text x="174" y="74" font-size="10" fill="#475569">v</text>
+
+  <!-- Tag include -->
+  <rect x="194" y="58" width="96" height="24" rx="12" fill="#312e81" stroke="#818cf8" stroke-width="1"/>
+  <text x="210" y="74" font-size="11" fill="#818cf8">+ Outdoor</text>
+  <text x="278" y="74" font-size="11" fill="#818cf8">x</text>
+
+  <!-- Tag exclude -->
+  <rect x="300" y="58" width="84" height="24" rx="12" fill="#3b1a1a" stroke="#fca5a5" stroke-width="1"/>
+  <text x="316" y="74" font-size="11" fill="#fca5a5">- Indoor</text>
+  <text x="374" y="74" font-size="11" fill="#fca5a5">x</text>
+
+  <!-- Add filter -->
+  <rect x="394" y="58" width="72" height="24" rx="12" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="410" y="74" font-size="11" fill="#64748b">+ Filter</text>
+
+  <!-- Sort -->
+  <rect x="1240" y="58" width="140" height="24" rx="12" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1256" y="74" font-size="11" fill="#64748b">Sort: Date added</text>
+
+  <!-- View/Select toggle -->
+  <rect x="1120" y="58" width="48" height="24" rx="6" fill="#818cf8"/>
+  <text x="1144" y="74" font-size="11" fill="#fff" text-anchor="middle">View</text>
+  <rect x="1168" y="58" width="52" height="24" rx="6" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1194" y="74" font-size="11" fill="#64748b" text-anchor="middle">Select</text>
+
+  <!-- Results count -->
+  <text x="84" y="104" font-size="12" fill="#64748b">128 results</text>
+  <text x="200" y="104" font-size="11" fill="#475569">Matching "mikasa outdoor" with 2 tag filters</text>
+  <text x="1390" y="104" font-size="12" fill="#818cf8" text-anchor="end">Clear all</text>
+
+  <!-- ==================== RESULTS GRID (5 columns, masonry) ==================== -->
+  <!-- Row 1 -->
+  <g transform="translate(84, 114)">
+    <rect width="260" height="174" rx="8" fill="#312e81"/>
+    <text x="130" y="92" font-size="12" fill="#818cf8" text-anchor="middle" opacity="0.7">Result 1</text>
+    <rect x="8" y="148" width="100" height="20" rx="4" fill="rgba(10,10,15,0.8)"/>
+    <text x="58" y="163" font-size="10" fill="#f1f5f9" text-anchor="middle">Attack on Titan</text>
+  </g>
+  <g transform="translate(354, 114)">
+    <rect width="260" height="210" rx="8" fill="#831843"/>
+    <text x="130" y="110" font-size="12" fill="#f9a8d4" text-anchor="middle" opacity="0.7">Result 2</text>
+    <rect x="8" y="184" width="100" height="20" rx="4" fill="rgba(10,10,15,0.8)"/>
+    <text x="58" y="199" font-size="10" fill="#f1f5f9" text-anchor="middle">Attack on Titan</text>
+  </g>
+  <g transform="translate(624, 114)">
+    <rect width="260" height="160" rx="8" fill="#14532d"/>
+    <text x="130" y="84" font-size="12" fill="#6ee7b7" text-anchor="middle" opacity="0.7">Result 3</text>
+    <rect x="8" y="134" width="80" height="20" rx="4" fill="rgba(10,10,15,0.8)"/>
+    <text x="48" y="149" font-size="10" fill="#f1f5f9" text-anchor="middle">Spy x Family</text>
+  </g>
+  <g transform="translate(894, 114)">
+    <rect width="260" height="194" rx="8" fill="#713f12"/>
+    <text x="130" y="102" font-size="12" fill="#fcd34d" text-anchor="middle" opacity="0.7">Result 4</text>
+  </g>
+  <g transform="translate(1164, 114)">
+    <rect width="260" height="174" rx="8" fill="#3b0764"/>
+    <text x="130" y="92" font-size="12" fill="#c4b5fd" text-anchor="middle" opacity="0.7">Result 5</text>
+  </g>
+
+  <!-- Row 2 -->
+  <g transform="translate(84, 298)">
+    <rect width="260" height="194" rx="8" fill="#1c1917"/>
+    <text x="130" y="102" font-size="12" fill="#a8a29e" text-anchor="middle" opacity="0.7">Result 6</text>
+  </g>
+  <g transform="translate(354, 334)">
+    <rect width="260" height="160" rx="8" fill="#881337"/>
+    <text x="130" y="84" font-size="12" fill="#fb7185" text-anchor="middle" opacity="0.7">Result 7</text>
+  </g>
+  <g transform="translate(624, 284)">
+    <rect width="260" height="210" rx="8" fill="#134e4a"/>
+    <text x="130" y="110" font-size="12" fill="#5eead4" text-anchor="middle" opacity="0.7">Result 8</text>
+  </g>
+  <g transform="translate(894, 318)">
+    <rect width="260" height="174" rx="8" fill="#7f1d1d"/>
+    <text x="130" y="92" font-size="12" fill="#fca5a5" text-anchor="middle" opacity="0.7">Result 9</text>
+  </g>
+  <g transform="translate(1164, 298)">
+    <rect width="260" height="200" rx="8" fill="#1e3a5f"/>
+    <text x="130" y="104" font-size="12" fill="#7dd3fc" text-anchor="middle" opacity="0.7">Result 10</text>
+  </g>
+
+  <!-- Row 3 -->
+  <g transform="translate(84, 502)">
+    <rect width="260" height="174" rx="8" fill="#4a1d96"/>
+  </g>
+  <g transform="translate(354, 504)">
+    <rect width="260" height="194" rx="8" fill="#365314"/>
+  </g>
+  <g transform="translate(624, 504)">
+    <rect width="260" height="160" rx="8" fill="#312e81"/>
+  </g>
+  <g transform="translate(894, 502)">
+    <rect width="260" height="194" rx="8" fill="#831843"/>
+  </g>
+  <g transform="translate(1164, 508)">
+    <rect width="260" height="180" rx="8" fill="#14532d"/>
+  </g>
+
+  <!-- Row 4 (partial) -->
+  <g transform="translate(84, 686)">
+    <rect width="260" height="200" rx="8" fill="#713f12"/>
+  </g>
+  <g transform="translate(354, 708)">
+    <rect width="260" height="180" rx="8" fill="#3b0764"/>
+  </g>
+  <g transform="translate(624, 674)">
+    <rect width="260" height="220" rx="8" fill="#1c1917"/>
+  </g>
+  <g transform="translate(894, 706)">
+    <rect width="260" height="190" rx="8" fill="#881337"/>
+  </g>
+  <g transform="translate(1164, 698)">
+    <rect width="260" height="200" rx="8" fill="#134e4a"/>
+  </g>
+
+  <!-- Annotation -->
+  <text x="752" y="893" class="label" text-anchor="middle">Search bar hero -- Inline filter chips (anime, tag include/exclude, sort) -- Full-width masonry results -- 1440x900</text>
+</svg>

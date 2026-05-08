@@ -1,0 +1,83 @@
+<svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 11px; fill: #555; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1440" height="900" fill="#0f0f14"/>
+
+  <!-- Icon rail (64px) -->
+  <rect x="0" y="0" width="64" height="900" fill="#16161e"/>
+  <rect x="12" y="14" width="40" height="40" rx="10" fill="#818cf8"/>
+  <text x="32" y="40" font-size="20" fill="#fff" font-weight="700" text-anchor="middle">A</text>
+  <!-- Settings active -->
+  <g transform="translate(0, 346)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="#1e1e2e"/>
+    <circle cx="32" cy="23" r="11" fill="none" stroke="#818cf8" stroke-width="2"/>
+    <circle cx="32" cy="23" r="4" fill="#818cf8"/>
+    <text x="32" y="68" font-size="11" fill="#818cf8" text-anchor="middle" font-weight="500">Settings</text>
+  </g>
+
+  <!-- ==================== CENTERED CONTENT ==================== -->
+  <text x="720" y="40" font-size="20" fill="#f1f5f9" font-weight="700" text-anchor="middle">Settings</text>
+
+  <!-- Section tabs (horizontal) -->
+  <rect x="420" y="56" width="600" height="32" rx="16" fill="#16161e"/>
+  <rect x="424" y="60" width="100" height="24" rx="12" fill="#818cf8"/>
+  <text x="474" y="77" font-size="12" fill="#fff" text-anchor="middle" font-weight="500">General</text>
+  <rect x="530" y="60" width="120" height="24" rx="12" fill="transparent"/>
+  <text x="590" y="77" font-size="12" fill="#64748b" text-anchor="middle">Appearance</text>
+  <rect x="660" y="60" width="100" height="24" rx="12" fill="transparent"/>
+  <text x="710" y="77" font-size="12" fill="#64748b" text-anchor="middle">Backup</text>
+  <rect x="770" y="60" width="80" height="24" rx="12" fill="transparent"/>
+  <text x="810" y="77" font-size="12" fill="#64748b" text-anchor="middle">About</text>
+
+  <!-- General settings form -->
+  <rect x="320" y="100" width="800" height="480" rx="12" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+
+  <text x="344" y="132" font-size="16" fill="#f1f5f9" font-weight="600">Directories</text>
+
+  <!-- Warning banner -->
+  <rect x="344" y="144" width="752" height="28" rx="8" fill="#3b2600" stroke="#f59e0b" stroke-width="1"/>
+  <text x="360" y="163" font-size="11" fill="#fcd34d">Changing directories requires an app restart to take effect.</text>
+
+  <!-- Image Root Directory -->
+  <text x="344" y="200" font-size="12" fill="#94a3b8">Image Root Directory</text>
+  <rect x="344" y="208" width="600" height="28" rx="8" fill="#0f0f14" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="356" y="227" font-size="11" fill="#64748b">/home/user/anime-images/</text>
+  <rect x="952" y="208" width="72" height="28" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="988" y="227" font-size="12" fill="#94a3b8" text-anchor="middle">Browse</text>
+
+  <!-- Config Directory -->
+  <text x="344" y="264" font-size="12" fill="#94a3b8">Config Directory</text>
+  <rect x="344" y="272" width="600" height="28" rx="8" fill="#0f0f14" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="356" y="291" font-size="11" fill="#64748b">/home/user/.config/animevault/</text>
+  <rect x="952" y="272" width="72" height="28" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="988" y="291" font-size="12" fill="#94a3b8" text-anchor="middle">Browse</text>
+
+  <!-- Log Directory -->
+  <text x="344" y="328" font-size="12" fill="#94a3b8">Log Directory</text>
+  <rect x="344" y="336" width="600" height="28" rx="8" fill="#0f0f14" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="356" y="355" font-size="11" fill="#64748b">/home/user/.local/share/animevault/logs/</text>
+  <rect x="952" y="336" width="72" height="28" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="988" y="355" font-size="12" fill="#94a3b8" text-anchor="middle">Browse</text>
+
+  <!-- Backup Directory -->
+  <text x="344" y="392" font-size="12" fill="#94a3b8">Backup Directory</text>
+  <rect x="344" y="400" width="600" height="28" rx="8" fill="#0f0f14" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="356" y="419" font-size="11" fill="#64748b">/home/user/backups/</text>
+  <rect x="952" y="400" width="72" height="28" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="988" y="419" font-size="12" fill="#94a3b8" text-anchor="middle">Browse</text>
+
+  <!-- Buttons -->
+  <rect x="344" y="452" width="80" height="28" rx="8" fill="#818cf8"/>
+  <text x="384" y="471" font-size="12" fill="#fff" text-anchor="middle" font-weight="500">Save</text>
+  <rect x="436" y="452" width="120" height="28" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="496" y="471" font-size="12" fill="#94a3b8" text-anchor="middle">Reset to Defaults</text>
+
+  <!-- Annotation -->
+  <text x="720" y="893" class="label" text-anchor="middle">Settings with 4 tabs: General, Appearance, Backup, About -- Backup is a tab, not a separate nav item</text>
+</svg>

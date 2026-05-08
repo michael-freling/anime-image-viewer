@@ -1,152 +1,33 @@
-import {
-  CssBaseline,
-  CssVarsProvider,
-  extendTheme as joyExtendTheme,
-  StyledEngineProvider,
-} from "@mui/joy";
-import { ThemeProvider as MaterialThemeProvider } from "@mui/material";
-import {
-  THEME_ID as MATERIAL_THEME_ID,
-  extendTheme as materialExtendTheme,
-} from "@mui/material/styles";
-import React from "react";
-import ReactDOM from "react-dom/client";
-import {
-  createBrowserRouter,
-  Route,
-  RouterProvider,
-  Routes,
-  useLocation,
-} from "react-router";
-import DirectoryExplorer from "./components/DirectoryExplorer";
-import Layout from "./Layout";
-import AnimeDetailPage from "./pages/anime/AnimeDetailPage";
-import AnimeListPage from "./pages/anime/AnimeListPage";
-import DirectoryEditPage from "./pages/directories/DirectoryEditPage";
-import DirectoryImageListPage from "./pages/directories/DirectoryImageListPage";
-import SearchPage from "./pages/search/SearchPage";
-import DirectoryTagsEditPage from "./pages/tags/DirectoryTagEditPage";
-import AnimeTagEditPage from "./pages/tags/AnimeTagEditPage";
-import ImageTagEditPage from "./pages/tags/ImageTagEditPage";
-import ImageTagSuggestionPage from "./pages/tags/ImageTagSuggestionPage";
-import TagsListPage from "./pages/tags/TagsListPage";
-import RootErrorPage from "./RootErrorPage";
-import { ImportImageProgressProvider } from "./components/contexts/ImportImageContext";
-import { BackupProvider } from "./components/contexts/BackupContext";
-import BackupRestorePage from "./pages/backup/BackupRestorePage";
-import SettingsPage from "./pages/settings/SettingsPage";
+/**
+ * Application entry point.
+ *
+ * Bootstrap order (matters for both runtime correctness and visual FOUC):
+ *   1. `@fontsource-variable/inter` — loads the variable Inter font before
+ *      any component mounts so Chakra's typography tokens resolve against
+ *      the right metrics on first paint.
+ *   2. `./styles/globals.css` — defines the CSS custom properties Chakra
+ *      and the app shell read for color / spacing / motion tokens.
+ *   3. `AppProviders` — theme, React Query client, and color-mode provider.
+ *      Must wrap the router so every route has access to the shared query
+ *      cache and theme tokens.
+ *   4. `RouterProvider` — react-router v7 router created in `./app/routes`.
+ *
+ * No MUI / Joy UI imports remain: the rebuilt frontend is Chakra-v3 only.
+ */
+import "@fontsource-variable/inter";
+import "./styles/globals.css";
 
-function Root() {
-  const location = useLocation();
-  console.debug("current url", {
-    location: location,
-  });
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { RouterProvider } from "react-router";
 
-  return (
-    <Routes>
-      <Route>
-        {/* Anime (home) */}
-        <Route element={<Layout.TwoColumnLayout />}>
-          <Route index element={<AnimeListPage />} />
-          <Route path=":animeId" element={<AnimeDetailPage />} />
-        </Route>
+import { AppProviders } from "./app/providers";
+import { router } from "./app/routes";
 
-        {/* Search */}
-        <Route element={<Layout.TwoColumnLayout />} path="search">
-          <Route index element={<SearchPage />} />
-        </Route>
-
-        {/* Directory */}
-        <Route path="directories">
-          <Route element={<Layout.TwoColumnLayout />}>
-            <Route path="edit" element={<DirectoryEditPage />} />
-          </Route>
-          <Route element={<Layout.TwoColumnLayout />}>
-            <Route path="tags/edit" element={<DirectoryTagsEditPage />} />
-          </Route>
-          <Route
-            element={
-              <Layout.ThreeColumnLayout
-                sideNavigation={<DirectoryExplorer />}
-              />
-            }
-          >
-            <Route index element={<DirectoryImageListPage />} />
-            <Route path=":directoryId" element={<DirectoryImageListPage />} />
-          </Route>
-        </Route>
-
-        {/* Image edit */}
-        <Route path="images" element={<Layout.TwoColumnLayout />}>
-          <Route path="edit/tags" element={<ImageTagEditPage />} />
-          <Route path="edit/anime-tags" element={<AnimeTagEditPage />} />
-          <Route
-            path="edit/tags/suggestion"
-            element={<ImageTagSuggestionPage />}
-          />
-        </Route>
-
-        {/* Tags */}
-        <Route path="tags">
-          <Route element={<Layout.TwoColumnLayout />}>
-            <Route path="edit" element={<TagsListPage />} />
-          </Route>
-        </Route>
-
-        {/* Backup */}
-        <Route path="backup" element={<Layout.TwoColumnLayout />}>
-          <Route index element={<BackupRestorePage />} />
-        </Route>
-
-        {/* Settings */}
-        <Route path="settings" element={<Layout.TwoColumnLayout />}>
-          <Route index element={<SettingsPage />} />
-        </Route>
-      </Route>
-    </Routes>
-  );
-}
-
-const router = createBrowserRouter([
-  {
-    path: "*",
-    element: <Root />,
-    errorElement: <RootErrorPage />,
-  },
-]);
-
-const materialTheme = materialExtendTheme({
-  colorSchemes: { light: true, dark: true },
-});
-
-// Set the default properties: https://mui.com/joy-ui/customization/themed-components/
-const joyTheme = joyExtendTheme({
-  components: {
-    JoyChip: {
-      defaultProps: {},
-      styleOverrides: {
-        root: {},
-      },
-    },
-  },
-});
-
-// Use MUI and JoyUI at the same time for the tree view
-// https://mui.com/joy-ui/integrations/material-ui/
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
-    <StyledEngineProvider injectFirst>
-      <MaterialThemeProvider theme={{ [MATERIAL_THEME_ID]: materialTheme }}>
-        <CssVarsProvider theme={joyTheme}>
-          <CssBaseline />
-
-          <BackupProvider>
-            <ImportImageProgressProvider>
-              <RouterProvider router={router} />
-            </ImportImageProgressProvider>
-          </BackupProvider>
-        </CssVarsProvider>
-      </MaterialThemeProvider>
-    </StyledEngineProvider>
-  </React.StrictMode>
+createRoot(document.getElementById("root") as HTMLElement).render(
+  <StrictMode>
+    <AppProviders>
+      <RouterProvider router={router} />
+    </AppProviders>
+  </StrictMode>
 );

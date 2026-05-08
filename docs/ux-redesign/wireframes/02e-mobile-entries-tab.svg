@@ -1,0 +1,165 @@
+<svg viewBox="0 0 375 812" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 11px; fill: #555; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="375" height="812" fill="#0f0f14"/>
+
+  <!-- Status bar -->
+  <text x="20" y="30" font-size="12" fill="#f1f5f9" font-weight="600">9:41</text>
+
+  <!-- ==================== HEADER ==================== -->
+  <!-- Breadcrumb -->
+  <text x="20" y="54" font-size="12" fill="#818cf8">Home</text>
+  <text x="60" y="54" font-size="12" fill="#475569">/</text>
+
+  <!-- Anime title and metadata -->
+  <text x="20" y="76" font-size="18" fill="#f1f5f9" font-weight="700">Attack on Titan</text>
+  <text x="20" y="94" font-size="11" fill="#64748b">4 entries · 342 images</text>
+
+  <!-- Action buttons (right aligned) -->
+  <rect x="282" y="62" width="56" height="26" rx="7" fill="#818cf8"/>
+  <text x="310" y="80" font-size="10" fill="#fff" text-anchor="middle">Upload</text>
+  <rect x="344" y="62" width="24" height="26" rx="7" fill="#1e1e2e" stroke="#2d2d3f"/>
+  <text x="356" y="80" font-size="10" fill="#94a3b8" text-anchor="middle">...</text>
+
+  <!-- ==================== PRIMARY TAB BAR (scrollable horizontal) ==================== -->
+  <rect x="0" y="104" width="375" height="34" fill="#0f0f14"/>
+  <line x1="0" y1="137" x2="375" y2="137" stroke="#2d2d3f" stroke-width="1"/>
+
+  <!-- Images tab -->
+  <text x="20" y="127" font-size="13" fill="#64748b">Images</text>
+
+  <!-- Entries tab (active) -->
+  <text x="82" y="127" font-size="13" fill="#818cf8" font-weight="600">Entries</text>
+  <rect x="82" y="131" width="50" height="2" rx="1" fill="#818cf8"/>
+
+  <!-- Characters tab -->
+  <text x="140" y="127" font-size="13" fill="#64748b">Characters</text>
+
+  <!-- Tags tab -->
+  <text x="224" y="127" font-size="13" fill="#64748b">Tags</text>
+
+  <!-- Info tab -->
+  <text x="268" y="127" font-size="13" fill="#64748b">Info</text>
+
+  <!-- ==================== ENTRIES TAB CONTENT ==================== -->
+
+  <!-- Entry count -->
+  <text x="20" y="160" font-size="11" fill="#64748b">5 entries · 354 images</text>
+
+  <!-- ==================== Entry Row 1: Season 1 ==================== -->
+  <rect x="8" y="172" width="359" height="56" rx="8" fill="#1e1e2e"/>
+
+  <!-- Type badge -->
+  <rect x="16" y="185" width="28" height="18" rx="4" fill="#312e81"/>
+  <text x="30" y="198" font-size="9" fill="#818cf8" text-anchor="middle" font-weight="600">S1</text>
+
+  <!-- Entry name -->
+  <text x="52" y="194" font-size="14" fill="#f1f5f9">Season 1</text>
+
+  <!-- Airing + image count -->
+  <text x="52" y="212" font-size="11" fill="#64748b">Spring 2013 · 87 images</text>
+
+  <!-- Chevron -->
+  <text x="348" y="200" font-size="14" fill="#64748b">&#x203A;</text>
+
+  <!-- ==================== Entry Row 2: Season 2 ==================== -->
+  <rect x="8" y="236" width="359" height="56" rx="8" fill="#1e1e2e"/>
+
+  <rect x="16" y="249" width="28" height="18" rx="4" fill="#312e81"/>
+  <text x="30" y="262" font-size="9" fill="#818cf8" text-anchor="middle" font-weight="600">S2</text>
+
+  <text x="52" y="258" font-size="14" fill="#f1f5f9">Season 2</text>
+  <text x="52" y="276" font-size="11" fill="#64748b">Summer 2017 · 94 images</text>
+
+  <text x="348" y="264" font-size="14" fill="#64748b">&#x203A;</text>
+
+  <!-- ==================== Entry Row 3: Season 3 (expanded with sub-entries) ==================== -->
+  <rect x="8" y="300" width="359" height="56" rx="8" fill="#1e1e2e" stroke="#818cf8" stroke-width="1"/>
+
+  <rect x="16" y="313" width="28" height="18" rx="4" fill="#312e81"/>
+  <text x="30" y="326" font-size="9" fill="#818cf8" text-anchor="middle" font-weight="600">S3</text>
+
+  <text x="52" y="322" font-size="14" fill="#f1f5f9">Season 3</text>
+  <text x="52" y="340" font-size="11" fill="#64748b">Summer 2018 · 68 images</text>
+
+  <!-- Expanded indicator -->
+  <text x="344" y="328" font-size="11" fill="#818cf8">&#x25BC;</text>
+
+  <!-- Sub-entry: Part 1 -->
+  <rect x="28" y="362" width="339" height="44" rx="6" fill="#1a1a26"/>
+
+  <line x1="36" y1="362" x2="36" y2="406" stroke="#2d2d3f" stroke-width="1"/>
+  <line x1="36" y1="384" x2="48" y2="384" stroke="#2d2d3f" stroke-width="1"/>
+
+  <rect x="52" y="372" width="20" height="14" rx="3" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="62" y="383" font-size="8" fill="#64748b" text-anchor="middle">P1</text>
+
+  <text x="78" y="381" font-size="12" fill="#94a3b8">Part 1</text>
+  <text x="78" y="396" font-size="10" fill="#475569">Summer 2018 · 34 images</text>
+  <text x="348" y="386" font-size="14" fill="#64748b">&#x203A;</text>
+
+  <!-- Sub-entry: Part 2 -->
+  <rect x="28" y="410" width="339" height="44" rx="6" fill="#1a1a26"/>
+
+  <line x1="36" y1="410" x2="36" y2="432" stroke="#2d2d3f" stroke-width="1"/>
+  <line x1="36" y1="432" x2="48" y2="432" stroke="#2d2d3f" stroke-width="1"/>
+
+  <rect x="52" y="420" width="20" height="14" rx="3" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="62" y="431" font-size="8" fill="#64748b" text-anchor="middle">P2</text>
+
+  <text x="78" y="429" font-size="12" fill="#94a3b8">Part 2</text>
+  <text x="78" y="444" font-size="10" fill="#475569">Winter 2019 · 34 images</text>
+  <text x="348" y="434" font-size="14" fill="#64748b">&#x203A;</text>
+
+  <!-- ==================== Entry Row 4: Season 4 ==================== -->
+  <rect x="8" y="462" width="359" height="56" rx="8" fill="#1e1e2e"/>
+
+  <rect x="16" y="475" width="28" height="18" rx="4" fill="#312e81"/>
+  <text x="30" y="488" font-size="9" fill="#818cf8" text-anchor="middle" font-weight="600">S4</text>
+
+  <text x="52" y="484" font-size="14" fill="#f1f5f9">Season 4 (Final Season)</text>
+  <text x="52" y="502" font-size="11" fill="#64748b">Winter 2021 · 93 images</text>
+
+  <text x="348" y="490" font-size="14" fill="#64748b">&#x203A;</text>
+
+  <!-- ==================== Entry Row 5: Movie ==================== -->
+  <rect x="8" y="526" width="359" height="56" rx="8" fill="#1e1e2e"/>
+
+  <rect x="16" y="539" width="28" height="18" rx="4" fill="#3b1a1a"/>
+  <text x="30" y="552" font-size="9" fill="#fca5a5" text-anchor="middle" font-weight="600">M</text>
+
+  <text x="52" y="548" font-size="14" fill="#f1f5f9">Chronicle</text>
+  <text x="52" y="566" font-size="11" fill="#64748b">2020 · 12 images</text>
+
+  <text x="348" y="554" font-size="14" fill="#64748b">&#x203A;</text>
+
+  <!-- ==================== ADD ENTRY BUTTON ==================== -->
+  <rect x="8" y="594" width="359" height="48" rx="8" fill="#1a1a26" stroke="#2d2d3f" stroke-width="1" stroke-dasharray="4,4"/>
+  <text x="188" y="624" font-size="13" fill="#818cf8" text-anchor="middle" font-weight="500">+ Add Entry</text>
+
+  <!-- ==================== SWIPE HINT ==================== -->
+  <rect x="8" y="656" width="359" height="32" rx="6" fill="#1a1a26"/>
+  <text x="188" y="677" font-size="10" fill="#475569" text-anchor="middle">Swipe left on an entry to edit or delete</text>
+
+  <!-- ==================== BOTTOM TAB BAR ==================== -->
+  <rect x="0" y="748" width="375" height="64" fill="#16161e" stroke="#2d2d3f" stroke-width="1"/>
+  <g transform="translate(18, 756)">
+    <rect x="10" y="-2" width="52" height="28" rx="14" fill="#1e1e2e"/>
+    <text x="36" y="40" font-size="10" fill="#818cf8" text-anchor="middle" font-weight="500">Home</text>
+  </g>
+  <g transform="translate(108, 756)">
+    <text x="36" y="40" font-size="10" fill="#64748b" text-anchor="middle">Search</text>
+  </g>
+  <g transform="translate(198, 756)">
+    <text x="36" y="40" font-size="10" fill="#64748b" text-anchor="middle">Tags</text>
+  </g>
+  <g transform="translate(288, 756)">
+    <text x="36" y="40" font-size="10" fill="#64748b" text-anchor="middle">Settings</text>
+  </g>
+</svg>

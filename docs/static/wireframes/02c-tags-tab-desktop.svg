@@ -1,0 +1,208 @@
+<svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 11px; fill: #555; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1440" height="900" fill="#0f0f14"/>
+
+  <!-- ==================== ICON RAIL (64px) ==================== -->
+  <rect x="0" y="0" width="64" height="900" fill="#16161e"/>
+  <rect x="12" y="14" width="40" height="40" rx="10" fill="#818cf8"/>
+  <text x="32" y="40" font-size="20" fill="#fff" font-weight="700" text-anchor="middle">A</text>
+  <g transform="translate(0, 72)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="#1e1e2e"/>
+    <text x="32" y="68" font-size="11" fill="#818cf8" text-anchor="middle" font-weight="500">Home</text>
+  </g>
+  <g transform="translate(0, 148)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="transparent"/>
+    <text x="32" y="68" font-size="11" fill="#64748b" text-anchor="middle">Search</text>
+  </g>
+  <g transform="translate(0, 224)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="transparent"/>
+    <text x="32" y="68" font-size="11" fill="#64748b" text-anchor="middle">Tags</text>
+  </g>
+  <g transform="translate(0, 300)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="transparent"/>
+    <text x="32" y="68" font-size="11" fill="#64748b" text-anchor="middle">Settings</text>
+  </g>
+
+  <!-- ==================== HEADER (52px) ==================== -->
+  <rect x="64" y="0" width="1376" height="52" fill="#16161e"/>
+
+  <!-- Breadcrumb -->
+  <text x="84" y="18" font-size="12" fill="#818cf8">Home</text>
+  <text x="118" y="18" font-size="12" fill="#475569">/</text>
+
+  <!-- Anime title and metadata -->
+  <text x="84" y="40" font-size="18" fill="#f1f5f9" font-weight="700">Attack on Titan</text>
+  <text x="270" y="40" font-size="12" fill="#64748b">4 entries · 342 images</text>
+
+  <!-- Action buttons (right side of header) -->
+  <rect x="1286" y="12" width="70" height="28" rx="8" fill="#818cf8"/>
+  <text x="1321" y="31" font-size="12" fill="#fff" text-anchor="middle" font-weight="500">Upload</text>
+
+  <rect x="1366" y="12" width="36" height="28" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1384" y="31" font-size="12" fill="#94a3b8" text-anchor="middle">...</text>
+
+  <!-- ==================== PRIMARY TAB BAR (38px) ==================== -->
+  <rect x="64" y="52" width="1376" height="38" fill="#0f0f14"/>
+  <line x1="64" y1="89" x2="1440" y2="89" stroke="#2d2d3f" stroke-width="1"/>
+
+  <!-- Images tab -->
+  <text x="84" y="77" font-size="13" fill="#64748b">Images</text>
+
+  <!-- Entries tab -->
+  <text x="152" y="77" font-size="13" fill="#64748b">Entries</text>
+
+  <!-- Characters tab -->
+  <text x="220" y="77" font-size="13" fill="#64748b">Characters</text>
+
+  <!-- Tags tab (active) -->
+  <text x="310" y="77" font-size="13" fill="#818cf8" font-weight="600">Tags</text>
+  <rect x="310" y="82" width="32" height="2" rx="1" fill="#818cf8"/>
+
+  <!-- Info tab -->
+  <text x="364" y="77" font-size="13" fill="#64748b">Info</text>
+
+  <!-- ==================== TAGS TAB CONTENT ==================== -->
+  <!-- Description text -->
+  <text x="100" y="116" font-size="12" fill="#64748b">Toggle which tags apply to this anime. Active tags will appear as filters on the Images tab.</text>
+
+  <!-- ==================== Scene / Action Category ==================== -->
+  <rect x="84" y="132" width="1336" height="auto" fill="transparent"/>
+  <text x="100" y="156" font-size="13" fill="#f1f5f9" font-weight="600">Scene / Action</text>
+  <line x1="100" y1="164" x2="1400" y2="164" stroke="#2d2d3f" stroke-width="0.5"/>
+
+  <!-- Active chip: Battle -->
+  <rect x="100" y="176" width="72" height="30" rx="15" fill="#312e81" stroke="#818cf8" stroke-width="1"/>
+  <text x="136" y="196" font-size="12" fill="#818cf8" text-anchor="middle" font-weight="500">Battle</text>
+
+  <!-- Active chip: Action -->
+  <rect x="182" y="176" width="70" height="30" rx="15" fill="#312e81" stroke="#818cf8" stroke-width="1"/>
+  <text x="217" y="196" font-size="12" fill="#818cf8" text-anchor="middle" font-weight="500">Action</text>
+
+  <!-- Inactive chip: Romance -->
+  <rect x="262" y="176" width="86" height="30" rx="15" fill="transparent" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="305" y="196" font-size="12" fill="#64748b" text-anchor="middle">Romance</text>
+
+  <!-- Inactive chip: Comedy -->
+  <rect x="358" y="176" width="82" height="30" rx="15" fill="transparent" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="399" y="196" font-size="12" fill="#64748b" text-anchor="middle">Comedy</text>
+
+  <!-- Inactive chip: Slice of Life -->
+  <rect x="450" y="176" width="102" height="30" rx="15" fill="transparent" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="501" y="196" font-size="12" fill="#64748b" text-anchor="middle">Slice of Life</text>
+
+  <!-- Active chip: Drama -->
+  <rect x="562" y="176" width="68" height="30" rx="15" fill="#312e81" stroke="#818cf8" stroke-width="1"/>
+  <text x="596" y="196" font-size="12" fill="#818cf8" text-anchor="middle" font-weight="500">Drama</text>
+
+  <!-- Inactive chip: Sports -->
+  <rect x="640" y="176" width="68" height="30" rx="15" fill="transparent" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="674" y="196" font-size="12" fill="#64748b" text-anchor="middle">Sports</text>
+
+  <!-- ==================== Nature / Weather Category ==================== -->
+  <text x="100" y="240" font-size="13" fill="#f1f5f9" font-weight="600">Nature / Weather</text>
+  <line x1="100" y1="248" x2="1400" y2="248" stroke="#2d2d3f" stroke-width="0.5"/>
+
+  <!-- Active chip: Outdoor -->
+  <rect x="100" y="260" width="80" height="30" rx="15" fill="#312e81" stroke="#818cf8" stroke-width="1"/>
+  <text x="140" y="280" font-size="12" fill="#818cf8" text-anchor="middle" font-weight="500">Outdoor</text>
+
+  <!-- Active chip: Forest -->
+  <rect x="190" y="260" width="68" height="30" rx="15" fill="#312e81" stroke="#818cf8" stroke-width="1"/>
+  <text x="224" y="280" font-size="12" fill="#818cf8" text-anchor="middle" font-weight="500">Forest</text>
+
+  <!-- Inactive chip: Rain -->
+  <rect x="268" y="260" width="56" height="30" rx="15" fill="transparent" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="296" y="280" font-size="12" fill="#64748b" text-anchor="middle">Rain</text>
+
+  <!-- Active chip: Sunset -->
+  <rect x="334" y="260" width="72" height="30" rx="15" fill="#312e81" stroke="#818cf8" stroke-width="1"/>
+  <text x="370" y="280" font-size="12" fill="#818cf8" text-anchor="middle" font-weight="500">Sunset</text>
+
+  <!-- Inactive chip: Beach -->
+  <rect x="416" y="260" width="68" height="30" rx="15" fill="transparent" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="450" y="280" font-size="12" fill="#64748b" text-anchor="middle">Beach</text>
+
+  <!-- Inactive chip: Snow -->
+  <rect x="494" y="260" width="62" height="30" rx="15" fill="transparent" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="525" y="280" font-size="12" fill="#64748b" text-anchor="middle">Snow</text>
+
+  <!-- Inactive chip: Sky -->
+  <rect x="566" y="260" width="52" height="30" rx="15" fill="transparent" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="592" y="280" font-size="12" fill="#64748b" text-anchor="middle">Sky</text>
+
+  <!-- ==================== Location Category ==================== -->
+  <text x="100" y="324" font-size="13" fill="#f1f5f9" font-weight="600">Location</text>
+  <line x1="100" y1="332" x2="1400" y2="332" stroke="#2d2d3f" stroke-width="0.5"/>
+
+  <!-- Active chip: Indoor -->
+  <rect x="100" y="344" width="70" height="30" rx="15" fill="#312e81" stroke="#818cf8" stroke-width="1"/>
+  <text x="135" y="364" font-size="12" fill="#818cf8" text-anchor="middle" font-weight="500">Indoor</text>
+
+  <!-- Active chip: School -->
+  <rect x="180" y="344" width="70" height="30" rx="15" fill="#312e81" stroke="#818cf8" stroke-width="1"/>
+  <text x="215" y="364" font-size="12" fill="#818cf8" text-anchor="middle" font-weight="500">School</text>
+
+  <!-- Active chip: City -->
+  <rect x="260" y="344" width="56" height="30" rx="15" fill="#312e81" stroke="#818cf8" stroke-width="1"/>
+  <text x="288" y="364" font-size="12" fill="#818cf8" text-anchor="middle" font-weight="500">City</text>
+
+  <!-- Inactive chip: Village -->
+  <rect x="326" y="344" width="72" height="30" rx="15" fill="transparent" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="362" y="364" font-size="12" fill="#64748b" text-anchor="middle">Village</text>
+
+  <!-- Inactive chip: Castle -->
+  <rect x="408" y="344" width="68" height="30" rx="15" fill="transparent" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="442" y="364" font-size="12" fill="#64748b" text-anchor="middle">Castle</text>
+
+  <!-- Inactive chip: Space -->
+  <rect x="486" y="344" width="64" height="30" rx="15" fill="transparent" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="518" y="364" font-size="12" fill="#64748b" text-anchor="middle">Space</text>
+
+  <!-- ==================== Mood Category ==================== -->
+  <text x="100" y="408" font-size="13" fill="#f1f5f9" font-weight="600">Mood</text>
+  <line x1="100" y1="416" x2="1400" y2="416" stroke="#2d2d3f" stroke-width="0.5"/>
+
+  <!-- Active chip: Night -->
+  <rect x="100" y="428" width="62" height="30" rx="15" fill="#312e81" stroke="#818cf8" stroke-width="1"/>
+  <text x="131" y="448" font-size="12" fill="#818cf8" text-anchor="middle" font-weight="500">Night</text>
+
+  <!-- Active chip: Fantasy -->
+  <rect x="172" y="428" width="76" height="30" rx="15" fill="#312e81" stroke="#818cf8" stroke-width="1"/>
+  <text x="210" y="448" font-size="12" fill="#818cf8" text-anchor="middle" font-weight="500">Fantasy</text>
+
+  <!-- Inactive chip: Dark -->
+  <rect x="258" y="428" width="56" height="30" rx="15" fill="transparent" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="286" y="448" font-size="12" fill="#64748b" text-anchor="middle">Dark</text>
+
+  <!-- Inactive chip: Peaceful -->
+  <rect x="324" y="428" width="82" height="30" rx="15" fill="transparent" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="365" y="448" font-size="12" fill="#64748b" text-anchor="middle">Peaceful</text>
+
+  <!-- Inactive chip: Emotional -->
+  <rect x="416" y="428" width="88" height="30" rx="15" fill="transparent" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="460" y="448" font-size="12" fill="#64748b" text-anchor="middle">Emotional</text>
+
+  <!-- Inactive chip: Tense -->
+  <rect x="514" y="428" width="64" height="30" rx="15" fill="transparent" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="546" y="448" font-size="12" fill="#64748b" text-anchor="middle">Tense</text>
+
+  <!-- ==================== Summary Footer ==================== -->
+  <rect x="84" y="490" width="1336" height="32" fill="#0f0f14"/>
+  <text x="100" y="511" font-size="11" fill="#64748b">12 active tags out of 28 total · Click to toggle</text>
+
+  <!-- ==================== Interaction hint ==================== -->
+  <rect x="100" y="540" width="340" height="60" rx="8" fill="#1a1a26" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="120" y="562" font-size="11" fill="#94a3b8" font-weight="500">How it works</text>
+  <text x="120" y="580" font-size="10" fill="#475569">Active tags (filled) appear as image filters.</text>
+  <text x="120" y="592" font-size="10" fill="#475569">Click any chip to toggle it on or off.</text>
+
+  <!-- Annotation -->
+  <text x="752" y="893" class="label" text-anchor="middle">Tags tab -- Toggle chips by category: active = filled indigo, inactive = ghost outline -- Simple toggle for anime-specific tags</text>
+</svg>

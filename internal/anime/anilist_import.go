@@ -14,7 +14,7 @@ import (
 
 // AniListImportResult summarises what was created during an AniList import.
 type AniListImportResult struct {
-	EntriesCreated    int `json:"entriesCreated"`
+	SeasonsCreated    int `json:"seasonsCreated"`
 	CharactersCreated int `json:"charactersCreated"`
 }
 
@@ -113,7 +113,7 @@ func groupSeasonsByPart(sortedDetails []*anilist.MediaDetail) []seasonGroup {
 	result := make([]seasonGroup, 0, len(groupOrder))
 	for _, key := range groupOrder {
 		g := groupMap[key]
-		// If a group has >1 entry, any entry with partNumber==0 is implicitly Part 1.
+		// If a group has >1 part, any part with partNumber==0 is implicitly Part 1.
 		if len(g.parts) > 1 {
 			for i := range g.parts {
 				if g.parts[i].partNumber == 0 {
@@ -127,7 +127,7 @@ func groupSeasonsByPart(sortedDetails []*anilist.MediaDetail) []seasonGroup {
 }
 
 // ImportFromAniList uses BFS to follow the SEQUEL/PREQUEL chain from the
-// selected AniList entry, fetching each season individually. This avoids
+// selected AniList ID, fetching each season individually. This avoids
 // the query-complexity limit that nested GraphQL queries hit on AniList.
 func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID int) (*AniListImportResult, error) {
 	if s.anilistClient == nil {
@@ -195,7 +195,7 @@ func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID
 	seenMovies := make(map[int]bool)
 
 	for _, detail := range fetched {
-		// Each fetched entry is a season.
+		// Each fetched detail is a season.
 		seasons = append(seasons, seasonInfo{
 			season:     detail.Season,
 			seasonYear: detail.SeasonYear,
@@ -229,15 +229,17 @@ func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID
 	groups := groupSeasonsByPart(sortedDetails)
 
 	// Build map of existing season entries to skip duplicates.
-	existingEntries, err := s.GetAnimeEntries(animeID)
+	existingSeasons, err := s.GetAnimeSeasons(animeID)
 	if err != nil {
-		return nil, fmt.Errorf("GetAnimeEntries: %w", err)
+		return nil, fmt.Errorf("GetAnimeSeasons: %w", err)
 	}
-	existingSeasonsByNum := make(map[uint]AnimeEntry)
-	for _, e := range existingEntries {
-		if e.EntryType == db.EntryTypeSeason && e.EntryNumber != nil {
-			existingSeasonsByNum[*e.EntryNumber] = e
+	existingSeasonsByNum := make(map[uint]AnimeSeason)
+	existingSeasonsByName := make(map[string]AnimeSeason)
+	for _, e := range existingSeasons {
+		if e.SeasonType == db.SeasonTypeSeason && e.SeasonNumber != nil {
+			existingSeasonsByNum[*e.SeasonNumber] = e
 		}
+		existingSeasonsByName[strings.ToLower(e.Name)] = e
 	}
 
 	// Create season entries from groups.
@@ -246,25 +248,35 @@ func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID
 		displayName := sanitizeFolderName(group.baseTitle)
 		first := group.parts[0].detail
 
-		// parentID is the file ID of the season entry used as parent for sub-entries.
+		// parentID is the file ID of the season used as parent for sub-seasons.
 		var parentID uint
 
 		if existing, ok := existingSeasonsByNum[seasonNum]; ok {
-			if err := s.updateEntryAiringInfo(ctx, existing.ID, first.Season, first.SeasonYear); err != nil {
-				return nil, fmt.Errorf("updateEntryAiringInfo for existing season %d: %w", seasonNum, err)
+			if err := s.updateSeasonAiringInfo(ctx, existing.ID, first.Season, first.SeasonYear); err != nil {
+				return nil, fmt.Errorf("updateSeasonAiringInfo for existing season %d: %w", seasonNum, err)
+			}
+			parentID = existing.ID
+		} else if existing, ok := existingSeasonsByName[strings.ToLower(displayName)]; ok {
+			// Legacy folder exists with matching name but missing entry_type metadata.
+			// Backfill its metadata and use it as the parent.
+			if err := s.dbClient.File().UpdateSeasonFields(ctx, existing.ID, db.SeasonTypeSeason, &seasonNum); err != nil {
+				return nil, fmt.Errorf("backfill season fields for %q: %w", displayName, err)
+			}
+			if err := s.updateSeasonAiringInfo(ctx, existing.ID, first.Season, first.SeasonYear); err != nil {
+				return nil, fmt.Errorf("updateSeasonAiringInfo for legacy season %q: %w", displayName, err)
 			}
 			parentID = existing.ID
 		} else {
-			created, err := s.CreateEntry(ctx, animeID, db.EntryTypeSeason, &seasonNum, displayName)
+			created, err := s.CreateSeason(ctx, animeID, db.SeasonTypeSeason, &seasonNum, displayName)
 			if err != nil {
 				if isUniqueViolation(err) || strings.Contains(err.Error(), "already exists") {
 					continue
 				}
-				return nil, fmt.Errorf("CreateEntry season %d: %w", seasonNum, err)
+				return nil, fmt.Errorf("CreateSeason %d: %w", seasonNum, err)
 			}
-			result.EntriesCreated++
-			if err := s.updateEntryAiringInfo(ctx, created.ID, first.Season, first.SeasonYear); err != nil {
-				return nil, fmt.Errorf("updateEntryAiringInfo for season %d: %w", seasonNum, err)
+			result.SeasonsCreated++
+			if err := s.updateSeasonAiringInfo(ctx, created.ID, first.Season, first.SeasonYear); err != nil {
+				return nil, fmt.Errorf("updateSeasonAiringInfo for season %d: %w", seasonNum, err)
 			}
 			parentID = created.ID
 		}
@@ -273,28 +285,28 @@ func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID
 		if len(group.parts) > 1 {
 			for _, part := range group.parts {
 				partName := fmt.Sprintf("Part %d", part.partNumber)
-				subEntry, err := s.CreateSubEntry(ctx, parentID, partName)
+				subSeason, err := s.CreateSubSeason(ctx, parentID, partName)
 				if err != nil {
 					if isUniqueViolation(err) || strings.Contains(err.Error(), "already exists") {
-						// Sub-entry already exists; look it up and update its airing info.
+						// Sub-season already exists; look it up and update its airing info.
 						existingSub, findErr := s.dbClient.File().FindByValue(ctx, &db.File{
 							ParentID: parentID,
 							Name:     sanitizeFolderName(partName),
 						})
 						if findErr != nil {
-							return nil, fmt.Errorf("find existing sub-entry %s: %w", partName, findErr)
+							return nil, fmt.Errorf("find existing sub-season %s: %w", partName, findErr)
 						}
-						if err := s.updateEntryAiringInfo(ctx, existingSub.ID, part.detail.Season, part.detail.SeasonYear); err != nil {
-							return nil, fmt.Errorf("updateEntryAiringInfo for existing %s: %w", partName, err)
+						if err := s.updateSeasonAiringInfo(ctx, existingSub.ID, part.detail.Season, part.detail.SeasonYear); err != nil {
+							return nil, fmt.Errorf("updateSeasonAiringInfo for existing %s: %w", partName, err)
 						}
 						continue
 					}
-					return nil, fmt.Errorf("CreateSubEntry %s: %w", partName, err)
+					return nil, fmt.Errorf("CreateSubSeason %s: %w", partName, err)
 				}
-				result.EntriesCreated++
+				result.SeasonsCreated++
 				// Set airing info on the part from its AniList detail.
-				if err := s.updateEntryAiringInfo(ctx, subEntry.ID, part.detail.Season, part.detail.SeasonYear); err != nil {
-					return nil, fmt.Errorf("updateEntryAiringInfo for %s: %w", partName, err)
+				if err := s.updateSeasonAiringInfo(ctx, subSeason.ID, part.detail.Season, part.detail.SeasonYear); err != nil {
+					return nil, fmt.Errorf("updateSeasonAiringInfo for %s: %w", partName, err)
 				}
 			}
 		}
@@ -330,7 +342,20 @@ func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID
 			y := uint(movieSeasonYear)
 			year = &y
 		}
-		created, err := s.CreateEntry(ctx, animeID, db.EntryTypeMovie, year, displayName)
+		// Check if a folder with this name already exists (legacy or previously created).
+		if existing, ok := existingSeasonsByName[strings.ToLower(displayName)]; ok {
+			// Backfill metadata if missing.
+			if existing.SeasonType != db.SeasonTypeMovie {
+				if err := s.dbClient.File().UpdateSeasonFields(ctx, existing.ID, db.SeasonTypeMovie, year); err != nil {
+					return nil, fmt.Errorf("backfill movie fields for %q: %w", displayName, err)
+				}
+			}
+			if err := s.updateSeasonAiringInfo(ctx, existing.ID, movieSeason, movieSeasonYear); err != nil {
+				return nil, fmt.Errorf("updateSeasonAiringInfo for existing movie %s: %w", displayName, err)
+			}
+			continue
+		}
+		created, err := s.CreateSeason(ctx, animeID, db.SeasonTypeMovie, year, displayName)
 		if err != nil {
 			if isUniqueViolation(err) || strings.Contains(err.Error(), "already exists") {
 				// Movie already exists; look it up and update its airing info.
@@ -345,27 +370,27 @@ func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID
 				if findErr != nil {
 					return nil, fmt.Errorf("find existing movie %s: %w", displayName, findErr)
 				}
-				if err := s.updateEntryAiringInfo(ctx, existingMovie.ID, movieSeason, movieSeasonYear); err != nil {
-					return nil, fmt.Errorf("updateEntryAiringInfo for existing movie %s: %w", displayName, err)
+				if err := s.updateSeasonAiringInfo(ctx, existingMovie.ID, movieSeason, movieSeasonYear); err != nil {
+					return nil, fmt.Errorf("updateSeasonAiringInfo for existing movie %s: %w", displayName, err)
 				}
 				continue
 			}
-			return nil, fmt.Errorf("CreateEntry movie: %w", err)
+			return nil, fmt.Errorf("CreateSeason movie: %w", err)
 		}
-		result.EntriesCreated++
-		if err := s.updateEntryAiringInfo(ctx, created.ID, movieSeason, movieSeasonYear); err != nil {
-			return nil, fmt.Errorf("updateEntryAiringInfo for movie %s: %w", displayName, err)
+		result.SeasonsCreated++
+		if err := s.updateSeasonAiringInfo(ctx, created.ID, movieSeason, movieSeasonYear); err != nil {
+			return nil, fmt.Errorf("updateSeasonAiringInfo for movie %s: %w", displayName, err)
 		}
 	}
 
 	// Collect characters from ALL fetched entries, dedup by name.
-	existingTags, err := s.dbClient.Tag().FindTagsByAnimeID(animeID)
+	existingChars, err := s.dbClient.Character().FindByAnimeID(animeID)
 	if err != nil {
-		return nil, fmt.Errorf("Tag.FindTagsByAnimeID: %w", err)
+		return nil, fmt.Errorf("Character.FindByAnimeID: %w", err)
 	}
-	existingNames := make(map[string]bool, len(existingTags))
-	for _, t := range existingTags {
-		existingNames[t.Name] = true
+	existingNames := make(map[string]bool, len(existingChars))
+	for _, c := range existingChars {
+		existingNames[c.Name] = true
 	}
 
 	for _, detail := range fetched {
@@ -376,17 +401,15 @@ func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID
 			if ch.Name.Full == "" || existingNames[ch.Name.Full] {
 				continue
 			}
-			aid := animeID
-			tag := db.Tag{
-				Name:     ch.Name.Full,
-				Category: "character",
-				AnimeID:  &aid,
+			character := db.Character{
+				Name:    ch.Name.Full,
+				AnimeID: animeID,
 			}
-			if err := s.dbClient.Tag().Create(ctx, &tag); err != nil {
+			if err := s.dbClient.Character().Create(ctx, &character); err != nil {
 				if isUniqueViolation(err) {
 					continue
 				}
-				return nil, fmt.Errorf("Tag.Create for character %q: %w", ch.Name.Full, err)
+				return nil, fmt.Errorf("Character.Create for %q: %w", ch.Name.Full, err)
 			}
 			existingNames[ch.Name.Full] = true
 			result.CharactersCreated++
@@ -396,8 +419,8 @@ func (s *Service) ImportFromAniList(ctx context.Context, animeID uint, aniListID
 	return result, nil
 }
 
-// updateEntryAiringInfo sets AiringSeason and AiringYear on a file entry.
-func (s *Service) updateEntryAiringInfo(ctx context.Context, fileID uint, season string, seasonYear int) error {
+// updateSeasonAiringInfo sets AiringSeason and AiringYear on a season file.
+func (s *Service) updateSeasonAiringInfo(ctx context.Context, fileID uint, season string, seasonYear int) error {
 	airingSeason := anilistSeasonToDBSeason(season)
 	var airingYear *uint
 	if seasonYear > 0 {
@@ -426,13 +449,13 @@ func anilistSeasonToDBSeason(season string) string {
 }
 
 // isSeasonFormat returns true if the AniList format indicates a TV-style
-// season entry.
+// season.
 func isSeasonFormat(format string) bool {
 	return format == "TV" || format == "TV_SHORT" || format == "ONA"
 }
 
 // isMovieRelationType returns true if the relation type is one we import as
-// a movie entry.
+// a movie season.
 func isMovieRelationType(relationType string) bool {
 	return relationType == "SEQUEL" || relationType == "SIDE_STORY" || relationType == "PARENT"
 }

@@ -1,0 +1,190 @@
+<svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 11px; fill: #555; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1440" height="900" fill="#0f0f14"/>
+
+  <!-- Icon rail (64px) -->
+  <rect x="0" y="0" width="64" height="900" fill="#16161e"/>
+  <rect x="12" y="14" width="40" height="40" rx="10" fill="#818cf8"/>
+  <text x="32" y="40" font-size="20" fill="#fff" font-weight="700" text-anchor="middle">A</text>
+
+  <!-- ==================== TOP: Selected images strip + actions ==================== -->
+  <rect x="64" y="0" width="1376" height="80" fill="#16161e"/>
+
+  <!-- Header -->
+  <text x="84" y="20" font-size="12" fill="#818cf8">Home / Attack on Titan</text>
+  <text x="84" y="42" font-size="18" fill="#f1f5f9" font-weight="700">Edit Tags</text>
+  <text x="84" y="58" font-size="11" fill="#64748b">8 images selected</text>
+
+  <!-- Action buttons -->
+  <rect x="1220" y="10" width="100" height="28" rx="8" fill="#818cf8"/>
+  <text x="1270" y="29" font-size="12" fill="#fff" text-anchor="middle" font-weight="500">Apply Changes</text>
+  <rect x="1330" y="10" width="70" height="28" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1365" y="29" font-size="12" fill="#94a3b8" text-anchor="middle">Cancel</text>
+
+  <!-- Selected images strip -->
+  <g transform="translate(84, 64)">
+    <rect width="40" height="14" rx="3" fill="#312e81" stroke="#818cf8" stroke-width="1"/>
+    <rect x="44" width="40" height="14" rx="3" fill="#831843" stroke="#818cf8" stroke-width="1"/>
+    <rect x="88" width="40" height="14" rx="3" fill="#14532d" stroke="#818cf8" stroke-width="1"/>
+    <rect x="132" width="40" height="14" rx="3" fill="#713f12" stroke="#818cf8" stroke-width="1"/>
+    <rect x="176" width="40" height="14" rx="3" fill="#3b0764" stroke="#818cf8" stroke-width="1"/>
+    <rect x="220" width="40" height="14" rx="3" fill="#1c1917" stroke="#818cf8" stroke-width="1"/>
+    <rect x="264" width="40" height="14" rx="3" fill="#881337" stroke="#818cf8" stroke-width="1"/>
+    <rect x="308" width="40" height="14" rx="3" fill="#134e4a" stroke="#818cf8" stroke-width="1"/>
+  </g>
+
+  <!-- ==================== TAG SEARCH + PENDING CHANGES ==================== -->
+  <rect x="84" y="90" width="400" height="28" rx="14" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="104" y="109" font-size="12" fill="#475569">Search tags to add or remove...</text>
+
+  <!-- Pending changes bar -->
+  <rect x="504" y="90" width="896" height="28" rx="8" fill="#1a1a40" stroke="#818cf8" stroke-width="1"/>
+  <text x="520" y="109" font-size="12" fill="#818cf8">Pending:</text>
+  <rect x="590" y="95" width="70" height="18" rx="9" fill="#1a3a2e" stroke="#6ee7b7" stroke-width="1"/>
+  <text x="625" y="108" font-size="10" fill="#6ee7b7" text-anchor="middle">+ Outdoor</text>
+  <rect x="668" y="95" width="64" height="18" rx="9" fill="#3b1a1a" stroke="#fca5a5" stroke-width="1"/>
+  <text x="700" y="108" font-size="10" fill="#fca5a5" text-anchor="middle">- Indoor</text>
+  <text x="1384" y="109" font-size="11" fill="#475569" text-anchor="end">2 changes</text>
+
+  <!-- ==================== TAG TREE (3 columns) ==================== -->
+  <!-- Column 1: Scenes -->
+  <g transform="translate(84, 132)">
+    <text x="0" y="16" font-size="14" fill="#f1f5f9" font-weight="600">Scenes</text>
+
+    <!-- Adding (green) -->
+    <g transform="translate(0, 26)">
+      <rect x="0" y="0" width="420" height="32" rx="6" fill="#0a2e1a" stroke="#6ee7b7" stroke-width="1"/>
+      <rect x="8" y="8" width="16" height="16" rx="4" fill="#6ee7b7"/>
+      <text x="16" y="20" font-size="10" fill="#0a0a0f" text-anchor="middle">V</text>
+      <text x="32" y="20" font-size="13" fill="#6ee7b7">Outdoor</text>
+      <text x="140" y="20" font-size="10" fill="#6ee7b7">adding to all 8</text>
+      <text x="406" y="20" font-size="11" fill="#64748b" text-anchor="end">124</text>
+    </g>
+
+    <!-- Removing (red) -->
+    <g transform="translate(0, 64)">
+      <rect x="0" y="0" width="420" height="32" rx="6" fill="#2e0a0a" stroke="#fca5a5" stroke-width="1"/>
+      <rect x="8" y="8" width="16" height="16" rx="4" fill="transparent" stroke="#fca5a5" stroke-width="1.5"/>
+      <text x="32" y="20" font-size="13" fill="#fca5a5" text-decoration="line-through">Indoor</text>
+      <text x="130" y="20" font-size="10" fill="#fca5a5">removing from all 8</text>
+      <text x="406" y="20" font-size="11" fill="#64748b" text-anchor="end">98</text>
+    </g>
+
+    <!-- Unchecked -->
+    <g transform="translate(0, 102)">
+      <rect x="0" y="0" width="420" height="32" rx="6" fill="#1e1e2e"/>
+      <rect x="8" y="8" width="16" height="16" rx="4" fill="transparent" stroke="#2d2d3f" stroke-width="1.5"/>
+      <text x="32" y="20" font-size="13" fill="#f1f5f9">Action</text>
+      <text x="406" y="20" font-size="11" fill="#64748b" text-anchor="end">156</text>
+    </g>
+
+    <g transform="translate(0, 140)">
+      <rect x="0" y="0" width="420" height="32" rx="6" fill="#1e1e2e"/>
+      <rect x="8" y="8" width="16" height="16" rx="4" fill="transparent" stroke="#2d2d3f" stroke-width="1.5"/>
+      <text x="32" y="20" font-size="13" fill="#f1f5f9">Romance</text>
+      <text x="406" y="20" font-size="11" fill="#64748b" text-anchor="end">42</text>
+    </g>
+
+    <g transform="translate(0, 178)">
+      <rect x="0" y="0" width="420" height="32" rx="6" fill="#1e1e2e"/>
+      <rect x="8" y="8" width="16" height="16" rx="4" fill="transparent" stroke="#2d2d3f" stroke-width="1.5"/>
+      <text x="32" y="20" font-size="13" fill="#f1f5f9">Comedy</text>
+      <text x="406" y="20" font-size="11" fill="#64748b" text-anchor="end">67</text>
+    </g>
+
+    <g transform="translate(0, 216)">
+      <rect x="0" y="0" width="420" height="32" rx="6" fill="#1e1e2e"/>
+      <rect x="8" y="8" width="16" height="16" rx="4" fill="transparent" stroke="#2d2d3f" stroke-width="1.5"/>
+      <text x="32" y="20" font-size="13" fill="#f1f5f9">Fantasy</text>
+      <text x="406" y="20" font-size="11" fill="#64748b" text-anchor="end">78</text>
+    </g>
+
+    <g transform="translate(0, 254)">
+      <rect x="0" y="0" width="420" height="32" rx="6" fill="#1e1e2e"/>
+      <rect x="8" y="8" width="16" height="16" rx="4" fill="transparent" stroke="#2d2d3f" stroke-width="1.5"/>
+      <text x="32" y="20" font-size="13" fill="#f1f5f9">Slice of Life</text>
+      <text x="406" y="20" font-size="11" fill="#64748b" text-anchor="end">45</text>
+    </g>
+  </g>
+
+  <!-- Column 2: Locations -->
+  <g transform="translate(530, 132)">
+    <text x="0" y="16" font-size="14" fill="#f1f5f9" font-weight="600">Locations</text>
+
+    <!-- Checked -->
+    <g transform="translate(0, 26)">
+      <rect x="0" y="0" width="420" height="32" rx="6" fill="#1e1e2e"/>
+      <rect x="8" y="8" width="16" height="16" rx="4" fill="#818cf8"/>
+      <text x="16" y="20" font-size="10" fill="#fff" text-anchor="middle">V</text>
+      <text x="32" y="20" font-size="13" fill="#f1f5f9">School</text>
+      <text x="406" y="20" font-size="11" fill="#64748b" text-anchor="end">89</text>
+    </g>
+
+    <g transform="translate(0, 64)">
+      <rect x="0" y="0" width="420" height="32" rx="6" fill="#1e1e2e"/>
+      <rect x="8" y="8" width="16" height="16" rx="4" fill="transparent" stroke="#2d2d3f" stroke-width="1.5"/>
+      <text x="32" y="20" font-size="13" fill="#f1f5f9">City</text>
+      <text x="406" y="20" font-size="11" fill="#64748b" text-anchor="end">67</text>
+    </g>
+
+    <g transform="translate(0, 102)">
+      <rect x="0" y="0" width="420" height="32" rx="6" fill="#1e1e2e"/>
+      <rect x="8" y="8" width="16" height="16" rx="4" fill="transparent" stroke="#2d2d3f" stroke-width="1.5"/>
+      <text x="32" y="20" font-size="13" fill="#f1f5f9">Forest</text>
+      <text x="406" y="20" font-size="11" fill="#64748b" text-anchor="end">34</text>
+    </g>
+
+    <g transform="translate(0, 140)">
+      <rect x="0" y="0" width="420" height="32" rx="6" fill="#1e1e2e"/>
+      <rect x="8" y="8" width="16" height="16" rx="4" fill="transparent" stroke="#2d2d3f" stroke-width="1.5"/>
+      <text x="32" y="20" font-size="13" fill="#f1f5f9">Beach</text>
+      <text x="406" y="20" font-size="11" fill="#64748b" text-anchor="end">15</text>
+    </g>
+  </g>
+
+  <!-- Column 3: Mood/Weather -->
+  <g transform="translate(976, 132)">
+    <text x="0" y="16" font-size="14" fill="#f1f5f9" font-weight="600">Mood / Weather</text>
+
+    <!-- Indeterminate -->
+    <g transform="translate(0, 26)">
+      <rect x="0" y="0" width="420" height="32" rx="6" fill="#1e1e2e"/>
+      <rect x="8" y="8" width="16" height="16" rx="4" fill="transparent" stroke="#818cf8" stroke-width="1.5"/>
+      <line x1="11" y1="16" x2="21" y2="16" stroke="#818cf8" stroke-width="2"/>
+      <text x="32" y="20" font-size="13" fill="#f1f5f9">Battle</text>
+      <text x="100" y="20" font-size="10" fill="#475569">(5 of 8)</text>
+      <text x="406" y="20" font-size="11" fill="#64748b" text-anchor="end">112</text>
+    </g>
+
+    <g transform="translate(0, 64)">
+      <rect x="0" y="0" width="420" height="32" rx="6" fill="#1e1e2e"/>
+      <rect x="8" y="8" width="16" height="16" rx="4" fill="transparent" stroke="#2d2d3f" stroke-width="1.5"/>
+      <text x="32" y="20" font-size="13" fill="#f1f5f9">Sunset</text>
+      <text x="406" y="20" font-size="11" fill="#64748b" text-anchor="end">28</text>
+    </g>
+
+    <g transform="translate(0, 102)">
+      <rect x="0" y="0" width="420" height="32" rx="6" fill="#1e1e2e"/>
+      <rect x="8" y="8" width="16" height="16" rx="4" fill="transparent" stroke="#2d2d3f" stroke-width="1.5"/>
+      <text x="32" y="20" font-size="13" fill="#f1f5f9">Night</text>
+      <text x="406" y="20" font-size="11" fill="#64748b" text-anchor="end">56</text>
+    </g>
+
+    <g transform="translate(0, 140)">
+      <rect x="0" y="0" width="420" height="32" rx="6" fill="#1e1e2e"/>
+      <rect x="8" y="8" width="16" height="16" rx="4" fill="transparent" stroke="#2d2d3f" stroke-width="1.5"/>
+      <text x="32" y="20" font-size="13" fill="#f1f5f9">Rain</text>
+      <text x="406" y="20" font-size="11" fill="#64748b" text-anchor="end">19</text>
+    </g>
+  </g>
+
+  <!-- Annotation -->
+  <text x="752" y="893" class="label" text-anchor="middle">Manual tag editor -- No ML -- Full-width 3-column layout with tri-state checkboxes -- Green=adding, Red=removing</text>
+</svg>

@@ -203,10 +203,10 @@ func TestFileClient_FindDirectChildDirectories(t *testing.T) {
 	movieYear := uint(2023)
 	files := []File{
 		{ID: 5001, ParentID: 0, Name: "anime-root", Type: FileTypeDirectory},
-		{ID: 5002, ParentID: 5001, Name: "Season 2", Type: FileTypeDirectory, EntryType: EntryTypeSeason, EntryNumber: &season2Num},
-		{ID: 5003, ParentID: 5001, Name: "Season 1", Type: FileTypeDirectory, EntryType: EntryTypeSeason, EntryNumber: &season1Num},
-		{ID: 5004, ParentID: 5001, Name: "The Movie", Type: FileTypeDirectory, EntryType: EntryTypeMovie, EntryNumber: &movieYear},
-		{ID: 5005, ParentID: 5001, Name: "Specials", Type: FileTypeDirectory, EntryType: EntryTypeOther},
+		{ID: 5002, ParentID: 5001, Name: "Season 2", Type: FileTypeDirectory, SeasonType: SeasonTypeSeason, SeasonNumber: &season2Num},
+		{ID: 5003, ParentID: 5001, Name: "Season 1", Type: FileTypeDirectory, SeasonType: SeasonTypeSeason, SeasonNumber: &season1Num},
+		{ID: 5004, ParentID: 5001, Name: "The Movie", Type: FileTypeDirectory, SeasonType: SeasonTypeMovie, SeasonNumber: &movieYear},
+		{ID: 5005, ParentID: 5001, Name: "Specials", Type: FileTypeDirectory, SeasonType: SeasonTypeOther},
 		{ID: 5006, ParentID: 5001, Name: "Legacy Folder", Type: FileTypeDirectory},
 		{ID: 5007, ParentID: 5001, Name: "img.jpg", Type: FileTypeImage}, // should be excluded
 		{ID: 5008, ParentID: 5002, Name: "Part 1", Type: FileTypeDirectory},
@@ -242,7 +242,7 @@ func TestFileClient_FindDirectChildDirectories(t *testing.T) {
 	})
 }
 
-func TestFileClient_UpdateEntryFields(t *testing.T) {
+func TestFileClient_UpdateSeasonFields(t *testing.T) {
 	testClient := NewTestClient(t)
 	testClient.Truncate(t, File{})
 
@@ -250,7 +250,7 @@ func TestFileClient_UpdateEntryFields(t *testing.T) {
 	files := []File{
 		{ID: 6001, ParentID: 0, Name: "anime-root", Type: FileTypeDirectory},
 		{ID: 6002, ParentID: 6001, Name: "Legacy Folder", Type: FileTypeDirectory},
-		{ID: 6003, ParentID: 6001, Name: "Season 1", Type: FileTypeDirectory, EntryType: EntryTypeSeason, EntryNumber: &season1Num},
+		{ID: 6003, ParentID: 6001, Name: "Season 1", Type: FileTypeDirectory, SeasonType: SeasonTypeSeason, SeasonNumber: &season1Num},
 	}
 	LoadTestData(t, testClient, files)
 
@@ -259,37 +259,37 @@ func TestFileClient_UpdateEntryFields(t *testing.T) {
 
 	t.Run("sets entry_type and entry_number on legacy folder", func(t *testing.T) {
 		num := uint(2)
-		err := fileClient.UpdateEntryFields(ctx, 6002, EntryTypeSeason, &num)
+		err := fileClient.UpdateSeasonFields(ctx, 6002, SeasonTypeSeason, &num)
 		assert.NoError(t, err)
 
 		// Verify the update
 		got, err := fileClient.FindByValue(ctx, &File{ID: 6002})
 		require.NoError(t, err)
-		assert.Equal(t, EntryTypeSeason, got.EntryType)
-		require.NotNil(t, got.EntryNumber)
-		assert.Equal(t, uint(2), *got.EntryNumber)
+		assert.Equal(t, SeasonTypeSeason, got.SeasonType)
+		require.NotNil(t, got.SeasonNumber)
+		assert.Equal(t, uint(2), *got.SeasonNumber)
 	})
 
 	t.Run("sets entry_type with nil entry_number", func(t *testing.T) {
-		err := fileClient.UpdateEntryFields(ctx, 6002, EntryTypeOther, nil)
+		err := fileClient.UpdateSeasonFields(ctx, 6002, SeasonTypeOther, nil)
 		assert.NoError(t, err)
 
 		got, err := fileClient.FindByValue(ctx, &File{ID: 6002})
 		require.NoError(t, err)
-		assert.Equal(t, EntryTypeOther, got.EntryType)
-		assert.Nil(t, got.EntryNumber)
+		assert.Equal(t, SeasonTypeOther, got.SeasonType)
+		assert.Nil(t, got.SeasonNumber)
 	})
 
-	t.Run("overwrites existing entry fields", func(t *testing.T) {
+	t.Run("overwrites existing season fields", func(t *testing.T) {
 		num := uint(2024)
-		err := fileClient.UpdateEntryFields(ctx, 6003, EntryTypeMovie, &num)
+		err := fileClient.UpdateSeasonFields(ctx, 6003, SeasonTypeMovie, &num)
 		assert.NoError(t, err)
 
 		got, err := fileClient.FindByValue(ctx, &File{ID: 6003})
 		require.NoError(t, err)
-		assert.Equal(t, EntryTypeMovie, got.EntryType)
-		require.NotNil(t, got.EntryNumber)
-		assert.Equal(t, uint(2024), *got.EntryNumber)
+		assert.Equal(t, SeasonTypeMovie, got.SeasonType)
+		require.NotNil(t, got.SeasonNumber)
+		assert.Equal(t, uint(2024), *got.SeasonNumber)
 	})
 }
 

@@ -1,0 +1,33 @@
+<svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 11px; fill: #555; }
+    </style>
+  </defs>
+
+  <!-- Full-screen dark background -->
+  <rect width="1440" height="900" fill="#0a0a0f"/>
+
+  <!-- ==================== MAIN IMAGE (fills the screen) ==================== -->
+  <rect x="80" y="40" width="1280" height="820" rx="4" fill="#1a1a2e"/>
+  <text x="720" y="440" font-size="18" fill="#475569" text-anchor="middle">Image Content</text>
+  <text x="720" y="466" font-size="12" fill="#2d2d3f" text-anchor="middle">Zoom with scroll / pinch -- Pan with drag</text>
+
+  <!-- ==================== CLOSE BUTTON (top-left, always visible) ==================== -->
+  <rect x="16" y="16" width="36" height="36" rx="18" fill="rgba(30,30,46,0.8)"/>
+  <text x="34" y="40" font-size="18" fill="#f1f5f9" text-anchor="middle">X</text>
+
+  <!-- ==================== LEFT NAV ARROW (subtle, appears on hover) ==================== -->
+  <rect x="20" y="424" width="44" height="44" rx="22" fill="rgba(30,30,46,0.6)"/>
+  <text x="38" y="452" font-size="22" fill="#f1f5f9" text-anchor="middle" opacity="0.8">&lt;</text>
+
+  <!-- ==================== RIGHT NAV ARROW (subtle, appears on hover) ==================== -->
+  <rect x="1376" y="424" width="44" height="44" rx="22" fill="rgba(30,30,46,0.6)"/>
+  <text x="1398" y="452" font-size="22" fill="#f1f5f9" text-anchor="middle" opacity="0.8">&gt;</text>
+
+  <!-- That's it. No counter. No filename. No zoom controls. No tag panel. No thumbnails. No keyboard hints. -->
+
+  <!-- Annotation -->
+  <text x="720" y="893" class="label" text-anchor="middle">Minimal viewer: full-screen image + close button (X) + subtle left/right arrows on hover -- Nothing else</text>
+</svg>

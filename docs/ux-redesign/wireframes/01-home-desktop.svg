@@ -1,0 +1,310 @@
+<svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 11px; fill: #555; }
+    </style>
+    <linearGradient id="cardGrad1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="50%" stop-color="transparent"/>
+      <stop offset="100%" stop-color="rgba(0,0,0,0.85)"/>
+    </linearGradient>
+    <linearGradient id="cardGrad2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="50%" stop-color="transparent"/>
+      <stop offset="100%" stop-color="rgba(0,0,0,0.85)"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1440" height="900" fill="#0f0f14"/>
+
+  <!-- ==================== ICON RAIL SIDEBAR (64px) ==================== -->
+  <rect x="0" y="0" width="64" height="900" fill="#16161e"/>
+
+  <!-- App logo -->
+  <rect x="12" y="14" width="40" height="40" rx="10" fill="#818cf8"/>
+  <text x="32" y="40" font-size="20" fill="#fff" font-weight="700" text-anchor="middle">A</text>
+
+  <!-- Home (active) -->
+  <g transform="translate(0, 72)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="#1e1e2e"/>
+    <rect x="20" y="10" width="24" height="18" rx="3" fill="none" stroke="#818cf8" stroke-width="2"/>
+    <rect x="23" y="15" width="8" height="10" rx="1.5" fill="#818cf8" opacity="0.4"/>
+    <rect x="33" y="15" width="8" height="10" rx="1.5" fill="#818cf8" opacity="0.4"/>
+    <text x="32" y="68" font-size="11" fill="#818cf8" text-anchor="middle" font-weight="500">Home</text>
+  </g>
+
+  <!-- Search -->
+  <g transform="translate(0, 156)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="transparent"/>
+    <circle cx="29" cy="23" r="9" fill="none" stroke="#64748b" stroke-width="2"/>
+    <line x1="35" y1="29" x2="43" y2="37" stroke="#64748b" stroke-width="2"/>
+    <text x="32" y="68" font-size="11" fill="#64748b" text-anchor="middle">Search</text>
+  </g>
+
+  <!-- Tags -->
+  <g transform="translate(0, 240)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="transparent"/>
+    <rect x="18" y="12" width="22" height="16" rx="5" fill="none" stroke="#64748b" stroke-width="2" transform="rotate(-8, 29, 20)"/>
+    <circle cx="26" cy="20" r="2.5" fill="#64748b"/>
+    <text x="32" y="68" font-size="11" fill="#64748b" text-anchor="middle">Tags</text>
+  </g>
+
+  <!-- Divider -->
+  <line x1="16" y1="330" x2="48" y2="330" stroke="#2d2d3f" stroke-width="1"/>
+
+  <!-- Settings -->
+  <g transform="translate(0, 346)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="transparent"/>
+    <circle cx="32" cy="23" r="11" fill="none" stroke="#64748b" stroke-width="2"/>
+    <circle cx="32" cy="23" r="4" fill="#64748b"/>
+    <text x="32" y="68" font-size="11" fill="#64748b" text-anchor="middle">Settings</text>
+  </g>
+
+  <!-- ==================== MAIN CONTENT AREA ==================== -->
+
+  <!-- Compact top bar -->
+  <rect x="64" y="0" width="1376" height="52" fill="#16161e"/>
+
+  <!-- Page title and stats (left) -->
+  <text x="84" y="22" font-size="16" fill="#f1f5f9" font-weight="700">Home</text>
+  <text x="84" y="40" font-size="11" fill="#64748b">24 anime -- 1,847 images</text>
+
+  <!-- Search bar (center) -->
+  <rect x="400" y="10" width="500" height="32" rx="16" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <circle cx="418" cy="26" r="6" fill="none" stroke="#475569" stroke-width="1.5"/>
+  <line x1="422" y1="30" x2="426" y2="34" stroke="#475569" stroke-width="1.5"/>
+  <text x="434" y="30" font-size="12" fill="#475569">Search anything... Ctrl+K</text>
+
+  <!-- Action buttons (right) -->
+  <rect x="1220" y="12" width="100" height="28" rx="8" fill="#818cf8"/>
+  <text x="1270" y="31" font-size="12" fill="#fff" text-anchor="middle" font-weight="500">+ Add Anime</text>
+
+  <rect x="1330" y="12" width="80" height="28" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1370" y="31" font-size="12" fill="#94a3b8" text-anchor="middle">Import</text>
+
+  <!-- ==================== ANIME CARD GRID (Netflix-style cover cards) ==================== -->
+  <!-- Filter/Sort row -->
+  <rect x="84" y="62" width="120" height="26" rx="13" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="100" y="79" font-size="11" fill="#64748b">Sort: A-Z</text>
+  <text x="188" y="79" font-size="11" fill="#475569">v</text>
+
+  <rect x="214" y="62" width="100" height="26" rx="13" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="230" y="79" font-size="11" fill="#64748b">Filter...</text>
+
+  <!-- Row 1: 5 cards across -->
+  <!-- Card 1: Attack on Titan -->
+  <g transform="translate(84, 98)">
+    <rect width="252" height="170" rx="10" fill="#312e81"/>
+    <!-- Gradient overlay for text -->
+    <rect width="252" height="170" rx="10" fill="url(#cardGrad1)"/>
+    <text x="126" y="70" font-size="12" fill="#818cf8" text-anchor="middle" opacity="0.6">Cover Image</text>
+    <!-- Name overlaid at bottom -->
+    <text x="12" y="146" font-size="14" fill="#f1f5f9" font-weight="600">Attack on Titan</text>
+    <text x="12" y="162" font-size="10" fill="#94a3b8">342 images</text>
+    <!-- Image count badge -->
+    <rect x="206" y="8" width="38" height="18" rx="9" fill="rgba(0,0,0,0.6)"/>
+    <text x="225" y="21" font-size="10" fill="#f1f5f9" text-anchor="middle">342</text>
+  </g>
+
+  <!-- Card 2: Spy x Family -->
+  <g transform="translate(350, 98)">
+    <rect width="252" height="170" rx="10" fill="#831843"/>
+    <rect width="252" height="170" rx="10" fill="url(#cardGrad1)"/>
+    <text x="126" y="70" font-size="12" fill="#f9a8d4" text-anchor="middle" opacity="0.6">Cover Image</text>
+    <text x="12" y="146" font-size="14" fill="#f1f5f9" font-weight="600">Spy x Family</text>
+    <text x="12" y="162" font-size="10" fill="#94a3b8">218 images</text>
+    <rect x="206" y="8" width="38" height="18" rx="9" fill="rgba(0,0,0,0.6)"/>
+    <text x="225" y="21" font-size="10" fill="#f1f5f9" text-anchor="middle">218</text>
+  </g>
+
+  <!-- Card 3: Jujutsu Kaisen -->
+  <g transform="translate(616, 98)">
+    <rect width="252" height="170" rx="10" fill="#14532d"/>
+    <rect width="252" height="170" rx="10" fill="url(#cardGrad1)"/>
+    <text x="126" y="70" font-size="12" fill="#6ee7b7" text-anchor="middle" opacity="0.6">Cover Image</text>
+    <text x="12" y="146" font-size="14" fill="#f1f5f9" font-weight="600">Jujutsu Kaisen</text>
+    <text x="12" y="162" font-size="10" fill="#94a3b8">187 images</text>
+    <rect x="206" y="8" width="38" height="18" rx="9" fill="rgba(0,0,0,0.6)"/>
+    <text x="225" y="21" font-size="10" fill="#f1f5f9" text-anchor="middle">187</text>
+  </g>
+
+  <!-- Card 4: Demon Slayer -->
+  <g transform="translate(882, 98)">
+    <rect width="252" height="170" rx="10" fill="#713f12"/>
+    <rect width="252" height="170" rx="10" fill="url(#cardGrad1)"/>
+    <text x="126" y="70" font-size="12" fill="#fcd34d" text-anchor="middle" opacity="0.6">Cover Image</text>
+    <text x="12" y="146" font-size="14" fill="#f1f5f9" font-weight="600">Demon Slayer</text>
+    <text x="12" y="162" font-size="10" fill="#94a3b8">276 images</text>
+    <rect x="206" y="8" width="38" height="18" rx="9" fill="rgba(0,0,0,0.6)"/>
+    <text x="225" y="21" font-size="10" fill="#f1f5f9" text-anchor="middle">276</text>
+  </g>
+
+  <!-- Card 5: Frieren -->
+  <g transform="translate(1148, 98)">
+    <rect width="252" height="170" rx="10" fill="#3b0764"/>
+    <rect width="252" height="170" rx="10" fill="url(#cardGrad1)"/>
+    <text x="126" y="70" font-size="12" fill="#c4b5fd" text-anchor="middle" opacity="0.6">Cover Image</text>
+    <text x="12" y="146" font-size="14" fill="#f1f5f9" font-weight="600">Frieren</text>
+    <text x="12" y="162" font-size="10" fill="#94a3b8">156 images</text>
+    <rect x="206" y="8" width="38" height="18" rx="9" fill="rgba(0,0,0,0.6)"/>
+    <text x="225" y="21" font-size="10" fill="#f1f5f9" text-anchor="middle">156</text>
+  </g>
+
+  <!-- Row 2 -->
+  <!-- Card 6: Chainsaw Man -->
+  <g transform="translate(84, 282)">
+    <rect width="252" height="170" rx="10" fill="#1c1917"/>
+    <rect width="252" height="170" rx="10" fill="url(#cardGrad2)"/>
+    <text x="126" y="70" font-size="12" fill="#a8a29e" text-anchor="middle" opacity="0.6">Cover Image</text>
+    <text x="12" y="146" font-size="14" fill="#f1f5f9" font-weight="600">Chainsaw Man</text>
+    <text x="12" y="162" font-size="10" fill="#94a3b8">94 images</text>
+    <rect x="210" y="8" width="34" height="18" rx="9" fill="rgba(0,0,0,0.6)"/>
+    <text x="227" y="21" font-size="10" fill="#f1f5f9" text-anchor="middle">94</text>
+  </g>
+
+  <!-- Card 7: Bocchi the Rock! -->
+  <g transform="translate(350, 282)">
+    <rect width="252" height="170" rx="10" fill="#881337"/>
+    <rect width="252" height="170" rx="10" fill="url(#cardGrad2)"/>
+    <text x="126" y="70" font-size="12" fill="#fb7185" text-anchor="middle" opacity="0.6">Cover Image</text>
+    <text x="12" y="146" font-size="14" fill="#f1f5f9" font-weight="600">Bocchi the Rock!</text>
+    <text x="12" y="162" font-size="10" fill="#94a3b8">112 images</text>
+    <rect x="206" y="8" width="38" height="18" rx="9" fill="rgba(0,0,0,0.6)"/>
+    <text x="225" y="21" font-size="10" fill="#f1f5f9" text-anchor="middle">112</text>
+  </g>
+
+  <!-- Card 8: Oshi no Ko -->
+  <g transform="translate(616, 282)">
+    <rect width="252" height="170" rx="10" fill="#134e4a"/>
+    <rect width="252" height="170" rx="10" fill="url(#cardGrad2)"/>
+    <text x="126" y="70" font-size="12" fill="#5eead4" text-anchor="middle" opacity="0.6">Cover Image</text>
+    <text x="12" y="146" font-size="14" fill="#f1f5f9" font-weight="600">Oshi no Ko</text>
+    <text x="12" y="162" font-size="10" fill="#94a3b8">203 images</text>
+    <rect x="206" y="8" width="38" height="18" rx="9" fill="rgba(0,0,0,0.6)"/>
+    <text x="225" y="21" font-size="10" fill="#f1f5f9" text-anchor="middle">203</text>
+  </g>
+
+  <!-- Card 9: My Hero Academia -->
+  <g transform="translate(882, 282)">
+    <rect width="252" height="170" rx="10" fill="#7f1d1d"/>
+    <rect width="252" height="170" rx="10" fill="url(#cardGrad2)"/>
+    <text x="126" y="70" font-size="12" fill="#fca5a5" text-anchor="middle" opacity="0.6">Cover Image</text>
+    <text x="12" y="146" font-size="14" fill="#f1f5f9" font-weight="600">My Hero Academia</text>
+    <text x="12" y="162" font-size="10" fill="#94a3b8">259 images</text>
+    <rect x="206" y="8" width="38" height="18" rx="9" fill="rgba(0,0,0,0.6)"/>
+    <text x="225" y="21" font-size="10" fill="#f1f5f9" text-anchor="middle">259</text>
+  </g>
+
+  <!-- Card 10: Violet Evergarden -->
+  <g transform="translate(1148, 282)">
+    <rect width="252" height="170" rx="10" fill="#1e3a5f"/>
+    <rect width="252" height="170" rx="10" fill="url(#cardGrad2)"/>
+    <text x="126" y="70" font-size="12" fill="#7dd3fc" text-anchor="middle" opacity="0.6">Cover Image</text>
+    <text x="12" y="146" font-size="14" fill="#f1f5f9" font-weight="600">Violet Evergarden</text>
+    <text x="12" y="162" font-size="10" fill="#94a3b8">180 images</text>
+    <rect x="206" y="8" width="38" height="18" rx="9" fill="rgba(0,0,0,0.6)"/>
+    <text x="225" y="21" font-size="10" fill="#f1f5f9" text-anchor="middle">180</text>
+  </g>
+
+  <!-- Row 3 -->
+  <g transform="translate(84, 466)">
+    <rect width="252" height="170" rx="10" fill="#4a1d96"/>
+    <rect width="252" height="170" rx="10" fill="url(#cardGrad1)"/>
+    <text x="126" y="70" font-size="12" fill="#a78bfa" text-anchor="middle" opacity="0.6">Cover Image</text>
+    <text x="12" y="146" font-size="14" fill="#f1f5f9" font-weight="600">Mob Psycho 100</text>
+    <text x="12" y="162" font-size="10" fill="#94a3b8">134 images</text>
+    <rect x="206" y="8" width="38" height="18" rx="9" fill="rgba(0,0,0,0.6)"/>
+    <text x="225" y="21" font-size="10" fill="#f1f5f9" text-anchor="middle">134</text>
+  </g>
+
+  <g transform="translate(350, 466)">
+    <rect width="252" height="170" rx="10" fill="#365314"/>
+    <rect width="252" height="170" rx="10" fill="url(#cardGrad1)"/>
+    <text x="126" y="70" font-size="12" fill="#a3e635" text-anchor="middle" opacity="0.6">Cover Image</text>
+    <text x="12" y="146" font-size="14" fill="#f1f5f9" font-weight="600">Vinland Saga</text>
+    <text x="12" y="162" font-size="10" fill="#94a3b8">98 images</text>
+    <rect x="210" y="8" width="34" height="18" rx="9" fill="rgba(0,0,0,0.6)"/>
+    <text x="227" y="21" font-size="10" fill="#f1f5f9" text-anchor="middle">98</text>
+  </g>
+
+  <g transform="translate(616, 466)">
+    <rect width="252" height="170" rx="10" fill="#312e81"/>
+    <rect width="252" height="170" rx="10" fill="url(#cardGrad1)"/>
+    <text x="126" y="70" font-size="12" fill="#818cf8" text-anchor="middle" opacity="0.6">Cover Image</text>
+    <text x="12" y="146" font-size="14" fill="#f1f5f9" font-weight="600">Solo Leveling</text>
+    <text x="12" y="162" font-size="10" fill="#94a3b8">67 images</text>
+    <rect x="210" y="8" width="34" height="18" rx="9" fill="rgba(0,0,0,0.6)"/>
+    <text x="227" y="21" font-size="10" fill="#f1f5f9" text-anchor="middle">67</text>
+  </g>
+
+  <g transform="translate(882, 466)">
+    <rect width="252" height="170" rx="10" fill="#78350f"/>
+    <rect width="252" height="170" rx="10" fill="url(#cardGrad1)"/>
+    <text x="126" y="70" font-size="12" fill="#fbbf24" text-anchor="middle" opacity="0.6">Cover Image</text>
+    <text x="12" y="146" font-size="14" fill="#f1f5f9" font-weight="600">Made in Abyss</text>
+    <text x="12" y="162" font-size="10" fill="#94a3b8">145 images</text>
+    <rect x="206" y="8" width="38" height="18" rx="9" fill="rgba(0,0,0,0.6)"/>
+    <text x="225" y="21" font-size="10" fill="#f1f5f9" text-anchor="middle">145</text>
+  </g>
+
+  <g transform="translate(1148, 466)">
+    <rect width="252" height="170" rx="10" fill="#831843"/>
+    <rect width="252" height="170" rx="10" fill="url(#cardGrad1)"/>
+    <text x="126" y="70" font-size="12" fill="#f9a8d4" text-anchor="middle" opacity="0.6">Cover Image</text>
+    <text x="12" y="146" font-size="14" fill="#f1f5f9" font-weight="600">Kaguya-sama</text>
+    <text x="12" y="162" font-size="10" fill="#94a3b8">176 images</text>
+    <rect x="206" y="8" width="38" height="18" rx="9" fill="rgba(0,0,0,0.6)"/>
+    <text x="225" y="21" font-size="10" fill="#f1f5f9" text-anchor="middle">176</text>
+  </g>
+
+  <!-- Row 4 (partial, indicating scroll) -->
+  <g transform="translate(84, 650)">
+    <rect width="252" height="170" rx="10" fill="#14532d"/>
+    <rect width="252" height="170" rx="10" fill="url(#cardGrad2)"/>
+    <text x="126" y="70" font-size="12" fill="#6ee7b7" text-anchor="middle" opacity="0.6">Cover Image</text>
+    <text x="12" y="146" font-size="14" fill="#f1f5f9" font-weight="600">Dr. Stone</text>
+    <text x="12" y="162" font-size="10" fill="#94a3b8">88 images</text>
+  </g>
+
+  <g transform="translate(350, 650)">
+    <rect width="252" height="170" rx="10" fill="#713f12"/>
+    <rect width="252" height="170" rx="10" fill="url(#cardGrad2)"/>
+    <text x="126" y="70" font-size="12" fill="#fcd34d" text-anchor="middle" opacity="0.6">Cover Image</text>
+    <text x="12" y="146" font-size="14" fill="#f1f5f9" font-weight="600">Mashle</text>
+    <text x="12" y="162" font-size="10" fill="#94a3b8">52 images</text>
+  </g>
+
+  <g transform="translate(616, 650)">
+    <rect width="252" height="170" rx="10" fill="#1c1917"/>
+    <rect width="252" height="170" rx="10" fill="url(#cardGrad2)"/>
+    <text x="126" y="70" font-size="12" fill="#a8a29e" text-anchor="middle" opacity="0.6">Cover Image</text>
+    <text x="12" y="146" font-size="14" fill="#f1f5f9" font-weight="600">Dandadan</text>
+    <text x="12" y="162" font-size="10" fill="#94a3b8">41 images</text>
+  </g>
+
+  <g transform="translate(882, 650)">
+    <rect width="252" height="170" rx="10" fill="#881337"/>
+    <rect width="252" height="170" rx="10" fill="url(#cardGrad2)"/>
+    <text x="126" y="70" font-size="12" fill="#fb7185" text-anchor="middle" opacity="0.6">Cover Image</text>
+    <text x="12" y="146" font-size="14" fill="#f1f5f9" font-weight="600">Blue Lock</text>
+    <text x="12" y="162" font-size="10" fill="#94a3b8">73 images</text>
+  </g>
+
+  <g transform="translate(1148, 650)">
+    <rect width="252" height="170" rx="10" fill="#3b0764"/>
+    <rect width="252" height="170" rx="10" fill="url(#cardGrad2)"/>
+    <text x="126" y="70" font-size="12" fill="#c4b5fd" text-anchor="middle" opacity="0.6">Cover Image</text>
+    <text x="12" y="146" font-size="14" fill="#f1f5f9" font-weight="600">Re:Zero</text>
+    <text x="12" y="162" font-size="10" fill="#94a3b8">121 images</text>
+  </g>
+
+  <!-- Import progress toast (floating, bottom-right) -->
+  <rect x="1230" y="850" width="190" height="38" rx="10" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1246" y="868" font-size="11" fill="#f1f5f9">Importing "Frieren S2"...</text>
+  <rect x="1246" y="874" width="150" height="4" rx="2" fill="#2d2d3f"/>
+  <rect x="1246" y="874" width="90" height="4" rx="2" fill="#818cf8"/>
+  <text x="1408" y="870" font-size="10" fill="#64748b" text-anchor="end">60%</text>
+
+  <!-- Annotation -->
+  <text x="752" y="893" class="label" text-anchor="middle">64px icon rail -- Compact top bar -- Netflix-style cover grid with gradient overlay -- 5 columns at 1440px</text>
+</svg>

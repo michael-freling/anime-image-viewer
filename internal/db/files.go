@@ -14,9 +14,9 @@ const (
 	FileTypeDirectory FileType = "directory"
 	FileTypeImage     FileType = "image"
 
-	EntryTypeSeason = "season"
-	EntryTypeMovie  = "movie"
-	EntryTypeOther  = "other"
+	SeasonTypeSeason = "season"
+	SeasonTypeMovie  = "movie"
+	SeasonTypeOther  = "other"
 
 	AiringSeasonWinter = "WINTER"
 	AiringSeasonSpring = "SPRING"
@@ -39,18 +39,18 @@ type File struct {
 	// when an image is imported, a timestamp is copied from the source image file
 	ImageCreatedAt uint `gorm:"index:parent_id_image_created_at"`
 
-	// EntryType is the type of entry: "season", "movie", or "other".
-	// NULL for legacy folders or sub-entries.
-	EntryType string `gorm:"column:entry_type"`
+	// SeasonType is the type of season: "season", "movie", or "other".
+	// NULL for legacy folders or sub-seasons.
+	SeasonType string `gorm:"column:entry_type"`
 
-	// EntryNumber is the season number or movie year. NULL when not applicable.
-	EntryNumber *uint `gorm:"column:entry_number"`
+	// SeasonNumber is the season number or movie year. NULL when not applicable.
+	SeasonNumber *uint `gorm:"column:entry_number"`
 
 	// AiringSeason is the airing season: "WINTER", "SPRING", "SUMMER", "FALL".
 	// NULL when not applicable.
 	AiringSeason string `gorm:"column:airing_season"`
 
-	// AiringYear is the year the entry aired. NULL when not applicable.
+	// AiringYear is the year the season aired. NULL when not applicable.
 	AiringYear *uint `gorm:"column:airing_year"`
 
 	// ContentHash stores a hex-encoded SHA256 hash of the image file content.
@@ -178,7 +178,7 @@ func (client *FileClient) DeleteByIDs(ctx context.Context, ids []uint) error {
 }
 
 // FindDirectChildDirectories returns all directory-type children of a parent,
-// ordered by entry_type, entry_number, name.
+// ordered by season type (entry_type column), season number (entry_number column), name.
 func (client *FileClient) FindDirectChildDirectories(parentID uint) ([]File, error) {
 	var dirs []File
 	err := client.connection.
@@ -190,12 +190,12 @@ func (client *FileClient) FindDirectChildDirectories(parentID uint) ([]File, err
 	return dirs, err
 }
 
-// UpdateEntryFields updates entry_type and entry_number on the given file ID.
+// UpdateSeasonFields updates entry_type and entry_number on the given file ID.
 // Uses GORM's Updates with a map so that nil/zero values are properly saved.
-func (client *FileClient) UpdateEntryFields(ctx context.Context, fileID uint, entryType string, entryNumber *uint) error {
+func (client *FileClient) UpdateSeasonFields(ctx context.Context, fileID uint, seasonType string, seasonNumber *uint) error {
 	updates := map[string]any{
-		"entry_type":   entryType,
-		"entry_number": entryNumber,
+		"entry_type":   seasonType,
+		"entry_number": seasonNumber,
 	}
 	return client.getTransaction(ctx).
 		Model(&File{}).
@@ -235,6 +235,20 @@ func (client *FileClient) FindAllImageFiles() ([]File, error) {
 		Find(&images).
 		Error
 	return images, err
+}
+
+// MoveFiles updates the parent_id of all specified file IDs to the new parent.
+// It does not validate types or check for name conflicts — the caller is
+// responsible for those checks before calling this method.
+func (client *FileClient) MoveFiles(ctx context.Context, fileIDs []uint, newParentID uint) error {
+	if len(fileIDs) == 0 {
+		return nil
+	}
+	return client.getTransaction(ctx).
+		Model(&File{}).
+		Where("id IN ?", fileIDs).
+		Update("parent_id", newParentID).
+		Error
 }
 
 // UpdateContentHash sets the content_hash column for a single file record.

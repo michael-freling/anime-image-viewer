@@ -1,0 +1,153 @@
+<svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 11px; fill: #555; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1440" height="900" fill="#0f0f14"/>
+
+  <!-- Icon rail (64px) -->
+  <rect x="0" y="0" width="64" height="900" fill="#16161e"/>
+  <rect x="12" y="14" width="40" height="40" rx="10" fill="#818cf8"/>
+  <text x="32" y="40" font-size="20" fill="#fff" font-weight="700" text-anchor="middle">A</text>
+
+  <!-- ==================== SELECTION ACTION BAR ==================== -->
+  <rect x="64" y="0" width="1376" height="40" fill="#312e81"/>
+
+  <text x="84" y="26" font-size="14" fill="#f1f5f9" font-weight="600">5 selected</text>
+
+  <rect x="200" y="8" width="72" height="24" rx="6" fill="rgba(255,255,255,0.15)"/>
+  <text x="236" y="25" font-size="11" fill="#f1f5f9" text-anchor="middle">Select All</text>
+
+  <rect x="280" y="8" width="50" height="24" rx="6" fill="rgba(255,255,255,0.15)"/>
+  <text x="305" y="25" font-size="11" fill="#f1f5f9" text-anchor="middle">Clear</text>
+
+  <!-- Actions -->
+  <rect x="1250" y="8" width="80" height="24" rx="6" fill="#818cf8"/>
+  <text x="1290" y="25" font-size="12" fill="#fff" text-anchor="middle" font-weight="500">Edit Tags</text>
+
+  <rect x="1350" y="8" width="60" height="24" rx="6" fill="rgba(255,255,255,0.2)"/>
+  <text x="1380" y="25" font-size="12" fill="#f1f5f9" text-anchor="middle">Done</text>
+
+  <!-- ==================== IMAGE GRID WITH SELECT MODE ==================== -->
+  <!-- Image 1 (SELECTED) -->
+  <g transform="translate(84, 50)">
+    <rect width="260" height="174" rx="8" fill="#312e81" stroke="#818cf8" stroke-width="3"/>
+    <rect width="260" height="174" rx="8" fill="#818cf8" opacity="0.12"/>
+    <rect x="8" y="8" width="20" height="20" rx="5" fill="#818cf8"/>
+    <text x="18" y="23" font-size="12" fill="#fff" text-anchor="middle">V</text>
+    <text x="130" y="92" font-size="12" fill="#818cf8" text-anchor="middle">Image 1 (selected)</text>
+  </g>
+
+  <!-- Image 2 (SELECTED) -->
+  <g transform="translate(354, 50)">
+    <rect width="260" height="210" rx="8" fill="#831843" stroke="#818cf8" stroke-width="3"/>
+    <rect width="260" height="210" rx="8" fill="#818cf8" opacity="0.12"/>
+    <rect x="8" y="8" width="20" height="20" rx="5" fill="#818cf8"/>
+    <text x="18" y="23" font-size="12" fill="#fff" text-anchor="middle">V</text>
+    <text x="130" y="110" font-size="12" fill="#f9a8d4" text-anchor="middle">Image 2 (selected)</text>
+  </g>
+
+  <!-- Image 3 (NOT selected) -->
+  <g transform="translate(624, 50)">
+    <rect width="260" height="160" rx="8" fill="#14532d"/>
+    <rect x="8" y="8" width="20" height="20" rx="5" fill="rgba(10,10,15,0.5)" stroke="#64748b" stroke-width="1.5"/>
+    <text x="130" y="84" font-size="12" fill="#6ee7b7" text-anchor="middle">Image 3</text>
+  </g>
+
+  <!-- Image 4 (SELECTED) -->
+  <g transform="translate(894, 50)">
+    <rect width="260" height="194" rx="8" fill="#713f12" stroke="#818cf8" stroke-width="3"/>
+    <rect width="260" height="194" rx="8" fill="#818cf8" opacity="0.12"/>
+    <rect x="8" y="8" width="20" height="20" rx="5" fill="#818cf8"/>
+    <text x="18" y="23" font-size="12" fill="#fff" text-anchor="middle">V</text>
+    <text x="130" y="102" font-size="12" fill="#fcd34d" text-anchor="middle">Image 4 (selected)</text>
+  </g>
+
+  <!-- Image 5 (NOT selected) -->
+  <g transform="translate(1164, 50)">
+    <rect width="260" height="174" rx="8" fill="#3b0764"/>
+    <rect x="8" y="8" width="20" height="20" rx="5" fill="rgba(10,10,15,0.5)" stroke="#64748b" stroke-width="1.5"/>
+    <text x="130" y="92" font-size="12" fill="#c4b5fd" text-anchor="middle">Image 5</text>
+  </g>
+
+  <!-- Row 2 -->
+  <!-- Image 6 (INSIDE RUBBER BAND) -->
+  <g transform="translate(84, 234)">
+    <rect width="260" height="200" rx="8" fill="#1c1917" stroke="#818cf8" stroke-width="2" stroke-dasharray="6"/>
+    <rect width="260" height="200" rx="8" fill="#818cf8" opacity="0.08"/>
+    <rect x="8" y="8" width="20" height="20" rx="5" fill="#818cf8" opacity="0.6"/>
+    <text x="130" y="104" font-size="12" fill="#a8a29e" text-anchor="middle">Image 6 (lasso)</text>
+  </g>
+
+  <!-- Image 7 (INSIDE RUBBER BAND) -->
+  <g transform="translate(354, 270)">
+    <rect width="260" height="174" rx="8" fill="#881337" stroke="#818cf8" stroke-width="2" stroke-dasharray="6"/>
+    <rect width="260" height="174" rx="8" fill="#818cf8" opacity="0.08"/>
+    <rect x="8" y="8" width="20" height="20" rx="5" fill="#818cf8" opacity="0.6"/>
+    <text x="130" y="92" font-size="12" fill="#fb7185" text-anchor="middle">Image 7 (lasso)</text>
+  </g>
+
+  <!-- Image 8 -->
+  <g transform="translate(624, 220)">
+    <rect width="260" height="220" rx="8" fill="#134e4a"/>
+    <rect x="8" y="8" width="20" height="20" rx="5" fill="rgba(10,10,15,0.5)" stroke="#64748b" stroke-width="1.5"/>
+    <text x="130" y="114" font-size="12" fill="#5eead4" text-anchor="middle">Image 8</text>
+  </g>
+
+  <!-- Image 9 (SELECTED) -->
+  <g transform="translate(894, 254)">
+    <rect width="260" height="180" rx="8" fill="#7f1d1d" stroke="#818cf8" stroke-width="3"/>
+    <rect width="260" height="180" rx="8" fill="#818cf8" opacity="0.12"/>
+    <rect x="8" y="8" width="20" height="20" rx="5" fill="#818cf8"/>
+    <text x="18" y="23" font-size="12" fill="#fff" text-anchor="middle">V</text>
+    <text x="130" y="94" font-size="12" fill="#fca5a5" text-anchor="middle">Image 9 (selected)</text>
+  </g>
+
+  <g transform="translate(1164, 234)">
+    <rect width="260" height="200" rx="8" fill="#1e3a5f"/>
+    <rect x="8" y="8" width="20" height="20" rx="5" fill="rgba(10,10,15,0.5)" stroke="#64748b" stroke-width="1.5"/>
+    <text x="130" y="104" font-size="12" fill="#7dd3fc" text-anchor="middle">Image 10</text>
+  </g>
+
+  <!-- RUBBER BAND RECTANGLE -->
+  <rect x="64" y="220" width="620" height="260" rx="3" fill="#818cf8" opacity="0.06" stroke="#818cf8" stroke-width="1.5" stroke-dasharray="6 4"/>
+
+  <!-- Row 3 -->
+  <g transform="translate(84, 444)">
+    <rect width="260" height="174" rx="8" fill="#4a1d96"/>
+    <rect x="8" y="8" width="20" height="20" rx="5" fill="rgba(10,10,15,0.5)" stroke="#64748b" stroke-width="1.5"/>
+  </g>
+  <g transform="translate(354, 454)">
+    <rect width="260" height="194" rx="8" fill="#365314"/>
+    <rect x="8" y="8" width="20" height="20" rx="5" fill="rgba(10,10,15,0.5)" stroke="#64748b" stroke-width="1.5"/>
+  </g>
+  <g transform="translate(624, 450)">
+    <rect width="260" height="174" rx="8" fill="#312e81"/>
+    <rect x="8" y="8" width="20" height="20" rx="5" fill="rgba(10,10,15,0.5)" stroke="#64748b" stroke-width="1.5"/>
+  </g>
+  <g transform="translate(894, 444)">
+    <rect width="260" height="210" rx="8" fill="#831843"/>
+    <rect x="8" y="8" width="20" height="20" rx="5" fill="rgba(10,10,15,0.5)" stroke="#64748b" stroke-width="1.5"/>
+  </g>
+  <g transform="translate(1164, 444)">
+    <rect width="260" height="160" rx="8" fill="#78350f"/>
+    <rect x="8" y="8" width="20" height="20" rx="5" fill="rgba(10,10,15,0.5)" stroke="#64748b" stroke-width="1.5"/>
+  </g>
+
+  <!-- Hint bar -->
+  <rect x="480" y="860" width="480" height="28" rx="8" fill="#1e1e2e" opacity="0.8"/>
+  <text x="500" y="879" font-size="11" fill="#64748b">Click: toggle</text>
+  <text x="590" y="879" font-size="11" fill="#475569">|</text>
+  <text x="604" y="879" font-size="11" fill="#64748b">Shift+Click: range</text>
+  <text x="720" y="879" font-size="11" fill="#475569">|</text>
+  <text x="734" y="879" font-size="11" fill="#64748b">Ctrl+Click: add</text>
+  <text x="830" y="879" font-size="11" fill="#475569">|</text>
+  <text x="844" y="879" font-size="11" fill="#818cf8" font-weight="500">Drag: rubber band</text>
+
+  <!-- Annotation -->
+  <text x="752" y="893" class="label" text-anchor="middle">Select mode: rubber band lasso -- Dashed blue rect -- Selected=indigo border+tint -- 1440x900</text>
+</svg>

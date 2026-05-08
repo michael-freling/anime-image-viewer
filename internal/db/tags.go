@@ -47,6 +47,12 @@ func (client TagClient) FindTagsByAnimeID(animeID uint) (TagList, error) {
 
 // ClearAnimeIDByAnimeID sets anime_id to NULL on all tags whose anime_id
 // equals the provided id. Used when an anime is deleted.
+func (client TagClient) DeleteByID(ctx context.Context, id uint) error {
+	return client.getTransaction(ctx).
+		Delete(&Tag{}, id).
+		Error
+}
+
 func (client TagClient) ClearAnimeIDByAnimeID(ctx context.Context, animeID uint) error {
 	return client.getTransaction(ctx).
 		Model(&Tag{}).
@@ -136,7 +142,7 @@ func (tags FileTagList) ToFileMap() map[uint]map[uint]FileTag {
 
 func (client *FileTagClient) FindAllByFileID(fileIDs []uint) (FileTagList, error) {
 	var values []FileTag
-	err := client.connection.Where(map[string]interface{}{
+	err := client.connection.Where(map[string]any{
 		"file_id": fileIDs,
 	}).
 		Find(&values).

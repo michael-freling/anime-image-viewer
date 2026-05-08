@@ -1,0 +1,215 @@
+<svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+      .label { font-size: 11px; fill: #555; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1440" height="900" fill="#0f0f14"/>
+
+  <!-- ==================== ICON RAIL (64px) ==================== -->
+  <rect x="0" y="0" width="64" height="900" fill="#16161e"/>
+  <rect x="12" y="14" width="40" height="40" rx="10" fill="#818cf8"/>
+  <text x="32" y="40" font-size="20" fill="#fff" font-weight="700" text-anchor="middle">A</text>
+  <g transform="translate(0, 72)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="#1e1e2e"/>
+    <text x="32" y="68" font-size="11" fill="#818cf8" text-anchor="middle" font-weight="500">Home</text>
+  </g>
+  <g transform="translate(0, 148)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="transparent"/>
+    <text x="32" y="68" font-size="11" fill="#64748b" text-anchor="middle">Search</text>
+  </g>
+  <g transform="translate(0, 224)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="transparent"/>
+    <text x="32" y="68" font-size="11" fill="#64748b" text-anchor="middle">Tags</text>
+  </g>
+  <g transform="translate(0, 300)">
+    <rect x="6" y="0" width="52" height="52" rx="10" fill="transparent"/>
+    <text x="32" y="68" font-size="11" fill="#64748b" text-anchor="middle">Settings</text>
+  </g>
+
+  <!-- ==================== HEADER (52px) ==================== -->
+  <rect x="64" y="0" width="1376" height="52" fill="#16161e"/>
+
+  <!-- Breadcrumb -->
+  <text x="84" y="18" font-size="12" fill="#818cf8">Home</text>
+  <text x="118" y="18" font-size="12" fill="#475569">/</text>
+
+  <!-- Anime title and metadata -->
+  <text x="84" y="40" font-size="18" fill="#f1f5f9" font-weight="700">Attack on Titan</text>
+  <text x="270" y="40" font-size="12" fill="#64748b">4 entries · 342 images</text>
+
+  <!-- Action buttons (right side of header) -->
+  <rect x="1286" y="12" width="70" height="28" rx="8" fill="#818cf8"/>
+  <text x="1321" y="31" font-size="12" fill="#fff" text-anchor="middle" font-weight="500">Upload</text>
+
+  <rect x="1366" y="12" width="36" height="28" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1384" y="31" font-size="12" fill="#94a3b8" text-anchor="middle">...</text>
+
+  <!-- ==================== PRIMARY TAB BAR (38px) ==================== -->
+  <rect x="64" y="52" width="1376" height="38" fill="#0f0f14"/>
+  <line x1="64" y1="89" x2="1440" y2="89" stroke="#2d2d3f" stroke-width="1"/>
+
+  <!-- Images tab -->
+  <text x="84" y="77" font-size="13" fill="#64748b">Images</text>
+
+  <!-- Entries tab -->
+  <text x="152" y="77" font-size="13" fill="#64748b">Entries</text>
+
+  <!-- Characters tab (active) -->
+  <text x="220" y="77" font-size="13" fill="#818cf8" font-weight="600">Characters</text>
+  <rect x="220" y="82" width="74" height="2" rx="1" fill="#818cf8"/>
+
+  <!-- Tags tab -->
+  <text x="310" y="77" font-size="13" fill="#64748b">Tags</text>
+
+  <!-- Info tab -->
+  <text x="364" y="77" font-size="13" fill="#64748b">Info</text>
+
+  <!-- ==================== CHARACTERS TAB CONTENT ==================== -->
+
+  <!-- Toolbar row -->
+  <rect x="84" y="100" width="1336" height="40" fill="#0f0f14"/>
+
+  <!-- Search bar -->
+  <rect x="100" y="106" width="360" height="28" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="120" y="125" font-size="12" fill="#475569">Search characters...</text>
+
+  <!-- Character count -->
+  <text x="480" y="125" font-size="11" fill="#64748b">8 characters</text>
+
+  <!-- Edit Mode toggle (right side) -->
+  <rect x="1312" y="106" width="100" height="28" rx="8" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+  <text x="1362" y="125" font-size="11" fill="#94a3b8" text-anchor="middle">Edit Mode</text>
+
+  <!-- ==================== CHARACTER GRID (cards ~160px wide, 7 columns) ==================== -->
+
+  <!-- Row 1 -->
+  <!-- Card 1: Eren Yeager -->
+  <g transform="translate(100, 152)">
+    <rect width="172" height="190" rx="10" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <!-- Character image placeholder (circle) -->
+    <circle cx="86" cy="64" r="40" fill="#1a1a26" stroke="#2d2d3f" stroke-width="1"/>
+    <circle cx="86" cy="56" r="12" fill="#475569"/>
+    <ellipse cx="86" cy="78" rx="18" ry="12" fill="#475569"/>
+    <!-- AniList icon -->
+    <rect x="130" y="12" width="28" height="16" rx="4" fill="#312e81"/>
+    <text x="144" y="24" font-size="8" fill="#818cf8" text-anchor="middle">AL</text>
+    <!-- Character name -->
+    <text x="86" y="126" font-size="12" fill="#f1f5f9" text-anchor="middle" font-weight="500">Eren Yeager</text>
+    <!-- Role -->
+    <text x="86" y="144" font-size="10" fill="#64748b" text-anchor="middle">Main</text>
+    <!-- Image count -->
+    <text x="86" y="172" font-size="10" fill="#475569" text-anchor="middle">156 images</text>
+  </g>
+
+  <!-- Card 2: Mikasa Ackerman -->
+  <g transform="translate(286, 152)">
+    <rect width="172" height="190" rx="10" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <circle cx="86" cy="64" r="40" fill="#1a1a26" stroke="#2d2d3f" stroke-width="1"/>
+    <circle cx="86" cy="56" r="12" fill="#475569"/>
+    <ellipse cx="86" cy="78" rx="18" ry="12" fill="#475569"/>
+    <rect x="130" y="12" width="28" height="16" rx="4" fill="#312e81"/>
+    <text x="144" y="24" font-size="8" fill="#818cf8" text-anchor="middle">AL</text>
+    <text x="86" y="126" font-size="12" fill="#f1f5f9" text-anchor="middle" font-weight="500">Mikasa Ackerman</text>
+    <text x="86" y="144" font-size="10" fill="#64748b" text-anchor="middle">Main</text>
+    <text x="86" y="172" font-size="10" fill="#475569" text-anchor="middle">142 images</text>
+  </g>
+
+  <!-- Card 3: Armin Arlert -->
+  <g transform="translate(472, 152)">
+    <rect width="172" height="190" rx="10" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <circle cx="86" cy="64" r="40" fill="#1a1a26" stroke="#2d2d3f" stroke-width="1"/>
+    <circle cx="86" cy="56" r="12" fill="#475569"/>
+    <ellipse cx="86" cy="78" rx="18" ry="12" fill="#475569"/>
+    <rect x="130" y="12" width="28" height="16" rx="4" fill="#312e81"/>
+    <text x="144" y="24" font-size="8" fill="#818cf8" text-anchor="middle">AL</text>
+    <text x="86" y="126" font-size="12" fill="#f1f5f9" text-anchor="middle" font-weight="500">Armin Arlert</text>
+    <text x="86" y="144" font-size="10" fill="#64748b" text-anchor="middle">Main</text>
+    <text x="86" y="172" font-size="10" fill="#475569" text-anchor="middle">89 images</text>
+  </g>
+
+  <!-- Card 4: Levi Ackerman -->
+  <g transform="translate(658, 152)">
+    <rect width="172" height="190" rx="10" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <circle cx="86" cy="64" r="40" fill="#1a1a26" stroke="#2d2d3f" stroke-width="1"/>
+    <circle cx="86" cy="56" r="12" fill="#475569"/>
+    <ellipse cx="86" cy="78" rx="18" ry="12" fill="#475569"/>
+    <rect x="130" y="12" width="28" height="16" rx="4" fill="#312e81"/>
+    <text x="144" y="24" font-size="8" fill="#818cf8" text-anchor="middle">AL</text>
+    <text x="86" y="126" font-size="12" fill="#f1f5f9" text-anchor="middle" font-weight="500">Levi Ackerman</text>
+    <text x="86" y="144" font-size="10" fill="#64748b" text-anchor="middle">Supporting</text>
+    <text x="86" y="172" font-size="10" fill="#475569" text-anchor="middle">124 images</text>
+  </g>
+
+  <!-- Card 5: Historia Reiss -->
+  <g transform="translate(844, 152)">
+    <rect width="172" height="190" rx="10" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <circle cx="86" cy="64" r="40" fill="#1a1a26" stroke="#2d2d3f" stroke-width="1"/>
+    <circle cx="86" cy="56" r="12" fill="#475569"/>
+    <ellipse cx="86" cy="78" rx="18" ry="12" fill="#475569"/>
+    <rect x="130" y="12" width="28" height="16" rx="4" fill="#312e81"/>
+    <text x="144" y="24" font-size="8" fill="#818cf8" text-anchor="middle">AL</text>
+    <text x="86" y="126" font-size="12" fill="#f1f5f9" text-anchor="middle" font-weight="500">Historia Reiss</text>
+    <text x="86" y="144" font-size="10" fill="#64748b" text-anchor="middle">Supporting</text>
+    <text x="86" y="172" font-size="10" fill="#475569" text-anchor="middle">67 images</text>
+  </g>
+
+  <!-- Card 6: Hange Zoe -->
+  <g transform="translate(1030, 152)">
+    <rect width="172" height="190" rx="10" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <circle cx="86" cy="64" r="40" fill="#1a1a26" stroke="#2d2d3f" stroke-width="1"/>
+    <circle cx="86" cy="56" r="12" fill="#475569"/>
+    <ellipse cx="86" cy="78" rx="18" ry="12" fill="#475569"/>
+    <rect x="130" y="12" width="28" height="16" rx="4" fill="#312e81"/>
+    <text x="144" y="24" font-size="8" fill="#818cf8" text-anchor="middle">AL</text>
+    <text x="86" y="126" font-size="12" fill="#f1f5f9" text-anchor="middle" font-weight="500">Hange Zoe</text>
+    <text x="86" y="144" font-size="10" fill="#64748b" text-anchor="middle">Supporting</text>
+    <text x="86" y="172" font-size="10" fill="#475569" text-anchor="middle">45 images</text>
+  </g>
+
+  <!-- Card 7: Erwin Smith -->
+  <g transform="translate(1216, 152)">
+    <rect width="172" height="190" rx="10" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <circle cx="86" cy="64" r="40" fill="#1a1a26" stroke="#2d2d3f" stroke-width="1"/>
+    <circle cx="86" cy="56" r="12" fill="#475569"/>
+    <ellipse cx="86" cy="78" rx="18" ry="12" fill="#475569"/>
+    <rect x="130" y="12" width="28" height="16" rx="4" fill="#312e81"/>
+    <text x="144" y="24" font-size="8" fill="#818cf8" text-anchor="middle">AL</text>
+    <text x="86" y="126" font-size="12" fill="#f1f5f9" text-anchor="middle" font-weight="500">Erwin Smith</text>
+    <text x="86" y="144" font-size="10" fill="#64748b" text-anchor="middle">Supporting</text>
+    <text x="86" y="172" font-size="10" fill="#475569" text-anchor="middle">38 images</text>
+  </g>
+
+  <!-- Row 2 -->
+  <!-- Card 8: Annie Leonhart -->
+  <g transform="translate(100, 356)">
+    <rect width="172" height="190" rx="10" fill="#1e1e2e" stroke="#2d2d3f" stroke-width="1"/>
+    <circle cx="86" cy="64" r="40" fill="#1a1a26" stroke="#2d2d3f" stroke-width="1"/>
+    <circle cx="86" cy="56" r="12" fill="#475569"/>
+    <ellipse cx="86" cy="78" rx="18" ry="12" fill="#475569"/>
+    <rect x="130" y="12" width="28" height="16" rx="4" fill="#312e81"/>
+    <text x="144" y="24" font-size="8" fill="#818cf8" text-anchor="middle">AL</text>
+    <text x="86" y="126" font-size="12" fill="#f1f5f9" text-anchor="middle" font-weight="500">Annie Leonhart</text>
+    <text x="86" y="144" font-size="10" fill="#64748b" text-anchor="middle">Supporting</text>
+    <text x="86" y="172" font-size="10" fill="#475569" text-anchor="middle">31 images</text>
+  </g>
+
+  <!-- Card 9: + Add Character -->
+  <g transform="translate(286, 356)">
+    <rect width="172" height="190" rx="10" fill="#1a1a26" stroke="#2d2d3f" stroke-width="1" stroke-dasharray="4,4"/>
+    <!-- Plus icon -->
+    <line x1="86" y1="70" x2="86" y2="100" stroke="#64748b" stroke-width="2" stroke-linecap="round"/>
+    <line x1="71" y1="85" x2="101" y2="85" stroke="#64748b" stroke-width="2" stroke-linecap="round"/>
+    <text x="86" y="130" font-size="12" fill="#64748b" text-anchor="middle">Add Character</text>
+  </g>
+
+  <!-- ==================== FOOTER ==================== -->
+  <rect x="84" y="568" width="1336" height="32" fill="#0f0f14"/>
+  <text x="100" y="589" font-size="11" fill="#64748b">8 characters · 692 tagged images</text>
+
+  <!-- Annotation -->
+  <text x="752" y="893" class="label" text-anchor="middle">Characters tab -- Full-page grid: character cards with AniList badges, image placeholders, role labels, add card at end</text>
+</svg>

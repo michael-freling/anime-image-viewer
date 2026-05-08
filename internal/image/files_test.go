@@ -120,6 +120,33 @@ func TestGetContentType(t *testing.T) {
 	})
 }
 
+func TestGetContentType_ClosedFile(t *testing.T) {
+	// Closing the file before calling getContentType causes file.Read to
+	// return an error, covering the error branch inside getContentType.
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "closed.jpg")
+	require.NoError(t, os.WriteFile(filePath, []byte("some data"), 0644))
+
+	file, err := os.Open(filePath)
+	require.NoError(t, err)
+	file.Close()
+
+	_, err = getContentType(file)
+	assert.Error(t, err)
+}
+
+func TestIsSupportedImageFile_EmptyFile(t *testing.T) {
+	// An empty file causes getContentType to fail with io.EOF when
+	// trying to read 512 bytes, covering the error return in
+	// IsSupportedImageFile.
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "empty.jpg")
+	require.NoError(t, os.WriteFile(filePath, []byte{}, 0644))
+
+	err := IsSupportedImageFile(filePath)
+	assert.Error(t, err)
+}
+
 func TestNewReader(t *testing.T) {
 	cfg := config.Config{ImageRootDirectory: "/tmp"}
 	dbClient := db.NewTestClient(t)
