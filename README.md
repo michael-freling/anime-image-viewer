@@ -40,9 +40,6 @@ Download executables for Windows or Linux from the [release page](https://github
 - Manual backup/restore with optional image inclusion
 - Customizable directories for images, config, logs, and backups
 
-### Experimental
-- ML-based tag suggestions (requires a separate Python server; not included in this repository)
-
 
 ## Development
 
