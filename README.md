@@ -3,42 +3,41 @@
 > [!WARNING]
 > This app is under active development. Please back up your data before use.
 
-A desktop app for organizing and browsing anime image collections. Built with Go (Wails) and React.
+A desktop app for organizing and browsing anime image collections.
 
 
 ## Download
 
-Download executables for Windows or Linux from the [release page](https://github.com/michael-freling/anime-image-viewer/releases).
+Download for Windows or Linux from the [release page](https://github.com/michael-freling/anime-image-viewer/releases).
 
 
 ## Features
 
 ### Anime Management
-- Browse your collection in a responsive masonry grid with adjustable sizing (XS/S/M/L)
-- Organize anime with hierarchical seasons, parts, and episodes
-- Link anime to [AniList](https://anilist.co) for automatic metadata import (titles, airing info, covers)
-- Import full season chains via BFS traversal of sequel/prequel relationships
+- Browse your collection in an image grid with adjustable sizing
+- Organize anime with seasons, parts, and episodes
+- Link anime to [AniList](https://anilist.co) to automatically import titles, airing info, and related seasons
 
 ### Image Organization
-- Tag-based and character-based image organization (separate systems)
-- Multi-image selection via click, Shift+click, Ctrl+click, Ctrl+A, or rubber-band drag
-- Bulk edit tags and characters across selected images
-- Import images with tags from DigiKam XMP sidecar files
+- Organize images by tags and characters
+- Select multiple images by clicking, dragging, or keyboard shortcuts
+- Edit tags and characters across many images at once
+- Import images with tags from DigiKam
 - Delete images with confirmation
 
 ### Image Viewer
-- Full-screen overlay with keyboard navigation
-- Zoom and pan with double-click toggle
-- Open images in OS default viewer or reveal in file explorer
+- Full-screen viewer with keyboard navigation
+- Zoom and pan
+- Open images in your default image app or show in file explorer
 
 ### Search
 - Filter images by anime, tags, and characters
-- Combine include/exclude tag filters
+- Combine multiple filters to find specific images
 
 ### Backup and Settings
-- Configurable automatic idle backups with retention policies
-- Manual backup/restore with optional image inclusion
-- Customizable directories for images, config, logs, and backups
+- Automatic backups when the app is idle
+- Manual backup and restore
+- Choose which folders the app uses for images, backups, and settings
 
 
 ## Development
