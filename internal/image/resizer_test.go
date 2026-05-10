@@ -31,8 +31,8 @@ func createTestJPEGFile(t *testing.T, dir string, name string, width, height int
 	t.Helper()
 	filePath := filepath.Join(dir, name)
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := range height {
+		for x := range width {
 			img.Set(x, y, color.RGBA{R: uint8(x % 256), G: uint8(y % 256), B: 100, A: 255})
 		}
 	}
@@ -47,8 +47,8 @@ func createTestPNGFile(t *testing.T, dir string, name string, width, height int)
 	t.Helper()
 	filePath := filepath.Join(dir, name)
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := range height {
+		for x := range width {
 			img.Set(x, y, color.RGBA{R: uint8(x % 256), G: uint8(y % 256), B: 200, A: 255})
 		}
 	}
@@ -144,8 +144,8 @@ func TestResizer_ResizeImage(t *testing.T) {
 
 func TestJpegEncoder_Encode(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 10, 10))
-	for y := 0; y < 10; y++ {
-		for x := 0; x < 10; x++ {
+	for y := range 10 {
+		for x := range 10 {
 			img.Set(x, y, color.RGBA{R: 255, G: 0, B: 0, A: 255})
 		}
 	}
@@ -167,8 +167,8 @@ func TestJpegEncoder_Encode(t *testing.T) {
 
 func TestPngEncoder_Encode(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 10, 10))
-	for y := 0; y < 10; y++ {
-		for x := 0; x < 10; x++ {
+	for y := range 10 {
+		for x := range 10 {
 			img.Set(x, y, color.RGBA{R: 0, G: 255, B: 0, A: 255})
 		}
 	}
