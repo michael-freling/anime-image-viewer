@@ -3,18 +3,23 @@ package frontend
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"os"
 
+	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 type ImageService struct {
 	imageReader *image.Reader
+	dbClient    *db.Client
 }
 
-func NewImageService(imageReader *image.Reader) *ImageService {
+func NewImageService(imageReader *image.Reader, dbClient *db.Client) *ImageService {
 	return &ImageService{
 		imageReader: imageReader,
+		dbClient:    dbClient,
 	}
 }
 
@@ -52,6 +57,58 @@ func (service *ImageService) ShowImageInExplorer(ctx context.Context, imageID ui
 	}
 
 	return showInExplorer(imageFiles[0].LocalFilePath)
+}
+
+// DeleteImages removes images from the database and from disk.
+// It deletes all associated tag and character links within a transaction,
+// then removes the file records, and finally deletes the physical files
+// from disk (best-effort: missing files are logged and skipped).
+func (service *ImageService) DeleteImages(ctx context.Context, imageIDs []uint) error {
+	if len(imageIDs) == 0 {
+		return nil
+	}
+
+	// Resolve file paths before deleting DB records. This is best-effort:
+	// if the reader fails (e.g. files already missing from disk), we still
+	// proceed with the DB deletion and skip disk cleanup.
+	imageFiles, err := service.imageReader.ReadImagesByIDs(imageIDs)
+	if err != nil {
+		slog.Warn("ReadImagesByIDs failed during delete; will skip disk cleanup",
+			"error", err,
+		)
+		imageFiles = nil
+	}
+
+	// Delete DB records in a transaction.
+	if err := db.NewTransaction(ctx, service.dbClient, func(txCtx context.Context) error {
+		if err := service.dbClient.FileTag().DeleteByFileIDs(txCtx, imageIDs); err != nil {
+			return fmt.Errorf("DeleteByFileIDs (tags): %w", err)
+		}
+		if err := service.dbClient.FileCharacter().DeleteByFileIDs(txCtx, imageIDs); err != nil {
+			return fmt.Errorf("DeleteByFileIDs (characters): %w", err)
+		}
+		if err := service.dbClient.File().DeleteByIDs(txCtx, imageIDs); err != nil {
+			return fmt.Errorf("DeleteByIDs: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("transaction: %w", err)
+	}
+
+	// Delete physical files (best-effort after successful DB transaction).
+	for _, imgFile := range imageFiles {
+		if imgFile.LocalFilePath == "" {
+			continue
+		}
+		if err := os.Remove(imgFile.LocalFilePath); err != nil && !os.IsNotExist(err) {
+			slog.Warn("failed to delete image file from disk",
+				"path", imgFile.LocalFilePath,
+				"error", err,
+			)
+		}
+	}
+
+	return nil
 }
 
 type Image struct {

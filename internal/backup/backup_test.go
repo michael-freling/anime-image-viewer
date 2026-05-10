@@ -1231,3 +1231,16 @@ func TestRestore_ConfigDirectoryCreation(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "fake-sqlite-database-content", string(content))
 }
+
+func TestHasRecentBackup_NonExistentDirectory(t *testing.T) {
+	conf := newTestConfig(t)
+	logger := newTestLogger()
+
+	// Point to a non-existent directory so os.ReadDir returns os.IsNotExist.
+	conf.Backup.BackupDirectory = filepath.Join(t.TempDir(), "does-not-exist")
+
+	svc := NewBackupService(logger, conf)
+	hasRecent, err := svc.HasRecentBackup(24 * time.Hour)
+	require.NoError(t, err)
+	assert.False(t, hasRecent, "should return false when backup directory does not exist")
+}

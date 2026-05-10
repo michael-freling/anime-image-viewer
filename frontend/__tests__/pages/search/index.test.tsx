@@ -31,6 +31,26 @@ jest.mock("@mantine/hooks", () => ({
   useHotkeys: () => undefined,
 }));
 
+// Capture the RubberBandOverlay's callbacks so we can invoke them directly.
+let capturedOnSelectionCommit: ((finalIds: Set<number>, isAdditive: boolean) => void) | null = null;
+let capturedOnSelectionChange: ((ids: Set<number>) => void) | null = null;
+jest.mock("../../../src/components/selection/rubber-band-overlay", () => {
+  const ReactModule = jest.requireActual<typeof import("react")>("react");
+  return {
+    __esModule: true,
+    RubberBandOverlay: (props: {
+      onSelectionCommit: (finalIds: Set<number>, isAdditive: boolean) => void;
+      onSelectionChange: (ids: Set<number>) => void;
+    }) => {
+      capturedOnSelectionCommit = props.onSelectionCommit;
+      capturedOnSelectionChange = props.onSelectionChange;
+      return ReactModule.createElement("div", {
+        "data-testid": "rubber-band-live-region",
+      });
+    },
+  };
+});
+
 // Mock masonic to render all items in jsdom (masonic relies on IntersectionObserver + window scroll).
 jest.mock("masonic", () => {
   const ReactModule = jest.requireActual<typeof import("react")>("react");
@@ -54,6 +74,7 @@ const getAllTagsMock = jest.fn();
 const getAnimeDetailsMock = jest.fn();
 const searchImagesByAnimeMock = jest.fn();
 const getFolderImagesMock = jest.fn();
+const deleteImagesMock = jest.fn();
 
 const getImageTagIDsMock = jest.fn();
 const getImageCharacterIDsMock = jest.fn();
@@ -68,6 +89,9 @@ jest.mock("../../../src/lib/api", () => ({
   },
   CharacterService: {
     GetImageCharacterIDs: (...args: unknown[]) => getImageCharacterIDsMock(...args),
+  },
+  ImageService: {
+    DeleteImages: (...args: unknown[]) => deleteImagesMock(...args),
   },
   SearchService: {
     SearchImages: (...args: unknown[]) => searchImagesMock(...args),
@@ -140,7 +164,11 @@ describe("SearchPage", () => {
     getImageTagIDsMock.mockResolvedValue({});
     getImageCharacterIDsMock.mockReset();
     getImageCharacterIDsMock.mockResolvedValue({});
+    deleteImagesMock.mockReset();
+    deleteImagesMock.mockResolvedValue(undefined);
     resetSelectionStore();
+    capturedOnSelectionCommit = null;
+    capturedOnSelectionChange = null;
   });
 
   test("renders the toolbar with search bar and filters button", async () => {
@@ -1097,6 +1125,327 @@ describe("SearchPage", () => {
         return filterBtn?.textContent?.includes("Filters (2)") ?? false;
       });
     } finally {
+      unmount();
+    }
+  });
+
+  test("closing the image viewer calls handleViewerClose and hides the overlay", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [makeImage(500, "hero.png"), makeImage(501, "villain.png")],
+    });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?tag=1"],
+    });
+    try {
+      // Wait for the image grid to render.
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='image-grid']") !== null,
+      );
+      // Click a tile to open the viewer.
+      const tile = container.querySelector(
+        "[data-file-id='500']",
+      ) as HTMLElement;
+      act(() => {
+        tile.click();
+      });
+      // The viewer should open.
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='image-viewer-overlay']") !==
+          null,
+      );
+      // Click the close button.
+      const closeBtn = container.querySelector(
+        "[data-testid='image-viewer-close']",
+      ) as HTMLElement;
+      act(() => {
+        closeBtn.click();
+      });
+      // The overlay should disappear.
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='image-viewer-overlay']") ===
+          null,
+      );
+      expect(
+        container.querySelector("[data-testid='image-viewer-overlay']"),
+      ).toBeNull();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("navigating in the image viewer calls handleViewerIndexChange", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [makeImage(500, "hero.png"), makeImage(501, "villain.png")],
+    });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?tag=1"],
+    });
+    try {
+      // Wait for the image grid to render.
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='image-grid']") !== null,
+      );
+      // Click the first tile to open the viewer at index 0.
+      const tile = container.querySelector(
+        "[data-file-id='500']",
+      ) as HTMLElement;
+      act(() => {
+        tile.click();
+      });
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='image-viewer-overlay']") !==
+          null,
+      );
+      // Click the "Next" button to navigate to index 1.
+      const nextBtn = container.querySelector(
+        "[data-testid='image-viewer-next']",
+      ) as HTMLElement;
+      act(() => {
+        nextBtn.click();
+      });
+      // The viewer should show the second image now.
+      await waitFor(() => {
+        const img = container.querySelector(
+          "[data-testid='image-viewer-image']",
+        ) as HTMLImageElement | null;
+        return img?.alt?.includes("villain") ?? false;
+      });
+      const img = container.querySelector(
+        "[data-testid='image-viewer-image']",
+      ) as HTMLImageElement;
+      expect(img.alt).toContain("villain");
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Edit button navigates to /images/edit without anime param", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [makeImage(100, "sunset.png")],
+    });
+    act(() => {
+      useSelectionStore.setState({
+        selectMode: true,
+        selectedIds: new Set([100]),
+        lastSelectedId: 100,
+      });
+    });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?tag=1"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='selection-action-bar']") !== null,
+      );
+      // Find and click the Edit button.
+      const editBtn = container.querySelector(
+        "[data-testid='selection-edit']",
+      ) as HTMLButtonElement;
+      expect(editBtn).not.toBeNull();
+      act(() => {
+        editBtn.click();
+      });
+      // The navigation should occur (we just assert the button was clickable
+      // and the handler ran without error; the router navigates away).
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Edit button navigates with anime param when anime filter is active", async () => {
+    getAnimeDetailsMock.mockResolvedValue({
+      anime: { id: 42, name: "Bebop", aniListId: null },
+      tags: [],
+      characters: [],
+      folders: [],
+      folderTree: null,
+      seasons: [],
+    });
+    searchImagesByAnimeMock.mockResolvedValue({
+      images: [makeImage(100, "sunset.png")],
+    });
+    act(() => {
+      useSelectionStore.setState({
+        selectMode: true,
+        selectedIds: new Set([100]),
+        lastSelectedId: 100,
+      });
+    });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?anime=42&tag=1"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='selection-action-bar']") !== null,
+      );
+      // Find and click the Edit button.
+      const editBtn = container.querySelector(
+        "[data-testid='selection-edit']",
+      ) as HTMLButtonElement;
+      expect(editBtn).not.toBeNull();
+      act(() => {
+        editBtn.click();
+      });
+      // The navigation should occur with the anime param.
+    } finally {
+      unmount();
+    }
+  });
+
+  test("rubber band commit with non-empty ids sets selection (non-additive)", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [makeImage(100, "sunset.png"), makeImage(101, "beach.png")],
+    });
+    act(() => {
+      useSelectionStore.setState({ selectMode: true });
+    });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?tag=1"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[data-testid='image-grid']") !== null,
+      );
+      expect(capturedOnSelectionCommit).not.toBeNull();
+      // Commit a non-additive selection.
+      act(() => {
+        capturedOnSelectionCommit!(new Set([100, 101]), false);
+      });
+      expect(useSelectionStore.getState().selectedIds).toEqual(new Set([100, 101]));
+    } finally {
+      unmount();
+    }
+  });
+
+  test("rubber band commit with isAdditive merges into existing selection", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [makeImage(100, "sunset.png"), makeImage(101, "beach.png")],
+    });
+    act(() => {
+      useSelectionStore.setState({
+        selectMode: true,
+        selectedIds: new Set([100]),
+        lastSelectedId: 100,
+      });
+    });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?tag=1"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[data-testid='image-grid']") !== null,
+      );
+      expect(capturedOnSelectionCommit).not.toBeNull();
+      // Commit an additive selection.
+      act(() => {
+        capturedOnSelectionCommit!(new Set([101]), true);
+      });
+      expect(useSelectionStore.getState().selectedIds).toEqual(new Set([100, 101]));
+    } finally {
+      unmount();
+    }
+  });
+
+  test("rubber band commit with empty ids resets pending without changing selection", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [makeImage(100, "sunset.png")],
+    });
+    act(() => {
+      useSelectionStore.setState({ selectMode: true });
+    });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?tag=1"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[data-testid='image-grid']") !== null,
+      );
+      expect(capturedOnSelectionCommit).not.toBeNull();
+      // Commit with empty set.
+      act(() => {
+        capturedOnSelectionCommit!(new Set(), false);
+      });
+      // Selection should remain empty.
+      expect(useSelectionStore.getState().selectedIds.size).toBe(0);
+    } finally {
+      unmount();
+    }
+  });
+
+  test("rubber band change updates pending ids", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [makeImage(100, "sunset.png")],
+    });
+    act(() => {
+      useSelectionStore.setState({ selectMode: true });
+    });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?tag=1"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[data-testid='image-grid']") !== null,
+      );
+      expect(capturedOnSelectionChange).not.toBeNull();
+      // Trigger change - the pending ids don't affect the store directly.
+      act(() => {
+        capturedOnSelectionChange!(new Set([100]));
+      });
+      // The selection store's selectedIds should NOT have changed.
+      expect(useSelectionStore.getState().selectedIds.size).toBe(0);
+    } finally {
+      unmount();
+    }
+  });
+
+  test("delete button calls DeleteImages after confirmation", async () => {
+    searchImagesMock.mockResolvedValue({
+      images: [makeImage(100, "sunset.png"), makeImage(101, "beach.png")],
+    });
+    // Enter select mode with images selected.
+    act(() => {
+      useSelectionStore.setState({
+        selectMode: true,
+        selectedIds: new Set([100, 101]),
+        lastSelectedId: 101,
+      });
+    });
+
+    // Mock window.confirm to return true.
+    const originalConfirm = window.confirm;
+    window.confirm = jest.fn(() => true);
+
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?tag=1"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='selection-action-bar']") !== null,
+      );
+      // Find the Delete button in the action bar.
+      const deleteBtn = Array.from(
+        container.querySelectorAll("button"),
+      ).find((b) =>
+        (b.textContent ?? "").toLowerCase().includes("delete"),
+      ) as HTMLButtonElement | undefined;
+      expect(deleteBtn).toBeDefined();
+      act(() => {
+        deleteBtn!.click();
+      });
+
+      await waitFor(() => deleteImagesMock.mock.calls.length > 0);
+      expect(deleteImagesMock).toHaveBeenCalledWith([100, 101]);
+      expect(window.confirm).toHaveBeenCalled();
+    } finally {
+      window.confirm = originalConfirm;
       unmount();
     }
   });

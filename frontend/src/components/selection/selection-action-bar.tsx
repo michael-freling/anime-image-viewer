@@ -38,6 +38,8 @@ export interface SelectionActionBarProps {
   onEditTags?: () => void;
   /** Opens the unified Image Editor (seasons + characters + tags). */
   onEdit?: () => void;
+  /** Deletes the selected images (caller should confirm before invoking). */
+  onDelete?: () => void;
 }
 
 /**
@@ -61,6 +63,7 @@ export function SelectionActionBar({
   totalVisible,
   onEditTags,
   onEdit,
+  onDelete,
 }: SelectionActionBarProps): ReactElement | null {
   const selectMode = useSelectionStore((s) => s.selectMode);
   const selectedIds = useSelectionStore((s) => s.selectedIds);
@@ -159,6 +162,19 @@ export function SelectionActionBar({
               aria-label="Edit tags for selected images"
             >
               Edit Tags
+            </Button>
+          ) : null}
+
+          {onDelete ? (
+            <Button
+              size="xs"
+              colorPalette="red"
+              onClick={onDelete}
+              disabled={count === 0}
+              data-testid="selection-delete"
+              aria-label="Delete selected images"
+            >
+              Delete
             </Button>
           ) : null}
 

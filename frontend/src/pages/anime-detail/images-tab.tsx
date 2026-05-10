@@ -25,6 +25,7 @@ import { RubberBandOverlay } from "../../components/selection/rubber-band-overla
 import { SelectionActionBar } from "../../components/selection/selection-action-bar";
 import { useAnimeDetail } from "../../hooks/use-anime-detail";
 import { useAnimeImages } from "../../hooks/use-anime-images";
+import { useDeleteImages } from "../../hooks/use-image-mutations";
 import { useImageImport } from "../../hooks/use-image-import";
 import { useImageSelection } from "../../hooks/use-image-selection";
 import { gridSizeColumnWidth } from "../../lib/constants";
@@ -74,6 +75,24 @@ export function ImagesTab(): JSX.Element {
   const gridSize = useUIStore((s) => s.gridSize);
 
   const { importImages } = useImageImport();
+  const deleteImagesMutation = useDeleteImages();
+
+  const handleDelete = useCallback(() => {
+    const ids = Array.from(useSelectionStore.getState().selectedIds);
+    if (ids.length === 0) return;
+    const confirmed = window.confirm(
+      `Delete ${ids.length} image${ids.length > 1 ? "s" : ""}? This cannot be undone.`,
+    );
+    if (!confirmed) return;
+    deleteImagesMutation.mutate(
+      { imageIds: ids },
+      {
+        onSuccess: () => {
+          useSelectionStore.getState().clearSelection();
+        },
+      },
+    );
+  }, [deleteImagesMutation]);
 
   const handleUpload = useCallback(async () => {
     const folderId = detailQuery.data?.folders?.[0]?.id;
@@ -149,6 +168,7 @@ export function ImagesTab(): JSX.Element {
         visibleIds={visibleIds}
         totalVisible={images.length}
         onEdit={() => navigate(`/images/edit?anime=${animeId}`)}
+        onDelete={handleDelete}
       />
 
       {/* Toolbar: Search + Upload */}

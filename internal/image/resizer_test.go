@@ -5,6 +5,7 @@ import (
 	"context"
 	"image"
 	"image/color"
+	"image/gif"
 	"image/jpeg"
 	"image/png"
 	"io"
@@ -30,8 +31,8 @@ func createTestJPEGFile(t *testing.T, dir string, name string, width, height int
 	t.Helper()
 	filePath := filepath.Join(dir, name)
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := range height {
+		for x := range width {
 			img.Set(x, y, color.RGBA{R: uint8(x % 256), G: uint8(y % 256), B: 100, A: 255})
 		}
 	}
@@ -46,8 +47,8 @@ func createTestPNGFile(t *testing.T, dir string, name string, width, height int)
 	t.Helper()
 	filePath := filepath.Join(dir, name)
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := range height {
+		for x := range width {
 			img.Set(x, y, color.RGBA{R: uint8(x % 256), G: uint8(y % 256), B: 200, A: 255})
 		}
 	}
@@ -123,12 +124,28 @@ func TestResizer_ResizeImage(t *testing.T) {
 		_, err = resizer.ResizeImage(ctx, filePath, 100)
 		assert.Error(t, err)
 	})
+
+	t.Run("decodable format without encoder returns error", func(t *testing.T) {
+		// GIF is registered as a decoder (via import "image/gif" in this test file)
+		// but the Resizer only has encoders for jpeg and png.
+		tmpDir := t.TempDir()
+		filePath := filepath.Join(tmpDir, "test.gif")
+		img := image.NewPaletted(image.Rect(0, 0, 10, 10), color.Palette{color.White, color.Black})
+		f, err := os.Create(filePath)
+		require.NoError(t, err)
+		require.NoError(t, gif.Encode(f, img, nil))
+		require.NoError(t, f.Close())
+
+		_, err = resizer.ResizeImage(ctx, filePath, 5)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported image format for an encoder")
+	})
 }
 
 func TestJpegEncoder_Encode(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 10, 10))
-	for y := 0; y < 10; y++ {
-		for x := 0; x < 10; x++ {
+	for y := range 10 {
+		for x := range 10 {
 			img.Set(x, y, color.RGBA{R: 255, G: 0, B: 0, A: 255})
 		}
 	}
@@ -150,8 +167,8 @@ func TestJpegEncoder_Encode(t *testing.T) {
 
 func TestPngEncoder_Encode(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 10, 10))
-	for y := 0; y < 10; y++ {
-		for x := 0; x < 10; x++ {
+	for y := range 10 {
+		for x := range 10 {
 			img.Set(x, y, color.RGBA{R: 0, G: 255, B: 0, A: 255})
 		}
 	}
