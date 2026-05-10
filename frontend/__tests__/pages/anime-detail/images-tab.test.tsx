@@ -54,14 +54,16 @@ jest.mock("masonic", () => {
   const ReactModule = jest.requireActual<typeof import("react")>("react");
   return {
     __esModule: true,
-    Masonry: ({ items, render: Render }: { items: unknown[]; render: React.ComponentType<{ data: unknown; width: number; index: number }> }) =>
+    useMasonry: ({ items, render: Render, itemKey }: { items: unknown[]; render: React.ComponentType<{ data: unknown; width: number; index: number }>; itemKey?: (data: unknown) => unknown; [k: string]: unknown }) =>
       ReactModule.createElement(
         "div",
         { "data-testid": "masonry-mock" },
         (items as unknown[]).map((item, index) =>
-          ReactModule.createElement(Render, { key: index, data: item, width: 200, index }),
+          ReactModule.createElement(Render, { key: itemKey ? (itemKey(item) as React.Key) : index, data: item, width: 200, index }),
         ),
       ),
+    usePositioner: () => ({}),
+    useResizeObserver: () => ({}),
   };
 });
 

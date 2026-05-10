@@ -1,22 +1,28 @@
 /**
- * Virtualized masonry image grid using `masonic`.
+ * Virtualized masonry image grid using `masonic` lower-level hooks.
  *
- * Replaces the previous `react-window` FixedSizeGrid which forced all cells to
- * a fixed 200x200px square. `masonic` computes column count from the container
- * width and virtualizes rendering via IntersectionObserver + a position cache.
+ * Uses `useMasonry` + `usePositioner` + `useResizeObserver` instead of the
+ * high-level `Masonry` component because the app uses container-level scroll
+ * (the tab panel has `overflow: auto`), not window-level scroll. The built-in
+ * `Masonry` component only listens to `window.scroll` and would never
+ * virtualize items in this layout.
  *
  * Each cell height is derived from the image's native aspect ratio (falling
  * back to 1:1 when dimensions are unknown), giving a true masonry layout.
- *
- * Responsibilities:
- *   - Render a masonry grid of image thumbnails sized to their aspect ratios.
- *   - Virtualize rendering so only visible cells are in the DOM.
- *   - Forward click / long-press events back to the caller.
- *   - Show `emptyState` when there are no images.
  */
 import { Box } from "@chakra-ui/react";
-import { useCallback, useMemo } from "react";
-import { Masonry } from "masonic";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  useMasonry,
+  usePositioner,
+  useResizeObserver,
+} from "masonic";
 
 import { useLongPress } from "../../hooks/use-long-press";
 import type { ImageFile } from "../../types";
@@ -26,30 +32,13 @@ export type ImageGridLayout = "masonry" | "rows" | "columns";
 
 export interface ImageGridProps {
   images: ImageFile[];
-  /** Image IDs currently in the selection store. */
   selectedIds?: ReadonlySet<number>;
-  /** Image IDs inside the live rubber-band rectangle. */
   pendingIds?: ReadonlySet<number>;
-  /**
-   * When true, thumbnails render their selection checkbox even when not
-   * individually selected (the caller is in select mode).
-   */
   selectMode?: boolean;
-  /** Click handler for a single image. Receives the native event. */
   onImageClick?: (image: ImageFile, event: React.MouseEvent) => void;
-  /** Long-press handler for a single image (used to enter select mode). */
   onLongPress?: (image: ImageFile) => void;
-  /**
-   * Layout variant. Kept for API compatibility with callers that pass it,
-   * but the virtualized grid always renders a masonry layout.
-   */
   layout?: ImageGridLayout;
-  /** Shown when `images.length === 0`. Receives no props. */
   emptyState?: React.ReactNode;
-  /**
-   * `sizes` attribute forwarded to each `<img>`. Defaults to the ui-design
-   * §6.1 breakpoint layout.
-   */
   sizes?: string;
 }
 
@@ -59,11 +48,6 @@ const CELL_GAP = 8;
 /** Target width for each thumbnail column. */
 const TARGET_CELL_WIDTH = 200;
 
-/**
- * Data shape passed to each masonry cell. Extends ImageFile with the shared
- * props that every cell needs so masonic's render component can access them
- * without external closures (masonic memoizes render components aggressively).
- */
 interface MasonryItemData extends ImageFile {
   selectedIds?: ReadonlySet<number>;
   pendingIds?: ReadonlySet<number>;
@@ -94,7 +78,6 @@ function MasonryCard({
   const selected = selectedIds?.has(image.id) ?? false;
   const pending = pendingIds?.has(image.id) ?? false;
 
-  // Compute height from aspect ratio; fallback to square when unknown.
   const aspectRatio =
     image.width && image.height ? image.width / image.height : 1;
   const height = Math.round(width / aspectRatio);
@@ -135,6 +118,59 @@ function MasonryCard({
   );
 }
 
+/**
+ * Hook that tracks scroll position on a container element instead of window.
+ * masonic's built-in `useScroller` only listens to window scroll.
+ */
+function useContainerScroller(containerRef: React.RefObject<HTMLElement | null>) {
+  const [scrollTop, setScrollTop] = useState(0);
+  const [isScrolling, setIsScrolling] = useState(false);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    let timeout: ReturnType<typeof setTimeout>;
+    const handleScroll = () => {
+      setScrollTop(el.scrollTop);
+      setIsScrolling(true);
+      clearTimeout(timeout);
+      timeout = setTimeout(() => setIsScrolling(false), 150);
+    };
+
+    el.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", handleScroll);
+      clearTimeout(timeout);
+    };
+  }, [containerRef]);
+
+  return { scrollTop, isScrolling };
+}
+
+/**
+ * Hook that tracks a container element's content dimensions via ResizeObserver.
+ */
+function useContainerSize(containerRef: React.RefObject<HTMLElement | null>) {
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const ro = new ResizeObserver(([entry]) => {
+      setSize({
+        width: entry.contentRect.width,
+        height: entry.contentRect.height,
+      });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [containerRef]);
+
+  return size;
+}
+
 export function ImageGrid({
   images,
   selectedIds,
@@ -146,17 +182,10 @@ export function ImageGrid({
   emptyState,
   sizes,
 }: ImageGridProps): JSX.Element {
-  if (images.length === 0) {
-    return (
-      <Box data-testid="image-grid-empty" width="100%">
-        {emptyState}
-      </Box>
-    );
-  }
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { width, height } = useContainerSize(containerRef);
+  const { scrollTop, isScrolling } = useContainerScroller(containerRef);
 
-  // Enrich each image with shared props so MasonryCard can access them.
-  // masonic requires each item to have a unique `id` field (which ImageFile
-  // already provides).
   const items: MasonryItemData[] = useMemo(
     () =>
       images.map((img) => ({
@@ -171,8 +200,36 @@ export function ImageGrid({
     [images, selectedIds, pendingIds, selectMode, onImageClick, onLongPress, sizes],
   );
 
+  const positioner = usePositioner(
+    { width, columnWidth: TARGET_CELL_WIDTH, columnGutter: CELL_GAP },
+    [items],
+  );
+  const resizeObserver = useResizeObserver(positioner);
+
+  const masonryContent = useMasonry({
+    positioner,
+    resizeObserver,
+    items,
+    height,
+    scrollTop,
+    isScrolling,
+    containerRef,
+    render: MasonryCard,
+    itemKey: (data: MasonryItemData) => data.id,
+    overscanBy: 3,
+  });
+
+  if (images.length === 0) {
+    return (
+      <Box data-testid="image-grid-empty" width="100%">
+        {emptyState}
+      </Box>
+    );
+  }
+
   return (
     <Box
+      ref={containerRef}
       data-testid="image-grid"
       data-layout={layout}
       width="100%"
@@ -181,14 +238,7 @@ export function ImageGrid({
       minHeight="0"
       overflow="auto"
     >
-      <Masonry
-        items={items}
-        columnGutter={CELL_GAP}
-        columnWidth={TARGET_CELL_WIDTH}
-        overscanBy={3}
-        render={MasonryCard}
-        itemKey={(data) => data.id}
-      />
+      {masonryContent}
     </Box>
   );
 }

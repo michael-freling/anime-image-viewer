@@ -2,6 +2,9 @@ package db
 
 import (
 	"context"
+	"fmt"
+	"strings"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -287,26 +290,29 @@ type ImageDimensions struct {
 }
 
 // BatchUpdateImageDimensions updates the image_width and image_height columns
-// for multiple file records in a single transaction. The updates map is keyed
-// by file ID.
+// for multiple file records in a single SQL statement using a CASE expression.
+// The updates map is keyed by file ID.
 func (client *FileClient) BatchUpdateImageDimensions(updates map[uint]ImageDimensions) error {
 	if len(updates) == 0 {
 		return nil
 	}
-	return client.connection.Transaction(func(tx *gorm.DB) error {
-		for id, dims := range updates {
-			if err := tx.Model(&File{}).
-				Where("id = ?", id).
-				Updates(map[string]any{
-					"image_width":  dims.Width,
-					"image_height": dims.Height,
-				}).
-				Error; err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+
+	ids := make([]uint, 0, len(updates))
+	var widthCases strings.Builder
+	var heightCases strings.Builder
+
+	for id, dims := range updates {
+		ids = append(ids, id)
+		fmt.Fprintf(&widthCases, " WHEN %d THEN %d", id, dims.Width)
+		fmt.Fprintf(&heightCases, " WHEN %d THEN %d", id, dims.Height)
+	}
+
+	sql := fmt.Sprintf(
+		"UPDATE files SET image_width = CASE id%s END, image_height = CASE id%s END, updated_at = ? WHERE id IN ?",
+		widthCases.String(), heightCases.String(),
+	)
+
+	return client.connection.Exec(sql, time.Now().Unix(), ids).Error
 }
 
 // BatchUpdateContentHashes updates the content_hash column for multiple file

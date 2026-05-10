@@ -443,6 +443,147 @@ func TestFileClient_BatchUpdateContentHashes(t *testing.T) {
 	})
 }
 
+func TestFileClient_BatchUpdateImageDimensions(t *testing.T) {
+	testClient := NewTestClient(t)
+	testClient.Truncate(t, File{})
+
+	files := []File{
+		{ID: 9001, ParentID: 0, Name: "dir1", Type: FileTypeDirectory},
+		{ID: 9002, ParentID: 9001, Name: "img1.jpg", Type: FileTypeImage},
+		{ID: 9003, ParentID: 9001, Name: "img2.jpg", Type: FileTypeImage},
+		{ID: 9004, ParentID: 9001, Name: "img3.jpg", Type: FileTypeImage},
+	}
+	LoadTestData(t, testClient, files)
+
+	fileClient := testClient.File()
+
+	t.Run("updates multiple dimensions in one call", func(t *testing.T) {
+		updates := map[uint]ImageDimensions{
+			9002: {Width: 1920, Height: 1080},
+			9003: {Width: 800, Height: 600},
+			9004: {Width: 3840, Height: 2160},
+		}
+		err := fileClient.BatchUpdateImageDimensions(updates)
+		assert.NoError(t, err)
+
+		images, err := fileClient.FindAllImageFiles()
+		assert.NoError(t, err)
+		require.Len(t, images, 3)
+		dimsByID := make(map[uint]ImageDimensions)
+		for _, img := range images {
+			if img.ImageWidth != nil && img.ImageHeight != nil {
+				dimsByID[img.ID] = ImageDimensions{Width: *img.ImageWidth, Height: *img.ImageHeight}
+			}
+		}
+		assert.Equal(t, ImageDimensions{Width: 1920, Height: 1080}, dimsByID[9002])
+		assert.Equal(t, ImageDimensions{Width: 800, Height: 600}, dimsByID[9003])
+		assert.Equal(t, ImageDimensions{Width: 3840, Height: 2160}, dimsByID[9004])
+	})
+
+	t.Run("empty map is a no-op", func(t *testing.T) {
+		err := fileClient.BatchUpdateImageDimensions(map[uint]ImageDimensions{})
+		assert.NoError(t, err)
+	})
+
+	t.Run("single entry works", func(t *testing.T) {
+		err := fileClient.BatchUpdateImageDimensions(map[uint]ImageDimensions{
+			9002: {Width: 640, Height: 480},
+		})
+		assert.NoError(t, err)
+
+		images, err := fileClient.FindImageFilesByIDs([]uint{9002})
+		assert.NoError(t, err)
+		require.Len(t, images, 1)
+		require.NotNil(t, images[0].ImageWidth)
+		require.NotNil(t, images[0].ImageHeight)
+		assert.Equal(t, uint(640), *images[0].ImageWidth)
+		assert.Equal(t, uint(480), *images[0].ImageHeight)
+	})
+}
+
+func TestFileClient_FindImageFilesWithNullDimensions(t *testing.T) {
+	testClient := NewTestClient(t)
+	testClient.Truncate(t, File{})
+
+	w := uint(100)
+	h := uint(200)
+	files := []File{
+		{ID: 10001, ParentID: 0, Name: "dir1", Type: FileTypeDirectory},
+		{ID: 10002, ParentID: 10001, Name: "img_no_dims.jpg", Type: FileTypeImage},
+		{ID: 10003, ParentID: 10001, Name: "img_with_dims.jpg", Type: FileTypeImage, ImageWidth: &w, ImageHeight: &h},
+		{ID: 10004, ParentID: 10001, Name: "img_no_dims2.png", Type: FileTypeImage, ContentHash: "abc123"},
+	}
+	LoadTestData(t, testClient, files)
+
+	fileClient := testClient.File()
+
+	t.Run("returns only images with NULL dimensions", func(t *testing.T) {
+		got, err := fileClient.FindImageFilesWithNullDimensions()
+		assert.NoError(t, err)
+		assert.Len(t, got, 2)
+		ids := []uint{got[0].ID, got[1].ID}
+		assert.Contains(t, ids, uint(10002))
+		assert.Contains(t, ids, uint(10004))
+	})
+
+	t.Run("excludes directories", func(t *testing.T) {
+		got, err := fileClient.FindImageFilesWithNullDimensions()
+		assert.NoError(t, err)
+		for _, f := range got {
+			assert.NotEqual(t, uint(10001), f.ID)
+		}
+	})
+
+	t.Run("returns empty when all images have dimensions", func(t *testing.T) {
+		// Update remaining images to have dimensions
+		err := fileClient.BatchUpdateImageDimensions(map[uint]ImageDimensions{
+			10002: {Width: 50, Height: 50},
+			10004: {Width: 50, Height: 50},
+		})
+		require.NoError(t, err)
+
+		got, err := fileClient.FindImageFilesWithNullDimensions()
+		assert.NoError(t, err)
+		assert.Empty(t, got)
+	})
+}
+
+func TestFileClient_MoveFiles(t *testing.T) {
+	testClient := NewTestClient(t)
+	testClient.Truncate(t, File{})
+	ctx := context.Background()
+
+	files := []File{
+		{ID: 11001, ParentID: 0, Name: "dir1", Type: FileTypeDirectory},
+		{ID: 11002, ParentID: 0, Name: "dir2", Type: FileTypeDirectory},
+		{ID: 11003, ParentID: 11001, Name: "img1.jpg", Type: FileTypeImage},
+		{ID: 11004, ParentID: 11001, Name: "img2.jpg", Type: FileTypeImage},
+	}
+	LoadTestData(t, testClient, files)
+
+	fileClient := testClient.File()
+
+	t.Run("empty IDs is a no-op", func(t *testing.T) {
+		err := fileClient.MoveFiles(ctx, []uint{}, 11002)
+		assert.NoError(t, err)
+	})
+
+	t.Run("moves files to new parent", func(t *testing.T) {
+		err := fileClient.MoveFiles(ctx, []uint{11003, 11004}, 11002)
+		assert.NoError(t, err)
+
+		// Verify files are now under dir2
+		got, err := fileClient.FindImageFilesByParentID(11002)
+		assert.NoError(t, err)
+		assert.Len(t, got, 2)
+
+		// Verify dir1 is now empty
+		got, err = fileClient.FindImageFilesByParentID(11001)
+		assert.NoError(t, err)
+		assert.Empty(t, got)
+	})
+}
+
 func TestFileClient_ContentHashField(t *testing.T) {
 	testClient := NewTestClient(t)
 	testClient.Truncate(t, File{})

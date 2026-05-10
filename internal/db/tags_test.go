@@ -124,6 +124,38 @@ func TestTagClient_ClearAnimeIDByAnimeID(t *testing.T) {
 	})
 }
 
+func TestTagClient_DeleteByID(t *testing.T) {
+	testClient := NewTestClient(t)
+	testClient.Truncate(t, Tag{})
+
+	tags := []Tag{
+		{ID: 5501, Name: "tag1"},
+		{ID: 5502, Name: "tag2"},
+		{ID: 5503, Name: "tag3"},
+	}
+	LoadTestData(t, testClient, tags)
+
+	tagClient := testClient.Tag()
+	ctx := context.Background()
+
+	t.Run("deletes a tag by ID", func(t *testing.T) {
+		err := tagClient.DeleteByID(ctx, 5502)
+		assert.NoError(t, err)
+
+		remaining, err := tagClient.FindAllByTagIDs([]uint{5501, 5502, 5503})
+		assert.NoError(t, err)
+		assert.Len(t, remaining, 2)
+		ids := []uint{remaining[0].ID, remaining[1].ID}
+		assert.Contains(t, ids, uint(5501))
+		assert.Contains(t, ids, uint(5503))
+	})
+
+	t.Run("deleting non-existent ID is a no-op", func(t *testing.T) {
+		err := tagClient.DeleteByID(ctx, 9999)
+		assert.NoError(t, err)
+	})
+}
+
 func TestFileTagClient_FileTag(t *testing.T) {
 	testClient := NewTestClient(t)
 	ftClient := testClient.FileTag()
