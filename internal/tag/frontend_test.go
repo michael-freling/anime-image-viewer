@@ -525,6 +525,28 @@ func TestTagFrontendService_BatchUpdateTagsForFiles(t *testing.T) {
 	}
 }
 
+func TestTagFrontendService_SuggestTags_NilSuggestionService(t *testing.T) {
+	tester := newTester(t)
+	service := tester.getFrontendService(frontendServiceMocks{
+		suggestionService: nil,
+	})
+
+	_, err := service.SuggestTags(context.Background(), []uint{1})
+	assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+}
+
+func TestTagFrontendService_AddSuggestedTags_NilSuggestionService(t *testing.T) {
+	tester := newTester(t)
+	service := tester.getFrontendService(frontendServiceMocks{
+		suggestionService: nil,
+	})
+
+	_, err := service.AddSuggestedTags(context.Background(), AddSuggestedTagsRequest{
+		SelectedTags: map[uint][]uint{1: {2}},
+	})
+	assert.ErrorIs(t, err, xerrors.ErrInvalidArgument)
+}
+
 func TestTagFrontendService_SuggestTags(t *testing.T) {
 	tester := newTester(t)
 
