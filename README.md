@@ -5,12 +5,6 @@
 
 A desktop app for organizing and browsing anime image collections. Built with Go (Wails) and React.
 
-[![Watch the Demo](https://img.youtube.com/vi/OculrxRpfJI/hqdefault.jpg)](https://www.youtube.com/embed/OculrxRpfJI)
-
-> Image sources in the demo:
-> - https://x.com/oshinoko_global/status/1874291958866231761/photo/1
-> - https://x.com/AniTrendz/status/1739087701499150632/photo/1
-
 
 ## Download
 
