@@ -40,6 +40,8 @@ export interface ImageGridProps {
   layout?: ImageGridLayout;
   emptyState?: React.ReactNode;
   sizes?: string;
+  /** Column width in pixels. Defaults to 200. */
+  columnWidth?: number;
 }
 
 /** Spacing between cells in pixels. */
@@ -181,10 +183,13 @@ export function ImageGrid({
   layout = "masonry",
   emptyState,
   sizes,
+  columnWidth,
 }: ImageGridProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const { width, height } = useContainerSize(containerRef);
   const { scrollTop, isScrolling } = useContainerScroller(containerRef);
+
+  const effectiveColumnWidth = columnWidth ?? TARGET_CELL_WIDTH;
 
   const items: MasonryItemData[] = useMemo(
     () =>
@@ -201,8 +206,8 @@ export function ImageGrid({
   );
 
   const positioner = usePositioner(
-    { width, columnWidth: TARGET_CELL_WIDTH, columnGutter: CELL_GAP },
-    [items],
+    { width, columnWidth: effectiveColumnWidth, columnGutter: CELL_GAP },
+    [items, effectiveColumnWidth],
   );
   const resizeObserver = useResizeObserver(positioner);
 

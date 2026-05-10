@@ -34,6 +34,7 @@ import { ImageViewerOverlay } from "../../components/image-viewer";
 import { EmptyState } from "../../components/shared/empty-state";
 import { ErrorAlert } from "../../components/shared/error-alert";
 import { FilterChip } from "../../components/shared/filter-chip";
+import { GridSizeControl } from "../../components/shared/grid-size-control";
 import { ImageGrid } from "../../components/shared/image-grid";
 import {
   ImageThumbnailSkeleton,
@@ -46,7 +47,9 @@ import { useAnimeDetail } from "../../hooks/use-anime-detail";
 import { useImageSelection } from "../../hooks/use-image-selection";
 import { useSearchImages } from "../../hooks/use-search-images";
 import { useTags } from "../../hooks/use-tags";
+import { gridSizeColumnWidth } from "../../lib/constants";
 import { useSelectionStore } from "../../stores/selection-store";
+import { useUIStore } from "../../stores/ui-store";
 import type { ImageFile, Tag } from "../../types";
 
 import { CharacterPicker } from "./character-picker";
@@ -210,6 +213,8 @@ export function SearchPage(): JSX.Element {
     () => filterByQuery(images, urlState.query),
     [images, urlState.query],
   );
+
+  const gridSize = useUIStore((s) => s.gridSize);
 
   // Select-mode wiring.
   const selectMode = useSelectionStore((s) => s.selectMode);
@@ -416,6 +421,7 @@ export function SearchPage(): JSX.Element {
               <Chevron size={14} aria-hidden="true" />
             </Flex>
           </Button>
+          <GridSizeControl />
         </Flex>
       </Box>
 
@@ -562,6 +568,7 @@ export function SearchPage(): JSX.Element {
             selectMode={selectMode}
             onImageClick={handleImageClick}
             onLongPress={handleLongPress}
+            columnWidth={gridSizeColumnWidth(gridSize)}
             emptyState={
               <EmptyState
                 icon={SearchIcon}
