@@ -11,7 +11,7 @@
  * back to 1:1 when dimensions are unknown), giving a true masonry layout.
  */
 import { Box } from "@chakra-ui/react";
-import {
+import React, {
   useCallback,
   useEffect,
   useMemo,
@@ -50,7 +50,7 @@ const CELL_GAP = 8;
 /** Target width for each thumbnail column. */
 const TARGET_CELL_WIDTH = 200;
 
-interface MasonryItemData extends ImageFile {
+interface GridSharedState {
   selectedIds?: ReadonlySet<number>;
   pendingIds?: ReadonlySet<number>;
   selectMode: boolean;
@@ -59,11 +59,15 @@ interface MasonryItemData extends ImageFile {
   sizes?: string;
 }
 
+const GridContext = React.createContext<GridSharedState>({
+  selectMode: false,
+});
+
 function MasonryCard({
   data,
   width,
 }: {
-  data: MasonryItemData;
+  data: ImageFile;
   width: number;
   index: number;
 }) {
@@ -74,8 +78,9 @@ function MasonryCard({
     onImageClick,
     onLongPress: onLongPressProp,
     sizes,
-    ...image
-  } = data;
+  } = React.useContext(GridContext);
+
+  const image = data;
 
   const selected = selectedIds?.has(image.id) ?? false;
   const pending = pendingIds?.has(image.id) ?? false;
@@ -85,7 +90,7 @@ function MasonryCard({
   const height = Math.round(width / aspectRatio);
 
   const handleLongPress = useCallback(() => {
-    onLongPressProp?.(image as ImageFile);
+    onLongPressProp?.(image);
   }, [onLongPressProp, image]);
 
   const longPressHandlers = useLongPress({ onLongPress: handleLongPress });
@@ -96,7 +101,7 @@ function MasonryCard({
         longPressHandlers.firedRef.current = false;
         return;
       }
-      onImageClick?.(image as ImageFile, event as React.MouseEvent);
+      onImageClick?.(image, event as React.MouseEvent);
     },
     [onImageClick, image, longPressHandlers.firedRef],
   );
@@ -107,7 +112,7 @@ function MasonryCard({
       style={{ touchAction: "none" }}
     >
       <ImageThumbnail
-        image={image as ImageFile}
+        image={image}
         width={width}
         height={height}
         selected={selected}
@@ -191,36 +196,27 @@ export function ImageGrid({
 
   const effectiveColumnWidth = columnWidth ?? TARGET_CELL_WIDTH;
 
-  const items: MasonryItemData[] = useMemo(
-    () =>
-      images.map((img) => ({
-        ...img,
-        selectedIds,
-        pendingIds,
-        selectMode,
-        onImageClick,
-        onLongPress,
-        sizes,
-      })),
-    [images, selectedIds, pendingIds, selectMode, onImageClick, onLongPress, sizes],
+  const sharedState = useMemo<GridSharedState>(
+    () => ({ selectedIds, pendingIds, selectMode, onImageClick, onLongPress, sizes }),
+    [selectedIds, pendingIds, selectMode, onImageClick, onLongPress, sizes],
   );
 
   const positioner = usePositioner(
     { width, columnWidth: effectiveColumnWidth, columnGutter: CELL_GAP },
-    [items, effectiveColumnWidth],
+    [images, effectiveColumnWidth],
   );
   const resizeObserver = useResizeObserver(positioner);
 
   const masonryContent = useMasonry({
     positioner,
     resizeObserver,
-    items,
+    items: images,
     height,
     scrollTop,
     isScrolling,
     containerRef,
     render: MasonryCard,
-    itemKey: (data: MasonryItemData) => data.id,
+    itemKey: (data: ImageFile) => data.id,
     overscanBy: 3,
   });
 
@@ -233,18 +229,20 @@ export function ImageGrid({
   }
 
   return (
-    <Box
-      ref={containerRef}
-      data-testid="image-grid"
-      data-layout={layout}
-      width="100%"
-      height="100%"
-      flex="1"
-      minHeight="0"
-      overflow="auto"
-    >
-      {masonryContent}
-    </Box>
+    <GridContext.Provider value={sharedState}>
+      <Box
+        ref={containerRef}
+        data-testid="image-grid"
+        data-layout={layout}
+        width="100%"
+        height="100%"
+        flex="1"
+        minHeight="0"
+        overflow="auto"
+      >
+        {masonryContent}
+      </Box>
+    </GridContext.Provider>
   );
 }
 
