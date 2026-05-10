@@ -20,9 +20,9 @@
  *   - `EmptyState` when the list is empty.
  *   - `ErrorAlert` with retry on query error.
  */
-import { Box, Button, Stack, Text } from "@chakra-ui/react";
+import { Box, Button, Input, Stack, Switch, Text } from "@chakra-ui/react";
 import { Archive, Database } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { EmptyState } from "../../../components/shared/empty-state";
 import { ErrorAlert } from "../../../components/shared/error-alert";
@@ -35,8 +35,8 @@ import {
   useDeleteBackup,
   useRestoreBackup,
 } from "../../../hooks/use-backup";
-import { useConfig } from "../../../hooks/use-config";
-import type { BackupInfo } from "../../../lib/api";
+import { useConfig, useUpdateConfig } from "../../../hooks/use-config";
+import type { BackupInfo, ConfigSettings } from "../../../lib/api";
 
 /**
  * Format an ISO 8601 timestamp as a locale-friendly datetime string.
@@ -55,8 +55,26 @@ function formatBackupDate(iso: string): string {
   });
 }
 
+/** The subset of ConfigSettings that this section manages. */
+interface BackupConfigDraft {
+  retentionCount: number;
+  idleBackupEnabled: boolean;
+  idleBackupIncludeImages: boolean;
+  idleMinutes: number;
+}
+
+function extractBackupDraft(config: ConfigSettings): BackupConfigDraft {
+  return {
+    retentionCount: config.retentionCount,
+    idleBackupEnabled: config.idleBackupEnabled,
+    idleBackupIncludeImages: config.idleBackupIncludeImages,
+    idleMinutes: config.idleMinutes,
+  };
+}
+
 export function BackupSection(): JSX.Element {
   const configQuery = useConfig();
+  const updateConfig = useUpdateConfig();
   const backupListQuery = useBackupList();
   const createBackup = useCreateBackup();
   const restoreBackup = useRestoreBackup();
@@ -64,14 +82,22 @@ export function BackupSection(): JSX.Element {
 
   const [restoreTarget, setRestoreTarget] = useState<BackupInfo | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BackupInfo | null>(null);
+  const [draft, setDraft] = useState<BackupConfigDraft | null>(null);
+  const [includeImagesInManual, setIncludeImagesInManual] = useState(false);
+
+  // Sync the draft when the server data loads or changes.
+  useEffect(() => {
+    if (configQuery.data) {
+      setDraft(extractBackupDraft(configQuery.data));
+    }
+  }, [configQuery.data]);
 
   const destination = configQuery.data?.backupDirectory ?? "";
 
   const handleCreate = async () => {
     try {
       const path = await createBackup.mutateAsync({
-        includeImages: false,
-        // Empty string means "use the configured default directory".
+        includeImages: includeImagesInManual,
         targetDir: "",
       });
       toast.success("Backup created", path);
@@ -234,6 +260,24 @@ export function BackupSection(): JSX.Element {
           >
             {destination || "(default)"}
           </Box>
+          <Switch.Root
+            checked={includeImagesInManual}
+            onCheckedChange={(details) =>
+              setIncludeImagesInManual(details.checked)
+            }
+            size="sm"
+            data-testid="backup-include-images"
+          >
+            <Switch.HiddenInput />
+            <Switch.Control>
+              <Switch.Thumb />
+            </Switch.Control>
+            <Switch.Label>
+              <Text fontSize="xs" color="fg.secondary">
+                Include images
+              </Text>
+            </Switch.Label>
+          </Switch.Root>
           <Button
             type="button"
             size="sm"
@@ -251,6 +295,15 @@ export function BackupSection(): JSX.Element {
           </Button>
         </Stack>
       </Stack>
+
+      {draft && (
+        <BackupConfigForm
+          draft={draft}
+          setDraft={setDraft}
+          configQuery={configQuery}
+          updateConfig={updateConfig}
+        />
+      )}
 
       <Stack gap="2">
         <Text fontSize="sm" fontWeight="600" color="fg">
@@ -286,6 +339,167 @@ export function BackupSection(): JSX.Element {
         confirmLabel="Delete"
         variant="danger"
       />
+    </Stack>
+  );
+}
+
+/** Sub-component: Backup Configuration form */
+function BackupConfigForm({
+  draft,
+  setDraft,
+  configQuery,
+  updateConfig,
+}: {
+  draft: BackupConfigDraft;
+  setDraft: (d: BackupConfigDraft) => void;
+  configQuery: ReturnType<typeof useConfig>;
+  updateConfig: ReturnType<typeof useUpdateConfig>;
+}): JSX.Element {
+  const isDirty =
+    configQuery.data !== undefined &&
+    (draft.retentionCount !== configQuery.data.retentionCount ||
+      draft.idleBackupEnabled !== configQuery.data.idleBackupEnabled ||
+      draft.idleBackupIncludeImages !==
+        configQuery.data.idleBackupIncludeImages ||
+      draft.idleMinutes !== configQuery.data.idleMinutes);
+
+  const handleSave = async () => {
+    if (!configQuery.data) return;
+    try {
+      await updateConfig.mutateAsync({
+        ...configQuery.data,
+        ...draft,
+      });
+      toast.success("Backup configuration saved");
+    } catch (err) {
+      toast.error(
+        "Couldn't save backup configuration",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  };
+
+  return (
+    <Stack gap="3" data-testid="backup-config">
+      <Text fontSize="sm" fontWeight="600" color="fg">
+        Backup Configuration
+      </Text>
+
+      <Stack gap="3">
+        {/* Retention Count */}
+        <Box>
+          <Text fontSize="sm" color="fg.secondary" mb="1">
+            Retention Count
+          </Text>
+          <Input
+            type="number"
+            size="sm"
+            min={1}
+            value={draft.retentionCount}
+            onChange={(e) =>
+              setDraft({
+                ...draft,
+                retentionCount: Math.max(1, parseInt(e.target.value, 10) || 1),
+              })
+            }
+            maxWidth="120px"
+            data-testid="backup-retention-count"
+          />
+          <Text fontSize="xs" color="fg.muted" mt="1">
+            How many backups to keep before older ones are removed.
+          </Text>
+        </Box>
+
+        {/* Idle Backup Enabled */}
+        <Stack direction="row" align="center" gap="3">
+          <Switch.Root
+            checked={draft.idleBackupEnabled}
+            onCheckedChange={(details) =>
+              setDraft({ ...draft, idleBackupEnabled: details.checked })
+            }
+            data-testid="backup-idle-enabled"
+          >
+            <Switch.HiddenInput />
+            <Switch.Control>
+              <Switch.Thumb />
+            </Switch.Control>
+            <Switch.Label>
+              <Text fontSize="sm" color="fg.secondary">
+                Enable automatic idle backups
+              </Text>
+            </Switch.Label>
+          </Switch.Root>
+        </Stack>
+
+        {/* Idle Minutes */}
+        <Box opacity={draft.idleBackupEnabled ? 1 : 0.5}>
+          <Text fontSize="sm" color="fg.secondary" mb="1">
+            Idle Minutes
+          </Text>
+          <Input
+            type="number"
+            size="sm"
+            min={1}
+            value={draft.idleMinutes}
+            onChange={(e) =>
+              setDraft({
+                ...draft,
+                idleMinutes: Math.max(1, parseInt(e.target.value, 10) || 1),
+              })
+            }
+            disabled={!draft.idleBackupEnabled}
+            maxWidth="120px"
+            data-testid="backup-idle-minutes"
+          />
+          <Text fontSize="xs" color="fg.muted" mt="1">
+            Minutes of idle time before an automatic backup triggers.
+          </Text>
+        </Box>
+
+        {/* Include Images */}
+        <Stack
+          direction="row"
+          align="center"
+          gap="3"
+          opacity={draft.idleBackupEnabled ? 1 : 0.5}
+        >
+          <Switch.Root
+            checked={draft.idleBackupIncludeImages}
+            onCheckedChange={(details) =>
+              setDraft({ ...draft, idleBackupIncludeImages: details.checked })
+            }
+            disabled={!draft.idleBackupEnabled}
+            data-testid="backup-idle-include-images"
+          >
+            <Switch.HiddenInput />
+            <Switch.Control>
+              <Switch.Thumb />
+            </Switch.Control>
+            <Switch.Label>
+              <Text fontSize="sm" color="fg.secondary">
+                Include images in idle backups
+              </Text>
+            </Switch.Label>
+          </Switch.Root>
+        </Stack>
+      </Stack>
+
+      <Stack direction="row" gap="2" pt="1">
+        <Button
+          type="button"
+          size="sm"
+          bg="primary"
+          color="bg.surface"
+          _hover={{ bg: "primary.hover" }}
+          onClick={handleSave}
+          disabled={!isDirty || updateConfig.isPending}
+          loading={updateConfig.isPending}
+          loadingText="Saving"
+          data-testid="save-backup-config"
+        >
+          Save
+        </Button>
+      </Stack>
     </Stack>
   );
 }
