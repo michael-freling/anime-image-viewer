@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/michael-freling/anime-image-viewer/internal/anilist"
 	"github.com/michael-freling/anime-image-viewer/internal/anime"
@@ -20,10 +21,7 @@ import (
 	"github.com/michael-freling/anime-image-viewer/internal/import_images"
 	"github.com/michael-freling/anime-image-viewer/internal/search"
 	"github.com/michael-freling/anime-image-viewer/internal/tag"
-	tag_suggestionv1 "github.com/michael-freling/anime-image-viewer/plugins/plugins-protos/gen/go/tag_suggestion/v1"
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 // Wails uses Go's `embed` package to embed the frontend files into the binary.
@@ -93,25 +91,22 @@ func main() {
 }
 
 func runMain(conf config.Config, logger *slog.Logger) error {
+	startTotal := time.Now()
+
+	startPhase := time.Now()
 	dbClient, err := db.FromConfig(conf, logger)
 	if err != nil {
 		return fmt.Errorf("db.NewClient: %w", err)
 	}
+	logger.Info("startup: db connection", "elapsed", time.Since(startPhase))
+
+	startPhase = time.Now()
 	if err := dbClient.Migrate(); err != nil {
 		return fmt.Errorf("db.Migrate: %w", err)
 	}
-	if err := image.BackfillImageDimensions(logger, dbClient, conf); err != nil {
-		return fmt.Errorf("image.BackfillImageDimensions: %w", err)
-	}
+	logger.Info("startup: db migrate", "elapsed", time.Since(startPhase))
 
-	clientConn, err := grpc.NewClient("localhost:50051",
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		return fmt.Errorf("grpc.NewClient: %w", err)
-	}
-	tagSuggestionServiceClient := tag_suggestionv1.NewTagSuggestionServiceClient(clientConn)
-
+	startPhase = time.Now()
 	imageFileConverter := image.NewImageFileConverter(conf)
 	directoryReader := image.NewDirectoryReader(conf, dbClient)
 	tagReader := tag.NewReader(dbClient, directoryReader)
@@ -127,12 +122,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 		logger,
 		dbClient,
 		tagReader,
-		tag.NewSuggestionService(
-			dbClient,
-			tagSuggestionServiceClient,
-			tagReader,
-			imageReader,
-		),
+		nil,
 	)
 	searchService := frontend.NewSearchService(
 		search.NewSearchRunner(
@@ -148,11 +138,11 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 
 	restoreService := backup.NewRestoreService(logger, conf)
 
-	// Start background image scanner — runs in a goroutine, non-blocking.
 	scanner := image.NewBackgroundScanner(logger, dbClient, conf, restoreService)
 	appCtx, appCancel := context.WithCancel(context.Background())
 	defer appCancel()
 	scanner.Start(appCtx)
+	logger.Info("startup: service construction", "elapsed", time.Since(startPhase))
 
 	backupFrontendService := frontend.NewBackupFrontendService(logger, conf)
 	configFrontendService := frontend.NewConfigFrontendService(logger, conf)
@@ -168,12 +158,8 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 	)
 	characterFrontendService := frontend.NewCharacterService(dbClient)
 
+	startPhase = time.Now()
 	title := "anime-image-viewer"
-	// Create a new Wails application by providing the necessary options.
-	// Variables 'Name' and 'Description' are for application metadata.
-	// 'Assets' configures the asset server with the 'FS' variable pointing to the frontend files.
-	// 'Bind' is a list of Go struct instances. The frontend has access to the methods of these instances.
-	// 'Mac' options tailor the application when running an macOS.
 	app := application.New(application.Options{
 		Name:        title,
 		Description: "A simple image collection for anime images",
@@ -237,9 +223,8 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 		URL:              "/",
 	})
 
-	logger.Info("Starting an application")
-	// Run the application. This blocks until the application has been exited.
-	// If an error occurred while running the application, log it and exit.
+	logger.Info("startup: wails app creation", "elapsed", time.Since(startPhase))
+	logger.Info("startup: total before app.Run", "elapsed", time.Since(startTotal))
 	if err := app.Run(); err != nil {
 		return fmt.Errorf("app.Run: %w", err)
 	}

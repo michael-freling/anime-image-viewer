@@ -286,6 +286,9 @@ func (service TagFrontendService) SuggestTags(ctx context.Context, imageFileIDs 
 	if len(imageFileIDs) == 0 {
 		return SuggestTagsResponse{}, fmt.Errorf("%w: imageFileIDs is required", xerrors.ErrInvalidArgument)
 	}
+	if service.suggestionService == nil {
+		return SuggestTagsResponse{}, fmt.Errorf("%w: tag suggestion service is not available", xerrors.ErrInvalidArgument)
+	}
 	response, err := service.suggestionService.suggestTags(ctx, imageFileIDs)
 	if err != nil {
 		grpcStatusCode := status.Code(err)
@@ -323,6 +326,9 @@ type AddSuggestedTagsResponse struct {
 func (service TagFrontendService) AddSuggestedTags(ctx context.Context, request AddSuggestedTagsRequest) (AddSuggestedTagsResponse, error) {
 	if len(request.SelectedTags) == 0 {
 		return AddSuggestedTagsResponse{}, nil
+	}
+	if service.suggestionService == nil {
+		return AddSuggestedTagsResponse{}, fmt.Errorf("%w: tag suggestion service is not available", xerrors.ErrInvalidArgument)
 	}
 
 	logger := service.logger
