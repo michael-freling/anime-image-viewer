@@ -51,21 +51,19 @@ jest.mock("../../src/lib/api", () => ({
   DirectoryService: {},
 }));
 
-// Parallel Phase D pages pull in `react-photo-album` (via ImageGrid), whose
-// ESM-only build chokes under the jest transform pipeline. Stub it with a
-// trivial passthrough so the route tree still imports cleanly.
-jest.mock("react-photo-album/masonry.css", () => ({}), { virtual: true });
-jest.mock("react-photo-album/columns.css", () => ({}), { virtual: true });
-jest.mock("react-photo-album/rows.css", () => ({}), { virtual: true });
-jest.mock("react-photo-album", () => {
+// Mock masonic to render all items in jsdom (masonic relies on IntersectionObserver + window scroll).
+jest.mock("masonic", () => {
   const ReactModule = jest.requireActual<typeof import("react")>("react");
-  const renderPhotos = () =>
-    ReactModule.createElement("div", { "data-testid": "photo-album-stub" });
   return {
     __esModule: true,
-    MasonryPhotoAlbum: renderPhotos,
-    ColumnsPhotoAlbum: renderPhotos,
-    RowsPhotoAlbum: renderPhotos,
+    Masonry: ({ items, render: Render }: { items: unknown[]; render: React.ComponentType<{ data: unknown; width: number; index: number }> }) =>
+      ReactModule.createElement(
+        "div",
+        { "data-testid": "masonry-mock" },
+        (items as unknown[]).map((item, index) =>
+          ReactModule.createElement(Render, { key: index, data: item, width: 200, index }),
+        ),
+      ),
   };
 });
 

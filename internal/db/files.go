@@ -57,6 +57,14 @@ type File struct {
 	// It is computed on import and used for fast corruption detection.
 	ContentHash string
 
+	// ImageWidth is the pixel width of the source image, populated on import
+	// and backfilled for existing images. NULL for directories or unknown.
+	ImageWidth *uint
+
+	// ImageHeight is the pixel height of the source image, populated on import
+	// and backfilled for existing images. NULL for directories or unknown.
+	ImageHeight *uint
+
 	// CreatedAt is a timestamp of the record creation
 	CreatedAt uint `gorm:"autoCreateTime,index:parent_id_created_at"`
 	UpdatedAt uint
@@ -237,6 +245,18 @@ func (client *FileClient) FindAllImageFiles() ([]File, error) {
 	return images, err
 }
 
+// FindImageFilesWithNullDimensions returns all image files where image_width
+// IS NULL. Only the id, parent_id, name, and content_hash columns are selected.
+func (client *FileClient) FindImageFilesWithNullDimensions() ([]File, error) {
+	var files []File
+	err := client.connection.
+		Where("type = ? AND image_width IS NULL", FileTypeImage).
+		Select("id, parent_id, name, content_hash").
+		Find(&files).
+		Error
+	return files, err
+}
+
 // MoveFiles updates the parent_id of all specified file IDs to the new parent.
 // It does not validate types or check for name conflicts — the caller is
 // responsible for those checks before calling this method.
@@ -258,6 +278,35 @@ func (client *FileClient) UpdateContentHash(id uint, hash string) error {
 		Where("id = ?", id).
 		Update("content_hash", hash).
 		Error
+}
+
+// ImageDimensions holds the pixel width and height for an image file.
+type ImageDimensions struct {
+	Width  uint
+	Height uint
+}
+
+// BatchUpdateImageDimensions updates the image_width and image_height columns
+// for multiple file records in a single transaction. The updates map is keyed
+// by file ID.
+func (client *FileClient) BatchUpdateImageDimensions(updates map[uint]ImageDimensions) error {
+	if len(updates) == 0 {
+		return nil
+	}
+	return client.connection.Transaction(func(tx *gorm.DB) error {
+		for id, dims := range updates {
+			if err := tx.Model(&File{}).
+				Where("id = ?", id).
+				Updates(map[string]any{
+					"image_width":  dims.Width,
+					"image_height": dims.Height,
+				}).
+				Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // BatchUpdateContentHashes updates the content_hash column for multiple file

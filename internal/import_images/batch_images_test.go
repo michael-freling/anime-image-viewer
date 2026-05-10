@@ -77,11 +77,15 @@ func TestBatchImageImporter_importImageFiles(t *testing.T) {
 				image10 := fileBuilder.BuildImageFile(10)
 				image10.ParentID = 1
 				image10.LocalFilePath = filepath.Join(destinationDirectory.Path, image10.Name)
+				image10.Width = 32
+				image10.Height = 32
 
 				image20 := fileBuilder.BuildImageFile(20)
 				image20.ParentID = 1
 				image20.Path = fileBuilder.GetImagePath(destinationDirectory, image20)
 				image20.LocalFilePath = filepath.Join(destinationDirectory.Path, image20.Name)
+				image20.Width = 1
+				image20.Height = 1
 				return []image.ImageFile{image10, image20}
 			}(),
 			wantInsertFiles: []db.File{
@@ -118,6 +122,8 @@ func TestBatchImageImporter_importImageFiles(t *testing.T) {
 				image21.ParentID = 1
 				image21.Path = fileBuilder.GetImagePath(destinationDirectory, image21)
 				image21.LocalFilePath = filepath.Join(fileBuilder.BuildDirectory(1).Path, image21.Name)
+				image21.Width = 1
+				image21.Height = 1
 
 				return []image.ImageFile{image21}
 			}(),
@@ -212,10 +218,12 @@ func TestBatchImageImporter_importImageFiles(t *testing.T) {
 			}
 
 			gotFiles := db.MustGetAll[db.File](t, dbClient)
-			// ContentHash is computed asynchronously on import; clear it for comparison
-			// since test expectations do not include hash values.
+			// ContentHash and image dimensions are computed on import; clear
+			// them for comparison since test expectations do not include these.
 			for i := range gotFiles {
 				gotFiles[i].ContentHash = ""
+				gotFiles[i].ImageWidth = nil
+				gotFiles[i].ImageHeight = nil
 			}
 			assert.Equal(t, tc.wantInsertFiles, gotFiles)
 			gotInsertedTags := db.MustGetAll[db.Tag](t, dbClient)

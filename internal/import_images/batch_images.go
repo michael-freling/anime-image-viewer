@@ -152,8 +152,9 @@ func (batchImporter *BatchImageImporter) ImportImages(
 		return nil, errors.Join(progressNotifier.FailedErrors...)
 	}
 
-	// Compute content hashes from source files before inserting into DB.
-	// This avoids a separate UPDATE after the concurrent file copy.
+	// Compute content hashes and image dimensions from source files before
+	// inserting into DB. This avoids a separate UPDATE after the concurrent
+	// file copy.
 	for i, img := range newImportedImages {
 		hash, err := image.ComputeFileHash(img.sourceFilePath)
 		if err != nil {
@@ -163,6 +164,16 @@ func (batchImporter *BatchImageImporter) ImportImages(
 			continue
 		}
 		newImportedImages[i].image.ContentHash = hash
+
+		w, h, dimErr := image.DecodeImageDimensions(img.sourceFilePath)
+		if dimErr != nil {
+			batchImporter.logger.Warn("failed to decode dimensions on import",
+				"path", img.sourceFilePath, "error", dimErr,
+			)
+			continue
+		}
+		newImportedImages[i].image.ImageWidth = &w
+		newImportedImages[i].image.ImageHeight = &h
 	}
 
 	if err := db.NewTransaction(ctx, batchImporter.dbClient, func(ctx context.Context) error {

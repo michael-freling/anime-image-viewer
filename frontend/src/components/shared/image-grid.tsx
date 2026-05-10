@@ -1,44 +1,28 @@
 /**
- * Virtualized image grid using `react-window` FixedSizeGrid + AutoSizer.
+ * Virtualized masonry image grid using `masonic`.
  *
- * Replaces the previous `react-photo-album` implementation which rendered all
- * DOM nodes at once and became unresponsive at 500+ images. Uses
- * `react-virtualized-auto-sizer` to fill the available space and
- * `react-window`'s `FixedSizeGrid` to only render visible cells.
+ * Replaces the previous `react-window` FixedSizeGrid which forced all cells to
+ * a fixed 200x200px square. `masonic` computes column count from the container
+ * width and virtualizes rendering via IntersectionObserver + a position cache.
+ *
+ * Each cell height is derived from the image's native aspect ratio (falling
+ * back to 1:1 when dimensions are unknown), giving a true masonry layout.
  *
  * Responsibilities:
- *   - Fill available container space via AutoSizer.
- *   - Calculate columns based on container width (~200px per thumbnail,
- *     min 2, max 6).
- *   - Render each cell with `<ImageThumbnail>` with selection/pending states.
- *   - Forward click events back to the caller.
+ *   - Render a masonry grid of image thumbnails sized to their aspect ratios.
+ *   - Virtualize rendering so only visible cells are in the DOM.
+ *   - Forward click / long-press events back to the caller.
  *   - Show `emptyState` when there are no images.
  */
 import { Box } from "@chakra-ui/react";
-import { useCallback } from "react";
-import { AutoSizer } from "react-virtualized-auto-sizer";
-import { FixedSizeGrid, type GridChildComponentProps } from "react-window";
+import { useCallback, useMemo } from "react";
+import { Masonry } from "masonic";
 
 import { useLongPress } from "../../hooks/use-long-press";
 import type { ImageFile } from "../../types";
-
 import { ImageThumbnail } from "./image-thumbnail";
 
 export type ImageGridLayout = "masonry" | "rows" | "columns";
-
-export interface ColumnsByBreakpoint {
-  mobile: number;
-  tablet: number;
-  desktop: number;
-  wide: number;
-}
-
-export const DEFAULT_COLUMNS_BY_BREAKPOINT: ColumnsByBreakpoint = {
-  mobile: 2,
-  tablet: 4,
-  desktop: 5,
-  wide: 6,
-};
 
 export interface ImageGridProps {
   images: ImageFile[];
@@ -55,10 +39,9 @@ export interface ImageGridProps {
   onImageClick?: (image: ImageFile, event: React.MouseEvent) => void;
   /** Long-press handler for a single image (used to enter select mode). */
   onLongPress?: (image: ImageFile) => void;
-  columnsByBreakpoint?: ColumnsByBreakpoint;
   /**
    * Layout variant. Kept for API compatibility with callers that pass it,
-   * but the virtualized grid always renders a fixed-size grid layout.
+   * but the virtualized grid always renders a masonry layout.
    */
   layout?: ImageGridLayout;
   /** Shown when `images.length === 0`. Receives no props. */
@@ -73,63 +56,52 @@ export interface ImageGridProps {
 /** Spacing between cells in pixels. */
 const CELL_GAP = 8;
 
-/** Target width for each thumbnail cell. */
+/** Target width for each thumbnail column. */
 const TARGET_CELL_WIDTH = 200;
 
-/** Minimum columns. */
-const MIN_COLUMNS = 2;
-
-/** Maximum columns. */
-const MAX_COLUMNS = 6;
-
-/** Row height includes the cell plus gap. */
-const CELL_HEIGHT = 200;
-
 /**
- * Calculate the number of columns based on the container width.
- * Targets ~200px per cell, clamped between 2 and 6.
+ * Data shape passed to each masonry cell. Extends ImageFile with the shared
+ * props that every cell needs so masonic's render component can access them
+ * without external closures (masonic memoizes render components aggressively).
  */
-function calculateColumnCount(containerWidth: number): number {
-  const raw = Math.floor(containerWidth / TARGET_CELL_WIDTH);
-  return Math.max(MIN_COLUMNS, Math.min(MAX_COLUMNS, raw));
-}
-
-/** Data passed to each grid cell via react-window's itemData. */
-interface CellData {
-  images: ImageFile[];
-  columnCount: number;
+interface MasonryItemData extends ImageFile {
   selectedIds?: ReadonlySet<number>;
   pendingIds?: ReadonlySet<number>;
   selectMode: boolean;
   onImageClick?: (image: ImageFile, event: React.MouseEvent) => void;
   onLongPress?: (image: ImageFile) => void;
   sizes?: string;
-  columnWidth: number;
 }
 
-/** Wrapper that attaches long-press handlers to a thumbnail cell. */
-function CellThumbnail({
-  image,
-  thumbSize,
-  selected,
-  pending,
-  selectMode,
-  sizes,
-  onImageClick,
-  onLongPress,
+function MasonryCard({
+  data,
+  width,
 }: {
-  image: ImageFile;
-  thumbSize: number;
-  selected: boolean;
-  pending: boolean;
-  selectMode: boolean;
-  sizes?: string;
-  onImageClick?: (image: ImageFile, event: React.MouseEvent) => void;
-  onLongPress?: (image: ImageFile) => void;
-}): JSX.Element {
+  data: MasonryItemData;
+  width: number;
+  index: number;
+}) {
+  const {
+    selectedIds,
+    pendingIds,
+    selectMode,
+    onImageClick,
+    onLongPress: onLongPressProp,
+    sizes,
+    ...image
+  } = data;
+
+  const selected = selectedIds?.has(image.id) ?? false;
+  const pending = pendingIds?.has(image.id) ?? false;
+
+  // Compute height from aspect ratio; fallback to square when unknown.
+  const aspectRatio =
+    image.width && image.height ? image.width / image.height : 1;
+  const height = Math.round(width / aspectRatio);
+
   const handleLongPress = useCallback(() => {
-    onLongPress?.(image);
-  }, [onLongPress, image]);
+    onLongPressProp?.(image as ImageFile);
+  }, [onLongPressProp, image]);
 
   const longPressHandlers = useLongPress({ onLongPress: handleLongPress });
 
@@ -139,7 +111,7 @@ function CellThumbnail({
         longPressHandlers.firedRef.current = false;
         return;
       }
-      onImageClick?.(image, event as React.MouseEvent);
+      onImageClick?.(image as ImageFile, event as React.MouseEvent);
     },
     [onImageClick, image, longPressHandlers.firedRef],
   );
@@ -150,74 +122,14 @@ function CellThumbnail({
       style={{ touchAction: "none" }}
     >
       <ImageThumbnail
-        image={image}
-        width={thumbSize}
-        height={thumbSize}
+        image={image as ImageFile}
+        width={width}
+        height={height}
         selected={selected}
         rubberBandPending={pending}
         selectMode={selectMode}
         sizes={sizes}
         onClick={handleClick}
-      />
-    </div>
-  );
-}
-
-/** A single cell in the virtualized grid. */
-function Cell({
-  columnIndex,
-  rowIndex,
-  style,
-  data,
-}: GridChildComponentProps<CellData>): JSX.Element | null {
-  const {
-    images,
-    columnCount,
-    selectedIds,
-    pendingIds,
-    selectMode,
-    onImageClick,
-    onLongPress,
-    sizes,
-    columnWidth,
-  } = data;
-
-  const index = rowIndex * columnCount + columnIndex;
-  if (index >= images.length) {
-    return <div style={style} />;
-  }
-
-  const image = images[index];
-  const selected = selectedIds?.has(image.id) ?? false;
-  const pending = pendingIds?.has(image.id) ?? false;
-
-  // The cell style from react-window positions the cell absolutely. We add
-  // padding inside to create the gap between cells.
-  const innerStyle: React.CSSProperties = {
-    ...style,
-    // Shrink the inner content by the gap amount to create spacing.
-    paddingRight: CELL_GAP,
-    paddingBottom: CELL_GAP,
-    boxSizing: "border-box",
-    // Elevate selected/pending cells so their borders aren't clipped by
-    // adjacent rows in the same stacking context.
-    zIndex: selected || pending ? 1 : undefined,
-  };
-
-  // The thumbnail size should account for the gap padding.
-  const thumbSize = columnWidth - CELL_GAP;
-
-  return (
-    <div style={innerStyle}>
-      <CellThumbnail
-        image={image}
-        thumbSize={thumbSize}
-        selected={selected}
-        pending={pending}
-        selectMode={selectMode}
-        sizes={sizes}
-        onImageClick={onImageClick}
-        onLongPress={onLongPress}
       />
     </div>
   );
@@ -242,65 +154,40 @@ export function ImageGrid({
     );
   }
 
+  // Enrich each image with shared props so MasonryCard can access them.
+  // masonic requires each item to have a unique `id` field (which ImageFile
+  // already provides).
+  const items: MasonryItemData[] = useMemo(
+    () =>
+      images.map((img) => ({
+        ...img,
+        selectedIds,
+        pendingIds,
+        selectMode,
+        onImageClick,
+        onLongPress,
+        sizes,
+      })),
+    [images, selectedIds, pendingIds, selectMode, onImageClick, onLongPress, sizes],
+  );
+
   return (
     <Box
       data-testid="image-grid"
       data-layout={layout}
       width="100%"
       height="100%"
-      // AutoSizer needs a parent with explicit dimensions to measure.
-      // flex: 1 makes this fill remaining space in flex layouts.
       flex="1"
       minHeight="0"
+      overflow="auto"
     >
-      <AutoSizer
-        renderProp={({ height, width }) => {
-          if (!width || !height) return null;
-
-          const columnCount = calculateColumnCount(width);
-          const columnWidth = Math.floor(width / columnCount);
-          const rowCount = Math.ceil(images.length / columnCount);
-          // Row height: square cells plus gap.
-          const rowHeight = CELL_HEIGHT + CELL_GAP;
-
-          const itemData: CellData = {
-            images,
-            columnCount,
-            selectedIds,
-            pendingIds,
-            selectMode,
-            onImageClick,
-            onLongPress,
-            sizes,
-            columnWidth,
-          };
-
-          // Subtract the vertical scrollbar width from the available
-          // space so column widths don't overflow when the scrollbar
-          // appears. 16px is a safe cross-platform estimate.
-          const scrollbarWidth = 16;
-          const usableWidth = width - scrollbarWidth;
-          const safeColumnWidth = Math.floor(usableWidth / columnCount);
-
-          return (
-            <FixedSizeGrid
-              columnCount={columnCount}
-              columnWidth={safeColumnWidth}
-              height={height}
-              width={width}
-              rowCount={rowCount}
-              rowHeight={rowHeight}
-              overscanRowCount={3}
-              itemData={{
-                ...itemData,
-                columnWidth: safeColumnWidth,
-              }}
-              style={{ overflowX: "hidden" }}
-            >
-              {Cell}
-            </FixedSizeGrid>
-          );
-        }}
+      <Masonry
+        items={items}
+        columnGutter={CELL_GAP}
+        columnWidth={TARGET_CELL_WIDTH}
+        overscanBy={3}
+        render={MasonryCard}
+        itemKey={(data) => data.id}
       />
     </Box>
   );

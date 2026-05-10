@@ -122,6 +122,10 @@ export interface ImageFile {
   name: string;
   /** Path relative to the image root — append to `/files/` to build a URL. */
   path: string;
+  /** Original width in pixels (0 when unknown). */
+  width: number;
+  /** Original height in pixels (0 when unknown). */
+  height: number;
 }
 
 /**

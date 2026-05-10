@@ -180,9 +180,9 @@ if (typeof window !== "undefined" && typeof window.matchMedia === "undefined") {
   });
 }
 
-// jsdom lacks `ResizeObserver`; `react-photo-album` uses it to measure the
-// grid container. A no-op stub is sufficient because component tests assert
-// on rendered DOM rather than computed pixel layout.
+// jsdom lacks `ResizeObserver`; `masonic` uses it to measure grid cells.
+// A no-op stub is sufficient because component tests assert on rendered DOM
+// rather than computed pixel layout.
 if (typeof globalThis.ResizeObserver === "undefined") {
   class ResizeObserverStub {
     observe(): void {

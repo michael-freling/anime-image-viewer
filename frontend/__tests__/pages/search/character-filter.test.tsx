@@ -20,26 +20,18 @@ jest.mock("@mantine/hooks", () => ({
   useHotkeys: () => undefined,
 }));
 
-// Mock AutoSizer to provide fixed dimensions in jsdom.
-jest.mock("react-virtualized-auto-sizer", () => {
+// Mock masonic to render all items in jsdom (masonic relies on IntersectionObserver + window scroll).
+jest.mock("masonic", () => {
   const ReactModule = jest.requireActual<typeof import("react")>("react");
   return {
     __esModule: true,
-    AutoSizer: ({
-      renderProp,
-    }: {
-      renderProp: (size: {
-        height: number | undefined;
-        width: number | undefined;
-      }) => React.ReactNode;
-    }) =>
+    Masonry: ({ items, render: Render }: { items: unknown[]; render: React.ComponentType<{ data: unknown; width: number; index: number }> }) =>
       ReactModule.createElement(
         "div",
-        {
-          "data-testid": "auto-sizer-mock",
-          style: { width: 1000, height: 800 },
-        },
-        renderProp({ height: 800, width: 1000 }),
+        { "data-testid": "masonry-mock" },
+        (items as unknown[]).map((item, index) =>
+          ReactModule.createElement(Render, { key: index, data: item, width: 200, index }),
+        ),
       ),
   };
 });

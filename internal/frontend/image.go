@@ -55,9 +55,11 @@ func (service *ImageService) ShowImageInExplorer(ctx context.Context, imageID ui
 }
 
 type Image struct {
-	ID   uint   `json:"id"`
-	Name string `json:"name"`
-	Path string `json:"path"`
+	ID     uint   `json:"id"`
+	Name   string `json:"name"`
+	Path   string `json:"path"`
+	Width  uint   `json:"width"`
+	Height uint   `json:"height"`
 }
 
 type imageConverter struct {
@@ -67,9 +69,11 @@ type imageConverter struct {
 func newImageConverterFromImageFiles(imageFile image.ImageFile) *imageConverter {
 	return &imageConverter{
 		converted: Image{
-			ID:   imageFile.ID,
-			Name: imageFile.Name,
-			Path: imageFile.Path,
+			ID:     imageFile.ID,
+			Name:   imageFile.Name,
+			Path:   imageFile.Path,
+			Width:  imageFile.Width,
+			Height: imageFile.Height,
 		},
 	}
 }

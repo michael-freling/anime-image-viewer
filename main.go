@@ -100,6 +100,9 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 	if err := dbClient.Migrate(); err != nil {
 		return fmt.Errorf("db.Migrate: %w", err)
 	}
+	if err := image.BackfillImageDimensions(logger, dbClient, conf); err != nil {
+		return fmt.Errorf("image.BackfillImageDimensions: %w", err)
+	}
 
 	clientConn, err := grpc.NewClient("localhost:50051",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
