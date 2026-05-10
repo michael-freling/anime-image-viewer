@@ -174,6 +174,26 @@ describe("TagForm", () => {
     r.unmount();
   });
 
+  test("clearing parent select emits null parentId", () => {
+    const onChange = jest.fn();
+    const r = render(
+      createElement(TagForm, {
+        values: { ...BASE_VALUES, parentId: 11 },
+        onChange,
+        parentOptions: PARENT_OPTIONS,
+        onCancel: jest.fn(),
+        submitLabel: "Create",
+      }),
+    );
+    const select = r.container.querySelector<HTMLSelectElement>(
+      "[data-testid='tag-form-parent']",
+    )!;
+    // Select the "(none)" option which has value "".
+    setSelectValue(select, "");
+    expect(onChange).toHaveBeenLastCalledWith({ ...BASE_VALUES, parentId: null });
+    r.unmount();
+  });
+
   test("parent select is disabled when no options are provided", () => {
     const r = render(
       createElement(TagForm, {

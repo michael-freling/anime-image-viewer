@@ -70,6 +70,7 @@ jest.mock("masonic", () => {
 const getAnimeDetailsMock = jest.fn();
 const searchImagesByAnimeMock = jest.fn();
 const importImagesMock = jest.fn();
+const deleteImagesMock = jest.fn();
 jest.mock("../../../src/lib/api", () => ({
   __esModule: true,
   AnimeService: {
@@ -80,6 +81,11 @@ jest.mock("../../../src/lib/api", () => ({
   },
   BatchImportImageService: {
     ImportImages: (...args: unknown[]) => importImagesMock(...args),
+  },
+  ImageService: {
+    DeleteImages: (...args: unknown[]) => deleteImagesMock(...args),
+    OpenImageInOS: jest.fn().mockResolvedValue(undefined),
+    ShowImageInExplorer: jest.fn().mockResolvedValue(undefined),
   },
   TagService: {
     GetAll: () => Promise.resolve([]),
@@ -133,6 +139,8 @@ describe("ImagesTab", () => {
     searchImagesByAnimeMock.mockResolvedValue({ images: [] });
     importImagesMock.mockReset();
     importImagesMock.mockResolvedValue([]);
+    deleteImagesMock.mockReset();
+    deleteImagesMock.mockResolvedValue(undefined);
     resetSelectionStore();
     useImportProgressStore.setState({ imports: new Map() });
     capturedOnSelectionCommit = null;
@@ -703,6 +711,130 @@ describe("ImagesTab", () => {
       // Selection should remain unchanged
       expect(useSelectionStore.getState().selectedIds).toEqual(
         new Set([1]),
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  test("delete button calls DeleteImages after confirmation", async () => {
+    searchImagesByAnimeMock.mockResolvedValue({
+      images: [makeImage(1, "a.png"), makeImage(2, "b.png")],
+    });
+    act(() => {
+      useSelectionStore.setState({
+        selectMode: true,
+        selectedIds: new Set([1, 2]),
+        lastSelectedId: 2,
+      });
+    });
+
+    const originalConfirm = window.confirm;
+    window.confirm = jest.fn(() => true);
+
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/images"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[data-testid='selection-action-bar']") !== null,
+      );
+      const deleteBtn = container.querySelector(
+        "[data-testid='selection-delete']",
+      ) as HTMLButtonElement;
+      expect(deleteBtn).not.toBeNull();
+      act(() => {
+        deleteBtn.click();
+      });
+      await waitFor(() => deleteImagesMock.mock.calls.length > 0);
+      expect(deleteImagesMock).toHaveBeenCalledWith([1, 2]);
+      expect(window.confirm).toHaveBeenCalled();
+    } finally {
+      window.confirm = originalConfirm;
+      unmount();
+    }
+  });
+
+  test("delete does nothing when user cancels the confirmation", async () => {
+    searchImagesByAnimeMock.mockResolvedValue({
+      images: [makeImage(1, "a.png")],
+    });
+    act(() => {
+      useSelectionStore.setState({
+        selectMode: true,
+        selectedIds: new Set([1]),
+        lastSelectedId: 1,
+      });
+    });
+
+    const originalConfirm = window.confirm;
+    window.confirm = jest.fn(() => false);
+
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/images"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[data-testid='selection-action-bar']") !== null,
+      );
+      const deleteBtn = container.querySelector(
+        "[data-testid='selection-delete']",
+      ) as HTMLButtonElement;
+      act(() => {
+        deleteBtn.click();
+      });
+      // Should not have called the API.
+      expect(deleteImagesMock).not.toHaveBeenCalled();
+    } finally {
+      window.confirm = originalConfirm;
+      unmount();
+    }
+  });
+
+  test("image viewer opens on click and can be navigated with Next button", async () => {
+    searchImagesByAnimeMock.mockResolvedValue({
+      images: [makeImage(1, "a.png"), makeImage(2, "b.png")],
+    });
+    const { container, unmount } = renderRoutes(routes, {
+      initialEntries: ["/anime/42/images"],
+    });
+    try {
+      await waitFor(
+        () => container.querySelector("[data-testid='image-grid']") !== null,
+      );
+      // Click the first tile to open the viewer.
+      const tile = container.querySelector("[data-file-id='1']") as HTMLElement;
+      act(() => {
+        tile.click();
+      });
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='image-viewer-overlay']") !== null,
+      );
+      // Click Next to navigate to the second image.
+      const nextBtn = container.querySelector(
+        "[data-testid='image-viewer-next']",
+      ) as HTMLElement;
+      act(() => {
+        nextBtn.click();
+      });
+      // The viewer image should change to the second image.
+      await waitFor(() => {
+        const img = container.querySelector(
+          "[data-testid='image-viewer-image']",
+        ) as HTMLImageElement | null;
+        return img?.alt === "b.png";
+      });
+      // Close the viewer.
+      const closeBtn = container.querySelector(
+        "[data-testid='image-viewer-close']",
+      ) as HTMLElement;
+      act(() => {
+        closeBtn.click();
+      });
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='image-viewer-overlay']") === null,
       );
     } finally {
       unmount();

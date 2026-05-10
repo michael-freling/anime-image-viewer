@@ -2,6 +2,8 @@ package frontend
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -291,7 +293,7 @@ func TestImageService_DeleteImages(t *testing.T) {
 		dbClient.Truncate(t, &db.File{}, &db.FileTag{}, &db.FileCharacter{})
 		// Insert the DB record but do NOT recreate the physical file on disk.
 		// The first sub-test already deleted it; this tests that DeleteImages
-		// gracefully handles the case where ReadImagesByIDs fails.
+		// gracefully handles the case where the physical file is gone.
 		db.LoadTestData(t, dbClient, []db.File{
 			fileBuilder.BuildDBDirectory(1),
 			fileBuilder.BuildDBImageFile(11),
@@ -303,6 +305,59 @@ func TestImageService_DeleteImages(t *testing.T) {
 
 		// Verify file is removed from DB.
 		remainingFiles, err := dbClient.Client.File().FindImageFilesByIDs([]uint{11})
+		require.NoError(t, err)
+		assert.Empty(t, remainingFiles)
+	})
+
+	t.Run("proceeds with DB delete when ReadImagesByIDs fails", func(t *testing.T) {
+		dbClient.Truncate(t, &db.File{}, &db.FileTag{}, &db.FileCharacter{})
+		// Insert the image file WITHOUT the parent directory so that
+		// ReadImagesByIDs fails (ConvertImageFile needs a valid parent).
+		// DeleteImages should still delete the DB records and skip disk cleanup.
+		db.LoadTestData(t, dbClient, []db.File{
+			fileBuilder.BuildDBImageFile(11),
+		})
+
+		service := tester.getImageService()
+		err := service.DeleteImages(context.Background(), []uint{11})
+		assert.NoError(t, err)
+
+		// Verify file is removed from DB despite ReadImagesByIDs failing.
+		remainingFiles, err := dbClient.Client.File().FindImageFilesByIDs([]uint{11})
+		require.NoError(t, err)
+		assert.Empty(t, remainingFiles)
+	})
+
+	t.Run("logs warning when os.Remove fails with permission error", func(t *testing.T) {
+		// Use a fresh tester with its own temp dir so file paths are clean.
+		tester2 := newTester(t)
+		dbClient2 := tester2.dbClient
+		dbClient2.Truncate(t, &db.File{}, &db.FileTag{}, &db.FileCharacter{})
+
+		fileBuilder2 := tester2.newFileCreator(t)
+		fileBuilder2.CreateDirectory(image.Directory{ID: 1, Name: "Directory 1"})
+		fileBuilder2.CreateImage(image.ImageFile{ID: 11, Name: "image_file_11.jpg", ParentID: 1}, image.TestImageFileJpeg)
+		fileBuilder2.AddImageCreatedAt(11, time.Date(2021, 1, 1, 0, 0, 11, 0, time.UTC))
+
+		db.LoadTestData(t, dbClient2, []db.File{
+			fileBuilder2.BuildDBDirectory(1),
+			fileBuilder2.BuildDBImageFile(11),
+		})
+
+		// Make the parent directory read-only so os.Remove fails with EACCES.
+		dirPath := filepath.Join(tester2.config.ImageRootDirectory, "Directory 1")
+		require.NoError(t, os.Chmod(dirPath, 0555))
+		t.Cleanup(func() {
+			_ = os.Chmod(dirPath, 0755)
+		})
+
+		service := tester2.getImageService()
+		err := service.DeleteImages(context.Background(), []uint{11})
+		// DeleteImages is best-effort on disk removal, so it returns nil.
+		assert.NoError(t, err)
+
+		// Verify file is removed from DB even though disk removal failed.
+		remainingFiles, err := dbClient2.Client.File().FindImageFilesByIDs([]uint{11})
 		require.NoError(t, err)
 		assert.Empty(t, remainingFiles)
 	})

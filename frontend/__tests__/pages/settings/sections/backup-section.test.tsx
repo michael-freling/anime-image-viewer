@@ -609,4 +609,272 @@ describe("BackupSection", () => {
       r.unmount();
     }
   });
+
+  test("renders backup configuration form with current values", async () => {
+    listBackupsMock.mockResolvedValue([]);
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () => r.container.querySelector("[data-testid='backup-config']") !== null,
+      );
+      const retentionInput = r.container.querySelector(
+        "[data-testid='backup-retention-count']",
+      ) as HTMLInputElement;
+      expect(retentionInput).not.toBeNull();
+      expect(retentionInput.value).toBe("5");
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("saving backup config calls UpdateConfig with merged values", async () => {
+    listBackupsMock.mockResolvedValue([]);
+    updateConfigMock.mockResolvedValue(undefined);
+
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () => r.container.querySelector("[data-testid='backup-config']") !== null,
+      );
+      const retentionInput = r.container.querySelector(
+        "[data-testid='backup-retention-count']",
+      ) as HTMLInputElement;
+
+      // Change retention count to 10
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )!.set!;
+      await act(async () => {
+        setter.call(retentionInput, "10");
+        retentionInput.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+
+      // Click save
+      const saveBtn = r.container.querySelector(
+        "[data-testid='save-backup-config']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      await waitFor(() => updateConfigMock.mock.calls.length > 0);
+      expect(updateConfigMock).toHaveBeenCalledWith({
+        ...sampleConfig,
+        retentionCount: 10,
+      });
+      await waitFor(() => toastSuccess.mock.calls.length > 0);
+      expect(toastSuccess).toHaveBeenCalledWith("Backup configuration saved");
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("save button is disabled when no changes", async () => {
+    listBackupsMock.mockResolvedValue([]);
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () => r.container.querySelector("[data-testid='save-backup-config']") !== null,
+      );
+      const saveBtn = r.container.querySelector(
+        "[data-testid='save-backup-config']",
+      ) as HTMLButtonElement;
+      expect(saveBtn.disabled).toBe(true);
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("toggling idle backup enabled updates the switch", async () => {
+    listBackupsMock.mockResolvedValue([]);
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () => r.container.querySelector("[data-testid='backup-idle-enabled']") !== null,
+      );
+      // The idle minutes input should be disabled initially (idleBackupEnabled = false)
+      const idleMinutesInput = r.container.querySelector(
+        "[data-testid='backup-idle-minutes']",
+      ) as HTMLInputElement;
+      expect(idleMinutesInput.disabled).toBe(true);
+
+      // Click the hidden input inside the switch to toggle it
+      const switchRoot = r.container.querySelector(
+        "[data-testid='backup-idle-enabled']",
+      ) as HTMLElement;
+      const hiddenInput = switchRoot.querySelector("input") as HTMLInputElement;
+      await act(async () => {
+        hiddenInput.click();
+      });
+
+      // After toggling, idle minutes input should be enabled
+      await waitFor(() => {
+        const input = r.container.querySelector(
+          "[data-testid='backup-idle-minutes']",
+        ) as HTMLInputElement;
+        return !input.disabled;
+      });
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("save backup config failure shows error toast", async () => {
+    listBackupsMock.mockResolvedValue([]);
+    updateConfigMock.mockRejectedValue(new Error("write fail"));
+
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () => r.container.querySelector("[data-testid='backup-config']") !== null,
+      );
+      // Change a field to enable save
+      const retentionInput = r.container.querySelector(
+        "[data-testid='backup-retention-count']",
+      ) as HTMLInputElement;
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )!.set!;
+      await act(async () => {
+        setter.call(retentionInput, "10");
+        retentionInput.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+
+      // Click save
+      const saveBtn = r.container.querySelector(
+        "[data-testid='save-backup-config']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      await waitFor(() => toastError.mock.calls.length > 0);
+      expect(toastError).toHaveBeenCalledWith(
+        "Couldn't save backup configuration",
+        "write fail",
+      );
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("toggling idle include images updates the switch and saves correctly", async () => {
+    // Start with idle backup enabled so the include-images switch is not disabled.
+    getConfigMock.mockReset();
+    getConfigMock.mockResolvedValue({ ...sampleConfig, idleBackupEnabled: true });
+    listBackupsMock.mockResolvedValue([]);
+    updateConfigMock.mockResolvedValue(undefined);
+
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () => r.container.querySelector("[data-testid='backup-idle-include-images']") !== null,
+      );
+      // The idle include images switch should be enabled (not disabled).
+      const switchRoot = r.container.querySelector(
+        "[data-testid='backup-idle-include-images']",
+      ) as HTMLElement;
+      const hiddenInput = switchRoot.querySelector("input") as HTMLInputElement;
+      expect(hiddenInput.disabled).toBe(false);
+
+      // Toggle it on.
+      await act(async () => {
+        hiddenInput.click();
+      });
+
+      // Save the config.
+      const saveBtn = r.container.querySelector(
+        "[data-testid='save-backup-config']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      await waitFor(() => updateConfigMock.mock.calls.length > 0);
+      expect(updateConfigMock).toHaveBeenCalledWith(
+        expect.objectContaining({ idleBackupIncludeImages: true }),
+      );
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("idle minutes input change updates draft", async () => {
+    // Start with idle backup enabled so the minutes input is not disabled.
+    getConfigMock.mockReset();
+    getConfigMock.mockResolvedValue({ ...sampleConfig, idleBackupEnabled: true });
+    listBackupsMock.mockResolvedValue([]);
+    updateConfigMock.mockResolvedValue(undefined);
+
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () => r.container.querySelector("[data-testid='backup-idle-minutes']") !== null,
+      );
+      const idleMinutesInput = r.container.querySelector(
+        "[data-testid='backup-idle-minutes']",
+      ) as HTMLInputElement;
+      expect(idleMinutesInput.disabled).toBe(false);
+
+      // Change the idle minutes value.
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )!.set!;
+      await act(async () => {
+        setter.call(idleMinutesInput, "30");
+        idleMinutesInput.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+
+      // Save the config.
+      const saveBtn = r.container.querySelector(
+        "[data-testid='save-backup-config']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      await waitFor(() => updateConfigMock.mock.calls.length > 0);
+      expect(updateConfigMock).toHaveBeenCalledWith(
+        expect.objectContaining({ idleMinutes: 30 }),
+      );
+    } finally {
+      r.unmount();
+    }
+  });
+
+  test("include images toggle for manual backup", async () => {
+    listBackupsMock.mockResolvedValue([]);
+    createBackupMock.mockResolvedValue("/backup/new.tar.gz");
+
+    const r = renderWithClient(<BackupSection />);
+    try {
+      await waitFor(
+        () => r.container.querySelector("[data-testid='backup-include-images']") !== null,
+      );
+      // Toggle the include images switch
+      const switchRoot = r.container.querySelector(
+        "[data-testid='backup-include-images']",
+      ) as HTMLElement;
+      const hiddenInput = switchRoot.querySelector("input") as HTMLInputElement;
+      await act(async () => {
+        hiddenInput.click();
+      });
+
+      // Click Create Backup
+      const createBtn = r.container.querySelector(
+        "[data-testid='create-backup']",
+      ) as HTMLButtonElement;
+      await act(async () => {
+        createBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      await waitFor(() => createBackupMock.mock.calls.length > 0);
+      expect(createBackupMock).toHaveBeenCalledWith(true, "");
+    } finally {
+      r.unmount();
+    }
+  });
 });

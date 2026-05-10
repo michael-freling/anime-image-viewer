@@ -5,6 +5,7 @@ import (
 	"context"
 	"image"
 	"image/color"
+	"image/gif"
 	"image/jpeg"
 	"image/png"
 	"io"
@@ -122,6 +123,22 @@ func TestResizer_ResizeImage(t *testing.T) {
 
 		_, err = resizer.ResizeImage(ctx, filePath, 100)
 		assert.Error(t, err)
+	})
+
+	t.Run("decodable format without encoder returns error", func(t *testing.T) {
+		// GIF is registered as a decoder (via import "image/gif" in this test file)
+		// but the Resizer only has encoders for jpeg and png.
+		tmpDir := t.TempDir()
+		filePath := filepath.Join(tmpDir, "test.gif")
+		img := image.NewPaletted(image.Rect(0, 0, 10, 10), color.Palette{color.White, color.Black})
+		f, err := os.Create(filePath)
+		require.NoError(t, err)
+		require.NoError(t, gif.Encode(f, img, nil))
+		require.NoError(t, f.Close())
+
+		_, err = resizer.ResizeImage(ctx, filePath, 5)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported image format for an encoder")
 	})
 }
 
