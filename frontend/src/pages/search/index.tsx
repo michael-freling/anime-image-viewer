@@ -44,6 +44,7 @@ import { Collapsible } from "../../components/ui/collapsible";
 import { RubberBandOverlay } from "../../components/selection/rubber-band-overlay";
 import { SelectionActionBar } from "../../components/selection/selection-action-bar";
 import { useAnimeDetail } from "../../hooks/use-anime-detail";
+import { useDeleteImages } from "../../hooks/use-image-mutations";
 import { useImageSelection } from "../../hooks/use-image-selection";
 import { useSearchImages } from "../../hooks/use-search-images";
 import { useTags } from "../../hooks/use-tags";
@@ -312,6 +313,25 @@ export function SearchPage(): JSX.Element {
     [],
   );
 
+  const deleteImagesMutation = useDeleteImages();
+
+  const handleDelete = useCallback(() => {
+    const ids = Array.from(useSelectionStore.getState().selectedIds);
+    if (ids.length === 0) return;
+    const confirmed = window.confirm(
+      `Delete ${ids.length} image${ids.length > 1 ? "s" : ""}? This cannot be undone.`,
+    );
+    if (!confirmed) return;
+    deleteImagesMutation.mutate(
+      { imageIds: ids },
+      {
+        onSuccess: () => {
+          useSelectionStore.getState().clearSelection();
+        },
+      },
+    );
+  }, [deleteImagesMutation]);
+
   const isEmpty = isEmptyFilterState(urlState);
   const isLoading = searchQuery.isLoading && !searchQuery.data;
   const hasError = searchQuery.isError;
@@ -436,6 +456,7 @@ export function SearchPage(): JSX.Element {
                 : "/images/edit",
             )
           }
+          onDelete={handleDelete}
         />
       )}
 

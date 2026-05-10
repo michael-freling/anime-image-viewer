@@ -12,7 +12,7 @@ import (
 )
 
 func (tester tester) getImageService() *ImageService {
-	return NewImageService(tester.getFileReader())
+	return NewImageService(tester.getFileReader(), tester.dbClient.Client)
 }
 
 func TestImageService_ReadImagesByIDs(t *testing.T) {
@@ -93,7 +93,7 @@ func TestImageService_ReadImagesByIDs(t *testing.T) {
 
 func TestNewImageService(t *testing.T) {
 	tester := newTester(t)
-	service := NewImageService(tester.getFileReader())
+	service := NewImageService(tester.getFileReader(), tester.dbClient.Client)
 	assert.NotNil(t, service)
 	assert.NotNil(t, service.imageReader)
 }
@@ -225,5 +225,85 @@ func TestImageService_OpenImageInOS(t *testing.T) {
 		gotErr := service.OpenImageInOS(context.Background(), 999)
 		assert.Error(t, gotErr)
 		assert.Contains(t, gotErr.Error(), "image not found")
+	})
+}
+
+func TestImageService_DeleteImages(t *testing.T) {
+	tester := newTester(t)
+	dbClient := tester.dbClient
+
+	fileBuilder := tester.newFileCreator(t)
+	for _, dir := range []image.Directory{
+		{ID: 1, Name: "Directory 1"},
+	} {
+		fileBuilder.CreateDirectory(dir)
+	}
+	for _, imageFile := range []image.ImageFile{
+		{ID: 11, Name: "image_file_11.jpg", ParentID: 1},
+		{ID: 12, Name: "image_file_12.png", ParentID: 1},
+	} {
+		fileBuilder.CreateImage(imageFile, image.TestImageFileJpeg)
+		fileBuilder.AddImageCreatedAt(imageFile.ID, time.Date(2021, 1, 1, 0, 0, int(imageFile.ID), 0, time.UTC))
+	}
+
+	t.Run("deletes images from DB and disk", func(t *testing.T) {
+		dbClient.Truncate(t, &db.File{}, &db.FileTag{}, &db.FileCharacter{})
+		db.LoadTestData(t, dbClient, []db.File{
+			fileBuilder.BuildDBDirectory(1),
+			fileBuilder.BuildDBImageFile(11),
+			fileBuilder.BuildDBImageFile(12),
+		})
+		db.LoadTestData(t, dbClient, []db.FileTag{
+			{TagID: 100, FileID: 11, AddedBy: db.FileTagAddedByUser},
+			{TagID: 100, FileID: 12, AddedBy: db.FileTagAddedByUser},
+		})
+		db.LoadTestData(t, dbClient, []db.FileCharacter{
+			{CharacterID: 200, FileID: 11, AddedBy: db.FileTagAddedByUser},
+		})
+
+		service := tester.getImageService()
+		err := service.DeleteImages(context.Background(), []uint{11, 12})
+		require.NoError(t, err)
+
+		// Verify files are removed from DB.
+		remainingFiles, err := dbClient.Client.File().FindImageFilesByIDs([]uint{11, 12})
+		require.NoError(t, err)
+		assert.Empty(t, remainingFiles)
+
+		// Verify tag associations are removed.
+		remainingTags, err := dbClient.Client.FileTag().FindAllByFileID([]uint{11, 12})
+		require.NoError(t, err)
+		assert.Empty(t, remainingTags)
+
+		// Verify character associations are removed.
+		remainingChars, err := dbClient.Client.FileCharacter().FindByFileIDs([]uint{11, 12})
+		require.NoError(t, err)
+		assert.Empty(t, remainingChars)
+	})
+
+	t.Run("no error for empty IDs", func(t *testing.T) {
+		service := tester.getImageService()
+		err := service.DeleteImages(context.Background(), []uint{})
+		assert.NoError(t, err)
+	})
+
+	t.Run("no error when file already missing from disk", func(t *testing.T) {
+		dbClient.Truncate(t, &db.File{}, &db.FileTag{}, &db.FileCharacter{})
+		// Insert the DB record but do NOT recreate the physical file on disk.
+		// The first sub-test already deleted it; this tests that DeleteImages
+		// gracefully handles the case where ReadImagesByIDs fails.
+		db.LoadTestData(t, dbClient, []db.File{
+			fileBuilder.BuildDBDirectory(1),
+			fileBuilder.BuildDBImageFile(11),
+		})
+
+		service := tester.getImageService()
+		err := service.DeleteImages(context.Background(), []uint{11})
+		assert.NoError(t, err)
+
+		// Verify file is removed from DB.
+		remainingFiles, err := dbClient.Client.File().FindImageFilesByIDs([]uint{11})
+		require.NoError(t, err)
+		assert.Empty(t, remainingFiles)
 	})
 }

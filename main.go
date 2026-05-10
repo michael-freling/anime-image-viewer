@@ -116,7 +116,7 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 	directoryReader := image.NewDirectoryReader(conf, dbClient)
 	tagReader := tag.NewReader(dbClient, directoryReader)
 	imageReader := image.NewReader(dbClient, directoryReader, imageFileConverter)
-	imageService := frontend.NewImageService(imageReader)
+	imageService := frontend.NewImageService(imageReader, dbClient)
 	directoryService := frontend.NewDirectoryService(
 		dbClient,
 		directoryReader,
