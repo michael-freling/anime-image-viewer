@@ -2,6 +2,9 @@ package db
 
 import (
 	"context"
+	"fmt"
+	"strings"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -56,6 +59,14 @@ type File struct {
 	// ContentHash stores a hex-encoded SHA256 hash of the image file content.
 	// It is computed on import and used for fast corruption detection.
 	ContentHash string
+
+	// ImageWidth is the pixel width of the source image, populated on import
+	// and backfilled for existing images. NULL for directories or unknown.
+	ImageWidth *uint
+
+	// ImageHeight is the pixel height of the source image, populated on import
+	// and backfilled for existing images. NULL for directories or unknown.
+	ImageHeight *uint
 
 	// CreatedAt is a timestamp of the record creation
 	CreatedAt uint `gorm:"autoCreateTime,index:parent_id_created_at"`
@@ -237,6 +248,18 @@ func (client *FileClient) FindAllImageFiles() ([]File, error) {
 	return images, err
 }
 
+// FindImageFilesWithNullDimensions returns all image files where image_width
+// IS NULL. Only the id, parent_id, name, and content_hash columns are selected.
+func (client *FileClient) FindImageFilesWithNullDimensions() ([]File, error) {
+	var files []File
+	err := client.connection.
+		Where("type = ? AND image_width IS NULL", FileTypeImage).
+		Select("id, parent_id, name, content_hash").
+		Find(&files).
+		Error
+	return files, err
+}
+
 // MoveFiles updates the parent_id of all specified file IDs to the new parent.
 // It does not validate types or check for name conflicts — the caller is
 // responsible for those checks before calling this method.
@@ -258,6 +281,38 @@ func (client *FileClient) UpdateContentHash(id uint, hash string) error {
 		Where("id = ?", id).
 		Update("content_hash", hash).
 		Error
+}
+
+// ImageDimensions holds the pixel width and height for an image file.
+type ImageDimensions struct {
+	Width  uint
+	Height uint
+}
+
+// BatchUpdateImageDimensions updates the image_width and image_height columns
+// for multiple file records in a single SQL statement using a CASE expression.
+// The updates map is keyed by file ID.
+func (client *FileClient) BatchUpdateImageDimensions(updates map[uint]ImageDimensions) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	ids := make([]uint, 0, len(updates))
+	var widthCases strings.Builder
+	var heightCases strings.Builder
+
+	for id, dims := range updates {
+		ids = append(ids, id)
+		fmt.Fprintf(&widthCases, " WHEN %d THEN %d", id, dims.Width)
+		fmt.Fprintf(&heightCases, " WHEN %d THEN %d", id, dims.Height)
+	}
+
+	sql := fmt.Sprintf(
+		"UPDATE files SET image_width = CASE id%s END, image_height = CASE id%s END, updated_at = ? WHERE id IN ?",
+		widthCases.String(), heightCases.String(),
+	)
+
+	return client.connection.Exec(sql, time.Now().Unix(), ids).Error
 }
 
 // BatchUpdateContentHashes updates the content_hash column for multiple file

@@ -18,6 +18,7 @@ import { useNavigate, useParams } from "react-router";
 import { ImageViewerOverlay } from "../../components/image-viewer";
 import { EmptyState } from "../../components/shared/empty-state";
 import { ErrorAlert } from "../../components/shared/error-alert";
+import { GridSizeControl } from "../../components/shared/grid-size-control";
 import { ImageGrid } from "../../components/shared/image-grid";
 import { ImageThumbnailSkeleton } from "../../components/shared/loading-skeleton";
 import { RubberBandOverlay } from "../../components/selection/rubber-band-overlay";
@@ -26,8 +27,10 @@ import { useAnimeDetail } from "../../hooks/use-anime-detail";
 import { useAnimeImages } from "../../hooks/use-anime-images";
 import { useImageImport } from "../../hooks/use-image-import";
 import { useImageSelection } from "../../hooks/use-image-selection";
+import { gridSizeColumnWidth } from "../../lib/constants";
 import { qk } from "../../lib/query-keys";
 import { useSelectionStore } from "../../stores/selection-store";
+import { useUIStore } from "../../stores/ui-store";
 import type { ImageFile } from "../../types";
 
 function parseAnimeId(raw: string | undefined): number {
@@ -67,6 +70,8 @@ export function ImagesTab(): JSX.Element {
   const selection = useImageSelection(visibleIds);
 
   const gridContainerRef = useRef<HTMLDivElement>(null);
+
+  const gridSize = useUIStore((s) => s.gridSize);
 
   const { importImages } = useImageImport();
 
@@ -179,6 +184,8 @@ export function ImagesTab(): JSX.Element {
           </Box>
           Upload
         </Button>
+        <Box flex="1" />
+        <GridSizeControl />
       </Flex>
 
       {/* Grid / empty / error / loading states */}
@@ -229,6 +236,7 @@ export function ImagesTab(): JSX.Element {
             selectMode={selectMode}
             onImageClick={handleImageClick}
             onLongPress={handleLongPress}
+            columnWidth={gridSizeColumnWidth(gridSize)}
           />
           {selectMode ? (
             <RubberBandOverlay

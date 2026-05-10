@@ -341,6 +341,73 @@ func TestGetAnimeDetail_InvalidJSON(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to parse detail response")
 }
 
+func TestGetAnimeDetail_HTTPError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"server error"}`))
+	}))
+	defer server.Close()
+
+	client := NewHTTPClientWithEndpoint(server.URL)
+	detail, err := client.GetAnimeDetail(context.Background(), 1)
+	require.Error(t, err)
+	assert.Nil(t, detail)
+	assert.Contains(t, err.Error(), "500")
+}
+
+func TestGetAnimeDetail_CancelledContext(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// This handler should never be reached because the context is already cancelled.
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewHTTPClientWithEndpoint(server.URL)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately
+
+	detail, err := client.GetAnimeDetail(ctx, 1)
+	require.Error(t, err)
+	assert.Nil(t, detail)
+}
+
+func TestGetAnimeDetail_CancelledDuringThrottle(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"data": map[string]any{
+				"Media": map[string]any{
+					"id":    1,
+					"title": map[string]any{"romaji": "Test"},
+					"format": "TV", "status": "FINISHED",
+					"season": "FALL", "seasonYear": 2020, "episodes": 12,
+					"coverImage": map[string]any{"large": "", "medium": ""},
+					"relations":  map[string]any{"edges": []any{}},
+					"characters": map[string]any{"edges": []any{}},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client := NewHTTPClientWithEndpoint(server.URL)
+
+	// First request succeeds, setting lastRequest.
+	_, err := client.GetAnimeDetail(context.Background(), 1)
+	require.NoError(t, err)
+
+	// Second request immediately with an already-cancelled context.
+	// This triggers the ctx.Done() path inside the throttle select.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	detail, err := client.GetAnimeDetail(ctx, 1)
+	require.Error(t, err)
+	assert.Nil(t, detail)
+}
+
 func TestSearchAnime_InvalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

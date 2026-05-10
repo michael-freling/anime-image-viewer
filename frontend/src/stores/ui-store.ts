@@ -11,18 +11,22 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
+import { DEFAULT_GRID_SIZE, type GridSize } from "../lib/constants";
+
 export type ThemePreference = "light" | "dark" | "system";
 
 export interface UIState {
   commandPaletteOpen: boolean;
   sidebarExpanded: boolean;
   theme: ThemePreference;
+  gridSize: GridSize;
 
   setCommandPaletteOpen: (open: boolean) => void;
   toggleCommandPalette: () => void;
   setSidebarExpanded: (expanded: boolean) => void;
   toggleSidebar: () => void;
   setTheme: (theme: ThemePreference) => void;
+  setGridSize: (size: GridSize) => void;
 }
 
 const STORAGE_KEY = "animevault:ui";
@@ -44,6 +48,7 @@ export const useUIStore = create<UIState>()(
       commandPaletteOpen: false,
       sidebarExpanded: false,
       theme: "dark",
+      gridSize: DEFAULT_GRID_SIZE,
 
       setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
       toggleCommandPalette: () =>
@@ -52,13 +57,14 @@ export const useUIStore = create<UIState>()(
       toggleSidebar: () =>
         set({ sidebarExpanded: !get().sidebarExpanded }),
       setTheme: (theme) => set({ theme }),
+      setGridSize: (size) => set({ gridSize: size }),
     }),
     {
       name: STORAGE_KEY,
       storage: safeStorage(),
       // Persist only durable preferences; transient chrome state resets on
       // every app launch.
-      partialize: (state) => ({ theme: state.theme }),
+      partialize: (state) => ({ theme: state.theme, gridSize: state.gridSize }),
     },
   ),
 );

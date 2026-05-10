@@ -18,6 +18,27 @@ export const THUMBNAIL_WIDTHS = [520, 1040, 1920] as const;
 
 export type ThumbnailWidth = (typeof THUMBNAIL_WIDTHS)[number];
 
+export type GridSize = "xs" | "sm" | "md" | "lg";
+
+export interface GridSizeConfig {
+  value: GridSize;
+  label: string;
+  columnWidth: number;
+}
+
+export const GRID_SIZE_CONFIGS: readonly GridSizeConfig[] = [
+  { value: "xs", label: "XS", columnWidth: 120 },
+  { value: "sm", label: "S", columnWidth: 180 },
+  { value: "md", label: "M", columnWidth: 260 },
+  { value: "lg", label: "L", columnWidth: 400 },
+] as const;
+
+export const DEFAULT_GRID_SIZE: GridSize = "sm";
+
+export function gridSizeColumnWidth(size: GridSize): number {
+  return GRID_SIZE_CONFIGS.find((c) => c.value === size)?.columnWidth ?? 180;
+}
+
 /**
  * Season type UI config. The backend stores season types as lowercase strings
  * (`db.SeasonTypeSeason`/`Movie`/`Other`), which we narrow into the UI-facing

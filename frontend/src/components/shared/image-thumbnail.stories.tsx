@@ -7,6 +7,8 @@ const sampleImage: ImageFile = {
   id: 1,
   name: "sunset-beach.jpg",
   path: "/files/anime/sunset-beach.jpg",
+  width: 1920,
+  height: 1080,
 };
 
 const meta = {

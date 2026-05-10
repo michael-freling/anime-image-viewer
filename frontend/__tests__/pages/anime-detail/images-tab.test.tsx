@@ -3,7 +3,7 @@
  *
  * We mount the tab via `renderRoutes` so `useParams` and `useNavigate` all
  * resolve against a memory router with the right URL pattern.
- * `react-photo-album` is stubbed as in image-grid.test.tsx so the render tree
+ * `masonic` is stubbed as in image-grid.test.tsx so the render tree
  * is plain DOM and we can assert on tile counts.
  *
  * Covered behaviours:
@@ -49,27 +49,21 @@ jest.mock("../../../src/components/selection/rubber-band-overlay", () => {
   };
 });
 
-// Mock AutoSizer to provide fixed dimensions in jsdom (react-virtualized-auto-sizer v2 API).
-jest.mock("react-virtualized-auto-sizer", () => {
+// Mock masonic to render all items in jsdom (masonic relies on IntersectionObserver + window scroll).
+jest.mock("masonic", () => {
   const ReactModule = jest.requireActual<typeof import("react")>("react");
   return {
     __esModule: true,
-    AutoSizer: ({
-      renderProp,
-    }: {
-      renderProp: (size: {
-        height: number | undefined;
-        width: number | undefined;
-      }) => React.ReactNode;
-    }) =>
+    useMasonry: ({ items, render: Render, itemKey }: { items: unknown[]; render: React.ComponentType<{ data: unknown; width: number; index: number }>; itemKey?: (data: unknown) => unknown; [k: string]: unknown }) =>
       ReactModule.createElement(
         "div",
-        {
-          "data-testid": "auto-sizer-mock",
-          style: { width: 1000, height: 800 },
-        },
-        renderProp({ height: 800, width: 1000 }),
+        { "data-testid": "masonry-mock" },
+        (items as unknown[]).map((item, index) =>
+          ReactModule.createElement(Render, { key: itemKey ? (itemKey(item) as React.Key) : index, data: item, width: 200, index }),
+        ),
       ),
+    usePositioner: () => ({}),
+    useResizeObserver: () => ({}),
   };
 });
 
@@ -118,7 +112,7 @@ function makeDetail(overrides: Record<string, unknown> = {}): Record<string, unk
 }
 
 function makeImage(id: number, name: string): ImageFile {
-  return { id, name, path: `/files/bebop/${name}` };
+  return { id, name, path: `/files/bebop/${name}`, width: 800, height: 600 };
 }
 
 function resetSelectionStore() {

@@ -1,44 +1,36 @@
 /**
- * Tests for the virtualized `ImageGrid` (react-window + AutoSizer).
+ * Tests for the virtualized `ImageGrid` (masonic Masonry).
  *
  * Proves:
- *   - Renders the correct number of thumbnails for the visible viewport.
+ *   - Renders the correct number of thumbnails for all provided images.
  *   - Forwards the underlying MouseEvent alongside the clicked ImageFile.
  *   - Shows the `emptyState` node when the image list is empty.
  *   - Passes selectedIds / pendingIds down so thumbnails mark themselves
  *     selected / pending appropriately.
  *   - Outer container has the expected data-testid and layout attribute.
  *
- * AutoSizer is mocked to provide fixed dimensions (1000x800) since jsdom
- * has no real layout engine. react-window's FixedSizeGrid is used directly
- * (not mocked) so that the Cell render function is exercised.
+ * Masonic is mocked to render all items synchronously since jsdom has no
+ * real IntersectionObserver or window scroll events.
  */
 import * as React from "react";
 import { act } from "react-dom/test-utils";
 
-// Mock AutoSizer to provide a fixed width/height in jsdom.
-// react-virtualized-auto-sizer v2 uses a `renderProp` API rather than
-// children-as-function.
-jest.mock("react-virtualized-auto-sizer", () => {
+// Mock masonic hooks to render all items synchronously in jsdom (no real
+// IntersectionObserver, ResizeObserver, or scroll events).
+jest.mock("masonic", () => {
   const ReactModule = jest.requireActual<typeof import("react")>("react");
   return {
     __esModule: true,
-    AutoSizer: ({
-      renderProp,
-    }: {
-      renderProp: (size: {
-        height: number | undefined;
-        width: number | undefined;
-      }) => React.ReactNode;
-    }) =>
+    useMasonry: ({ items, render: Render, itemKey }: { items: unknown[]; render: React.ComponentType<{ data: unknown; width: number; index: number }>; itemKey?: (data: unknown) => unknown; [k: string]: unknown }) =>
       ReactModule.createElement(
         "div",
-        {
-          "data-testid": "auto-sizer-mock",
-          style: { width: 1000, height: 800 },
-        },
-        renderProp({ height: 800, width: 1000 }),
+        { "data-testid": "masonry-mock" },
+        (items as unknown[]).map((item, index) =>
+          ReactModule.createElement(Render, { key: itemKey ? (itemKey(item) as React.Key) : index, data: item, width: 200, index }),
+        ),
       ),
+    usePositioner: () => ({}),
+    useResizeObserver: () => ({}),
   };
 });
 
@@ -51,15 +43,13 @@ function makeImages(n: number): ImageFile[] {
     id: 100 + i,
     name: `image-${i}.png`,
     path: `/files/anime/folder/image-${i}.png`,
+    width: 800,
+    height: 600,
   }));
 }
 
 describe("ImageGrid", () => {
-  test("renders thumbnails for visible images", () => {
-    // With width=1000 and TARGET_CELL_WIDTH=200, we get 5 columns.
-    // With height=800 and rowHeight=208, we get ~3.8 visible rows.
-    // react-window with overscanRowCount=3 will render more rows.
-    // 6 images with 5 columns = 2 rows, all should be rendered.
+  test("renders thumbnails for all images", () => {
     const images = makeImages(6);
     const { container, unmount } = renderWithClient(
       <ImageGrid images={images} />,
@@ -158,9 +148,8 @@ describe("ImageGrid", () => {
     }
   });
 
-  test("renders many images without crashing (virtualization test)", () => {
-    // 100 images should not blow up - only a subset should be in the DOM
-    // due to virtualization.
+  test("renders many images without crashing", () => {
+    // 100 images should not blow up. With the mock all items are rendered.
     const images = makeImages(100);
     const { container, unmount } = renderWithClient(
       <ImageGrid images={images} />,
@@ -169,12 +158,7 @@ describe("ImageGrid", () => {
       const tiles = container.querySelectorAll(
         "[data-testid='image-thumbnail']",
       );
-      // With 5 columns, 100 images = 20 rows. Viewport fits ~3.8 rows,
-      // plus 3 overscan rows = ~7 rows visible = ~35 thumbnails rendered.
-      // The exact count depends on react-window internals, but it should
-      // be significantly fewer than 100.
-      expect(tiles.length).toBeGreaterThan(0);
-      expect(tiles.length).toBeLessThan(100);
+      expect(tiles.length).toBe(100);
     } finally {
       unmount();
     }

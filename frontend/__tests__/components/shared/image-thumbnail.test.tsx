@@ -18,6 +18,8 @@ const IMAGE: ImageFile = {
   id: 77,
   name: "ep01-frame-012.png",
   path: "/files/Attack on Titan/S1/ep01-frame-012.png",
+  width: 1920,
+  height: 1080,
 };
 
 function fireEvent(node: Element, type: "load" | "error") {

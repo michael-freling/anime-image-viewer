@@ -6,18 +6,21 @@
  * `window.location.reload()`.
  */
 
-jest.mock("react-photo-album/masonry.css", () => ({}), { virtual: true });
-jest.mock("react-photo-album/columns.css", () => ({}), { virtual: true });
-jest.mock("react-photo-album/rows.css", () => ({}), { virtual: true });
-jest.mock("react-photo-album", () => {
+// Mock masonic to render all items in jsdom (masonic relies on IntersectionObserver + window scroll).
+jest.mock("masonic", () => {
   const ReactModule = jest.requireActual<typeof import("react")>("react");
-  const renderPhotos = () =>
-    ReactModule.createElement("div", { "data-testid": "photo-album-stub" });
   return {
     __esModule: true,
-    MasonryPhotoAlbum: renderPhotos,
-    ColumnsPhotoAlbum: renderPhotos,
-    RowsPhotoAlbum: renderPhotos,
+    useMasonry: ({ items, render: Render, itemKey }: { items: unknown[]; render: React.ComponentType<{ data: unknown; width: number; index: number }>; itemKey?: (data: unknown) => unknown; [k: string]: unknown }) =>
+      ReactModule.createElement(
+        "div",
+        { "data-testid": "masonry-mock" },
+        (items as unknown[]).map((item, index) =>
+          ReactModule.createElement(Render, { key: itemKey ? (itemKey(item) as React.Key) : index, data: item, width: 200, index }),
+        ),
+      ),
+    usePositioner: () => ({}),
+    useResizeObserver: () => ({}),
   };
 });
 

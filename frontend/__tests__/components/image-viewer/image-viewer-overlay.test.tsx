@@ -56,9 +56,9 @@ import type { ImageFile } from "../../../src/types";
 import { flushPromises, renderWithClient } from "../../test-utils";
 
 const IMAGES: ImageFile[] = [
-  { id: 10, name: "first.png", path: "/files/anime/first.png" },
-  { id: 20, name: "second.png", path: "/files/anime/second.png" },
-  { id: 30, name: "third.png", path: "/files/anime/third.png" },
+  { id: 10, name: "first.png", path: "/files/anime/first.png", width: 1920, height: 1080 },
+  { id: 20, name: "second.png", path: "/files/anime/second.png", width: 1920, height: 1080 },
+  { id: 30, name: "third.png", path: "/files/anime/third.png", width: 1920, height: 1080 },
 ];
 
 function byTestId(container: HTMLElement, id: string): HTMLElement | null {
@@ -148,8 +148,8 @@ describe("ImageViewerOverlay", () => {
 
   test("falls back to index-based alt text when file name is missing", async () => {
     const images: ImageFile[] = [
-      { id: 1, name: "", path: "/files/a.png" },
-      { id: 2, name: "", path: "/files/b.png" },
+      { id: 1, name: "", path: "/files/a.png", width: 800, height: 600 },
+      { id: 2, name: "", path: "/files/b.png", width: 800, height: 600 },
     ];
     const r = renderWithClient(
       <ImageViewerOverlay

@@ -25,6 +25,8 @@ type ImageFile struct {
 	ID            uint   `json:"id"`
 	Name          string `json:"name"`
 	Path          string `json:"path"`
+	Width         uint   `json:"width"`
+	Height        uint   `json:"height"`
 	LocalFilePath string `json:"-"`
 	ParentID      uint   `json:"-"`
 	ContentType   string `json:"-"`
@@ -206,11 +208,21 @@ func (converter ImageFileConverter) ConvertImageFile(parentDirectory Directory, 
 		return ImageFile{}, fmt.Errorf("%w: %s", ErrUnsupportedImageFile, imageFilePath)
 	}
 
+	var w, h uint
+	if imageFile.ImageWidth != nil {
+		w = *imageFile.ImageWidth
+	}
+	if imageFile.ImageHeight != nil {
+		h = *imageFile.ImageHeight
+	}
+
 	return ImageFile{
 		ID:   imageFile.ID,
 		Name: imageFile.Name,
 		// from the frontend, use a path only under an image root directory for a wails
 		Path:          "/files" + strings.TrimPrefix(imageFilePath, converter.config.ImageRootDirectory),
+		Width:         w,
+		Height:        h,
 		LocalFilePath: imageFilePath,
 		ParentID:      imageFile.ParentID,
 		ContentType:   contentType,

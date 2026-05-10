@@ -19,8 +19,8 @@
  *   - `@mantine/hooks` -> synchronous useDebouncedValue so we don't have to
  *     run real timers inside tests; the URL syncs immediately after a type.
  *   - `@/lib/api` -> deterministic SearchService / TagService stubs.
- *   - `react-photo-album` -> simple passthrough that renders the render.image
- *     prop for every photo (shared pattern with image-grid.test.tsx).
+ *   - `masonic` -> simple passthrough that renders all items via the render
+ *     component (shared pattern with image-grid.test.tsx).
  */
 
 // ---- Mocks (hoisted) -----------------------------------------------------
@@ -31,27 +31,21 @@ jest.mock("@mantine/hooks", () => ({
   useHotkeys: () => undefined,
 }));
 
-// Mock AutoSizer to provide fixed dimensions in jsdom (react-virtualized-auto-sizer v2 API).
-jest.mock("react-virtualized-auto-sizer", () => {
+// Mock masonic to render all items in jsdom (masonic relies on IntersectionObserver + window scroll).
+jest.mock("masonic", () => {
   const ReactModule = jest.requireActual<typeof import("react")>("react");
   return {
     __esModule: true,
-    AutoSizer: ({
-      renderProp,
-    }: {
-      renderProp: (size: {
-        height: number | undefined;
-        width: number | undefined;
-      }) => React.ReactNode;
-    }) =>
+    useMasonry: ({ items, render: Render, itemKey }: { items: unknown[]; render: React.ComponentType<{ data: unknown; width: number; index: number }>; itemKey?: (data: unknown) => unknown; [k: string]: unknown }) =>
       ReactModule.createElement(
         "div",
-        {
-          "data-testid": "auto-sizer-mock",
-          style: { width: 1000, height: 800 },
-        },
-        renderProp({ height: 800, width: 1000 }),
+        { "data-testid": "masonry-mock" },
+        (items as unknown[]).map((item, index) =>
+          ReactModule.createElement(Render, { key: itemKey ? (itemKey(item) as React.Key) : index, data: item, width: 200, index }),
+        ),
       ),
+    usePositioner: () => ({}),
+    useResizeObserver: () => ({}),
   };
 });
 
@@ -99,7 +93,7 @@ function makeTag(id: number, name: string, category: string): Tag {
 }
 
 function makeImage(id: number, name: string): ImageFile {
-  return { id, name, path: `/files/anime/${name}` };
+  return { id, name, path: `/files/anime/${name}`, width: 800, height: 600 };
 }
 
 const TAGS: Tag[] = [
