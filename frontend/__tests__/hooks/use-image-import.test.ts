@@ -139,6 +139,61 @@ describe("useImageImport", () => {
     }
   });
 
+  // Bug 1: a freshly-uploaded image did not appear in the grid/viewer because
+  // the import only invalidated the caller's key, leaving the anime image
+  // grids (qk.anime.images) and the search/season queries (["search", ...])
+  // stale. The import must refresh both so the new image shows immediately.
+  test("importImages refreshes anime image grids and search results", async () => {
+    importImagesMock.mockResolvedValue([{ id: 1 }]);
+
+    const { result, client, unmount } = renderHookWithClient(() =>
+      useImageImport(),
+    );
+    try {
+      const spy = jest.spyOn(client, "invalidateQueries");
+
+      await act(async () => {
+        await result.current.importImages(42, "Naruto");
+      });
+
+      // All anime queries (covers detail + images grids) and every search
+      // query are invalidated so the viewer picks up the new image.
+      expect(spy).toHaveBeenCalledWith({ queryKey: ["anime"] });
+      expect(spy).toHaveBeenCalledWith({ queryKey: ["search"] });
+      spy.mockRestore();
+    } finally {
+      unmount();
+    }
+  });
+
+  // Bug 3: each upload used a `Date.now()` key, so repeated uploads stacked up
+  // multiple progress rows where only the most recent one updated. Image
+  // imports now share a single stable row.
+  test("repeated imports collapse into a single progress row", async () => {
+    importImagesMock.mockResolvedValue([{ id: 1 }]);
+
+    const { result, unmount } = renderHookWithClient(() => useImageImport());
+    try {
+      await act(async () => {
+        await result.current.importImages(1, "First batch");
+      });
+      await act(async () => {
+        await result.current.importImages(2, "Second batch");
+      });
+
+      const imports = useImportProgressStore.getState().imports;
+      // Exactly one row, keyed by a STABLE id (not a per-call Date.now() id),
+      // so repeated uploads can never stack into multiple frozen bars.
+      expect(imports.size).toBe(1);
+      expect(imports.has("image-import")).toBe(true);
+      const entry = imports.get("image-import")!;
+      // The single row reflects the most recent import.
+      expect(entry.label).toBe("Second batch");
+    } finally {
+      unmount();
+    }
+  });
+
   test("importImages calls finish even when ImportImages throws", async () => {
     importImagesMock.mockRejectedValue(new Error("upload failed"));
 
