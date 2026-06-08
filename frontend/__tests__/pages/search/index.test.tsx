@@ -75,6 +75,7 @@ const getAnimeDetailsMock = jest.fn();
 const searchImagesByAnimeMock = jest.fn();
 const getFolderImagesMock = jest.fn();
 const deleteImagesMock = jest.fn();
+const importImagesMock = jest.fn();
 
 const getImageTagIDsMock = jest.fn();
 const getImageCharacterIDsMock = jest.fn();
@@ -92,6 +93,9 @@ jest.mock("../../../src/lib/api", () => ({
   },
   ImageService: {
     DeleteImages: (...args: unknown[]) => deleteImagesMock(...args),
+  },
+  BatchImportImageService: {
+    ImportImages: (...args: unknown[]) => importImagesMock(...args),
   },
   SearchService: {
     SearchImages: (...args: unknown[]) => searchImagesMock(...args),
@@ -166,6 +170,8 @@ describe("SearchPage", () => {
     getImageCharacterIDsMock.mockResolvedValue({});
     deleteImagesMock.mockReset();
     deleteImagesMock.mockResolvedValue(undefined);
+    importImagesMock.mockReset();
+    importImagesMock.mockResolvedValue([]);
     resetSelectionStore();
     capturedOnSelectionCommit = null;
     capturedOnSelectionChange = null;
@@ -949,6 +955,94 @@ describe("SearchPage", () => {
         );
         return filterBtn?.textContent?.includes("Filters (2)") ?? false;
       });
+    } finally {
+      unmount();
+    }
+  });
+
+  // Bug 2: a season's page (search scoped to anime/season) had no Upload
+  // button, so there was no way to add images while viewing a season.
+  test("no Upload button is shown when no anime is selected", async () => {
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='search-filter-toggle']") !==
+          null,
+      );
+      expect(
+        container.querySelector("[data-testid='search-upload']"),
+      ).toBeNull();
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Upload button imports into the anime root folder when no season is selected", async () => {
+    getAnimeDetailsMock.mockResolvedValue({
+      anime: { id: 42, name: "Bebop", aniListId: null },
+      tags: [],
+      characters: [],
+      folders: [{ id: 7, name: "Bebop" }],
+      folderTree: null,
+      seasons: [],
+    });
+    searchImagesByAnimeMock.mockResolvedValue({ images: [] });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?anime=42"],
+    });
+    try {
+      // Click once the anime detail (and thus the root folder id) has loaded.
+      // Retry the click until the import fires so we don't race the query.
+      await waitFor(() => {
+        const btn = container.querySelector(
+          "[data-testid='search-upload']",
+        ) as HTMLElement | null;
+        if (btn) {
+          act(() => {
+            btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+          });
+        }
+        return importImagesMock.mock.calls.length > 0;
+      });
+      // Imports into the anime's root folder id (7).
+      expect(importImagesMock).toHaveBeenCalledWith(7);
+    } finally {
+      unmount();
+    }
+  });
+
+  test("Upload button imports into the selected season's folder", async () => {
+    getAnimeDetailsMock.mockResolvedValue({
+      anime: { id: 42, name: "Bebop", aniListId: null },
+      tags: [],
+      characters: [],
+      folders: [{ id: 7, name: "Bebop" }],
+      folderTree: null,
+      seasons: [
+        { id: 100, name: "Season 1", seasonType: "season", seasonNumber: 1, airingSeason: "spring", airingYear: 2020, imageCount: 10, children: [] },
+      ],
+    });
+    searchImagesByAnimeMock.mockResolvedValue({ images: [] });
+    const { container, unmount } = renderWithClient(<SearchPage />, {
+      routerInitialEntries: ["/search?anime=42&season=100"],
+    });
+    try {
+      await waitFor(
+        () =>
+          container.querySelector("[data-testid='search-upload']") !== null,
+      );
+      const uploadBtn = container.querySelector(
+        "[data-testid='search-upload']",
+      ) as HTMLElement;
+      act(() => {
+        uploadBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      // Imports into the selected season's folder id (100), not the root.
+      await waitFor(() => importImagesMock.mock.calls.length > 0);
+      expect(importImagesMock).toHaveBeenCalledWith(100);
     } finally {
       unmount();
     }

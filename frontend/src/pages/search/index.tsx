@@ -20,7 +20,7 @@
  */
 import { Box, Button, Flex, Stack, Text } from "@chakra-ui/react";
 import { useDebouncedValue } from "@mantine/hooks";
-import { Search as SearchIcon, ChevronDown, ChevronRight, Filter } from "lucide-react";
+import { Search as SearchIcon, ChevronDown, ChevronRight, Filter, Upload } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -45,6 +45,7 @@ import { RubberBandOverlay } from "../../components/selection/rubber-band-overla
 import { SelectionActionBar } from "../../components/selection/selection-action-bar";
 import { useAnimeDetail } from "../../hooks/use-anime-detail";
 import { useDeleteImages } from "../../hooks/use-image-mutations";
+import { useImageImport } from "../../hooks/use-image-import";
 import { useImageSelection } from "../../hooks/use-image-selection";
 import { useSearchImages } from "../../hooks/use-search-images";
 import { useTags } from "../../hooks/use-tags";
@@ -172,6 +173,26 @@ export function SearchPage(): JSX.Element {
     includeCharacterIds: urlState.includeCharacterIds,
     excludeCharacterIds: urlState.excludeCharacterIds,
   });
+
+  // Upload is available whenever the results are scoped to an anime (and thus
+  // a concrete destination folder). When a season is selected we import into
+  // that season's folder; otherwise into the anime's root folder. The import
+  // hook invalidates the search queries so the new images appear immediately.
+  const { importImages } = useImageImport();
+  const handleUpload = useCallback(async () => {
+    if (urlState.animeId == null) return;
+    const targetId =
+      urlState.seasonId ?? animeDetailQuery.data?.folders?.[0]?.id;
+    if (targetId == null) return;
+    const label = animeDetailQuery.data?.anime.name ?? "Anime";
+    await importImages(targetId, label);
+  }, [
+    urlState.animeId,
+    urlState.seasonId,
+    animeDetailQuery.data,
+    importImages,
+  ]);
+  const canUpload = urlState.animeId != null;
 
   // When an anime filter is active, scope the pickers to that anime's
   // derived tags instead of showing the full global tag list.
@@ -441,6 +462,21 @@ export function SearchPage(): JSX.Element {
               <Chevron size={14} aria-hidden="true" />
             </Flex>
           </Button>
+          {canUpload && (
+            <Button
+              type="button"
+              data-testid="search-upload"
+              onClick={handleUpload}
+              size="sm"
+              variant="outline"
+              aria-label="Upload images"
+            >
+              <Flex align="center" gap="2">
+                <Upload size={14} aria-hidden="true" />
+                <span>Upload</span>
+              </Flex>
+            </Button>
+          )}
           <GridSizeControl />
         </Flex>
       </Box>
