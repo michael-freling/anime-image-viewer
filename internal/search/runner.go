@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"slices"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
@@ -105,21 +106,43 @@ func (runner SearchImageRunner) SearchImages(
 			return result, fmt.Errorf("directoryReader.ReadDirectories: %w", err)
 		}
 
-		imageFiles = make([]image.ImageFile, len(dbImageFiles)+len(imageFilesUnderDirectories))
+		allDBImageFiles := slices.Concat(dbImageFiles, imageFilesUnderDirectories)
+		imageFiles = make([]image.ImageFile, 0, len(allDBImageFiles))
 		imageFileErrors := make([]error, 0)
-		for i, dbImageFile := range slices.Concat(dbImageFiles, imageFilesUnderDirectories) {
+		staleCandidates := make([]image.MissingFileCandidate, 0)
+		for _, dbImageFile := range allDBImageFiles {
 			parentDirectory := parentDirectories[dbImageFile.ParentID]
 			if parentDirectory.ID == 0 {
-				imageFileErrors = append(imageFileErrors, fmt.Errorf("%w: %d for an image %d", image.ErrDirectoryNotFound, dbImageFile.ParentID, dbImageFile.ID))
+				// Stale record: parent directory no longer in DB. Skip it
+				// rather than failing the whole search.
+				runner.logger.Warn("skipping image file with missing parent directory",
+					"id", dbImageFile.ID,
+					"parentID", dbImageFile.ParentID,
+				)
 				continue
 			}
 			imageFile, err := runner.imageFileConverter.ConvertImageFile(parentDirectory, dbImageFile)
 			if err != nil {
+				// Stale record: the file was removed or moved outside the app.
+				// Skip it instead of failing the whole search.
+				if errors.Is(err, os.ErrNotExist) {
+					runner.logger.Warn("image file missing from disk",
+						"id", dbImageFile.ID,
+						"name", dbImageFile.Name,
+						"error", err,
+					)
+					staleCandidates = append(staleCandidates, image.MissingFileCandidate{
+						ID:         dbImageFile.ID,
+						ParentPath: parentDirectory.Path,
+					})
+					continue
+				}
 				imageFileErrors = append(imageFileErrors, fmt.Errorf("imageFileConverter.ConvertImageFile: %w", err))
 				continue
 			}
-			imageFiles[i] = imageFile
+			imageFiles = append(imageFiles, imageFile)
 		}
+		image.DeleteImageRecordsForDeletedFiles(runner.dbClient, staleCandidates)
 		if len(imageFileErrors) > 0 {
 			return result, errors.Join(imageFileErrors...)
 		}

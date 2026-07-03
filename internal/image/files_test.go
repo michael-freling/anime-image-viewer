@@ -310,4 +310,78 @@ func TestReader_ReadImagesByIDs(t *testing.T) {
 		require.NoError(t, err)
 		assert.Empty(t, result)
 	})
+
+	t.Run("deletes stale records whose file is missing while parent dir exists", func(t *testing.T) {
+		tester.dbClient.Truncate(t, &db.File{}, &db.FileTag{}, &db.FileCharacter{})
+		db.LoadTestData(t, tester.dbClient, []db.File{
+			fileBuilder.BuildDBDirectory(1),
+			fileBuilder.BuildDBImageFile(10),
+			// Record 12 exists in the DB but the file was never created on
+			// disk (e.g. deleted or moved outside the app). Its parent
+			// directory1 does exist on disk.
+			{ID: 12, Name: "missing.png", ParentID: 1, Type: db.FileTypeImage},
+		})
+		// Associations for the stale record that must be cleaned up too.
+		db.LoadTestData(t, tester.dbClient, []db.FileTag{
+			{TagID: 100, FileID: 12, AddedBy: db.FileTagAddedByUser},
+		})
+		db.LoadTestData(t, tester.dbClient, []db.FileCharacter{
+			{CharacterID: 200, FileID: 12, AddedBy: db.FileTagAddedByUser},
+		})
+
+		result, err := reader.ReadImagesByIDs([]uint{10, 12})
+
+		require.NoError(t, err)
+		assert.Len(t, result, 1)
+		assert.Equal(t, "image1.jpg", result.ToMap()[10].Name)
+
+		// The stale record and its associations are removed from the DB;
+		// the valid record remains.
+		remaining, err := tester.dbClient.Client.File().FindImageFilesByIDs([]uint{10, 12})
+		require.NoError(t, err)
+		require.Len(t, remaining, 1)
+		assert.Equal(t, uint(10), remaining[0].ID)
+
+		remainingTags, err := tester.dbClient.Client.FileTag().FindAllByFileID([]uint{12})
+		require.NoError(t, err)
+		assert.Empty(t, remainingTags)
+		remainingChars, err := tester.dbClient.Client.FileCharacter().FindByFileIDs([]uint{12})
+		require.NoError(t, err)
+		assert.Empty(t, remainingChars)
+	})
+
+	t.Run("keeps stale record when parent directory is unavailable on disk", func(t *testing.T) {
+		// Use a dedicated tester so removing the directory does not affect
+		// other sub-tests that share the fixture on disk.
+		guardTester := newTester(t)
+		guardBuilder := guardTester.newFileCreator(t).
+			CreateDirectory(Directory{ID: 1, Name: "directory1"}).
+			CreateImage(ImageFile{ID: 10, Name: "image1.jpg", ParentID: 1}, TestImageFileJpeg)
+		guardReader := NewReader(
+			guardTester.dbClient.Client,
+			guardTester.getDirectoryReader(),
+			NewImageFileConverter(guardTester.config),
+		)
+
+		guardTester.dbClient.Truncate(t, &db.File{})
+		db.LoadTestData(t, guardTester.dbClient, []db.File{
+			guardBuilder.BuildDBDirectory(1),
+			guardBuilder.BuildDBImageFile(10),
+		})
+
+		// Simulate the whole storage location becoming unavailable (e.g. wrong
+		// root path or unmounted drive): the parent directory and its file are
+		// both gone from disk.
+		require.NoError(t, os.RemoveAll(guardBuilder.BuildDirectory(1).Path))
+
+		result, err := guardReader.ReadImagesByIDs([]uint{10})
+
+		require.NoError(t, err)
+		assert.Empty(t, result, "the missing file is skipped from results")
+
+		// The record must NOT be deleted: the file might not truly be gone.
+		remaining, err := guardTester.dbClient.Client.File().FindImageFilesByIDs([]uint{10})
+		require.NoError(t, err)
+		require.Len(t, remaining, 1, "record should be preserved when parent directory is unavailable")
+	})
 }

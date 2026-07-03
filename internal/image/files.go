@@ -2,9 +2,11 @@ package image
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -167,17 +169,99 @@ func (reader Reader) ReadImagesByIDs(imageFileIDs []uint) (ImageFileList, error)
 		parentDirectoriesMap[parentDirectory.ID] = parentDirectory
 	}
 
-	imageFiles := make(ImageFileList, len(dbImageFiles))
-	for index, dbImageFile := range dbImageFiles {
+	imageFiles := make(ImageFileList, 0, len(dbImageFiles))
+	staleCandidates := make([]MissingFileCandidate, 0)
+	for _, dbImageFile := range dbImageFiles {
 		parentDirectory := parentDirectoriesMap[dbImageFile.ParentID]
 
 		imageFile, err := reader.imageFileConverter.ConvertImageFile(parentDirectory, dbImageFile)
 		if err != nil {
+			// The DB record can become stale when the underlying file is
+			// removed or moved outside the app. Skip such files instead of
+			// failing the entire batch, which would otherwise break pages
+			// that list many images (e.g. an anime page).
+			if errors.Is(err, os.ErrNotExist) {
+				slog.Warn("image file missing from disk",
+					"id", dbImageFile.ID,
+					"name", dbImageFile.Name,
+					"error", err,
+				)
+				staleCandidates = append(staleCandidates, MissingFileCandidate{
+					ID:         dbImageFile.ID,
+					ParentPath: parentDirectory.Path,
+				})
+				continue
+			}
 			return nil, fmt.Errorf("convertImageFile: %w", err)
 		}
-		imageFiles[index] = imageFile
+		imageFiles = append(imageFiles, imageFile)
 	}
+	DeleteImageRecordsForDeletedFiles(reader.dbClient, staleCandidates)
 	return imageFiles, nil
+}
+
+// MissingFileCandidate identifies an image DB record whose file was not found
+// on disk, along with the on-disk path of its parent directory.
+type MissingFileCandidate struct {
+	ID         uint
+	ParentPath string
+}
+
+// DeleteImageRecordsForDeletedFiles removes DB records (and their tag and
+// character associations) for image files that were deleted from disk.
+//
+// It is best-effort: errors are logged rather than returned, since it runs as
+// a side effect of reads. As a safety measure it only deletes a record when
+// the file's parent directory still exists on disk. This distinguishes a file
+// the user actually deleted (its folder remains) from a whole storage location
+// being unavailable — e.g. a wrong ImageRootDirectory or an unmounted drive,
+// where every file looks missing — which must NOT wipe the database.
+func DeleteImageRecordsForDeletedFiles(dbClient *db.Client, candidates []MissingFileCandidate) {
+	if len(candidates) == 0 {
+		return
+	}
+
+	staleIDs := make([]uint, 0, len(candidates))
+	for _, candidate := range candidates {
+		if directoryExistsOnDisk(candidate.ParentPath) {
+			staleIDs = append(staleIDs, candidate.ID)
+			continue
+		}
+		slog.Warn("keeping image record; parent directory is unavailable, file may not be truly deleted",
+			"id", candidate.ID,
+			"parentPath", candidate.ParentPath,
+		)
+	}
+	if len(staleIDs) == 0 {
+		return
+	}
+
+	ctx := context.Background()
+	if err := db.NewTransaction(ctx, dbClient, func(txCtx context.Context) error {
+		if err := dbClient.FileTag().DeleteByFileIDs(txCtx, staleIDs); err != nil {
+			return fmt.Errorf("FileTag.DeleteByFileIDs: %w", err)
+		}
+		if err := dbClient.FileCharacter().DeleteByFileIDs(txCtx, staleIDs); err != nil {
+			return fmt.Errorf("FileCharacter.DeleteByFileIDs: %w", err)
+		}
+		if err := dbClient.File().DeleteByIDs(txCtx, staleIDs); err != nil {
+			return fmt.Errorf("File.DeleteByIDs: %w", err)
+		}
+		return nil
+	}); err != nil {
+		slog.Warn("failed to delete stale image records", "ids", staleIDs, "error", err)
+		return
+	}
+	slog.Info("deleted stale image records for files removed from disk", "ids", staleIDs)
+}
+
+// directoryExistsOnDisk reports whether path exists on disk and is a directory.
+func directoryExistsOnDisk(path string) bool {
+	if path == "" {
+		return false
+	}
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
 }
 
 type ImageFileConverter struct {

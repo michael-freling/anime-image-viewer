@@ -225,8 +225,8 @@ func TestBatchImageExporter_Export(t *testing.T) {
 			},
 			insertTags:     []db.Tag{},
 			insertFileTags: []db.FileTag{},
-			wantImages:    []string{},
-			wantMetadatas: []Metadata{},
+			wantImages:     []string{},
+			wantMetadatas:  []Metadata{},
 		},
 	}
 
@@ -257,10 +257,11 @@ func TestBatchImageExporter_Export(t *testing.T) {
 		wantErr: true,
 	})
 
-	// Test: ReadImageFilesRecursively error when a DB image record has no physical file
+	// Test: a DB image record with no physical file is skipped (stale record)
+	// rather than failing the whole export.
 	readErrorDir := t.TempDir()
 	testCases = append(testCases, exportTestCase{
-		name: "export fails when image in DB has no physical file",
+		name: "export skips image in DB that has no physical file",
 		options: BatchImageExporterOptions{
 			IsDirectoryTagExcluded: false,
 		},
@@ -278,12 +279,20 @@ func TestBatchImageExporter_Export(t *testing.T) {
 		insertFileTags: []db.FileTag{
 			{FileID: 9998, TagID: 1},
 		},
-		wantErr: true,
+		// The only tagged image (9998) is a stale record skipped during the
+		// read, so nothing is exported and the export succeeds.
+		wantImages:    []string{},
+		wantMetadatas: []Metadata{},
+		wantErr:       false,
 	})
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tester.dbClient.Truncate(t, tc.insertFiles, tc.insertTags, tc.insertFileTags)
+			// Clear the tables fully between cases. Passing the model types
+			// (not the data slices) makes gorm delete all rows rather than
+			// only the specific primary keys, which would otherwise leak
+			// state (e.g. file tags) across sub-tests.
+			tester.dbClient.Truncate(t, &db.File{}, &db.Tag{}, &db.FileTag{})
 			db.LoadTestData(t, tester.dbClient, tc.insertFiles)
 			db.LoadTestData(t, tester.dbClient, tc.insertTags)
 			db.LoadTestData(t, tester.dbClient, tc.insertFileTags)
