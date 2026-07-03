@@ -28,35 +28,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      # The review prompt is kept in a versioned file so it is reproducible and
-      # can be edited without touching this workflow. We fill in only the repo
-      # and PR number placeholders here.
-      - name: Render review prompt
-        id: prompt
-        env:
-          REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          python3 - <<'PY' >> "$GITHUB_OUTPUT"
-          import os
-          text = open(".github/claude/pr-review-prompt.md").read()
-          text = text.replace("${REPO}", os.environ["REPO"])
-          text = text.replace("${PR_NUMBER}", os.environ["PR_NUMBER"])
-          print("text<<CLAUDE_PROMPT_EOF")
-          print(text)
-          print("CLAUDE_PROMPT_EOF")
-          PY
-
       - name: Review PR with Claude Code
         uses: anthropics/claude-code-action@v1
         with:
           # OAuth token is provisioned via the update-ci-secrets tool
           # (github.com/michael-freling/claude-code-tools).
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Install Anthropic's official code-review plugin and run its skill
-          # via the file-managed prompt above.
+          # Install Anthropic's official code-review plugin and run its skill.
           plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
           plugins: "code-review@claude-code-plugins"
-          prompt: ${{ steps.prompt.outputs.text }}
-          claude_args: |
-            --allowedTools "Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh api:*),Bash(go build:*),Bash(go vet:*),Bash(go test:*),Bash(npm ci:*),Bash(npm test:*),Bash(npx tsc:*),Bash(npx eslint:*)"
+          prompt: "/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
