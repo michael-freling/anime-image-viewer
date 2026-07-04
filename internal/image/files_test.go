@@ -242,10 +242,52 @@ func TestConvertImageFile(t *testing.T) {
 		assert.Equal(t, "image/png", imageFile.ContentType)
 	})
 
+	t.Run("uses stored image dimensions when present", func(t *testing.T) {
+		sourceFilePath := filepath.Join("..", "..", "testdata", "image.jpg")
+		destFilePath := filepath.Join(parentDir.Path, "sized.jpg")
+		_, err := Copy(sourceFilePath, destFilePath)
+		require.NoError(t, err)
+
+		w, h := uint(640), uint(480)
+		dbFile := db.File{
+			ID:          13,
+			Name:        "sized.jpg",
+			ParentID:    1,
+			Type:        db.FileTypeImage,
+			ImageWidth:  &w,
+			ImageHeight: &h,
+		}
+
+		imageFile, err := converter.ConvertImageFile(parentDir, dbFile)
+
+		require.NoError(t, err)
+		assert.Equal(t, uint(640), imageFile.Width)
+		assert.Equal(t, uint(480), imageFile.Height)
+	})
+
 	t.Run("file does not exist", func(t *testing.T) {
 		dbFile := db.File{
 			ID:       12,
 			Name:     "nonexistent.jpg",
+			ParentID: 1,
+			Type:     db.FileTypeImage,
+		}
+
+		_, err := converter.ConvertImageFile(parentDir, dbFile)
+		assert.Error(t, err)
+	})
+
+	t.Run("file exists but cannot be opened", func(t *testing.T) {
+		if os.Geteuid() == 0 {
+			t.Skip("running as root bypasses file permissions")
+		}
+		destFilePath := filepath.Join(parentDir.Path, "noperm.jpg")
+		require.NoError(t, os.WriteFile(destFilePath, []byte("data"), 0o000))
+		t.Cleanup(func() { _ = os.Chmod(destFilePath, 0o644) })
+
+		dbFile := db.File{
+			ID:       15,
+			Name:     "noperm.jpg",
 			ParentID: 1,
 			Type:     db.FileTypeImage,
 		}

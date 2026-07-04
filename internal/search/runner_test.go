@@ -281,6 +281,28 @@ func TestSearchImages(t *testing.T) {
 	})
 }
 
+// TestSearchImages_DBError is standalone because it drops a table from the
+// process-shared in-memory DB; other test functions re-migrate via newTester.
+func TestSearchImages_DBError(t *testing.T) {
+	env := setupTestEnv(t)
+	env.truncate(t)
+
+	fileCreator := image.NewFileCreator(t, env.cfg.ImageRootDirectory)
+	fileCreator.CreateDirectory(image.Directory{ID: 1, Name: "dir1"})
+	db.LoadTestData(t, env.dbClient, []db.File{fileCreator.BuildDBDirectory(1)})
+	db.LoadTestData(t, env.dbClient, []db.Tag{{ID: 1, Name: "tag1"}})
+	db.LoadTestData(t, env.dbClient, []db.FileTag{
+		{TagID: 1, FileID: 1, AddedBy: db.FileTagAddedByUser},
+	})
+	// Dropping the files table makes the directory lookup fail with a real DB
+	// error while searching under a tag.
+	env.dbClient.DropTable(t, &db.File{})
+
+	runner := env.newRunner()
+	_, err := runner.SearchImages(context.Background(), 1, false, 0)
+	require.Error(t, err)
+}
+
 func TestSearchImages_ErrorPaths(t *testing.T) {
 	env := setupTestEnv(t)
 
