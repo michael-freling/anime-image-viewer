@@ -237,17 +237,15 @@ func DeleteImageRecordsForDeletedFiles(dbClient *db.Client, candidates []Missing
 	}
 
 	ctx := context.Background()
+	// Delete the file records and their tag/character associations together.
+	// All three run inside the transaction; any error rolls the whole thing
+	// back, leaving the records intact for a later retry.
 	if err := db.NewTransaction(ctx, dbClient, func(txCtx context.Context) error {
-		if err := dbClient.FileTag().DeleteByFileIDs(txCtx, staleIDs); err != nil {
-			return fmt.Errorf("FileTag.DeleteByFileIDs: %w", err)
-		}
-		if err := dbClient.FileCharacter().DeleteByFileIDs(txCtx, staleIDs); err != nil {
-			return fmt.Errorf("FileCharacter.DeleteByFileIDs: %w", err)
-		}
-		if err := dbClient.File().DeleteByIDs(txCtx, staleIDs); err != nil {
-			return fmt.Errorf("File.DeleteByIDs: %w", err)
-		}
-		return nil
+		return errors.Join(
+			dbClient.FileTag().DeleteByFileIDs(txCtx, staleIDs),
+			dbClient.FileCharacter().DeleteByFileIDs(txCtx, staleIDs),
+			dbClient.File().DeleteByIDs(txCtx, staleIDs),
+		)
 	}); err != nil {
 		slog.Warn("failed to delete stale image records", "ids", staleIDs, "error", err)
 		return

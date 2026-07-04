@@ -384,4 +384,61 @@ func TestReader_ReadImagesByIDs(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, remaining, 1, "record should be preserved when parent directory is unavailable")
 	})
+
+	t.Run("keeps stale record whose parent directory is missing from the DB", func(t *testing.T) {
+		tester.dbClient.Truncate(t, &db.File{})
+		db.LoadTestData(t, tester.dbClient, []db.File{
+			fileBuilder.BuildDBDirectory(1),
+			fileBuilder.BuildDBImageFile(10),
+			// Record 13 has no parent directory in the DB, so its path cannot
+			// be resolved. It must be skipped but not deleted (we can't confirm
+			// the file was truly removed).
+			{ID: 13, Name: "orphan.png", ParentID: 999, Type: db.FileTypeImage},
+		})
+
+		result, err := reader.ReadImagesByIDs([]uint{10, 13})
+
+		require.NoError(t, err)
+		assert.Len(t, result, 1)
+
+		remaining, err := tester.dbClient.Client.File().FindImageFilesByIDs([]uint{13})
+		require.NoError(t, err)
+		require.Len(t, remaining, 1, "orphan record should be preserved when its parent is unknown")
+	})
+
+	t.Run("keeps stale record when the cleanup delete fails", func(t *testing.T) {
+		// Dedicated tester because dropping a table is destructive.
+		failTester := newTester(t)
+		failBuilder := failTester.newFileCreator(t).
+			CreateDirectory(Directory{ID: 1, Name: "directory1"}).
+			CreateImage(ImageFile{ID: 10, Name: "image1.jpg", ParentID: 1}, TestImageFileJpeg)
+		failReader := NewReader(
+			failTester.dbClient.Client,
+			failTester.getDirectoryReader(),
+			NewImageFileConverter(failTester.config),
+		)
+
+		failTester.dbClient.Truncate(t, &db.File{})
+		db.LoadTestData(t, failTester.dbClient, []db.File{
+			failBuilder.BuildDBDirectory(1),
+			failBuilder.BuildDBImageFile(10),
+			// Stale record with an existing parent directory: normally deleted.
+			{ID: 12, Name: "missing.png", ParentID: 1, Type: db.FileTypeImage},
+		})
+		// Make the cleanup transaction fail by removing a table it writes to.
+		failTester.dbClient.DropTable(t, &db.FileTag{})
+
+		result, err := failReader.ReadImagesByIDs([]uint{10, 12})
+
+		// The read still succeeds (best-effort cleanup); only the valid image
+		// is returned.
+		require.NoError(t, err)
+		require.Len(t, result, 1)
+		assert.Equal(t, uint(10), result[0].ID)
+
+		// The cleanup was rolled back, so the stale record remains.
+		remaining, err := failTester.dbClient.Client.File().FindImageFilesByIDs([]uint{12})
+		require.NoError(t, err)
+		require.Len(t, remaining, 1, "record should be preserved when cleanup fails")
+	})
 }
