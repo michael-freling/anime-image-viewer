@@ -385,6 +385,28 @@ func TestReader_ReadImagesByIDs(t *testing.T) {
 		require.Len(t, remaining, 1, "record should be preserved when parent directory is unavailable")
 	})
 
+	t.Run("returns error for a file that exists but is not a valid image", func(t *testing.T) {
+		// Create a file on disk that exists but has unsupported content, so
+		// ConvertImageFile fails with an error other than os.ErrNotExist. Such
+		// errors must still propagate (not be silently skipped or deleted).
+		fileBuilder.CreateImage(ImageFile{ID: 14, Name: "notimage.txt", ParentID: 1}, TestImageFileNonImage)
+
+		tester.dbClient.Truncate(t, &db.File{})
+		db.LoadTestData(t, tester.dbClient, []db.File{
+			fileBuilder.BuildDBDirectory(1),
+			fileBuilder.BuildDBImageFile(14),
+		})
+
+		_, err := reader.ReadImagesByIDs([]uint{14})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "convertImageFile")
+
+		// The record is not treated as stale, so it remains in the DB.
+		remaining, err := tester.dbClient.Client.File().FindImageFilesByIDs([]uint{14})
+		require.NoError(t, err)
+		require.Len(t, remaining, 1)
+	})
+
 	t.Run("keeps stale record whose parent directory is missing from the DB", func(t *testing.T) {
 		tester.dbClient.Truncate(t, &db.File{})
 		db.LoadTestData(t, tester.dbClient, []db.File{
@@ -441,4 +463,20 @@ func TestReader_ReadImagesByIDs(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, remaining, 1, "record should be preserved when cleanup fails")
 	})
+}
+
+// TestReader_ReadImagesByIDs_DBError is a standalone test because it drops a
+// table from the (process-shared) in-memory DB; a sibling sub-test would then
+// fail. Other test functions recreate the table via newTester's migration.
+func TestReader_ReadImagesByIDs_DBError(t *testing.T) {
+	tester := newTester(t)
+	reader := NewReader(
+		tester.dbClient.Client,
+		tester.getDirectoryReader(),
+		NewImageFileConverter(tester.config),
+	)
+	tester.dbClient.DropTable(t, &db.File{})
+
+	_, err := reader.ReadImagesByIDs([]uint{10})
+	require.Error(t, err)
 }

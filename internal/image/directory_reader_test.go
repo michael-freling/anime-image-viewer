@@ -172,6 +172,27 @@ func TestDirectoryReader_ReadImageFiles_WithConversionError(t *testing.T) {
 		require.Len(t, result, 1)
 		assert.Equal(t, uint(10), result[0].ID)
 	})
+
+	t.Run("returns error when a file exists but is not a valid image", func(t *testing.T) {
+		// Unlike a missing file, a file that exists with unsupported content
+		// is a genuine conversion error and must be reported, not skipped.
+		fileBuilder.CreateImage(ImageFile{ID: 21, Name: "notimage.txt", ParentID: 1}, TestImageFileNonImage)
+
+		testDBClient.Truncate(t, &db.File{})
+		db.LoadTestData(t, testDBClient, []db.File{
+			fileBuilder.BuildDBDirectory(1),
+			fileBuilder.BuildDBImageFile(10),
+			fileBuilder.BuildDBImageFile(21),
+		})
+
+		reader := tester.getDirectoryReader()
+		result, err := reader.ReadImageFiles(1)
+
+		require.Error(t, err)
+		// The valid image is still returned alongside the error.
+		require.Len(t, result, 1)
+		assert.Equal(t, uint(10), result[0].ID)
+	})
 }
 
 func TestDirectoryReader_ReadImageFilesRecursively(t *testing.T) {
@@ -249,6 +270,50 @@ func TestDirectoryReader_ReadImageFilesRecursively_ErrorPropagation(t *testing.T
 		require.Len(t, result, 1)
 		assert.Equal(t, uint(10), result[0].ID)
 	})
+
+	t.Run("propagates error when the directory itself cannot be read", func(t *testing.T) {
+		testDBClient.Truncate(t, &db.File{})
+
+		reader := tester.getDirectoryReader()
+		// The directory does not exist in the DB, so ReadImageFiles fails.
+		_, err := reader.ReadImageFilesRecursively(Directory{ID: 999, Name: "missing"})
+		require.Error(t, err)
+	})
+
+	t.Run("propagates error from a child directory", func(t *testing.T) {
+		testDBClient.Truncate(t, &db.File{})
+		db.LoadTestData(t, testDBClient, []db.File{
+			fileBuilder.BuildDBDirectory(1),
+		})
+
+		reader := tester.getDirectoryReader()
+		// Parent directory 1 exists, but it references a child that is not in
+		// the DB, so the recursive call for the child fails.
+		_, err := reader.ReadImageFilesRecursively(Directory{
+			ID:       1,
+			Name:     "directory1",
+			Children: []*Directory{{ID: 998, Name: "ghost_child"}},
+		})
+		require.Error(t, err)
+	})
+}
+
+func TestDirectoryReader_ReadImageFiles_DBError(t *testing.T) {
+	tester := newTester(t)
+	fileBuilder := tester.newFileCreator(t).
+		CreateDirectory(Directory{ID: 1, Name: "directory1"})
+
+	tester.dbClient.Truncate(t, &db.File{})
+	db.LoadTestData(t, tester.dbClient, []db.File{
+		fileBuilder.BuildDBDirectory(1),
+	})
+	// Dropping the files table makes the underlying directory lookup fail with
+	// a real DB error (not ErrDirectoryNotFound).
+	tester.dbClient.DropTable(t, &db.File{})
+
+	reader := tester.getDirectoryReader()
+	_, err := reader.ReadImageFiles(1)
+	require.Error(t, err)
 }
 
 func TestDirectoryReader_ReadDirectories(t *testing.T) {
