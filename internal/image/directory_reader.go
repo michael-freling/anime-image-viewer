@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 	"path/filepath"
 	"sort"
 
@@ -47,31 +46,24 @@ func (service DirectoryReader) ReadImageFiles(parentDirectoryID uint) ([]ImageFi
 		return nil, fmt.Errorf("db.FindByValue: %w", err)
 	}
 
-	imageFileErrors := make([]error, 0)
 	result := make([]ImageFile, 0)
 	for _, imageFile := range imageFiles {
 		converted, err := service.converter.ConvertImageFile(parentDirectory, imageFile)
 		if err != nil {
-			// Skip stale records whose file was removed or moved outside the
-			// app instead of failing the whole directory listing. The record
-			// is left untouched; it is only removed when the user deletes the
-			// image.
-			if errors.Is(err, os.ErrNotExist) {
-				slog.Warn("skipping image file missing from disk",
-					"id", imageFile.ID,
-					"name", imageFile.Name,
-					"error", err,
-				)
-				continue
-			}
-			imageFileErrors = append(imageFileErrors, err)
+			// A read must never fail because an individual file can't be
+			// loaded — it may have been deleted or moved outside the app, be
+			// unreadable, or have an unsupported format. Skip it so the rest
+			// of the listing still renders. The DB record is left untouched;
+			// it is only removed when the user deletes the image.
+			slog.Warn("skipping image that could not be loaded",
+				"id", imageFile.ID,
+				"name", imageFile.Name,
+				"error", err,
+			)
 			continue
 		}
 
 		result = append(result, converted)
-	}
-	if len(imageFileErrors) > 0 {
-		return result, errors.Join(imageFileErrors...)
 	}
 	return result, nil
 }

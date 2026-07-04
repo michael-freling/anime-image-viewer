@@ -350,21 +350,23 @@ func TestReader_ReadImagesByIDs(t *testing.T) {
 		assert.Len(t, result, 1)
 	})
 
-	t.Run("returns error for a file that exists but is not a valid image", func(t *testing.T) {
-		// Create a file on disk that exists but has unsupported content, so
-		// ConvertImageFile fails with an error other than os.ErrNotExist. Such
-		// errors must still propagate (not be silently skipped).
+	t.Run("skips a file that exists but is not a valid image", func(t *testing.T) {
+		// A file that exists on disk but has unsupported content cannot be
+		// loaded. A read must skip it (not fail the whole batch) so the rest
+		// of the page still renders.
 		fileBuilder.CreateImage(ImageFile{ID: 14, Name: "notimage.txt", ParentID: 1}, TestImageFileNonImage)
 
 		tester.dbClient.Truncate(t, &db.File{})
 		db.LoadTestData(t, tester.dbClient, []db.File{
 			fileBuilder.BuildDBDirectory(1),
+			fileBuilder.BuildDBImageFile(10),
 			fileBuilder.BuildDBImageFile(14),
 		})
 
-		_, err := reader.ReadImagesByIDs([]uint{14})
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "convertImageFile")
+		result, err := reader.ReadImagesByIDs([]uint{10, 14})
+		require.NoError(t, err)
+		require.Len(t, result, 1)
+		assert.Equal(t, uint(10), result[0].ID)
 	})
 }
 

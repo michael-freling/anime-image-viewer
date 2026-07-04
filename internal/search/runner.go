@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 	"slices"
 
 	"github.com/michael-freling/anime-image-viewer/internal/db"
@@ -108,7 +107,6 @@ func (runner SearchImageRunner) SearchImages(
 
 		allDBImageFiles := slices.Concat(dbImageFiles, imageFilesUnderDirectories)
 		imageFiles = make([]image.ImageFile, 0, len(allDBImageFiles))
-		imageFileErrors := make([]error, 0)
 		for _, dbImageFile := range allDBImageFiles {
 			parentDirectory := parentDirectories[dbImageFile.ParentID]
 			if parentDirectory.ID == 0 {
@@ -122,23 +120,18 @@ func (runner SearchImageRunner) SearchImages(
 			}
 			imageFile, err := runner.imageFileConverter.ConvertImageFile(parentDirectory, dbImageFile)
 			if err != nil {
-				// Stale record: the file was removed or moved outside the app.
-				// Skip it instead of failing the whole search.
-				if errors.Is(err, os.ErrNotExist) {
-					runner.logger.Warn("skipping image file missing from disk",
-						"id", dbImageFile.ID,
-						"name", dbImageFile.Name,
-						"error", err,
-					)
-					continue
-				}
-				imageFileErrors = append(imageFileErrors, fmt.Errorf("imageFileConverter.ConvertImageFile: %w", err))
+				// A read must never fail because an individual file can't be
+				// loaded — it may have been removed or moved outside the app,
+				// be unreadable, or have an unsupported format. Skip it so the
+				// rest of the results still render.
+				runner.logger.Warn("skipping image that could not be loaded",
+					"id", dbImageFile.ID,
+					"name", dbImageFile.Name,
+					"error", err,
+				)
 				continue
 			}
 			imageFiles = append(imageFiles, imageFile)
-		}
-		if len(imageFileErrors) > 0 {
-			return result, errors.Join(imageFileErrors...)
 		}
 	} else {
 		parentDirectory, err := runner.directoryReader.ReadDirectory(parentDirectoryID)

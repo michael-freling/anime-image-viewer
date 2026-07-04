@@ -174,20 +174,17 @@ func (reader Reader) ReadImagesByIDs(imageFileIDs []uint) (ImageFileList, error)
 
 		imageFile, err := reader.imageFileConverter.ConvertImageFile(parentDirectory, dbImageFile)
 		if err != nil {
-			// The DB record can become stale when the underlying file is
-			// removed or moved outside the app. Skip such files instead of
-			// failing the entire batch, which would otherwise break pages
-			// that list many images (e.g. an anime page). The record is left
-			// untouched; it is only removed when the user deletes the image.
-			if errors.Is(err, os.ErrNotExist) {
-				slog.Warn("skipping image file missing from disk",
-					"id", dbImageFile.ID,
-					"name", dbImageFile.Name,
-					"error", err,
-				)
-				continue
-			}
-			return nil, fmt.Errorf("convertImageFile: %w", err)
+			// A read must never fail because an individual file can't be
+			// loaded — it may have been deleted or moved outside the app, be
+			// unreadable, or have an unsupported format. Skip it so the rest
+			// of the page still renders. The DB record is left untouched; it
+			// is only removed when the user deletes the image.
+			slog.Warn("skipping image that could not be loaded",
+				"id", dbImageFile.ID,
+				"name", dbImageFile.Name,
+				"error", err,
+			)
+			continue
 		}
 		imageFiles = append(imageFiles, imageFile)
 	}

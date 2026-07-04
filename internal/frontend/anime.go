@@ -876,8 +876,8 @@ func convertSeason(e anime.AnimeSeason) AnimeSeasonInfo {
 	return AnimeSeasonInfo{
 		ID:           e.ID,
 		Name:         e.Name,
-		SeasonType:    e.SeasonType,
-		SeasonNumber:  e.SeasonNumber,
+		SeasonType:   e.SeasonType,
+		SeasonNumber: e.SeasonNumber,
 		AiringSeason: e.AiringSeason,
 		AiringYear:   e.AiringYear,
 		ImageCount:   e.ImageCount,

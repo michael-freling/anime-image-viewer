@@ -173,9 +173,9 @@ func TestDirectoryReader_ReadImageFiles_WithConversionError(t *testing.T) {
 		assert.Equal(t, uint(10), result[0].ID)
 	})
 
-	t.Run("returns error when a file exists but is not a valid image", func(t *testing.T) {
-		// Unlike a missing file, a file that exists with unsupported content
-		// is a genuine conversion error and must be reported, not skipped.
+	t.Run("skips a file that exists but is not a valid image", func(t *testing.T) {
+		// A file that exists with unsupported content cannot be loaded; it is
+		// skipped so the listing still renders the valid images.
 		fileBuilder.CreateImage(ImageFile{ID: 21, Name: "notimage.txt", ParentID: 1}, TestImageFileNonImage)
 
 		testDBClient.Truncate(t, &db.File{})
@@ -188,8 +188,7 @@ func TestDirectoryReader_ReadImageFiles_WithConversionError(t *testing.T) {
 		reader := tester.getDirectoryReader()
 		result, err := reader.ReadImageFiles(1)
 
-		require.Error(t, err)
-		// The valid image is still returned alongside the error.
+		require.NoError(t, err)
 		require.Len(t, result, 1)
 		assert.Equal(t, uint(10), result[0].ID)
 	})

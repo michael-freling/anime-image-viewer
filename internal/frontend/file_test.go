@@ -2,8 +2,8 @@ package frontend
 
 import (
 	"encoding/json"
-	"image/color"
 	goimage "image"
+	"image/color"
 	"image/jpeg"
 	"log/slog"
 	"net/http"

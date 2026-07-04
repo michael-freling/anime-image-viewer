@@ -439,12 +439,11 @@ func TestSearchImages_ErrorPaths(t *testing.T) {
 		assert.Equal(t, uint(10), result[0].ID, "ghost image should be skipped")
 	})
 
-	t.Run("search returns error when a file exists but is not a valid image", func(t *testing.T) {
+	t.Run("search skips a file that exists but is not a valid image", func(t *testing.T) {
 		env.truncate(t)
 
-		// A file that exists on disk but has unsupported content is a genuine
-		// conversion error (not a missing file), so the search must fail rather
-		// than silently skip it.
+		// A file that exists on disk but has unsupported content cannot be
+		// loaded; it is skipped so the search still returns the valid images.
 		fileCreator.CreateImage(image.ImageFile{ID: 52, Name: "notimage.txt", ParentID: 1}, image.TestImageFileNonImage)
 
 		db.LoadTestData(t, env.dbClient, []db.File{
@@ -461,8 +460,10 @@ func TestSearchImages_ErrorPaths(t *testing.T) {
 
 		runner := env.newRunner()
 
-		_, err := runner.SearchImages(context.Background(), 1, false, 0)
-		assert.Error(t, err, "unsupported content should surface as an error")
+		result, err := runner.SearchImages(context.Background(), 1, false, 0)
+		require.NoError(t, err)
+		require.Len(t, result, 1)
+		assert.Equal(t, uint(10), result[0].ID)
 	})
 
 	t.Run("search with parentDir and file tag but file parent dir missing from DB skips orphan", func(t *testing.T) {
