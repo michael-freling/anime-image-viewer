@@ -109,7 +109,6 @@ func (runner SearchImageRunner) SearchImages(
 		allDBImageFiles := slices.Concat(dbImageFiles, imageFilesUnderDirectories)
 		imageFiles = make([]image.ImageFile, 0, len(allDBImageFiles))
 		imageFileErrors := make([]error, 0)
-		staleCandidates := make([]image.MissingFileCandidate, 0)
 		for _, dbImageFile := range allDBImageFiles {
 			parentDirectory := parentDirectories[dbImageFile.ParentID]
 			if parentDirectory.ID == 0 {
@@ -126,15 +125,11 @@ func (runner SearchImageRunner) SearchImages(
 				// Stale record: the file was removed or moved outside the app.
 				// Skip it instead of failing the whole search.
 				if errors.Is(err, os.ErrNotExist) {
-					runner.logger.Warn("image file missing from disk",
+					runner.logger.Warn("skipping image file missing from disk",
 						"id", dbImageFile.ID,
 						"name", dbImageFile.Name,
 						"error", err,
 					)
-					staleCandidates = append(staleCandidates, image.MissingFileCandidate{
-						ID:         dbImageFile.ID,
-						ParentPath: parentDirectory.Path,
-					})
 					continue
 				}
 				imageFileErrors = append(imageFileErrors, fmt.Errorf("imageFileConverter.ConvertImageFile: %w", err))
@@ -142,7 +137,6 @@ func (runner SearchImageRunner) SearchImages(
 			}
 			imageFiles = append(imageFiles, imageFile)
 		}
-		image.DeleteImageRecordsForDeletedFiles(runner.dbClient, staleCandidates)
 		if len(imageFileErrors) > 0 {
 			return result, errors.Join(imageFileErrors...)
 		}

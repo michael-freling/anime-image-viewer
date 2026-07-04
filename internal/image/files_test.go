@@ -311,22 +311,14 @@ func TestReader_ReadImagesByIDs(t *testing.T) {
 		assert.Empty(t, result)
 	})
 
-	t.Run("deletes stale records whose file is missing while parent dir exists", func(t *testing.T) {
+	t.Run("skips stale record missing from disk and leaves the DB untouched", func(t *testing.T) {
 		tester.dbClient.Truncate(t, &db.File{}, &db.FileTag{}, &db.FileCharacter{})
 		db.LoadTestData(t, tester.dbClient, []db.File{
 			fileBuilder.BuildDBDirectory(1),
 			fileBuilder.BuildDBImageFile(10),
 			// Record 12 exists in the DB but the file was never created on
-			// disk (e.g. deleted or moved outside the app). Its parent
-			// directory1 does exist on disk.
+			// disk (e.g. deleted or moved outside the app).
 			{ID: 12, Name: "missing.png", ParentID: 1, Type: db.FileTypeImage},
-		})
-		// Associations for the stale record that must be cleaned up too.
-		db.LoadTestData(t, tester.dbClient, []db.FileTag{
-			{TagID: 100, FileID: 12, AddedBy: db.FileTagAddedByUser},
-		})
-		db.LoadTestData(t, tester.dbClient, []db.FileCharacter{
-			{CharacterID: 200, FileID: 12, AddedBy: db.FileTagAddedByUser},
 		})
 
 		result, err := reader.ReadImagesByIDs([]uint{10, 12})
@@ -335,60 +327,33 @@ func TestReader_ReadImagesByIDs(t *testing.T) {
 		assert.Len(t, result, 1)
 		assert.Equal(t, "image1.jpg", result.ToMap()[10].Name)
 
-		// The stale record and its associations are removed from the DB;
-		// the valid record remains.
+		// Reads never delete records; the stale record remains until the user
+		// deletes the image explicitly.
 		remaining, err := tester.dbClient.Client.File().FindImageFilesByIDs([]uint{10, 12})
 		require.NoError(t, err)
-		require.Len(t, remaining, 1)
-		assert.Equal(t, uint(10), remaining[0].ID)
-
-		remainingTags, err := tester.dbClient.Client.FileTag().FindAllByFileID([]uint{12})
-		require.NoError(t, err)
-		assert.Empty(t, remainingTags)
-		remainingChars, err := tester.dbClient.Client.FileCharacter().FindByFileIDs([]uint{12})
-		require.NoError(t, err)
-		assert.Empty(t, remainingChars)
+		assert.Len(t, remaining, 2, "reads must not delete stale records")
 	})
 
-	t.Run("keeps stale record when parent directory is unavailable on disk", func(t *testing.T) {
-		// Use a dedicated tester so removing the directory does not affect
-		// other sub-tests that share the fixture on disk.
-		guardTester := newTester(t)
-		guardBuilder := guardTester.newFileCreator(t).
-			CreateDirectory(Directory{ID: 1, Name: "directory1"}).
-			CreateImage(ImageFile{ID: 10, Name: "image1.jpg", ParentID: 1}, TestImageFileJpeg)
-		guardReader := NewReader(
-			guardTester.dbClient.Client,
-			guardTester.getDirectoryReader(),
-			NewImageFileConverter(guardTester.config),
-		)
-
-		guardTester.dbClient.Truncate(t, &db.File{})
-		db.LoadTestData(t, guardTester.dbClient, []db.File{
-			guardBuilder.BuildDBDirectory(1),
-			guardBuilder.BuildDBImageFile(10),
+	t.Run("skips stale record whose parent directory is missing from the DB", func(t *testing.T) {
+		tester.dbClient.Truncate(t, &db.File{})
+		db.LoadTestData(t, tester.dbClient, []db.File{
+			fileBuilder.BuildDBDirectory(1),
+			fileBuilder.BuildDBImageFile(10),
+			// Record 13 has no parent directory in the DB, so its path cannot
+			// be resolved; it is skipped.
+			{ID: 13, Name: "orphan.png", ParentID: 999, Type: db.FileTypeImage},
 		})
 
-		// Simulate the whole storage location becoming unavailable (e.g. wrong
-		// root path or unmounted drive): the parent directory and its file are
-		// both gone from disk.
-		require.NoError(t, os.RemoveAll(guardBuilder.BuildDirectory(1).Path))
-
-		result, err := guardReader.ReadImagesByIDs([]uint{10})
+		result, err := reader.ReadImagesByIDs([]uint{10, 13})
 
 		require.NoError(t, err)
-		assert.Empty(t, result, "the missing file is skipped from results")
-
-		// The record must NOT be deleted: the file might not truly be gone.
-		remaining, err := guardTester.dbClient.Client.File().FindImageFilesByIDs([]uint{10})
-		require.NoError(t, err)
-		require.Len(t, remaining, 1, "record should be preserved when parent directory is unavailable")
+		assert.Len(t, result, 1)
 	})
 
 	t.Run("returns error for a file that exists but is not a valid image", func(t *testing.T) {
 		// Create a file on disk that exists but has unsupported content, so
 		// ConvertImageFile fails with an error other than os.ErrNotExist. Such
-		// errors must still propagate (not be silently skipped or deleted).
+		// errors must still propagate (not be silently skipped).
 		fileBuilder.CreateImage(ImageFile{ID: 14, Name: "notimage.txt", ParentID: 1}, TestImageFileNonImage)
 
 		tester.dbClient.Truncate(t, &db.File{})
@@ -400,68 +365,6 @@ func TestReader_ReadImagesByIDs(t *testing.T) {
 		_, err := reader.ReadImagesByIDs([]uint{14})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "convertImageFile")
-
-		// The record is not treated as stale, so it remains in the DB.
-		remaining, err := tester.dbClient.Client.File().FindImageFilesByIDs([]uint{14})
-		require.NoError(t, err)
-		require.Len(t, remaining, 1)
-	})
-
-	t.Run("keeps stale record whose parent directory is missing from the DB", func(t *testing.T) {
-		tester.dbClient.Truncate(t, &db.File{})
-		db.LoadTestData(t, tester.dbClient, []db.File{
-			fileBuilder.BuildDBDirectory(1),
-			fileBuilder.BuildDBImageFile(10),
-			// Record 13 has no parent directory in the DB, so its path cannot
-			// be resolved. It must be skipped but not deleted (we can't confirm
-			// the file was truly removed).
-			{ID: 13, Name: "orphan.png", ParentID: 999, Type: db.FileTypeImage},
-		})
-
-		result, err := reader.ReadImagesByIDs([]uint{10, 13})
-
-		require.NoError(t, err)
-		assert.Len(t, result, 1)
-
-		remaining, err := tester.dbClient.Client.File().FindImageFilesByIDs([]uint{13})
-		require.NoError(t, err)
-		require.Len(t, remaining, 1, "orphan record should be preserved when its parent is unknown")
-	})
-
-	t.Run("keeps stale record when the cleanup delete fails", func(t *testing.T) {
-		// Dedicated tester because dropping a table is destructive.
-		failTester := newTester(t)
-		failBuilder := failTester.newFileCreator(t).
-			CreateDirectory(Directory{ID: 1, Name: "directory1"}).
-			CreateImage(ImageFile{ID: 10, Name: "image1.jpg", ParentID: 1}, TestImageFileJpeg)
-		failReader := NewReader(
-			failTester.dbClient.Client,
-			failTester.getDirectoryReader(),
-			NewImageFileConverter(failTester.config),
-		)
-
-		failTester.dbClient.Truncate(t, &db.File{})
-		db.LoadTestData(t, failTester.dbClient, []db.File{
-			failBuilder.BuildDBDirectory(1),
-			failBuilder.BuildDBImageFile(10),
-			// Stale record with an existing parent directory: normally deleted.
-			{ID: 12, Name: "missing.png", ParentID: 1, Type: db.FileTypeImage},
-		})
-		// Make the cleanup transaction fail by removing a table it writes to.
-		failTester.dbClient.DropTable(t, &db.FileTag{})
-
-		result, err := failReader.ReadImagesByIDs([]uint{10, 12})
-
-		// The read still succeeds (best-effort cleanup); only the valid image
-		// is returned.
-		require.NoError(t, err)
-		require.Len(t, result, 1)
-		assert.Equal(t, uint(10), result[0].ID)
-
-		// The cleanup was rolled back, so the stale record remains.
-		remaining, err := failTester.dbClient.Client.File().FindImageFilesByIDs([]uint{12})
-		require.NoError(t, err)
-		require.Len(t, remaining, 1, "record should be preserved when cleanup fails")
 	})
 }
 

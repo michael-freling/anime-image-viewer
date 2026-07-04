@@ -48,23 +48,20 @@ func (service DirectoryReader) ReadImageFiles(parentDirectoryID uint) ([]ImageFi
 	}
 
 	imageFileErrors := make([]error, 0)
-	staleCandidates := make([]MissingFileCandidate, 0)
 	result := make([]ImageFile, 0)
 	for _, imageFile := range imageFiles {
 		converted, err := service.converter.ConvertImageFile(parentDirectory, imageFile)
 		if err != nil {
 			// Skip stale records whose file was removed or moved outside the
-			// app instead of failing the whole directory listing.
+			// app instead of failing the whole directory listing. The record
+			// is left untouched; it is only removed when the user deletes the
+			// image.
 			if errors.Is(err, os.ErrNotExist) {
-				slog.Warn("image file missing from disk",
+				slog.Warn("skipping image file missing from disk",
 					"id", imageFile.ID,
 					"name", imageFile.Name,
 					"error", err,
 				)
-				staleCandidates = append(staleCandidates, MissingFileCandidate{
-					ID:         imageFile.ID,
-					ParentPath: parentDirectory.Path,
-				})
 				continue
 			}
 			imageFileErrors = append(imageFileErrors, err)
@@ -73,7 +70,6 @@ func (service DirectoryReader) ReadImageFiles(parentDirectoryID uint) ([]ImageFi
 
 		result = append(result, converted)
 	}
-	DeleteImageRecordsForDeletedFiles(service.dbClient, staleCandidates)
 	if len(imageFileErrors) > 0 {
 		return result, errors.Join(imageFileErrors...)
 	}
