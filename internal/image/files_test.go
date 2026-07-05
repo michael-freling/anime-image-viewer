@@ -242,10 +242,52 @@ func TestConvertImageFile(t *testing.T) {
 		assert.Equal(t, "image/png", imageFile.ContentType)
 	})
 
+	t.Run("uses stored image dimensions when present", func(t *testing.T) {
+		sourceFilePath := filepath.Join("..", "..", "testdata", "image.jpg")
+		destFilePath := filepath.Join(parentDir.Path, "sized.jpg")
+		_, err := Copy(sourceFilePath, destFilePath)
+		require.NoError(t, err)
+
+		w, h := uint(640), uint(480)
+		dbFile := db.File{
+			ID:          13,
+			Name:        "sized.jpg",
+			ParentID:    1,
+			Type:        db.FileTypeImage,
+			ImageWidth:  &w,
+			ImageHeight: &h,
+		}
+
+		imageFile, err := converter.ConvertImageFile(parentDir, dbFile)
+
+		require.NoError(t, err)
+		assert.Equal(t, uint(640), imageFile.Width)
+		assert.Equal(t, uint(480), imageFile.Height)
+	})
+
 	t.Run("file does not exist", func(t *testing.T) {
 		dbFile := db.File{
 			ID:       12,
 			Name:     "nonexistent.jpg",
+			ParentID: 1,
+			Type:     db.FileTypeImage,
+		}
+
+		_, err := converter.ConvertImageFile(parentDir, dbFile)
+		assert.Error(t, err)
+	})
+
+	t.Run("file exists but cannot be opened", func(t *testing.T) {
+		if os.Geteuid() == 0 {
+			t.Skip("running as root bypasses file permissions")
+		}
+		destFilePath := filepath.Join(parentDir.Path, "noperm.jpg")
+		require.NoError(t, os.WriteFile(destFilePath, []byte("data"), 0o000))
+		t.Cleanup(func() { _ = os.Chmod(destFilePath, 0o644) })
+
+		dbFile := db.File{
+			ID:       15,
+			Name:     "noperm.jpg",
 			ParentID: 1,
 			Type:     db.FileTypeImage,
 		}
@@ -310,4 +352,78 @@ func TestReader_ReadImagesByIDs(t *testing.T) {
 		require.NoError(t, err)
 		assert.Empty(t, result)
 	})
+
+	t.Run("skips stale record missing from disk and leaves the DB untouched", func(t *testing.T) {
+		tester.dbClient.Truncate(t, &db.File{}, &db.FileTag{}, &db.FileCharacter{})
+		db.LoadTestData(t, tester.dbClient, []db.File{
+			fileBuilder.BuildDBDirectory(1),
+			fileBuilder.BuildDBImageFile(10),
+			// Record 12 exists in the DB but the file was never created on
+			// disk (e.g. deleted or moved outside the app).
+			{ID: 12, Name: "missing.png", ParentID: 1, Type: db.FileTypeImage},
+		})
+
+		result, err := reader.ReadImagesByIDs([]uint{10, 12})
+
+		require.NoError(t, err)
+		assert.Len(t, result, 1)
+		assert.Equal(t, "image1.jpg", result.ToMap()[10].Name)
+
+		// Reads never delete records; the stale record remains until the user
+		// deletes the image explicitly.
+		remaining, err := tester.dbClient.Client.File().FindImageFilesByIDs([]uint{10, 12})
+		require.NoError(t, err)
+		assert.Len(t, remaining, 2, "reads must not delete stale records")
+	})
+
+	t.Run("skips stale record whose parent directory is missing from the DB", func(t *testing.T) {
+		tester.dbClient.Truncate(t, &db.File{})
+		db.LoadTestData(t, tester.dbClient, []db.File{
+			fileBuilder.BuildDBDirectory(1),
+			fileBuilder.BuildDBImageFile(10),
+			// Record 13 has no parent directory in the DB, so its path cannot
+			// be resolved; it is skipped.
+			{ID: 13, Name: "orphan.png", ParentID: 999, Type: db.FileTypeImage},
+		})
+
+		result, err := reader.ReadImagesByIDs([]uint{10, 13})
+
+		require.NoError(t, err)
+		assert.Len(t, result, 1)
+	})
+
+	t.Run("skips a file that exists but is not a valid image", func(t *testing.T) {
+		// A file that exists on disk but has unsupported content cannot be
+		// loaded. A read must skip it (not fail the whole batch) so the rest
+		// of the page still renders.
+		fileBuilder.CreateImage(ImageFile{ID: 14, Name: "notimage.txt", ParentID: 1}, TestImageFileNonImage)
+
+		tester.dbClient.Truncate(t, &db.File{})
+		db.LoadTestData(t, tester.dbClient, []db.File{
+			fileBuilder.BuildDBDirectory(1),
+			fileBuilder.BuildDBImageFile(10),
+			fileBuilder.BuildDBImageFile(14),
+		})
+
+		result, err := reader.ReadImagesByIDs([]uint{10, 14})
+		require.NoError(t, err)
+		require.Len(t, result, 1)
+		assert.Equal(t, uint(10), result[0].ID)
+	})
+}
+
+// TestReader_ReadImagesByIDs_DBError is a standalone test because it drops a
+// table from the (process-shared) in-memory DB; a sibling sub-test would then
+// fail. Other test functions recreate the table via newTester's migration.
+func TestReader_ReadImagesByIDs_DBError(t *testing.T) {
+	tester := newTester(t)
+	reader := NewReader(
+		tester.dbClient.Client,
+		tester.getDirectoryReader(),
+		NewImageFileConverter(tester.config),
+	)
+	tester.dbClient.DropTable(t, &db.File{})
+
+	_, err := reader.ReadImagesByIDs([]uint{10})
+	require.Error(t, err)
 }

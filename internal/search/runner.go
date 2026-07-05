@@ -105,23 +105,33 @@ func (runner SearchImageRunner) SearchImages(
 			return result, fmt.Errorf("directoryReader.ReadDirectories: %w", err)
 		}
 
-		imageFiles = make([]image.ImageFile, len(dbImageFiles)+len(imageFilesUnderDirectories))
-		imageFileErrors := make([]error, 0)
-		for i, dbImageFile := range slices.Concat(dbImageFiles, imageFilesUnderDirectories) {
+		allDBImageFiles := slices.Concat(dbImageFiles, imageFilesUnderDirectories)
+		imageFiles = make([]image.ImageFile, 0, len(allDBImageFiles))
+		for _, dbImageFile := range allDBImageFiles {
 			parentDirectory := parentDirectories[dbImageFile.ParentID]
 			if parentDirectory.ID == 0 {
-				imageFileErrors = append(imageFileErrors, fmt.Errorf("%w: %d for an image %d", image.ErrDirectoryNotFound, dbImageFile.ParentID, dbImageFile.ID))
+				// Stale record: parent directory no longer in DB. Skip it
+				// rather than failing the whole search.
+				runner.logger.Warn("skipping image file with missing parent directory",
+					"id", dbImageFile.ID,
+					"parentID", dbImageFile.ParentID,
+				)
 				continue
 			}
 			imageFile, err := runner.imageFileConverter.ConvertImageFile(parentDirectory, dbImageFile)
 			if err != nil {
-				imageFileErrors = append(imageFileErrors, fmt.Errorf("imageFileConverter.ConvertImageFile: %w", err))
+				// A read must never fail because an individual file can't be
+				// loaded — it may have been removed or moved outside the app,
+				// be unreadable, or have an unsupported format. Skip it so the
+				// rest of the results still render.
+				runner.logger.Warn("skipping image that could not be loaded",
+					"id", dbImageFile.ID,
+					"name", dbImageFile.Name,
+					"error", err,
+				)
 				continue
 			}
-			imageFiles[i] = imageFile
-		}
-		if len(imageFileErrors) > 0 {
-			return result, errors.Join(imageFileErrors...)
+			imageFiles = append(imageFiles, imageFile)
 		}
 	} else {
 		parentDirectory, err := runner.directoryReader.ReadDirectory(parentDirectoryID)

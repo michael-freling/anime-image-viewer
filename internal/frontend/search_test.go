@@ -357,8 +357,8 @@ func TestSearchService_Search(t *testing.T) {
 					{ID: 100, Name: "tag 100"},
 				},
 				insertFileTags: []db.FileTag{
-					{FileID: 10, TagID: 10},  // a tag added to a directory
-					{FileID: 2, TagID: 10},   // a tag added to a directory but it's in a different directory
+					{FileID: 10, TagID: 10}, // a tag added to a directory
+					{FileID: 2, TagID: 10},  // a tag added to a directory but it's in a different directory
 				},
 				want: SearchImagesResponse{
 					Images: []Image{

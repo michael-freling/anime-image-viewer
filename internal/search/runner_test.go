@@ -281,6 +281,28 @@ func TestSearchImages(t *testing.T) {
 	})
 }
 
+// TestSearchImages_DBError is standalone because it drops a table from the
+// process-shared in-memory DB; other test functions re-migrate via newTester.
+func TestSearchImages_DBError(t *testing.T) {
+	env := setupTestEnv(t)
+	env.truncate(t)
+
+	fileCreator := image.NewFileCreator(t, env.cfg.ImageRootDirectory)
+	fileCreator.CreateDirectory(image.Directory{ID: 1, Name: "dir1"})
+	db.LoadTestData(t, env.dbClient, []db.File{fileCreator.BuildDBDirectory(1)})
+	db.LoadTestData(t, env.dbClient, []db.Tag{{ID: 1, Name: "tag1"}})
+	db.LoadTestData(t, env.dbClient, []db.FileTag{
+		{TagID: 1, FileID: 1, AddedBy: db.FileTagAddedByUser},
+	})
+	// Dropping the files table makes the directory lookup fail with a real DB
+	// error while searching under a tag.
+	env.dbClient.DropTable(t, &db.File{})
+
+	runner := env.newRunner()
+	_, err := runner.SearchImages(context.Background(), 1, false, 0)
+	require.Error(t, err)
+}
+
 func TestSearchImages_ErrorPaths(t *testing.T) {
 	env := setupTestEnv(t)
 
@@ -372,7 +394,7 @@ func TestSearchImages_ErrorPaths(t *testing.T) {
 		assert.Empty(t, result)
 	})
 
-	t.Run("search with tag on file but non-existent parent dir in DB (parentDirectoryID=0 path)", func(t *testing.T) {
+	t.Run("search with tag on file but non-existent parent dir in DB skips stale record (parentDirectoryID=0 path)", func(t *testing.T) {
 		env.truncate(t)
 
 		// Insert an image file but NOT its parent directory
@@ -389,10 +411,11 @@ func TestSearchImages_ErrorPaths(t *testing.T) {
 		runner := env.newRunner()
 
 		// parentDirectoryID=0: goes through the path that reads directories from fileTags.
-		// Parent directory for image 10 doesn't exist, so parentDirectory.ID == 0
-		// which triggers the ErrDirectoryNotFound error path.
-		_, err := runner.SearchImages(context.Background(), 1, false, 0)
-		assert.Error(t, err, "should return error when parent directory of tagged file is missing")
+		// Parent directory for image 10 doesn't exist, so parentDirectory.ID == 0.
+		// The stale record is skipped rather than failing the whole search.
+		result, err := runner.SearchImages(context.Background(), 1, false, 0)
+		require.NoError(t, err)
+		assert.Empty(t, result, "image with missing parent directory should be skipped")
 	})
 
 	t.Run("readDBTagRecursively error with non-existent tag", func(t *testing.T) {
@@ -406,7 +429,7 @@ func TestSearchImages_ErrorPaths(t *testing.T) {
 		assert.Empty(t, result)
 	})
 
-	t.Run("search without parentDir tag on dir with image missing from filesystem returns error", func(t *testing.T) {
+	t.Run("search without parentDir tag on dir skips image missing from filesystem", func(t *testing.T) {
 		env.truncate(t)
 
 		// Dir1 and img1 exist on disk. But we'll also insert an image in DB
@@ -422,8 +445,9 @@ func TestSearchImages_ErrorPaths(t *testing.T) {
 			{ID: 1, Name: "tag1"},
 		})
 		// Tag the directory (FileID=1), so in the parentDirectoryID==0 path,
-		// ReadDirectories returns dir1, FindImageFilesByParentIDs returns [10, 50],
-		// and ConvertImageFile fails for ghost image 50 because it doesn't exist on disk.
+		// ReadDirectories returns dir1, FindImageFilesByParentIDs returns [10, 50].
+		// ConvertImageFile fails for ghost image 50 because it doesn't exist on
+		// disk, but that stale record is skipped rather than failing the search.
 		db.LoadTestData(t, env.dbClient, []db.FileTag{
 			{TagID: 1, FileID: 1, AddedBy: db.FileTagAddedByUser},
 		})
@@ -431,11 +455,40 @@ func TestSearchImages_ErrorPaths(t *testing.T) {
 		runner := env.newRunner()
 
 		// parentDirectoryID=0: goes through the directory lookup path
-		_, err := runner.SearchImages(context.Background(), 1, false, 0)
-		assert.Error(t, err, "should error when image file doesn't exist on filesystem")
+		result, err := runner.SearchImages(context.Background(), 1, false, 0)
+		require.NoError(t, err)
+		require.Len(t, result, 1)
+		assert.Equal(t, uint(10), result[0].ID, "ghost image should be skipped")
 	})
 
-	t.Run("search with parentDir and file tag but file parent dir missing from DB returns error", func(t *testing.T) {
+	t.Run("search skips a file that exists but is not a valid image", func(t *testing.T) {
+		env.truncate(t)
+
+		// A file that exists on disk but has unsupported content cannot be
+		// loaded; it is skipped so the search still returns the valid images.
+		fileCreator.CreateImage(image.ImageFile{ID: 52, Name: "notimage.txt", ParentID: 1}, image.TestImageFileNonImage)
+
+		db.LoadTestData(t, env.dbClient, []db.File{
+			fileCreator.BuildDBDirectory(1),
+			fileCreator.BuildDBImageFile(10),
+			fileCreator.BuildDBImageFile(52),
+		})
+		db.LoadTestData(t, env.dbClient, []db.Tag{
+			{ID: 1, Name: "tag1"},
+		})
+		db.LoadTestData(t, env.dbClient, []db.FileTag{
+			{TagID: 1, FileID: 1, AddedBy: db.FileTagAddedByUser},
+		})
+
+		runner := env.newRunner()
+
+		result, err := runner.SearchImages(context.Background(), 1, false, 0)
+		require.NoError(t, err)
+		require.Len(t, result, 1)
+		assert.Equal(t, uint(10), result[0].ID)
+	})
+
+	t.Run("search with parentDir and file tag but file parent dir missing from DB skips orphan", func(t *testing.T) {
 		env.truncate(t)
 
 		// Insert dir1, img1 in DB, tag img1.
@@ -459,10 +512,12 @@ func TestSearchImages_ErrorPaths(t *testing.T) {
 		runner := env.newRunner()
 
 		// parentDirectoryID=1, tag=1, hasParentDirectoryTag is false since FileID=1 not tagged.
-		// Goes into else branch at line 150: fileIDs = fileTags.ToFileIDs() = [50]
-		// imageReader.ReadImagesByIDs([50]) should fail because parent 999 doesn't exist
-		_, err := runner.SearchImages(context.Background(), 1, false, 1)
-		assert.Error(t, err, "should error when reading images with missing parent directory")
+		// Goes into else branch at line 150: fileIDs = fileTags.ToFileIDs() = [50].
+		// The orphan's file resolves to a path that doesn't exist on disk, so the
+		// stale record is skipped and the search succeeds with no results.
+		result, err := runner.SearchImages(context.Background(), 1, false, 1)
+		require.NoError(t, err)
+		assert.Empty(t, result, "orphan image missing from disk should be skipped")
 	})
 }
 

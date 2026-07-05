@@ -3,6 +3,7 @@ package frontend
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 
 	"github.com/michael-freling/anime-image-viewer/internal/anilist"
@@ -177,7 +178,6 @@ func TestAnimeService_DerivedTags(t *testing.T) {
 	assert.Equal(t, uint(1), details.Tags[1].ImageCount)
 	assert.Equal(t, "charlie", details.Tags[2].Name)
 	assert.Equal(t, uint(2), details.Tags[2].ImageCount) // img1 + img2
-
 
 	t.Run("anime with no tagged images returns empty tags", func(t *testing.T) {
 		b, err := svc.CreateAnime(ctx, "NoTags")
@@ -425,6 +425,19 @@ func TestAnimeService_SearchImagesByAnime(t *testing.T) {
 		resp, err := svc.SearchImagesByAnime(ctx, empty.ID)
 		require.NoError(t, err)
 		assert.Empty(t, resp.Images)
+	})
+
+	// Regression test for the reported bug: opening an anime page failed
+	// entirely when one image had been deleted or moved outside the app
+	// (e.g. into a "Wrong images" folder). The page must still render the
+	// images that are present rather than returning an error.
+	t.Run("skips an image whose file was deleted from disk", func(t *testing.T) {
+		require.NoError(t, os.Remove(fileCreator.BuildImageFile(8211).LocalFilePath))
+
+		resp, err := svc.SearchImagesByAnime(ctx, a.ID)
+		require.NoError(t, err)
+		require.Len(t, resp.Images, 1)
+		assert.Equal(t, uint(8210), resp.Images[0].ID)
 	})
 }
 

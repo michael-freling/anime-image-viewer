@@ -100,7 +100,7 @@ func TestNewImageService(t *testing.T) {
 	assert.NotNil(t, service.imageReader)
 }
 
-func TestImageService_ReadImagesByIDs_Error(t *testing.T) {
+func TestImageService_ReadImagesByIDs_SkipsStaleRecords(t *testing.T) {
 	tester := newTester(t)
 	dbClient := tester.dbClient
 
@@ -118,16 +118,42 @@ func TestImageService_ReadImagesByIDs_Error(t *testing.T) {
 	}
 
 	// Insert the image file into DB but NOT the parent directory,
-	// so ReadDirectories will fail with ErrDirectoryNotFound which is tolerated,
-	// but ConvertImageFile will fail because the parent directory has ID 0.
+	// so ReadDirectories returns ErrDirectoryNotFound (tolerated) and the file
+	// resolves to a path that doesn't exist on disk. Such stale records are
+	// skipped rather than failing the whole read.
 	dbClient.Truncate(t, &db.File{})
 	db.LoadTestData(t, dbClient, []db.File{
 		fileBuilder.BuildDBImageFile(11),
 	})
 
 	service := tester.getImageService()
+	got, gotErr := service.ReadImagesByIDs(context.Background(), []uint{11})
+	require.NoError(t, gotErr)
+	assert.Empty(t, got, "stale record with missing parent directory should be skipped")
+
+	// A file that exists but is not a valid image also can't be loaded; the
+	// read skips it rather than failing.
+	fileBuilder.CreateImage(image.ImageFile{ID: 13, Name: "notimage.txt", ParentID: 1}, image.TestImageFileNonImage)
+	dbClient.Truncate(t, &db.File{})
+	db.LoadTestData(t, dbClient, []db.File{
+		fileBuilder.BuildDBDirectory(1),
+		fileBuilder.BuildDBImageFile(13),
+	})
+	got, gotErr = service.ReadImagesByIDs(context.Background(), []uint{13})
+	require.NoError(t, gotErr)
+	assert.Empty(t, got)
+}
+
+// TestImageService_ReadImagesByIDs_DBError covers the service surfacing an
+// error from the reader. It is standalone because dropping a table mutates the
+// process-shared in-memory DB; other test functions re-migrate via newTester.
+func TestImageService_ReadImagesByIDs_DBError(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.DropTable(t, &db.File{})
+
+	service := tester.getImageService()
 	_, gotErr := service.ReadImagesByIDs(context.Background(), []uint{11})
-	assert.Error(t, gotErr, "should return error when parent directory is missing from DB")
+	require.Error(t, gotErr)
 }
 
 func TestImageService_ShowImageInExplorer(t *testing.T) {
@@ -147,18 +173,20 @@ func TestImageService_ShowImageInExplorer(t *testing.T) {
 		fileBuilder.AddImageCreatedAt(imageFile.ID, time.Date(2021, 1, 1, 0, 0, int(imageFile.ID), 0, time.UTC))
 	}
 
-	t.Run("error when ReadImagesByIDs fails", func(t *testing.T) {
-		// Insert the image file into DB but NOT the parent directory,
-		// so ConvertImageFile will fail because the parent directory has ID 0.
+	t.Run("image not found when the file cannot be loaded", func(t *testing.T) {
+		// A file that exists on disk but has unsupported content is skipped by
+		// the reader, so there is no image to show.
+		fileBuilder.CreateImage(image.ImageFile{ID: 13, Name: "notimage.txt", ParentID: 1}, image.TestImageFileNonImage)
 		dbClient.Truncate(t, &db.File{})
 		db.LoadTestData(t, dbClient, []db.File{
-			fileBuilder.BuildDBImageFile(11),
+			fileBuilder.BuildDBDirectory(1),
+			fileBuilder.BuildDBImageFile(13),
 		})
 
 		service := tester.getImageService()
-		gotErr := service.ShowImageInExplorer(context.Background(), 11)
+		gotErr := service.ShowImageInExplorer(context.Background(), 13)
 		assert.Error(t, gotErr)
-		assert.Contains(t, gotErr.Error(), "ReadImagesByIDs")
+		assert.Contains(t, gotErr.Error(), "image not found")
 	})
 
 	t.Run("error when image not found", func(t *testing.T) {
@@ -205,18 +233,20 @@ func TestImageService_OpenImageInOS(t *testing.T) {
 		fileBuilder.AddImageCreatedAt(imageFile.ID, time.Date(2021, 1, 1, 0, 0, int(imageFile.ID), 0, time.UTC))
 	}
 
-	t.Run("error when ReadImagesByIDs fails", func(t *testing.T) {
-		// Insert the image file into DB but NOT the parent directory,
-		// so ConvertImageFile will fail because the parent directory has ID 0.
+	t.Run("image not found when the file cannot be loaded", func(t *testing.T) {
+		// A file that exists on disk but has unsupported content is skipped by
+		// the reader, so there is no image to open.
+		fileBuilder.CreateImage(image.ImageFile{ID: 13, Name: "notimage.txt", ParentID: 1}, image.TestImageFileNonImage)
 		dbClient.Truncate(t, &db.File{})
 		db.LoadTestData(t, dbClient, []db.File{
-			fileBuilder.BuildDBImageFile(11),
+			fileBuilder.BuildDBDirectory(1),
+			fileBuilder.BuildDBImageFile(13),
 		})
 
 		service := tester.getImageService()
-		gotErr := service.OpenImageInOS(context.Background(), 11)
+		gotErr := service.OpenImageInOS(context.Background(), 13)
 		assert.Error(t, gotErr)
-		assert.Contains(t, gotErr.Error(), "ReadImagesByIDs")
+		assert.Contains(t, gotErr.Error(), "image not found")
 	})
 
 	t.Run("error when image not found", func(t *testing.T) {
@@ -228,6 +258,30 @@ func TestImageService_OpenImageInOS(t *testing.T) {
 		assert.Error(t, gotErr)
 		assert.Contains(t, gotErr.Error(), "image not found")
 	})
+}
+
+// The following two tests cover the services wrapping a reader error. They are
+// standalone because dropping a table mutates the process-shared in-memory DB;
+// other test functions re-migrate via newTester.
+
+func TestImageService_ShowImageInExplorer_DBError(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.DropTable(t, &db.File{})
+
+	service := tester.getImageService()
+	gotErr := service.ShowImageInExplorer(context.Background(), 11)
+	require.Error(t, gotErr)
+	assert.Contains(t, gotErr.Error(), "ReadImagesByIDs")
+}
+
+func TestImageService_OpenImageInOS_DBError(t *testing.T) {
+	tester := newTester(t)
+	tester.dbClient.DropTable(t, &db.File{})
+
+	service := tester.getImageService()
+	gotErr := service.OpenImageInOS(context.Background(), 11)
+	require.Error(t, gotErr)
+	assert.Contains(t, gotErr.Error(), "ReadImagesByIDs")
 }
 
 func TestImageService_DeleteImages(t *testing.T) {
@@ -309,21 +363,23 @@ func TestImageService_DeleteImages(t *testing.T) {
 		assert.Empty(t, remainingFiles)
 	})
 
-	t.Run("proceeds with DB delete when ReadImagesByIDs fails", func(t *testing.T) {
+	t.Run("deletes DB record even when the file cannot be loaded", func(t *testing.T) {
 		dbClient.Truncate(t, &db.File{}, &db.FileTag{}, &db.FileCharacter{})
-		// Insert the image file WITHOUT the parent directory so that
-		// ReadImagesByIDs fails (ConvertImageFile needs a valid parent).
-		// DeleteImages should still delete the DB records and skip disk cleanup.
+		// A file that exists but is not a valid image is skipped by the reader,
+		// so there is nothing to remove from disk. DeleteImages must still
+		// delete the DB record.
+		fileBuilder.CreateImage(image.ImageFile{ID: 13, Name: "notimage.txt", ParentID: 1}, image.TestImageFileNonImage)
 		db.LoadTestData(t, dbClient, []db.File{
-			fileBuilder.BuildDBImageFile(11),
+			fileBuilder.BuildDBDirectory(1),
+			fileBuilder.BuildDBImageFile(13),
 		})
 
 		service := tester.getImageService()
-		err := service.DeleteImages(context.Background(), []uint{11})
+		err := service.DeleteImages(context.Background(), []uint{13})
 		assert.NoError(t, err)
 
-		// Verify file is removed from DB despite ReadImagesByIDs failing.
-		remainingFiles, err := dbClient.Client.File().FindImageFilesByIDs([]uint{11})
+		// Verify the record is removed from DB.
+		remainingFiles, err := dbClient.Client.File().FindImageFilesByIDs([]uint{13})
 		require.NoError(t, err)
 		assert.Empty(t, remainingFiles)
 	})
