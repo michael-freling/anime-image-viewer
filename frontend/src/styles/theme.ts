@@ -59,6 +59,10 @@ const appConfig = defineConfig({
         darkBorder: { value: "#2d2d3f" },
         darkDanger: { value: "#fca5a5" },
         darkDangerBg: { value: "#3b1a1a" },
+        // Solid danger fill for destructive buttons. Dark mode keeps the pale
+        // red (darkDanger) so dark `bg.surface` text reads on it; hover lifts it
+        // slightly. Light-mode counterparts live in the light palette below.
+        darkDangerSolidHover: { value: "#f87171" },
         darkSuccess: { value: "#6ee7b7" },
         darkSuccessBg: { value: "#1a3a2e" },
         darkWarning: { value: "#fcd34d" },
@@ -75,6 +79,11 @@ const appConfig = defineConfig({
         lightTextSecondary: { value: "#6b7280" },
         lightTextMuted: { value: "#9ca3af" },
         lightBorder: { value: "#e5e7eb" },
+        // Solid danger fill for destructive buttons. Light mode needs a
+        // saturated red so white `bg.surface` text passes AA (white on #dc2626
+        // ≈ 4.8:1); hover darkens to red-700.
+        lightDangerSolid: { value: "#dc2626" },
+        lightDangerSolidHover: { value: "#b91c1c" },
 
         // Tag category pairs — ui-design.md §4.3 (dark bg / dark fg).
         tagSceneDarkBg: { value: "#312e81" },
@@ -156,6 +165,15 @@ const appConfig = defineConfig({
         },
         "danger.bg": {
           value: { base: "{colors.tagMoodLightBg}", _dark: "{colors.darkDangerBg}" },
+        },
+        // Solid fill for destructive buttons — tuned per mode like `primary` so
+        // `color="bg.surface"` contrasts in both (white on dark-red in light
+        // mode, dark text on pale-red in dark mode).
+        "danger.solid": {
+          value: { base: "{colors.lightDangerSolid}", _dark: "{colors.darkDanger}" },
+        },
+        "danger.solidHover": {
+          value: { base: "{colors.lightDangerSolidHover}", _dark: "{colors.darkDangerSolidHover}" },
         },
         success: {
           value: { base: "{colors.darkSuccess}", _dark: "{colors.darkSuccess}" },

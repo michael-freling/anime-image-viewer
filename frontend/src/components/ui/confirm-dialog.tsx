@@ -117,11 +117,10 @@ export function ConfirmDialog({
                 onClick={handleConfirm}
                 loading={loading}
                 loadingText={confirmLabel}
-                bg={isDanger ? "danger" : "primary"}
-                color={isDanger ? "bg.surface" : "bg.surface"}
+                bg={isDanger ? "danger.solid" : "primary"}
+                color="bg.surface"
                 _hover={{
-                  bg: isDanger ? "danger" : "primary.hover",
-                  opacity: 0.9,
+                  bg: isDanger ? "danger.solidHover" : "primary.hover",
                 }}
               >
                 {confirmLabel}
