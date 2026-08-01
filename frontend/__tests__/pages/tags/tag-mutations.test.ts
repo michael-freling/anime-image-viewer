@@ -4,28 +4,30 @@
  * Unlike a typical unit test, these DO NOT mock `lib/api`. They import the
  * genuine generated `TagFrontendService` binding and mock only the layer
  * underneath it — the Wails transport (`@wailsio/runtime`'s `Call.ByID`, swapped
- * in via `moduleNameMapper`). This means the test exercises the real binding
- * surface: if `tag-mutations.ts` calls a method the binding doesn't export, the
- * call is a `TypeError` and the test fails.
+ * in via jest.mock). This exercises the real binding surface: if
+ * `tag-mutations.ts` calls a method the binding doesn't export, the call is a
+ * `TypeError` and the test fails.
  *
  * That is deliberate. The bug this guards against was `tag-mutations.ts`
  * calling `CreateTag`/`UpdateName`/… on the wrong service — methods that never
  * existed at runtime. The previous test mocked `lib/api` and hung those methods
  * onto the mock, so it validated a shape that can't occur in the app and stayed
- * green while the feature was fully broken. Testing against the real binding +
- * a transport seam removes the ability for the mock to lie.
+ * green while the feature was fully broken.
  *
- * The binding dispatches by opaque numeric method id, so assertions target the
- * business arguments forwarded to the transport (everything after the id).
+ * The binding dispatches by opaque numeric method id (`$Call.ByID(2613658866,
+ * …)`). To keep assertions readable, `transportCalls()` resolves those ids back
+ * to method names — probed once from the real binding — so a test can assert
+ * `{ method: "CreateTopTag", args: ["Sunset"] }` instead of a magic number.
  */
 
-// Swap the Wails transport for a controllable stand-in. jest.mock() is hoisted
-// above the imports below, so when `tag-mutations` -> `lib/api` -> the generated
-// bindings require "@wailsio/runtime", they get this fake. (A moduleNameMapper
-// entry does not work here: the package's `exports` map wins in jest's resolver.)
+// Hoisted above the imports below: the generated bindings pulled in transitively
+// by `lib/api` get this fake when they require "@wailsio/runtime". (A
+// moduleNameMapper entry does not work here — the package's `exports` map wins
+// in jest's resolver.)
 jest.mock("@wailsio/runtime", () => require("../../support/wailsio-runtime-mock"));
 
 import { Call } from "../../support/wailsio-runtime-mock";
+import { TagFrontendService } from "../../../src/lib/api";
 import {
   createTag,
   deleteTag,
@@ -35,9 +37,28 @@ import {
 
 const byID = Call.ByID as jest.Mock;
 
-/** Business args forwarded to the transport for the Nth call (drop method id). */
-function argsOf(callIndex: number): unknown[] {
-  return byID.mock.calls[callIndex].slice(1);
+// Resolve each binding method's opaque numeric id -> its name, by probing the
+// real binding once. This is what lets assertions read in terms of method names.
+const idToName = new Map<number, string>();
+beforeAll(() => {
+  byID.mockReturnValue(Promise.resolve({}));
+  for (const [name, fn] of Object.entries(TagFrontendService)) {
+    if (typeof fn !== "function") continue;
+    byID.mockClear();
+    // arg arity is irrelevant; we only want the dispatched id.
+    (fn as (...args: unknown[]) => unknown)(0, 0, 0);
+    const id = byID.mock.calls[0]?.[0];
+    if (typeof id === "number") idToName.set(id, name);
+  }
+  byID.mockReset();
+});
+
+/** The transport calls made so far, as readable `{ method, args }` records. */
+function transportCalls(): Array<{ method: string; args: unknown[] }> {
+  return byID.mock.calls.map((call) => ({
+    method: idToName.get(call[0] as number) ?? `#${call[0]}`,
+    args: call.slice(1),
+  }));
 }
 
 describe("tag-mutations (against the real TagFrontendService binding)", () => {
@@ -52,9 +73,10 @@ describe("tag-mutations (against the real TagFrontendService binding)", () => {
 
     const result = await createTag({ name: "Sunset", category: "scene" });
 
-    expect(byID).toHaveBeenCalledTimes(2);
-    expect(argsOf(0)).toEqual(["Sunset"]); // CreateTopTag(name)
-    expect(argsOf(1)).toEqual([7, "scene"]); // UpdateCategory(createdId, category)
+    expect(transportCalls()).toEqual([
+      { method: "CreateTopTag", args: ["Sunset"] },
+      { method: "UpdateCategory", args: [7, "scene"] }, // (createdId, category)
+    ]);
     expect(result).toEqual({ id: 7, name: "Sunset", category: "scene" });
   });
 
@@ -63,8 +85,8 @@ describe("tag-mutations (against the real TagFrontendService binding)", () => {
 
     const result = await createTag({ name: "z", category: "uncategorized", parentId: 99 });
 
-    expect(byID).toHaveBeenCalledTimes(1);
-    expect(argsOf(0)).toEqual(["z"]); // only CreateTopTag(name); parentId is not persisted
+    // Only CreateTopTag; parentId is intentionally not persisted.
+    expect(transportCalls()).toEqual([{ method: "CreateTopTag", args: ["z"] }]);
     expect(result).toEqual({ id: 3, name: "z", category: "" });
   });
 
@@ -75,9 +97,10 @@ describe("tag-mutations (against the real TagFrontendService binding)", () => {
 
     const result = await updateTag(1, { name: "Rain", category: "nature" });
 
-    expect(byID).toHaveBeenCalledTimes(2);
-    expect(argsOf(0)).toEqual([1, "Rain"]); // UpdateName(id, name)
-    expect(argsOf(1)).toEqual([1, "nature"]); // UpdateCategory(id, category)
+    expect(transportCalls()).toEqual([
+      { method: "UpdateName", args: [1, "Rain"] },
+      { method: "UpdateCategory", args: [1, "nature"] },
+    ]);
     // The category call's result is what surfaces back to the caller.
     expect(result).toEqual({ id: 1, name: "Rain", category: "nature" });
   });
@@ -89,8 +112,10 @@ describe("tag-mutations (against the real TagFrontendService binding)", () => {
 
     await updateTag(2, { name: "x", category: "uncategorized" });
 
-    expect(argsOf(0)).toEqual([2, "x"]);
-    expect(argsOf(1)).toEqual([2, ""]);
+    expect(transportCalls()).toEqual([
+      { method: "UpdateName", args: [2, "x"] },
+      { method: "UpdateCategory", args: [2, ""] },
+    ]);
   });
 
   test("deleteTag forwards the tag id to DeleteTag", async () => {
@@ -98,8 +123,7 @@ describe("tag-mutations (against the real TagFrontendService binding)", () => {
 
     await deleteTag(55);
 
-    expect(byID).toHaveBeenCalledTimes(1);
-    expect(argsOf(0)).toEqual([55]);
+    expect(transportCalls()).toEqual([{ method: "DeleteTag", args: [55] }]);
   });
 
   test("deleteTag surfaces backend errors instead of swallowing them", async () => {
@@ -113,7 +137,7 @@ describe("tag-mutations (against the real TagFrontendService binding)", () => {
 
     const n = await getTagFileCount(3);
 
-    expect(argsOf(0)).toEqual([3]);
+    expect(transportCalls()).toEqual([{ method: "GetTagFileCount", args: [3] }]);
     expect(n).toBe(42);
   });
 
