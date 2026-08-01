@@ -1,153 +1,138 @@
 /**
  * Tests for the `tag-mutations` adapters.
  *
- * The adapters call the `TagFrontendService` binding (internal/tag package),
- * which is where the tag create/update/delete methods actually live. The
- * read-only `TagService` binding (internal/frontend) has none of them, so a
- * prior implementation that probed `TagService` silently no-op'd every
- * mutation. These tests pin the adapters to the real backend method names so
- * that regression can't come back.
+ * Unlike a typical unit test, these DO NOT mock `lib/api`. They import the
+ * genuine generated `TagFrontendService` binding and mock only the layer
+ * underneath it — the Wails transport (`@wailsio/runtime`'s `Call.ByID`, swapped
+ * in via `moduleNameMapper`). This means the test exercises the real binding
+ * surface: if `tag-mutations.ts` calls a method the binding doesn't export, the
+ * call is a `TypeError` and the test fails.
  *
- * We use `jest.resetModules()` between tests because `tag-mutations` imports
- * the binding at module load time; resetting lets each case install a fresh
- * mock shape.
+ * That is deliberate. The bug this guards against was `tag-mutations.ts`
+ * calling `CreateTag`/`UpdateName`/… on the wrong service — methods that never
+ * existed at runtime. The previous test mocked `lib/api` and hung those methods
+ * onto the mock, so it validated a shape that can't occur in the app and stayed
+ * green while the feature was fully broken. Testing against the real binding +
+ * a transport seam removes the ability for the mock to lie.
+ *
+ * The binding dispatches by opaque numeric method id, so assertions target the
+ * business arguments forwarded to the transport (everything after the id).
  */
 
-/* eslint-disable @typescript-eslint/no-var-requires */
+// Swap the Wails transport for a controllable stand-in. jest.mock() is hoisted
+// above the imports below, so when `tag-mutations` -> `lib/api` -> the generated
+// bindings require "@wailsio/runtime", they get this fake. (A moduleNameMapper
+// entry does not work here: the package's `exports` map wins in jest's resolver.)
+jest.mock("@wailsio/runtime", () => require("../../support/wailsio-runtime-mock"));
 
-describe("tag-mutations", () => {
-  afterEach(() => {
-    jest.resetModules();
-    jest.restoreAllMocks();
+import { Call } from "../../support/wailsio-runtime-mock";
+import {
+  createTag,
+  deleteTag,
+  getTagFileCount,
+  updateTag,
+} from "../../../src/pages/tags/tag-mutations";
+
+const byID = Call.ByID as jest.Mock;
+
+/** Business args forwarded to the transport for the Nth call (drop method id). */
+function argsOf(callIndex: number): unknown[] {
+  return byID.mock.calls[callIndex].slice(1);
+}
+
+describe("tag-mutations (against the real TagFrontendService binding)", () => {
+  beforeEach(() => {
+    byID.mockReset();
   });
 
-  function mockTagFrontendService(shape: Record<string, unknown>): void {
-    jest.doMock("../../../src/lib/api", () => ({
-      __esModule: true,
-      TagFrontendService: shape,
-    }));
-  }
+  test("createTag with a category calls CreateTopTag then UpdateCategory", async () => {
+    byID
+      .mockResolvedValueOnce({ id: 7, name: "Sunset", category: "" }) // CreateTopTag
+      .mockResolvedValueOnce({ id: 7, name: "Sunset", category: "scene" }); // UpdateCategory
 
-  test("createTag creates the tag then applies the chosen category", async () => {
-    const order: string[] = [];
-    const CreateTopTag = jest.fn().mockImplementation(async () => {
-      order.push("create");
-      return { id: 7, name: "Sunset", category: "" };
-    });
-    const UpdateCategory = jest.fn().mockImplementation(async () => {
-      order.push("category");
-      return { id: 7, name: "Sunset", category: "scene" };
-    });
-    mockTagFrontendService({ CreateTopTag, UpdateCategory });
-
-    const { createTag } = require("../../../src/pages/tags/tag-mutations");
     const result = await createTag({ name: "Sunset", category: "scene" });
 
-    expect(CreateTopTag).toHaveBeenCalledWith("Sunset");
-    expect(UpdateCategory).toHaveBeenCalledWith(7, "scene");
-    expect(order).toEqual(["create", "category"]);
+    expect(byID).toHaveBeenCalledTimes(2);
+    expect(argsOf(0)).toEqual(["Sunset"]); // CreateTopTag(name)
+    expect(argsOf(1)).toEqual([7, "scene"]); // UpdateCategory(createdId, category)
     expect(result).toEqual({ id: 7, name: "Sunset", category: "scene" });
   });
 
-  test("createTag skips the category call for uncategorized tags", async () => {
-    const CreateTopTag = jest
-      .fn()
-      .mockResolvedValue({ id: 3, name: "z", category: "" });
-    const UpdateCategory = jest.fn();
-    mockTagFrontendService({ CreateTopTag, UpdateCategory });
+  test("createTag for an uncategorized tag skips the UpdateCategory round-trip", async () => {
+    byID.mockResolvedValueOnce({ id: 3, name: "z", category: "" });
 
-    const { createTag } = require("../../../src/pages/tags/tag-mutations");
-    const result = await createTag({
-      name: "z",
-      category: "uncategorized",
-      parentId: 99,
-    });
+    const result = await createTag({ name: "z", category: "uncategorized", parentId: 99 });
 
-    expect(CreateTopTag).toHaveBeenCalledWith("z");
-    expect(UpdateCategory).not.toHaveBeenCalled();
+    expect(byID).toHaveBeenCalledTimes(1);
+    expect(argsOf(0)).toEqual(["z"]); // only CreateTopTag(name); parentId is not persisted
     expect(result).toEqual({ id: 3, name: "z", category: "" });
   });
 
-  test("updateTag runs UpdateName then UpdateCategory", async () => {
-    const order: string[] = [];
-    const UpdateName = jest.fn().mockImplementation(async () => {
-      order.push("name");
-      return { id: 1, name: "Rain", category: "nature" };
-    });
-    const UpdateCategory = jest.fn().mockImplementation(async () => {
-      order.push("category");
-      return { id: 1, name: "Rain", category: "nature" };
-    });
-    mockTagFrontendService({ UpdateName, UpdateCategory });
+  test("updateTag calls UpdateName then UpdateCategory in order", async () => {
+    byID
+      .mockResolvedValueOnce({ id: 1, name: "Rain", category: "nature" }) // UpdateName
+      .mockResolvedValueOnce({ id: 1, name: "Rain", category: "nature" }); // UpdateCategory
 
-    const { updateTag } = require("../../../src/pages/tags/tag-mutations");
     const result = await updateTag(1, { name: "Rain", category: "nature" });
 
-    expect(UpdateName).toHaveBeenCalledWith(1, "Rain");
-    expect(UpdateCategory).toHaveBeenCalledWith(1, "nature");
-    expect(order).toEqual(["name", "category"]);
-    // The category call's return value surfaces back to the caller.
+    expect(byID).toHaveBeenCalledTimes(2);
+    expect(argsOf(0)).toEqual([1, "Rain"]); // UpdateName(id, name)
+    expect(argsOf(1)).toEqual([1, "nature"]); // UpdateCategory(id, category)
+    // The category call's result is what surfaces back to the caller.
     expect(result).toEqual({ id: 1, name: "Rain", category: "nature" });
   });
 
-  test("updateTag maps uncategorized to an empty category string", async () => {
-    const UpdateName = jest.fn().mockResolvedValue({ id: 2 });
-    const UpdateCategory = jest
-      .fn()
-      .mockResolvedValue({ id: 2, name: "x", category: "" });
-    mockTagFrontendService({ UpdateName, UpdateCategory });
+  test("updateTag maps the uncategorized sentinel to an empty category string", async () => {
+    byID
+      .mockResolvedValueOnce({ id: 2, name: "x", category: "" })
+      .mockResolvedValueOnce({ id: 2, name: "x", category: "" });
 
-    const { updateTag } = require("../../../src/pages/tags/tag-mutations");
     await updateTag(2, { name: "x", category: "uncategorized" });
 
-    expect(UpdateName).toHaveBeenCalledWith(2, "x");
-    expect(UpdateCategory).toHaveBeenCalledWith(2, "");
+    expect(argsOf(0)).toEqual([2, "x"]);
+    expect(argsOf(1)).toEqual([2, ""]);
   });
 
-  test("deleteTag delegates to TagFrontendService.DeleteTag", async () => {
-    const DeleteTag = jest.fn().mockResolvedValue(undefined);
-    mockTagFrontendService({ DeleteTag });
+  test("deleteTag forwards the tag id to DeleteTag", async () => {
+    byID.mockResolvedValueOnce(undefined);
 
-    const { deleteTag } = require("../../../src/pages/tags/tag-mutations");
     await deleteTag(55);
-    expect(DeleteTag).toHaveBeenCalledWith(55);
+
+    expect(byID).toHaveBeenCalledTimes(1);
+    expect(argsOf(0)).toEqual([55]);
   });
 
   test("deleteTag surfaces backend errors instead of swallowing them", async () => {
-    const DeleteTag = jest.fn().mockRejectedValue(new Error("boom"));
-    mockTagFrontendService({ DeleteTag });
+    byID.mockRejectedValueOnce(new Error("boom"));
 
-    const { deleteTag } = require("../../../src/pages/tags/tag-mutations");
     await expect(deleteTag(1)).rejects.toThrow("boom");
   });
 
   test("getTagFileCount returns the numeric value from GetTagFileCount", async () => {
-    const GetTagFileCount = jest.fn().mockResolvedValue(42);
-    mockTagFrontendService({ GetTagFileCount });
+    byID.mockResolvedValueOnce(42);
 
-    const { getTagFileCount } = require("../../../src/pages/tags/tag-mutations");
     const n = await getTagFileCount(3);
-    expect(GetTagFileCount).toHaveBeenCalledWith(3);
+
+    expect(argsOf(0)).toEqual([3]);
     expect(n).toBe(42);
   });
 
   test("getTagFileCount swallows errors and returns null", async () => {
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
-    const GetTagFileCount = jest.fn().mockRejectedValue(new Error("boom"));
-    mockTagFrontendService({ GetTagFileCount });
+    byID.mockRejectedValueOnce(new Error("boom"));
 
-    const { getTagFileCount } = require("../../../src/pages/tags/tag-mutations");
     const n = await getTagFileCount(4);
+
     expect(n).toBeNull();
     expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 
-  test("getTagFileCount coerces falsy backend responses to 0", async () => {
-    const GetTagFileCount = jest.fn().mockResolvedValue(undefined);
-    mockTagFrontendService({ GetTagFileCount });
+  test("getTagFileCount coerces a falsy backend response to 0", async () => {
+    byID.mockResolvedValueOnce(undefined);
 
-    const { getTagFileCount } = require("../../../src/pages/tags/tag-mutations");
     const n = await getTagFileCount(4);
+
     expect(n).toBe(0);
   });
 });

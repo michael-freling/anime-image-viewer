@@ -21,6 +21,14 @@ export default {
     }],
   },
   transformIgnorePatterns: ['<rootDir>/node_modules/'],
+
+  moduleNameMapper: {
+    // Generated bindings use explicit `.js` specifiers (`./models.js`) that
+    // resolve to `.ts` on disk. Strip the extension so jest resolves the source.
+    // (The @wailsio/runtime transport is swapped per-file via jest.mock() — its
+    // package `exports` map defeats a moduleNameMapper entry.)
+    "^(\\.{1,2}/.*)\\.js$": "$1",
+  },
   coverageThreshold: {
     global: {
       branches: 90,

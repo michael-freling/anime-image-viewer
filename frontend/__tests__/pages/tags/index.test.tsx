@@ -2,10 +2,13 @@
  * Integration tests for the Tag Management page (ui-design §3.5 / wireframe
  * `05-tag-management-desktop.svg`).
  *
- * We mock the TagService binding so the page's `useTags` + mutation wrappers
- * can run deterministically in jsdom. The full Chakra runtime is retained so
- * we exercise the real theme + dialog components; this mirrors the approach
- * used by the Search page tests.
+ * This is a page-render test, so it mocks the `lib/api` bindings for
+ * deterministic data in jsdom. The full Chakra runtime is retained so we
+ * exercise the real theme + dialog components; this mirrors the Search page
+ * tests. The *binding contract* the mutation wrappers depend on (that the real
+ * `TagFrontendService` actually exposes CreateTopTag/UpdateName/… — the seam
+ * that broke) is verified separately in `tag-mutations.test.ts`, which runs
+ * against the genuine generated binding over a mocked transport.
  */
 
 // ---- Mocks (hoisted) -----------------------------------------------------
