@@ -186,7 +186,10 @@ export interface WaitForOptions {
  */
 export async function waitFor(
   predicate: () => boolean,
-  { timeout = 1000, interval = 10 }: WaitForOptions = {},
+  // 5s (not 1s): under `--coverage` instrumentation + parallel CI workers a 1s
+  // budget flakes on React Query/Chakra renders. A true predicate still returns
+  // immediately, so this only lengthens the wait before a genuine failure.
+  { timeout = 5000, interval = 10 }: WaitForOptions = {},
 ): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeout) {

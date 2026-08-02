@@ -22,6 +22,16 @@ export default {
   },
   transformIgnorePatterns: ['<rootDir>/node_modules/'],
 
+  // The tag-mutations test imports the real generated bindings (over a mocked
+  // transport) to verify the binding contract. Those files are generated code
+  // and must not count toward coverage — otherwise loading them at ~0% sinks
+  // the global average below the threshold.
+  coveragePathIgnorePatterns: [
+    '/node_modules/',
+    '<rootDir>/bindings/',
+    '<rootDir>/__tests__/support/',
+  ],
+
   moduleNameMapper: {
     // Generated bindings use explicit `.js` specifiers (`./models.js`) that
     // resolve to `.ts` on disk. Strip the extension so jest resolves the source.
