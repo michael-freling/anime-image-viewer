@@ -1,19 +1,22 @@
 /**
  * Tag row rendered inside a `CategoryPanel`.
  *
- * Visual layout (ui-design §3.5 wireframe 05-tag-management-desktop.svg):
- *   [ TagChip  ] [usage count] [ edit pencil ] [ delete X ]
+ * Visual layout (ui-design §3.5):
+ *   [ select ] [ TagChip ] [usage count] [ search ] [ delete X ]
  *
- * Clicking the chip opens the edit dialog. The edit pencil and the delete X
- * buttons sit outside the chip and `stopPropagation` so they do not trigger
- * the chip click — the wireframe shows them as separate affordances.
+ * Tapping the chip opens the edit dialog — there is no separate edit button
+ * (the chip itself is the edit affordance). The leading checkbox selects the
+ * tag for batch actions (e.g. multi-delete); it and the trailing icon buttons
+ * `stopPropagation` so they never trigger the chip's edit click.
  */
-import { Box, IconButton } from "@chakra-ui/react";
-import { Pencil, Search, X } from "lucide-react";
+import { Box, IconButton, chakra } from "@chakra-ui/react";
+import { Check, Search, X } from "lucide-react";
 
 import { TagChip } from "../../components/shared/tag-chip";
 import { formatCount } from "../../lib/format";
 import type { Tag } from "../../types";
+
+const ChakraButton = chakra("button");
 
 export interface TagRowProps {
   tag: Tag;
@@ -23,6 +26,10 @@ export interface TagRowProps {
   onDelete: (tag: Tag) => void;
   /** Navigate to search filtered by this tag. */
   onSearch?: (tag: Tag) => void;
+  /** Whether this tag is currently selected for a batch action. */
+  selected?: boolean;
+  /** Toggle this tag's selection. When omitted, the checkbox is not rendered. */
+  onToggleSelect?: (tag: Tag) => void;
 }
 
 export function TagRow({
@@ -31,26 +38,61 @@ export function TagRow({
   onEdit,
   onDelete,
   onSearch,
+  selected = false,
+  onToggleSelect,
 }: TagRowProps): JSX.Element {
   const handleEdit = () => onEdit(tag);
   const handleDelete = () => onDelete(tag);
   const handleSearch = () => onSearch?.(tag);
+  const handleToggleSelect = () => onToggleSelect?.(tag);
 
   return (
     <Box
       data-testid="tag-row"
       data-tag-id={tag.id}
+      data-selected={selected ? "true" : undefined}
       display="inline-flex"
       alignItems="center"
       gap="8px"
       px="2"
       py="1"
       borderRadius="md"
-      bg="bg.surface"
+      bg={selected ? "primary.subtle" : "bg.surface"}
       borderWidth="1px"
-      borderColor="border"
+      borderColor={selected ? "primary" : "border"}
       _hover={{ borderColor: "primary" }}
     >
+      {onToggleSelect && (
+        <ChakraButton
+          type="button"
+          role="checkbox"
+          aria-checked={selected}
+          aria-label={`Select tag ${tag.name}`}
+          data-testid="tag-row-select"
+          onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
+            event.stopPropagation();
+            handleToggleSelect();
+          }}
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          width="16px"
+          height="16px"
+          flexShrink={0}
+          borderRadius="sm"
+          borderWidth="1.5px"
+          borderColor={selected ? "primary" : "border"}
+          bg={selected ? "primary" : "transparent"}
+          cursor="pointer"
+          _focusVisible={{
+            outline: "2px solid",
+            outlineColor: "primary",
+            outlineOffset: "1px",
+          }}
+        >
+          {selected && <Check size={11} color="#ffffff" strokeWidth={3} aria-hidden="true" />}
+        </ChakraButton>
+      )}
       <TagChip
         tag={tag}
         active
@@ -84,21 +126,6 @@ export function TagRow({
           <Search size={12} aria-hidden="true" />
         </IconButton>
       )}
-      <IconButton
-        type="button"
-        size="xs"
-        variant="ghost"
-        aria-label={`Edit tag ${tag.name}`}
-        data-testid="tag-row-edit"
-        onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
-          event.stopPropagation();
-          handleEdit();
-        }}
-        color="fg.secondary"
-        _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
-      >
-        <Pencil size={12} aria-hidden="true" />
-      </IconButton>
       <IconButton
         type="button"
         size="xs"

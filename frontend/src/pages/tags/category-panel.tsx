@@ -29,6 +29,10 @@ export interface CategoryPanelProps {
   onEditTag: (tag: Tag) => void;
   onDeleteTag: (tag: Tag) => void;
   onSearchTag?: (tag: Tag) => void;
+  /** Ids of tags currently selected for a batch action. */
+  selectedIds?: Set<number>;
+  /** Toggle a tag's selection. When omitted, row checkboxes are not rendered. */
+  onToggleSelect?: (tag: Tag) => void;
 }
 
 export function CategoryPanel({
@@ -40,6 +44,8 @@ export function CategoryPanel({
   onEditTag,
   onDeleteTag,
   onSearchTag,
+  selectedIds,
+  onToggleSelect,
 }: CategoryPanelProps): JSX.Element {
   const label = CATEGORY_LABELS[categoryKey];
   const color = TAG_CATEGORY_TOKENS[categoryKey].fg;
@@ -94,6 +100,8 @@ export function CategoryPanel({
               onEdit={onEditTag}
               onDelete={onDeleteTag}
               onSearch={onSearchTag}
+              selected={selectedIds?.has(tag.id) ?? false}
+              onToggleSelect={onToggleSelect}
             />
           ))}
         </Flex>

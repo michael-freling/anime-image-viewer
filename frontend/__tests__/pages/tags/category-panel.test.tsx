@@ -129,7 +129,7 @@ describe("CategoryPanel", () => {
     r.unmount();
   });
 
-  test("delegates row edit/delete to the parent callbacks", () => {
+  test("delegates row edit (chip tap) / delete to the parent callbacks", () => {
     const onEdit = jest.fn();
     const onDelete = jest.fn();
     const r = render(
@@ -142,14 +142,14 @@ describe("CategoryPanel", () => {
         onDeleteTag: onDelete,
       }),
     );
-    const edits = r.container.querySelectorAll<HTMLButtonElement>(
-      "[data-testid='tag-row-edit']",
+    const chips = r.container.querySelectorAll<HTMLElement>(
+      "[data-testid='tag-chip']",
     );
     const deletes = r.container.querySelectorAll<HTMLButtonElement>(
       "[data-testid='tag-row-delete']",
     );
     act(() => {
-      edits[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      chips[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(onEdit).toHaveBeenCalledWith(NATURE_TAGS[0]);
 
@@ -157,6 +157,35 @@ describe("CategoryPanel", () => {
       deletes[1].dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(onDelete).toHaveBeenCalledWith(NATURE_TAGS[1]);
+    r.unmount();
+  });
+
+  test("threads selection state to rows and toggles via the checkbox", () => {
+    const onToggleSelect = jest.fn();
+    const r = render(
+      createElement(CategoryPanel, {
+        categoryKey: "nature",
+        tags: NATURE_TAGS,
+        usageByTagId: new Map(),
+        onAddInCategory: jest.fn(),
+        onEditTag: jest.fn(),
+        onDeleteTag: jest.fn(),
+        selectedIds: new Set<number>([2]),
+        onToggleSelect,
+      }),
+    );
+    const checkboxes = r.container.querySelectorAll<HTMLButtonElement>(
+      "[data-testid='tag-row-select']",
+    );
+    expect(checkboxes.length).toBe(2);
+    // Snow (id 2) is selected.
+    expect(checkboxes[0].getAttribute("aria-checked")).toBe("false");
+    expect(checkboxes[1].getAttribute("aria-checked")).toBe("true");
+
+    act(() => {
+      checkboxes[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onToggleSelect).toHaveBeenCalledWith(NATURE_TAGS[0]);
     r.unmount();
   });
 });

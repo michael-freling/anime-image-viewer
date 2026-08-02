@@ -70,6 +70,18 @@ export async function deleteTag(id: number): Promise<void> {
 }
 
 /**
+ * Delete several tags. The backend has no batch primitive, so this issues one
+ * DeleteTag per id sequentially. On a mid-way failure the error propagates
+ * (the caller surfaces it) while the tags already deleted stay removed — the
+ * caller refetches, so the UI reflects the partial result.
+ */
+export async function deleteTags(ids: number[]): Promise<void> {
+  for (const id of ids) {
+    await TagFrontendService.DeleteTag(id);
+  }
+}
+
+/**
  * Resolve the per-tag file count used in the delete confirmation copy.
  * Returns null when the count can't be resolved; callers treat null as
  * "unknown" and skip the "will also remove from N images" line.

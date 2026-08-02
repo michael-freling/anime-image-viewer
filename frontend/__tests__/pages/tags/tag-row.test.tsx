@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 /**
- * Tests for `TagRow` (ui-design §3.5 / wireframe 05).
+ * Tests for `TagRow` (ui-design §3.5).
  *
  * Verifies:
- *   - The tag chip renders and clicking it fires the `onEdit` callback.
- *   - The edit pencil button fires `onEdit` and stops propagation so the chip
- *     onClick does NOT also fire.
+ *   - The tag chip renders and clicking it fires the `onEdit` callback (there
+ *     is no separate edit button — the chip is the edit affordance).
+ *   - The selection checkbox renders only when `onToggleSelect` is passed,
+ *     reflects `selected` via aria-checked, and toggles without editing.
  *   - The delete X button fires `onDelete` and stops propagation.
  *   - Usage count renders when a numeric value is passed; it's omitted when
  *     null/undefined.
@@ -88,27 +89,58 @@ describe("TagRow", () => {
     r.unmount();
   });
 
-  test("edit pencil fires onEdit without bubbling chip click", () => {
+  test("has no separate edit button — the chip is the only edit affordance", () => {
+    const r = render(
+      createElement(TagRow, {
+        tag: TAG,
+        onEdit: jest.fn(),
+        onDelete: jest.fn(),
+      }),
+    );
+    expect(
+      r.container.querySelector("[data-testid='tag-row-edit']"),
+    ).toBeNull();
+    r.unmount();
+  });
+
+  test("checkbox is absent unless onToggleSelect is provided", () => {
+    const r = render(
+      createElement(TagRow, {
+        tag: TAG,
+        onEdit: jest.fn(),
+        onDelete: jest.fn(),
+      }),
+    );
+    expect(
+      r.container.querySelector("[data-testid='tag-row-select']"),
+    ).toBeNull();
+    r.unmount();
+  });
+
+  test("checkbox reflects selected state and toggles without editing", () => {
     const onEdit = jest.fn();
+    const onToggleSelect = jest.fn();
     const r = render(
       createElement(TagRow, {
         tag: TAG,
         onEdit,
         onDelete: jest.fn(),
+        selected: true,
+        onToggleSelect,
       }),
     );
-    const editBtn = r.container.querySelector<HTMLButtonElement>(
-      "[data-testid='tag-row-edit']",
+    const checkbox = r.container.querySelector<HTMLButtonElement>(
+      "[data-testid='tag-row-select']",
     )!;
+    expect(checkbox.getAttribute("aria-checked")).toBe("true");
+    expect(checkbox.getAttribute("aria-label")).toBe("Select tag Sunset");
     act(() => {
-      editBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
-    // Only the explicit handler fires — the chip's onClick is not reached
-    // because stopPropagation halts the bubble, and even if it did bubble
-    // through, the call would still be one because the pencil delegates to
-    // onEdit directly.
-    expect(onEdit).toHaveBeenCalledTimes(1);
-    expect(editBtn.getAttribute("aria-label")).toBe("Edit tag Sunset");
+    expect(onToggleSelect).toHaveBeenCalledTimes(1);
+    expect(onToggleSelect).toHaveBeenCalledWith(TAG);
+    // Selecting must not open the edit dialog.
+    expect(onEdit).not.toHaveBeenCalled();
     r.unmount();
   });
 
@@ -133,6 +165,28 @@ describe("TagRow", () => {
     // The chip click was NOT dispatched, so onEdit stays untouched.
     expect(onEdit).not.toHaveBeenCalled();
     expect(deleteBtn.getAttribute("aria-label")).toBe("Delete tag Sunset");
+    r.unmount();
+  });
+
+  test("search button fires onSearch without editing", () => {
+    const onEdit = jest.fn();
+    const onSearch = jest.fn();
+    const r = render(
+      createElement(TagRow, {
+        tag: TAG,
+        onEdit,
+        onDelete: jest.fn(),
+        onSearch,
+      }),
+    );
+    const searchBtn = r.container.querySelector<HTMLButtonElement>(
+      "[data-testid='tag-row-search']",
+    )!;
+    act(() => {
+      searchBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onSearch).toHaveBeenCalledWith(TAG);
+    expect(onEdit).not.toHaveBeenCalled();
     r.unmount();
   });
 
