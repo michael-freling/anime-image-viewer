@@ -14,9 +14,12 @@ import (
 
 // Anime is the JSON-friendly anime model exposed to the frontend.
 type Anime struct {
-	ID        uint   `json:"id"`
-	Name      string `json:"name"`
-	AniListID *int   `json:"aniListId"`
+	ID   uint   `json:"id"`
+	Name string `json:"name"`
+	// MetadataSeriesID is the linked series in the anime metadata database.
+	MetadataSeriesID *string `json:"metadataSeriesId"`
+	// AniListID backs the outbound anilist.co link only.
+	AniListID *int `json:"aniListId"`
 }
 
 // AnimeListItem is an anime row plus its image count for the list page.
@@ -171,7 +174,8 @@ func (s *AnimeService) GetAnimeDetails(ctx context.Context, id uint) (AnimeDetai
 		return AnimeDetailsResponse{}, err
 	}
 
-	// Read the DB row to get AniListID (core Anime struct does not carry it).
+	// Read the DB row to get the external ids (the core Anime struct does not
+	// carry them).
 	dbAnime, err := s.dbClient.Anime().FindByValue(ctx, &db.Anime{ID: id})
 	if err != nil {
 		return AnimeDetailsResponse{}, fmt.Errorf("Anime.FindByValue: %w", err)
@@ -254,7 +258,12 @@ func (s *AnimeService) GetAnimeDetails(ctx context.Context, id uint) (AnimeDetai
 	seasonInfos := convertSeasons(coreSeasons)
 
 	return AnimeDetailsResponse{
-		Anime:      Anime{ID: a.ID, Name: a.Name, AniListID: dbAnime.AniListID},
+		Anime: Anime{
+			ID:               a.ID,
+			Name:             a.Name,
+			MetadataSeriesID: dbAnime.MetadataSeriesID,
+			AniListID:        dbAnime.AniListID,
+		},
 		Tags:       tagInfos,
 		Characters: charInfos,
 		Folders:    folderInfos,
@@ -817,41 +826,31 @@ func (s *AnimeService) GetNextSeasonNumber(animeID uint, seasonType string) (uin
 	return s.core.NextSeasonNumber(animeID, seasonType)
 }
 
-// SearchAniList searches for anime on AniList.
-func (s *AnimeService) SearchAniList(ctx context.Context, query string) ([]AniListSearchResult, error) {
-	results, err := s.core.SearchAniList(ctx, query)
+// SearchMetadata searches the anime metadata database for series to link.
+func (s *AnimeService) SearchMetadata(ctx context.Context, query string) ([]MetadataSearchResult, error) {
+	results, err := s.core.SearchMetadata(ctx, query)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]AniListSearchResult, len(results))
+	out := make([]MetadataSearchResult, len(results))
 	for i, r := range results {
-		coverURL := r.CoverImage.Large
-		if coverURL == "" {
-			coverURL = r.CoverImage.Medium
-		}
-		out[i] = AniListSearchResult{
-			ID:            r.ID,
-			TitleRomaji:   r.Title.Romaji,
-			TitleEnglish:  r.Title.English,
-			TitleNative:   r.Title.Native,
-			Format:        r.Format,
-			Status:        r.Status,
-			Season:        r.Season,
-			SeasonYear:    r.SeasonYear,
-			Episodes:      r.Episodes,
-			CoverImageURL: coverURL,
+		out[i] = MetadataSearchResult{
+			ID:          r.ID,
+			Title:       r.Title,
+			FranchiseID: r.FranchiseID,
 		}
 	}
 	return out, nil
 }
 
-// ImportFromAniList imports seasons and characters from AniList.
-func (s *AnimeService) ImportFromAniList(ctx context.Context, animeID uint, aniListID int) (AniListImportResult, error) {
-	result, err := s.core.ImportFromAniList(ctx, animeID, aniListID)
+// ImportFromMetadata imports a series' seasons, movies, specials and cast from
+// the anime metadata database.
+func (s *AnimeService) ImportFromMetadata(ctx context.Context, animeID uint, seriesID string) (MetadataImportResult, error) {
+	result, err := s.core.ImportFromMetadata(ctx, animeID, seriesID)
 	if err != nil {
-		return AniListImportResult{}, err
+		return MetadataImportResult{}, err
 	}
-	return AniListImportResult{
+	return MetadataImportResult{
 		SeasonsCreated:    result.SeasonsCreated,
 		CharactersCreated: result.CharactersCreated,
 	}, nil

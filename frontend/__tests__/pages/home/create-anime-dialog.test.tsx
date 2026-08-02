@@ -3,17 +3,17 @@
  * Tests for `CreateAnimeDialog`.
  *
  * The dialog:
- *   1. Lets the user type a name and search AniList.
- *   2. Optionally select an AniList result (fills in the name field).
+ *   1. Lets the user type a name and search the anime metadata database.
+ *   2. Optionally select a series result (fills in the name field).
  *   3. Calls `AnimeService.CreateAnime(name)` on submit.
- *   4. If an AniList result was selected, also calls
- *      `AnimeService.ImportFromAniList(animeId, aniListId)`.
+ *   4. If a series was selected, also calls
+ *      `AnimeService.ImportFromMetadata(animeId, seriesId)`.
  *   5. On success: invalidates the anime list cache, shows a toast,
  *      navigates to `/anime/:id`, and closes the dialog.
  *   6. On error: shows the error inline in the dialog body.
  *
  * We stub `@chakra-ui/react` + `lucide-react` via the shared chakra-stub
- * factory, and mock the `useAniListSearch` hook directly for predictable
+ * factory, and mock the `useMetadataSearch` hook directly for predictable
  * test control of search results.
  */
 
@@ -25,13 +25,13 @@ jest.mock("lucide-react", () =>
 );
 
 const createAnimeMock = jest.fn();
-const importFromAniListMock = jest.fn();
+const importFromMetadataMock = jest.fn();
 
 jest.mock("../../../src/lib/api", () => ({
   __esModule: true,
   AnimeService: {
     CreateAnime: (...args: unknown[]) => createAnimeMock(...args),
-    ImportFromAniList: (...args: unknown[]) => importFromAniListMock(...args),
+    ImportFromMetadata: (...args: unknown[]) => importFromMetadataMock(...args),
   },
 }));
 
@@ -59,12 +59,12 @@ jest.mock("react-router", () => {
   };
 });
 
-// Mock the useAniListSearch hook directly so we can control search results
+// Mock the useMetadataSearch hook directly so we can control search results
 // without relying on the async React Query pipeline.
-const useAniListSearchMock = jest.fn();
-jest.mock("../../../src/hooks/use-anilist-search", () => ({
+const useMetadataSearchMock = jest.fn();
+jest.mock("../../../src/hooks/use-metadata-search", () => ({
   __esModule: true,
-  useAniListSearch: (...args: unknown[]) => useAniListSearchMock(...args),
+  useMetadataSearch: (...args: unknown[]) => useMetadataSearchMock(...args),
 }));
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -146,35 +146,21 @@ function setInputValue(input: HTMLInputElement, value: string) {
   });
 }
 
-const ANILIST_RESULTS = [
+const METADATA_RESULTS = [
   {
-    id: 101,
-    titleRomaji: "Shingeki no Kyojin",
-    titleEnglish: "Attack on Titan",
-    titleNative: "\u9032\u6483\u306e\u5de8\u4eba",
-    format: "TV",
-    status: "FINISHED",
-    season: "SPRING",
-    seasonYear: 2013,
-    episodes: 25,
-    coverImageUrl: "https://example.com/aot.jpg",
+    id: "shingeki-no-kyojin",
+    title: "Shingeki no Kyojin",
+    franchiseId: "",
   },
   {
-    id: 102,
-    titleRomaji: "Shingeki no Bahamut",
-    titleEnglish: "Rage of Bahamut",
-    titleNative: "\u795e\u6483\u306e\u30d0\u30cf\u30e0\u30fc\u30c8",
-    format: "TV",
-    status: "FINISHED",
-    season: "FALL",
-    seasonYear: 2014,
-    episodes: 12,
-    coverImageUrl: "https://example.com/bahamut.jpg",
+    id: "shingeki-no-bahamut",
+    title: "Shingeki no Bahamut",
+    franchiseId: "bahamut",
   },
 ];
 
-/** Helper to build a mock return value for useAniListSearch. */
-function mockAniListResult(data: typeof ANILIST_RESULTS | null = null) {
+/** Helper to build a mock return value for useMetadataSearch. */
+function mockMetadataResult(data: typeof METADATA_RESULTS | null = null) {
   return {
     data: data ?? [],
     isLoading: false,
@@ -187,14 +173,14 @@ function mockAniListResult(data: typeof ANILIST_RESULTS | null = null) {
 describe("CreateAnimeDialog", () => {
   beforeEach(() => {
     createAnimeMock.mockReset();
-    importFromAniListMock.mockReset();
+    importFromMetadataMock.mockReset();
     toastSuccess.mockReset();
     toastError.mockReset();
     toastWarning.mockReset();
     navigateMock.mockReset();
-    useAniListSearchMock.mockReset();
+    useMetadataSearchMock.mockReset();
     // Default: no search results.
-    useAniListSearchMock.mockReturnValue(mockAniListResult());
+    useMetadataSearchMock.mockReturnValue(mockMetadataResult());
   });
 
   test("renders name input and Create button when open", () => {
@@ -303,13 +289,13 @@ describe("CreateAnimeDialog", () => {
     }
   });
 
-  test("AniList search results appear when typing", async () => {
+  test("series search results appear when typing", async () => {
     // Return results when the hook is called with a non-empty query.
-    useAniListSearchMock.mockImplementation((query: string) => {
+    useMetadataSearchMock.mockImplementation((query: string) => {
       if (query.trim().length > 0) {
-        return mockAniListResult(ANILIST_RESULTS);
+        return mockMetadataResult(METADATA_RESULTS);
       }
-      return mockAniListResult();
+      return mockMetadataResult();
     });
 
     const r = render(
@@ -323,23 +309,23 @@ describe("CreateAnimeDialog", () => {
       await flush();
 
       const resultItems = r.container.querySelectorAll(
-        "[data-testid='anilist-result-item']",
+        "[data-testid='metadata-result-item']",
       );
       expect(resultItems.length).toBe(2);
       expect(resultItems[0].textContent).toContain("Shingeki no Kyojin");
-      expect(resultItems[0].textContent).toContain("AniList ID: 101");
+      expect(resultItems[0].textContent).toContain("shingeki-no-kyojin");
       expect(resultItems[1].textContent).toContain("Shingeki no Bahamut");
     } finally {
       r.unmount();
     }
   });
 
-  test("selecting an AniList result fills in name field", async () => {
-    useAniListSearchMock.mockImplementation((query: string) => {
+  test("selecting a series result fills in name field", async () => {
+    useMetadataSearchMock.mockImplementation((query: string) => {
       if (query.trim().length > 0) {
-        return mockAniListResult(ANILIST_RESULTS);
+        return mockMetadataResult(METADATA_RESULTS);
       }
-      return mockAniListResult();
+      return mockMetadataResult();
     });
 
     const r = render(
@@ -353,7 +339,7 @@ describe("CreateAnimeDialog", () => {
       await flush();
 
       const resultItems = r.container.querySelectorAll<HTMLElement>(
-        "[data-testid='anilist-result-item']",
+        "[data-testid='metadata-result-item']",
       );
       expect(resultItems.length).toBeGreaterThan(0);
 
@@ -375,15 +361,15 @@ describe("CreateAnimeDialog", () => {
     }
   });
 
-  test("creating with AniList selection calls both CreateAnime and ImportFromAniList", async () => {
-    useAniListSearchMock.mockImplementation((query: string) => {
+  test("creating with a series selection calls both CreateAnime and ImportFromMetadata", async () => {
+    useMetadataSearchMock.mockImplementation((query: string) => {
       if (query.trim().length > 0) {
-        return mockAniListResult(ANILIST_RESULTS);
+        return mockMetadataResult(METADATA_RESULTS);
       }
-      return mockAniListResult();
+      return mockMetadataResult();
     });
     createAnimeMock.mockResolvedValue({ id: 99, name: "Shingeki no Kyojin" });
-    importFromAniListMock.mockResolvedValue({
+    importFromMetadataMock.mockResolvedValue({
       seasonsCreated: 3,
       charactersCreated: 10,
     });
@@ -399,9 +385,9 @@ describe("CreateAnimeDialog", () => {
       setInputValue(input!, "Shingeki");
       await flush();
 
-      // Select an AniList result
+      // Select a series result
       const resultItems = r.container.querySelectorAll<HTMLElement>(
-        "[data-testid='anilist-result-item']",
+        "[data-testid='metadata-result-item']",
       );
       act(() => {
         resultItems[0].dispatchEvent(
@@ -421,7 +407,7 @@ describe("CreateAnimeDialog", () => {
       });
 
       expect(createAnimeMock).toHaveBeenCalledWith("Shingeki no Kyojin");
-      expect(importFromAniListMock).toHaveBeenCalledWith(99, 101);
+      expect(importFromMetadataMock).toHaveBeenCalledWith(99, "shingeki-no-kyojin");
       expect(toastSuccess).toHaveBeenCalled();
       expect(navigateMock).toHaveBeenCalledWith("/anime/99");
       expect(onClose).toHaveBeenCalledTimes(1);
@@ -464,15 +450,15 @@ describe("CreateAnimeDialog", () => {
     }
   });
 
-  test("AniList import failure after successful create still navigates but warns", async () => {
-    useAniListSearchMock.mockImplementation((query: string) => {
+  test("metadata import failure after successful create still navigates but warns", async () => {
+    useMetadataSearchMock.mockImplementation((query: string) => {
       if (query.trim().length > 0) {
-        return mockAniListResult(ANILIST_RESULTS);
+        return mockMetadataResult(METADATA_RESULTS);
       }
-      return mockAniListResult();
+      return mockMetadataResult();
     });
     createAnimeMock.mockResolvedValue({ id: 77, name: "Test Anime" });
-    importFromAniListMock.mockRejectedValue(new Error("AniList API down"));
+    importFromMetadataMock.mockRejectedValue(new Error("metadata API down"));
 
     const onClose = jest.fn();
     const r = render(
@@ -485,9 +471,9 @@ describe("CreateAnimeDialog", () => {
       setInputValue(input!, "Shingeki");
       await flush();
 
-      // Select an AniList result
+      // Select a series result
       const resultItems = r.container.querySelectorAll<HTMLElement>(
-        "[data-testid='anilist-result-item']",
+        "[data-testid='metadata-result-item']",
       );
       act(() => {
         resultItems[0].dispatchEvent(
@@ -507,7 +493,7 @@ describe("CreateAnimeDialog", () => {
 
       // Anime was still created and we navigate
       expect(createAnimeMock).toHaveBeenCalled();
-      expect(importFromAniListMock).toHaveBeenCalled();
+      expect(importFromMetadataMock).toHaveBeenCalled();
       expect(toastWarning).toHaveBeenCalled();
       expect(toastSuccess).toHaveBeenCalled();
       expect(navigateMock).toHaveBeenCalledWith("/anime/77");
@@ -691,26 +677,14 @@ describe("CreateAnimeDialog", () => {
     }
   });
 
-  test("selecting result with no titleRomaji falls back to titleEnglish", async () => {
-    const resultsNoRomaji = [
-      {
-        id: 200,
-        titleRomaji: "",
-        titleEnglish: "English Title",
-        titleNative: "Native Title",
-        format: "",
-        status: "FINISHED",
-        season: "SPRING",
-        seasonYear: 0,
-        episodes: 12,
-        coverImageUrl: "",
-      },
-    ];
-    useAniListSearchMock.mockImplementation((query: string) => {
+  test("selecting a result sets the name to its title", async () => {
+    useMetadataSearchMock.mockImplementation((query: string) => {
       if (query.trim().length > 0) {
-        return mockAniListResult(resultsNoRomaji);
+        return mockMetadataResult([
+          { id: "mushishi", title: "Mushishi", franchiseId: "" },
+        ]);
       }
-      return mockAniListResult();
+      return mockMetadataResult();
     });
 
     const r = render(
@@ -720,17 +694,15 @@ describe("CreateAnimeDialog", () => {
       const input = r.container.querySelector<HTMLInputElement>(
         "[data-testid='create-anime-name']",
       );
-      setInputValue(input!, "test");
+      setInputValue(input!, "mushi");
       await flush();
 
       const resultItems = r.container.querySelectorAll<HTMLElement>(
-        "[data-testid='anilist-result-item']",
+        "[data-testid='metadata-result-item']",
       );
       expect(resultItems.length).toBe(1);
-      // Display should fall back to titleEnglish
-      expect(resultItems[0].textContent).toContain("English Title");
+      expect(resultItems[0].textContent).toContain("Mushishi");
 
-      // Click to select — name should be set to titleEnglish (fallback)
       act(() => {
         resultItems[0].dispatchEvent(
           new MouseEvent("click", { bubbles: true }),
@@ -738,14 +710,14 @@ describe("CreateAnimeDialog", () => {
       });
       await flush();
 
-      expect(input!.value).toBe("English Title");
+      expect(input!.value).toBe("Mushishi");
     } finally {
       r.unmount();
     }
   });
 
-  test("handles null aniListQuery.data via nullish coalescing", async () => {
-    useAniListSearchMock.mockReturnValue({
+  test("handles null metadataQuery.data via nullish coalescing", async () => {
+    useMetadataSearchMock.mockReturnValue({
       data: null,
       isLoading: false,
       isError: false,
@@ -765,7 +737,7 @@ describe("CreateAnimeDialog", () => {
 
       // Should not render any result items
       const resultItems = r.container.querySelectorAll(
-        "[data-testid='anilist-result-item']",
+        "[data-testid='metadata-result-item']",
       );
       expect(resultItems.length).toBe(0);
     } finally {
@@ -773,8 +745,8 @@ describe("CreateAnimeDialog", () => {
     }
   });
 
-  test("shows loading indicator when aniListQuery.isLoading is true", async () => {
-    useAniListSearchMock.mockReturnValue({
+  test("shows loading indicator when metadataQuery.isLoading is true", async () => {
+    useMetadataSearchMock.mockReturnValue({
       data: [],
       isLoading: true,
       isError: false,
@@ -793,35 +765,21 @@ describe("CreateAnimeDialog", () => {
       await flush();
 
       const loadingEl = r.container.querySelector(
-        "[data-testid='anilist-loading']",
+        "[data-testid='metadata-loading']",
       );
       expect(loadingEl).not.toBeNull();
-      expect(loadingEl!.textContent).toContain("Searching AniList");
+      expect(loadingEl!.textContent).toContain("Searching series");
     } finally {
       r.unmount();
     }
   });
 
-  test("selecting result with no titleRomaji or titleEnglish falls back to titleNative", async () => {
-    const resultsNativeOnly = [
-      {
-        id: 300,
-        titleRomaji: "",
-        titleEnglish: "",
-        titleNative: "Native Only Title",
-        format: "TV",
-        status: "FINISHED",
-        season: "SPRING",
-        seasonYear: 2020,
-        episodes: 12,
-        coverImageUrl: "",
-      },
-    ];
-    useAniListSearchMock.mockImplementation((query: string) => {
+  test("a result in a franchise shows its franchise id", async () => {
+    useMetadataSearchMock.mockImplementation((query: string) => {
       if (query.trim().length > 0) {
-        return mockAniListResult(resultsNativeOnly);
+        return mockMetadataResult(METADATA_RESULTS);
       }
-      return mockAniListResult();
+      return mockMetadataResult();
     });
 
     const r = render(
@@ -831,23 +789,19 @@ describe("CreateAnimeDialog", () => {
       const input = r.container.querySelector<HTMLInputElement>(
         "[data-testid='create-anime-name']",
       );
-      setInputValue(input!, "test");
+      setInputValue(input!, "Shingeki");
       await flush();
 
       const resultItems = r.container.querySelectorAll<HTMLElement>(
-        "[data-testid='anilist-result-item']",
+        "[data-testid='metadata-result-item']",
       );
-      expect(resultItems.length).toBe(1);
-
-      // Click to select — name should be set to titleNative (last fallback)
-      act(() => {
-        resultItems[0].dispatchEvent(
-          new MouseEvent("click", { bubbles: true }),
-        );
-      });
-      await flush();
-
-      expect(input!.value).toBe("Native Only Title");
+      expect(resultItems.length).toBe(2);
+      // The standalone series shows only its id.
+      expect(resultItems[0].textContent).toContain("shingeki-no-kyojin");
+      expect(resultItems[0].textContent).not.toContain("bahamut");
+      // The series in a franchise shows both.
+      expect(resultItems[1].textContent).toContain("shingeki-no-bahamut");
+      expect(resultItems[1].textContent).toContain("bahamut");
     } finally {
       r.unmount();
     }
@@ -886,12 +840,12 @@ describe("CreateAnimeDialog", () => {
     }
   });
 
-  test("editing the name after selecting an AniList result clears the selection", async () => {
-    useAniListSearchMock.mockImplementation((query: string) => {
+  test("editing the name after selecting a series result clears the selection", async () => {
+    useMetadataSearchMock.mockImplementation((query: string) => {
       if (query.trim().length > 0) {
-        return mockAniListResult(ANILIST_RESULTS);
+        return mockMetadataResult(METADATA_RESULTS);
       }
-      return mockAniListResult();
+      return mockMetadataResult();
     });
     createAnimeMock.mockResolvedValue({ id: 70, name: "Custom Name" });
 
@@ -908,9 +862,9 @@ describe("CreateAnimeDialog", () => {
       setInputValue(input!, "Shingeki");
       await flush();
 
-      // Select an AniList result (sets selectedResult)
+      // Select a series result (sets selectedResult)
       const resultItems = r.container.querySelectorAll<HTMLElement>(
-        "[data-testid='anilist-result-item']",
+        "[data-testid='metadata-result-item']",
       );
       expect(resultItems.length).toBeGreaterThan(0);
       act(() => {
@@ -925,7 +879,7 @@ describe("CreateAnimeDialog", () => {
       setInputValue(input!, "Custom Name");
       await flush();
 
-      // Submit — should only call CreateAnime, NOT ImportFromAniList
+      // Submit — should only call CreateAnime, NOT ImportFromMetadata
       const submit = r.container.querySelector<HTMLButtonElement>(
         "[data-testid='create-anime-submit']",
       );
@@ -936,9 +890,9 @@ describe("CreateAnimeDialog", () => {
       });
 
       expect(createAnimeMock).toHaveBeenCalledWith("Custom Name");
-      // ImportFromAniList should NOT have been called because selectedResult
+      // ImportFromMetadata should NOT have been called because selectedResult
       // was cleared when the user edited the name.
-      expect(importFromAniListMock).not.toHaveBeenCalled();
+      expect(importFromMetadataMock).not.toHaveBeenCalled();
       expect(onClose).toHaveBeenCalledTimes(1);
     } finally {
       r.unmount();

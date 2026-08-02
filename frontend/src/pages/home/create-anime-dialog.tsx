@@ -1,16 +1,16 @@
 /**
- * CreateAnimeDialog — lets the user create a new anime entry with optional
- * AniList integration.
+ * CreateAnimeDialog — lets the user create a new anime entry, optionally
+ * linked to a series in the anime metadata database.
  *
  * Flow:
  *   1. User types a name in the text field.
- *   2. As they type, debounced AniList search results appear below
- *      (via `useAniListSearch`).
+ *   2. As they type, debounced series search results appear below
+ *      (via `useMetadataSearch`).
  *   3. Clicking a search result fills the name field and stores the
- *      `aniListId` for import.
+ *      series id for import.
  *   4. Pressing "Create" calls `AnimeService.CreateAnime(name)`.
- *   5. If an AniList result was selected, also calls
- *      `AnimeService.ImportFromAniList(animeId, aniListId)`.
+ *   5. If a series was selected, also calls
+ *      `AnimeService.ImportFromMetadata(animeId, seriesId)`.
  *   6. On success: invalidates the anime list cache, shows a toast,
  *      and navigates to `/anime/:id`.
  *   7. On error: shows the error inline in the dialog body.
@@ -25,9 +25,9 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { toast } from "../../components/ui/toaster";
 import { AnimeService } from "../../lib/api";
-import type { AniListSearchResult } from "../../lib/api";
+import type { MetadataSearchResult } from "../../lib/api";
 import { qk } from "../../lib/query-keys";
-import { useAniListSearch } from "../../hooks/use-anilist-search";
+import { useMetadataSearch } from "../../hooks/use-metadata-search";
 
 const ChakraInput = chakra("input");
 
@@ -47,13 +47,13 @@ export function CreateAnimeDialog({
 }: CreateAnimeDialogProps): JSX.Element {
   const [name, setName] = useState("");
   const [selectedResult, setSelectedResult] =
-    useState<AniListSearchResult | null>(null);
+    useState<MetadataSearchResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const aniListQuery = useAniListSearch(name);
+  const metadataQuery = useMetadataSearch(name);
 
   const handleOpenChange = (details: { open: boolean }) => {
     if (!details.open && !submitting) {
@@ -68,9 +68,9 @@ export function CreateAnimeDialog({
     onClose();
   };
 
-  const handleSelectResult = (result: AniListSearchResult) => {
+  const handleSelectResult = (result: MetadataSearchResult) => {
     setSelectedResult(result);
-    setName(result.titleRomaji || result.titleEnglish || result.titleNative);
+    setName(result.title);
   };
 
   const handleCreate = async () => {
@@ -87,13 +87,13 @@ export function CreateAnimeDialog({
 
       if (selectedResult) {
         try {
-          await AnimeService.ImportFromAniList(anime.id, selectedResult.id);
+          await AnimeService.ImportFromMetadata(anime.id, selectedResult.id);
         } catch (importErr) {
-          // The anime was created but the AniList import failed. We still
+          // The anime was created but the metadata import failed. We still
           // navigate to the detail page, but surface the import error as a
           // warning toast.
           toast.warning(
-            "Anime created, but AniList import failed",
+            "Anime created, but metadata import failed",
             extractErrorMessage(importErr),
           );
         }
@@ -117,7 +117,7 @@ export function CreateAnimeDialog({
     }
   };
 
-  const results = aniListQuery.data ?? [];
+  const results = metadataQuery.data ?? [];
   const canCreate = name.trim() !== "" && !submitting;
 
   return (
@@ -181,10 +181,10 @@ export function CreateAnimeDialog({
                   />
                 </Box>
 
-                {/* AniList search results */}
+                {/* Series search results */}
                 {results.length > 0 && (
                   <Box
-                    data-testid="anilist-results"
+                    data-testid="metadata-results"
                     borderWidth="1px"
                     borderColor="border"
                     borderRadius="md"
@@ -196,8 +196,8 @@ export function CreateAnimeDialog({
                       return (
                         <Box
                           key={result.id}
-                          data-testid="anilist-result-item"
-                          data-anilist-id={result.id}
+                          data-testid="metadata-result-item"
+                          data-series-id={result.id}
                           px="3"
                           py="2"
                           cursor="pointer"
@@ -211,20 +211,11 @@ export function CreateAnimeDialog({
                           borderBottom="1px solid"
                           borderColor="border"
                         >
-                          <Box fontWeight="500">
-                            {result.titleRomaji || result.titleEnglish}
-                          </Box>
-                          {result.titleEnglish &&
-                            result.titleEnglish !== result.titleRomaji && (
-                              <Box fontSize="xs" opacity={isSelected ? 0.9 : 0.6}>
-                                {result.titleEnglish}
-                              </Box>
-                            )}
+                          <Box fontWeight="500">{result.title}</Box>
                           <Box fontSize="xs" opacity={isSelected ? 0.9 : 0.6}>
-                            AniList ID: {result.id}
-                            {result.format ? ` · ${result.format}` : ""}
-                            {result.seasonYear
-                              ? ` · ${result.seasonYear}`
+                            {result.id}
+                            {result.franchiseId
+                              ? ` · ${result.franchiseId}`
                               : ""}
                           </Box>
                         </Box>
@@ -233,14 +224,14 @@ export function CreateAnimeDialog({
                   </Box>
                 )}
 
-                {aniListQuery.isLoading && name.trim().length > 0 && (
+                {metadataQuery.isLoading && name.trim().length > 0 && (
                   <Box
-                    data-testid="anilist-loading"
+                    data-testid="metadata-loading"
                     fontSize="xs"
                     color="fg.secondary"
                     px="1"
                   >
-                    Searching AniList...
+                    Searching series...
                   </Box>
                 )}
 

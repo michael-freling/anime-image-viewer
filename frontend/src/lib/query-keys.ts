@@ -60,8 +60,8 @@ export const qk = {
     config: () => [...qk.backup.all, "config"] as const,
   },
   config: () => ["config"] as const,
-  aniList: {
-    search: (query: string) => ["aniList", "search", query] as const,
+  metadata: {
+    search: (query: string) => ["metadata", "search", query] as const,
   },
 } as const;
 

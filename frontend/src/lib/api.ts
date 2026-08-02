@@ -30,8 +30,8 @@ export {
   type AnimeSeasonInfo,
   type UnassignedFolder,
   type FolderAnimeStatus,
-  type AniListSearchResult,
-  type AniListImportResult,
+  type MetadataSearchResult,
+  type MetadataImportResult,
   type SearchImagesResponse,
 } from "../../bindings/github.com/michael-freling/anime-image-viewer/internal/frontend";
 

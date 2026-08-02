@@ -3,11 +3,12 @@ package frontend
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"testing"
 
-	"github.com/michael-freling/anime-image-viewer/internal/anilist"
 	animecore "github.com/michael-freling/anime-image-viewer/internal/anime"
+	"github.com/michael-freling/anime-image-viewer/internal/animemetadata"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
 	"github.com/stretchr/testify/assert"
@@ -1114,23 +1115,27 @@ func TestAnimeService_UpdateSeasonType(t *testing.T) {
 	})
 }
 
-// mockAniListClient implements anilist.Client for frontend tests.
-type mockAniListClient struct {
-	searchResult  []anilist.MediaSearchResult
+// mockMetadataClient implements animemetadata.Client for frontend tests.
+type mockMetadataClient struct {
+	searchResults []animemetadata.SearchResult
 	searchErr     error
-	detailResults map[int]*anilist.MediaDetail
-	detailErr     error
+	series        map[string]*animemetadata.Series
+	seriesErr     error
 }
 
-func (m *mockAniListClient) SearchAnime(_ context.Context, _ string, _ int, _ int) ([]anilist.MediaSearchResult, error) {
-	return m.searchResult, m.searchErr
+func (m *mockMetadataClient) Search(_ context.Context, _ string, _ int) ([]animemetadata.SearchResult, error) {
+	return m.searchResults, m.searchErr
 }
 
-func (m *mockAniListClient) GetAnimeDetail(_ context.Context, id int) (*anilist.MediaDetail, error) {
-	if m.detailErr != nil {
-		return nil, m.detailErr
+func (m *mockMetadataClient) GetSeries(_ context.Context, id string) (*animemetadata.Series, error) {
+	if m.seriesErr != nil {
+		return nil, m.seriesErr
 	}
-	return m.detailResults[id], nil
+	series, ok := m.series[id]
+	if !ok {
+		return nil, fmt.Errorf("%w: series %q", animemetadata.ErrNotFound, id)
+	}
+	return series, nil
 }
 
 func TestAnimeService_UpdateSeasonAiringInfo(t *testing.T) {
@@ -1179,159 +1184,141 @@ func TestAnimeService_UpdateSeasonAiringInfo(t *testing.T) {
 	})
 }
 
-func TestAnimeService_SearchAniList(t *testing.T) {
+func TestAnimeService_SearchMetadata(t *testing.T) {
 	tester := newTester(t)
-	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
 	ctx := context.Background()
 
-	t.Run("returns search results with cover image", func(t *testing.T) {
-		mock := &mockAniListClient{
-			searchResult: []anilist.MediaSearchResult{
-				{
-					ID: 1,
-					Title: anilist.MediaTitle{
-						Romaji:  "Shingeki no Kyojin",
-						English: "Attack on Titan",
-						Native:  "進撃の巨人",
-					},
-					Format:     "TV",
-					Status:     "FINISHED",
-					Season:     "SPRING",
-					SeasonYear: 2013,
-					Episodes:   25,
-					CoverImage: anilist.CoverImage{
-						Large:  "https://example.com/large.jpg",
-						Medium: "https://example.com/medium.jpg",
-					},
-				},
-				{
-					ID: 2,
-					Title: anilist.MediaTitle{
-						Romaji: "Bocchi the Rock!",
-					},
-					Format:     "TV",
-					Status:     "FINISHED",
-					Season:     "FALL",
-					SeasonYear: 2022,
-					Episodes:   12,
-					CoverImage: anilist.CoverImage{
-						Medium: "https://example.com/bocchi_medium.jpg",
-					},
-				},
+	t.Run("maps series results to the frontend shape", func(t *testing.T) {
+		mock := &mockMetadataClient{
+			searchResults: []animemetadata.SearchResult{
+				{Kind: animemetadata.EntryKindSeries, ID: "fate-zero", Title: "Fate/Zero", FranchiseID: "fate"},
+				{Kind: animemetadata.EntryKindSeries, ID: "demon-slayer", Title: "Demon Slayer"},
 			},
 		}
-		svc := tester.getAnimeServiceWithAniList(mock)
+		svc := tester.getAnimeServiceWithMetadata(mock)
 
-		results, err := svc.SearchAniList(ctx, "attack")
+		results, err := svc.SearchMetadata(ctx, "a")
 		require.NoError(t, err)
+
 		require.Len(t, results, 2)
-
-		// First result: has Large cover image
-		assert.Equal(t, 1, results[0].ID)
-		assert.Equal(t, "Shingeki no Kyojin", results[0].TitleRomaji)
-		assert.Equal(t, "Attack on Titan", results[0].TitleEnglish)
-		assert.Equal(t, "進撃の巨人", results[0].TitleNative)
-		assert.Equal(t, "TV", results[0].Format)
-		assert.Equal(t, "FINISHED", results[0].Status)
-		assert.Equal(t, "SPRING", results[0].Season)
-		assert.Equal(t, 2013, results[0].SeasonYear)
-		assert.Equal(t, 25, results[0].Episodes)
-		assert.Equal(t, "https://example.com/large.jpg", results[0].CoverImageURL)
-
-		// Second result: no Large, falls back to Medium
-		assert.Equal(t, 2, results[1].ID)
-		assert.Equal(t, "https://example.com/bocchi_medium.jpg", results[1].CoverImageURL)
+		assert.Equal(t, MetadataSearchResult{ID: "fate-zero", Title: "Fate/Zero", FranchiseID: "fate"}, results[0])
+		assert.Equal(t, MetadataSearchResult{ID: "demon-slayer", Title: "Demon Slayer"}, results[1])
 	})
 
-	t.Run("returns nil on error", func(t *testing.T) {
-		mock := &mockAniListClient{
-			searchErr: errors.New("network error"),
+	t.Run("drops franchise results", func(t *testing.T) {
+		mock := &mockMetadataClient{
+			searchResults: []animemetadata.SearchResult{
+				{Kind: animemetadata.EntryKindFranchise, ID: "fate", Title: "Fate"},
+				{Kind: animemetadata.EntryKindSeries, ID: "fate-zero", Title: "Fate/Zero"},
+			},
 		}
-		svc := tester.getAnimeServiceWithAniList(mock)
+		svc := tester.getAnimeServiceWithMetadata(mock)
 
-		results, err := svc.SearchAniList(ctx, "test")
-		require.Error(t, err)
-		assert.Nil(t, results)
+		results, err := svc.SearchMetadata(ctx, "fate")
+		require.NoError(t, err)
+
+		require.Len(t, results, 1)
+		assert.Equal(t, "fate-zero", results[0].ID)
 	})
 
-	t.Run("nil anilist client returns error", func(t *testing.T) {
-		svc := tester.getAnimeService() // no anilist client
+	t.Run("propagates a search error", func(t *testing.T) {
+		mock := &mockMetadataClient{searchErr: errors.New("boom")}
+		svc := tester.getAnimeServiceWithMetadata(mock)
 
-		results, err := svc.SearchAniList(ctx, "test")
+		_, err := svc.SearchMetadata(ctx, "fate")
 		require.Error(t, err)
-		assert.Nil(t, results)
-		assert.Contains(t, err.Error(), "anilist client is not configured")
+		assert.Contains(t, err.Error(), "boom")
+	})
+
+	t.Run("without a client returns an error", func(t *testing.T) {
+		_, err := tester.getAnimeService().SearchMetadata(ctx, "fate")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "anime metadata client is not configured")
 	})
 }
 
-func TestAnimeService_ImportFromAniList(t *testing.T) {
+func TestAnimeService_ImportFromMetadata(t *testing.T) {
 	tester := newTester(t)
 	tester.dbClient.Truncate(t, db.File{}, db.Tag{}, db.Anime{}, db.FileTag{})
 	ctx := context.Background()
 
 	t.Run("imports entries and characters", func(t *testing.T) {
-		mock := &mockAniListClient{
-			detailResults: map[int]*anilist.MediaDetail{
-				100: {
-					ID: 100,
-					Title: anilist.MediaTitle{
-						Romaji:  "Bocchi the Rock!",
-						English: "Bocchi the Rock!",
+		mock := &mockMetadataClient{
+			series: map[string]*animemetadata.Series{
+				"bocchi-the-rock": {
+					ID:    "bocchi-the-rock",
+					Title: "Bocchi the Rock!",
+					Seasons: []animemetadata.Season{
+						{
+							ID:            "bocchi-the-rock-s1",
+							Number:        1,
+							ReleaseYear:   2022,
+							ReleaseSeason: animemetadata.ReleaseSeasonFall,
+							ExternalIDs:   animemetadata.ExternalIDs{AniListID: 130003},
+						},
 					},
-					Format:     "TV",
-					Season:     "FALL",
-					SeasonYear: 2022,
-					Characters: []anilist.Character{
-						{ID: 1, Role: "MAIN", Name: struct {
-							Full   string `json:"full"`
-							Native string `json:"native"`
-						}{Full: "Hitori Gotoh"}},
-						{ID: 2, Role: "SUPPORTING", Name: struct {
-							Full   string `json:"full"`
-							Native string `json:"native"`
-						}{Full: "Nijika Ijichi"}},
+					Characters: []animemetadata.Character{
+						{ID: "hitori-gotoh", Name: "Hitori Gotoh"},
+						{ID: "nijika-ijichi", Name: "Nijika Ijichi"},
 					},
 				},
 			},
 		}
-		svc := tester.getAnimeServiceWithAniList(mock)
+		svc := tester.getAnimeServiceWithMetadata(mock)
 
 		a, err := svc.CreateAnime(ctx, "Bocchi")
 		require.NoError(t, err)
 
-		result, err := svc.ImportFromAniList(ctx, a.ID, 100)
+		result, err := svc.ImportFromMetadata(ctx, a.ID, "bocchi-the-rock")
 		require.NoError(t, err)
 
 		assert.Equal(t, 1, result.SeasonsCreated)
 		assert.Equal(t, 2, result.CharactersCreated)
+
+		// The series id is the link identity; the AniList id is backfilled
+		// from externalIds purely for the outbound link.
+		details, err := svc.GetAnimeDetails(ctx, a.ID)
+		require.NoError(t, err)
+		require.NotNil(t, details.Anime.MetadataSeriesID)
+		assert.Equal(t, "bocchi-the-rock", *details.Anime.MetadataSeriesID)
+		require.NotNil(t, details.Anime.AniListID)
+		assert.Equal(t, 130003, *details.Anime.AniListID)
 	})
 
 	t.Run("error on nonexistent anime", func(t *testing.T) {
-		mock := &mockAniListClient{
-			detailResults: map[int]*anilist.MediaDetail{
-				100: {
-					ID:     100,
-					Title:  anilist.MediaTitle{Romaji: "Test"},
-					Format: "TV",
-				},
+		mock := &mockMetadataClient{
+			series: map[string]*animemetadata.Series{
+				"test": {ID: "test", Title: "Test"},
 			},
 		}
-		svc := tester.getAnimeServiceWithAniList(mock)
+		svc := tester.getAnimeServiceWithMetadata(mock)
 
-		_, err := svc.ImportFromAniList(ctx, 99999, 100)
+		_, err := svc.ImportFromMetadata(ctx, 99999, "test")
 		require.Error(t, err)
 		assert.True(t, errors.Is(err, animecore.ErrAnimeNotFound))
 	})
 
-	t.Run("nil anilist client returns error", func(t *testing.T) {
-		svc := tester.getAnimeService() // no anilist client
+	t.Run("error on unknown series", func(t *testing.T) {
+		mock := &mockMetadataClient{series: map[string]*animemetadata.Series{}}
+		svc := tester.getAnimeServiceWithMetadata(mock)
+
+		a, err := svc.CreateAnime(ctx, "UnknownSeriesShow")
+		require.NoError(t, err)
+
+		_, err = svc.ImportFromMetadata(ctx, a.ID, "nope")
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, animemetadata.ErrNotFound))
+	})
+
+	t.Run("nil metadata client returns error", func(t *testing.T) {
+		svc := tester.getAnimeService() // no metadata client
 
 		a, err := svc.CreateAnime(ctx, "NilClientTest")
 		require.NoError(t, err)
 
-		_, err = svc.ImportFromAniList(ctx, a.ID, 100)
+		_, err = svc.ImportFromMetadata(ctx, a.ID, "bocchi-the-rock")
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "anilist client is not configured")
+		assert.Contains(t, err.Error(), "anime metadata client is not configured")
 	})
 }
 

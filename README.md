@@ -16,7 +16,7 @@ Download for Windows or Linux from the [release page](https://github.com/michael
 ### Anime Management
 - Browse your collection in an image grid with adjustable sizing
 - Organize anime with seasons, parts, and episodes
-- Link anime to [AniList](https://anilist.co) to automatically import titles, airing info, and related seasons
+- Link anime to the [anime metadata database](https://github.com/michael-freling/anime-metadata-db) to automatically import seasons, parts, movies, specials and characters
 
 ### Image Organization
 - Organize images by tags and characters

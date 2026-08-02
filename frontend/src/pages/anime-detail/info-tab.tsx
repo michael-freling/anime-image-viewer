@@ -3,8 +3,8 @@
  *
  * Spec: ui-design.md §3.2.5 "Info tab".
  *
- * Renders the anime's core metadata (title, AniList link, folder list, entry
- * counts, image counts) inside a centred max-width form. Danger Zone action
+ * Renders the anime's core metadata (title, linked metadata-db series, folder
+ * list, entry counts, image counts) inside a centred max-width form. Danger Zone action
  * (delete anime) is self-contained: ConfirmDialog → AnimeService.DeleteAnime
  * → navigate to home.
  */
@@ -19,9 +19,9 @@ import { RowSkeleton } from "../../components/shared/loading-skeleton";
 import { ConfirmDialog } from "../../components/ui/confirm-dialog";
 import { toast } from "../../components/ui/toaster";
 import { useAnimeDetail } from "../../hooks/use-anime-detail";
-import { useAniListSearch } from "../../hooks/use-anilist-search";
+import { useMetadataSearch } from "../../hooks/use-metadata-search";
 import { AnimeService } from "../../lib/api";
-import type { AniListImportResult, AniListSearchResult } from "../../lib/api";
+import type { MetadataImportResult, MetadataSearchResult } from "../../lib/api";
 import { formatCount } from "../../lib/format";
 import { qk } from "../../lib/query-keys";
 
@@ -61,10 +61,10 @@ export function InfoTab(): JSX.Element {
   const queryClient = useQueryClient();
   const { data, isLoading, isError, error, refetch } = useAnimeDetail(animeId);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [aniListDialogOpen, setAniListDialogOpen] = useState(false);
-  const [aniListQuery, setAniListQuery] = useState("");
-  const [aniListImporting, setAniListImporting] = useState(false);
-  const aniListSearch = useAniListSearch(aniListQuery);
+  const [seriesDialogOpen, setSeriesDialogOpen] = useState(false);
+  const [seriesQuery, setSeriesQuery] = useState("");
+  const [importing, setImporting] = useState(false);
+  const seriesSearch = useMetadataSearch(seriesQuery);
 
   if (isError) {
     return (
@@ -102,6 +102,9 @@ export function InfoTab(): JSX.Element {
     return total + (season.imageCount ?? 0) + childSum;
   }, 0);
   const folderCount = data.folders.length;
+  const seriesId = anime.metadataSeriesId;
+  // The AniList id is stored only to offer this outbound link; the AniList API
+  // is never called.
   const aniListUrl = anime.aniListId
     ? `https://anilist.co/anime/${anime.aniListId}`
     : null;
@@ -125,48 +128,50 @@ export function InfoTab(): JSX.Element {
         />
 
         <InfoField
-          label="AniList"
-          testId="info-field-anilist"
+          label="Series"
+          testId="info-field-series"
           value={
-            aniListUrl ? (
+            seriesId ? (
               <Flex gap="2" align="center" wrap="wrap">
-                <Text color="fg.secondary">#{anime.aniListId}</Text>
+                <Text color="fg.secondary">{seriesId}</Text>
+                {aniListUrl && (
+                  <Button
+                    as="a"
+                    size="xs"
+                    variant="outline"
+                    data-testid="info-anilist-link"
+                    {...{
+                      href: aniListUrl,
+                      target: "_blank",
+                      rel: "noopener noreferrer",
+                    }}
+                  >
+                    <Box as="span" aria-hidden="true" display="inline-flex" mr="1">
+                      <ExternalLink size={12} />
+                    </Box>
+                    AniList
+                  </Button>
+                )}
                 <Button
-                  as="a"
                   size="xs"
                   variant="outline"
-                  data-testid="info-anilist-link"
-                  {...{
-                    href: aniListUrl,
-                    target: "_blank",
-                    rel: "noopener noreferrer",
-                  }}
-                >
-                  <Box as="span" aria-hidden="true" display="inline-flex" mr="1">
-                    <ExternalLink size={12} />
-                  </Box>
-                  Open
-                </Button>
-                <Button
-                  size="xs"
-                  variant="outline"
-                  data-testid="info-anilist-reimport"
-                  disabled={aniListImporting}
-                  loading={aniListImporting}
+                  data-testid="info-series-reimport"
+                  disabled={importing}
+                  loading={importing}
                   loadingText="Importing..."
                   onClick={async () => {
-                    setAniListImporting(true);
+                    setImporting(true);
                     try {
-                      const result = await AnimeService.ImportFromAniList(animeId, anime.aniListId!) as AniListImportResult;
+                      const result = await AnimeService.ImportFromMetadata(animeId, seriesId) as MetadataImportResult;
                       await queryClient.invalidateQueries({ queryKey: qk.anime.detail(animeId) });
                       toast.success(
-                        "AniList import complete",
-                        `Created ${result.seasonsCreated} season(s), ${result.charactersCreated} character(s).`,
+                        "Import complete",
+                        `Created ${result.seasonsCreated} entry(s), ${result.charactersCreated} character(s).`,
                       );
                     } catch (err) {
                       toast.error("Import failed", err instanceof Error ? err.message : String(err));
                     } finally {
-                      setAniListImporting(false);
+                      setImporting(false);
                     }
                   }}
                 >
@@ -178,11 +183,11 @@ export function InfoTab(): JSX.Element {
                 <Button
                   size="xs"
                   variant="outline"
-                  data-testid="info-anilist-change"
-                  disabled={aniListImporting}
+                  data-testid="info-series-change"
+                  disabled={importing}
                   onClick={() => {
-                    setAniListQuery(anime.name);
-                    setAniListDialogOpen(true);
+                    setSeriesQuery(anime.name);
+                    setSeriesDialogOpen(true);
                   }}
                 >
                   <Box as="span" aria-hidden="true" display="inline-flex" mr="1">
@@ -197,17 +202,17 @@ export function InfoTab(): JSX.Element {
                 <Button
                   size="xs"
                   variant="outline"
-                  data-testid="info-anilist-link-btn"
-                  disabled={aniListImporting}
+                  data-testid="info-series-link-btn"
+                  disabled={importing}
                   onClick={() => {
-                    setAniListQuery(anime.name);
-                    setAniListDialogOpen(true);
+                    setSeriesQuery(anime.name);
+                    setSeriesDialogOpen(true);
                   }}
                 >
                   <Box as="span" aria-hidden="true" display="inline-flex" mr="1">
                     <LinkIcon size={12} />
                   </Box>
-                  Link AniList
+                  Link series
                 </Button>
               </Flex>
             )
@@ -291,32 +296,32 @@ export function InfoTab(): JSX.Element {
         variant="danger"
       />
 
-      <AniListSearchDialog
-        open={aniListDialogOpen}
+      <SeriesSearchDialog
+        open={seriesDialogOpen}
         onClose={() => {
-          setAniListDialogOpen(false);
-          setAniListQuery("");
+          setSeriesDialogOpen(false);
+          setSeriesQuery("");
         }}
-        query={aniListQuery}
-        onQueryChange={setAniListQuery}
-        results={aniListSearch.data ?? []}
-        loading={aniListSearch.isLoading}
-        importing={aniListImporting}
-        onSelect={async (result: AniListSearchResult) => {
-          setAniListImporting(true);
+        query={seriesQuery}
+        onQueryChange={setSeriesQuery}
+        results={seriesSearch.data ?? []}
+        loading={seriesSearch.isLoading}
+        importing={importing}
+        onSelect={async (result: MetadataSearchResult) => {
+          setImporting(true);
           try {
-            const importResult = await AnimeService.ImportFromAniList(animeId, result.id) as AniListImportResult;
+            const importResult = await AnimeService.ImportFromMetadata(animeId, result.id) as MetadataImportResult;
             await queryClient.invalidateQueries({ queryKey: qk.anime.detail(animeId) });
             toast.success(
-              "AniList linked",
-              `Created ${importResult.seasonsCreated} season(s), ${importResult.charactersCreated} character(s).`,
+              "Series linked",
+              `Created ${importResult.seasonsCreated} entry(s), ${importResult.charactersCreated} character(s).`,
             );
-            setAniListDialogOpen(false);
-            setAniListQuery("");
+            setSeriesDialogOpen(false);
+            setSeriesQuery("");
           } catch (err) {
             toast.error("Import failed", err instanceof Error ? err.message : String(err));
           } finally {
-            setAniListImporting(false);
+            setImporting(false);
           }
         }}
       />
@@ -324,7 +329,7 @@ export function InfoTab(): JSX.Element {
   );
 }
 
-function AniListSearchDialog({
+function SeriesSearchDialog({
   open,
   onClose,
   query,
@@ -338,10 +343,10 @@ function AniListSearchDialog({
   onClose: () => void;
   query: string;
   onQueryChange: (q: string) => void;
-  results: AniListSearchResult[];
+  results: MetadataSearchResult[];
   loading: boolean;
   importing: boolean;
-  onSelect: (result: AniListSearchResult) => void;
+  onSelect: (result: MetadataSearchResult) => void;
 }): JSX.Element {
   return (
     <Dialog.Root
@@ -354,7 +359,7 @@ function AniListSearchDialog({
         <Dialog.Backdrop bg="blackAlpha.600" />
         <Dialog.Positioner>
           <Dialog.Content
-            data-testid="anilist-search-dialog"
+            data-testid="series-search-dialog"
             bg="bg.surface"
             color="fg"
             borderRadius="lg"
@@ -364,19 +369,19 @@ function AniListSearchDialog({
           >
             <Dialog.Header px="5" pt="4">
               <Dialog.Title fontSize="md" fontWeight="600">
-                Link AniList
+                Link series
               </Dialog.Title>
             </Dialog.Header>
             <Dialog.Body px="5" py="2">
               <Stack gap="3">
                 <ChakraInput
-                  data-testid="anilist-search-input"
+                  data-testid="series-search-input"
                   type="text"
                   value={query}
                   onChange={(e) => onQueryChange(e.target.value)}
                   disabled={importing}
-                  placeholder="Search AniList..."
-                  aria-label="Search AniList"
+                  placeholder="Search series..."
+                  aria-label="Search series"
                   width="100%"
                   height="40px"
                   px="3"
@@ -397,7 +402,7 @@ function AniListSearchDialog({
                 )}
                 {results.length > 0 && (
                   <Box
-                    data-testid="anilist-search-results"
+                    data-testid="series-search-results"
                     borderWidth="1px"
                     borderColor="border"
                     borderRadius="md"
@@ -407,7 +412,7 @@ function AniListSearchDialog({
                     {results.map((result) => (
                       <Box
                         key={result.id}
-                        data-testid="anilist-search-result-item"
+                        data-testid="series-search-result-item"
                         px="3"
                         py="2"
                         cursor={importing ? "not-allowed" : "pointer"}
@@ -418,16 +423,10 @@ function AniListSearchDialog({
                         borderBottom="1px solid"
                         borderColor="border"
                       >
-                        <Box fontWeight="500">
-                          {result.titleRomaji || result.titleEnglish}
-                        </Box>
-                        {result.titleEnglish && result.titleEnglish !== result.titleRomaji && (
-                          <Box fontSize="xs" opacity={0.6}>{result.titleEnglish}</Box>
-                        )}
+                        <Box fontWeight="500">{result.title}</Box>
                         <Box fontSize="xs" opacity={0.6}>
-                          ID: {result.id}
-                          {result.format ? ` · ${result.format}` : ""}
-                          {result.seasonYear ? ` · ${result.seasonYear}` : ""}
+                          {result.id}
+                          {result.franchiseId ? ` · ${result.franchiseId}` : ""}
                         </Box>
                       </Box>
                     ))}

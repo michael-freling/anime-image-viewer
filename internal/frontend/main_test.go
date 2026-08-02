@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/michael-freling/anime-image-viewer/internal/anilist"
 	"github.com/michael-freling/anime-image-viewer/internal/anime"
+	"github.com/michael-freling/anime-image-viewer/internal/animemetadata"
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
@@ -110,7 +110,7 @@ func (tester tester) getAnimeCoreService() *anime.Service {
 	return anime.NewService(tester.dbClient.Client, tester.getDirectoryReader(), tester.config, nil)
 }
 
-func (tester tester) getAnimeCoreServiceWithAniList(client anilist.Client) *anime.Service {
+func (tester tester) getAnimeCoreServiceWithMetadata(client animemetadata.Client) *anime.Service {
 	return anime.NewService(tester.dbClient.Client, tester.getDirectoryReader(), tester.config, client)
 }
 
@@ -124,9 +124,9 @@ func (tester tester) getAnimeService() *AnimeService {
 	)
 }
 
-func (tester tester) getAnimeServiceWithAniList(client anilist.Client) *AnimeService {
+func (tester tester) getAnimeServiceWithMetadata(client animemetadata.Client) *AnimeService {
 	return NewAnimeService(
-		tester.getAnimeCoreServiceWithAniList(client),
+		tester.getAnimeCoreServiceWithMetadata(client),
 		tester.dbClient.Client,
 		tester.getDirectoryReader(),
 		tester.getTagReader(),

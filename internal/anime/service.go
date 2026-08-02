@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/michael-freling/anime-image-viewer/internal/anilist"
+	"github.com/michael-freling/anime-image-viewer/internal/animemetadata"
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
 	"github.com/michael-freling/anime-image-viewer/internal/image"
@@ -26,15 +26,15 @@ type Service struct {
 	dbClient        *db.Client
 	directoryReader *image.DirectoryReader
 	config          config.Config
-	anilistClient   anilist.Client
+	metadataClient  animemetadata.Client
 }
 
-func NewService(dbClient *db.Client, directoryReader *image.DirectoryReader, cfg config.Config, anilistClient anilist.Client) *Service {
+func NewService(dbClient *db.Client, directoryReader *image.DirectoryReader, cfg config.Config, metadataClient animemetadata.Client) *Service {
 	return &Service{
 		dbClient:        dbClient,
 		directoryReader: directoryReader,
 		config:          cfg,
-		anilistClient:   anilistClient,
+		metadataClient:  metadataClient,
 	}
 }
 

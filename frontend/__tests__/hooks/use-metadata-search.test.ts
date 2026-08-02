@@ -1,29 +1,29 @@
 /**
- * Tests for `useAniListSearch`.
+ * Tests for `useMetadataSearch`.
  *
  * Uses jest fake timers to drive `useDebouncedValue`'s 300ms delay. Asserts
  * the empty-query branch (no fetch) and that a real query fires exactly once
  * after the debounce window.
  */
-const searchAniListMock = jest.fn();
+const searchMetadataMock = jest.fn();
 jest.mock("../../src/lib/api", () => ({
   __esModule: true,
   AnimeService: {
-    SearchAniList: (...args: unknown[]) => searchAniListMock(...args),
+    SearchMetadata: (...args: unknown[]) => searchMetadataMock(...args),
   },
 }));
 
 import { act } from "react-dom/test-utils";
-import { useAniListSearch } from "../../src/hooks/use-anilist-search";
+import { useMetadataSearch } from "../../src/hooks/use-metadata-search";
 import {
   flushPromises,
   renderHookWithClient,
   waitFor,
 } from "../test-utils";
 
-describe("useAniListSearch", () => {
+describe("useMetadataSearch", () => {
   beforeEach(() => {
-    searchAniListMock.mockReset();
+    searchMetadataMock.mockReset();
     jest.useFakeTimers({ doNotFake: ["nextTick"] });
   });
 
@@ -33,46 +33,35 @@ describe("useAniListSearch", () => {
 
   test("is disabled when query is empty", async () => {
     const { result, unmount } = renderHookWithClient(() =>
-      useAniListSearch(""),
+      useMetadataSearch(""),
     );
     // Advance past any debounce timers.
     act(() => {
       jest.advanceTimersByTime(500);
     });
-    expect(searchAniListMock).not.toHaveBeenCalled();
+    expect(searchMetadataMock).not.toHaveBeenCalled();
     expect(result.current.fetchStatus).toBe("idle");
     unmount();
   });
 
   test("is disabled when query is whitespace only", async () => {
     const { result, unmount } = renderHookWithClient(() =>
-      useAniListSearch("   "),
+      useMetadataSearch("   "),
     );
     act(() => {
       jest.advanceTimersByTime(500);
     });
-    expect(searchAniListMock).not.toHaveBeenCalled();
+    expect(searchMetadataMock).not.toHaveBeenCalled();
     expect(result.current.fetchStatus).toBe("idle");
     unmount();
   });
 
   test("fires for a non-empty query and returns results", async () => {
-    searchAniListMock.mockResolvedValue([
-      {
-        id: 1,
-        titleRomaji: "Naruto",
-        titleEnglish: "Naruto",
-        titleNative: "",
-        format: "TV",
-        status: "FINISHED",
-        season: "",
-        seasonYear: 2002,
-        episodes: 220,
-        coverImageUrl: "",
-      },
+    searchMetadataMock.mockResolvedValue([
+      { id: "naruto", title: "Naruto", franchiseId: "" },
     ]);
     const { result, unmount } = renderHookWithClient(() =>
-      useAniListSearch("naruto"),
+      useMetadataSearch("naruto"),
     );
     // `useDebouncedValue` seeds its internal state with the initial value, so
     // the first render triggers the fetch. Subsequent typing waits the full
@@ -80,15 +69,15 @@ describe("useAniListSearch", () => {
     jest.useRealTimers();
     await flushPromises();
     await waitFor(() => result.current.isSuccess);
-    expect(searchAniListMock).toHaveBeenCalledWith("naruto");
+    expect(searchMetadataMock).toHaveBeenCalledWith("naruto");
     expect(result.current.data).toHaveLength(1);
     unmount();
   });
 
   test("handles null result from backend", async () => {
-    searchAniListMock.mockResolvedValue(null);
+    searchMetadataMock.mockResolvedValue(null);
     const { result, unmount } = renderHookWithClient(() =>
-      useAniListSearch("bebop"),
+      useMetadataSearch("bebop"),
     );
     jest.useRealTimers();
     await flushPromises();
