@@ -21,8 +21,8 @@
  */
 import { Box, Button, Flex, Heading, Stack, Text } from "@chakra-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, TagIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Plus, TagIcon, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 
 import { EmptyState } from "../../components/shared/empty-state";
@@ -43,6 +43,7 @@ import { type TagFormValues } from "./tag-form";
 import {
   createTag,
   deleteTag,
+  deleteTags,
   getTagFileCount,
   updateTag,
 } from "./tag-mutations";
@@ -113,6 +114,11 @@ export function TagManagementPage(): JSX.Element {
     fileCount: null,
     submitting: false,
   });
+  // Select mode: chips toggle selection instead of editing, and a checkbox +
+  // batch actions appear. Ids selected persist across searches.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
 
   const tags = tagsQuery.data ?? [];
   const filteredTags = useMemo(() => filterTags(tags, search), [tags, search]);
@@ -234,6 +240,61 @@ export function TagManagementPage(): JSX.Element {
     }
   };
 
+  /* --------------------------- selection flow ---------------------------- */
+
+  // Drop selected ids that no longer exist (e.g. after a delete + refetch) so
+  // the count and batch action never reference stale tags.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === 0) return prev;
+      const present = new Set(tags.map((t) => t.id));
+      const next = new Set<number>();
+      for (const id of prev) if (present.has(id)) next.add(id);
+      return next.size === prev.size ? prev : next;
+    });
+  }, [tags]);
+
+  const toggleSelect = (tag: Tag) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag.id)) next.delete(tag.id);
+      else next.add(tag.id);
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    clearSelection();
+  };
+
+  // Hold a tag to enter select mode with that tag selected (mirrors the image
+  // grid's long-press). If already selecting, it just adds the held tag.
+  const handleLongPress = (tag: Tag) => {
+    setSelectMode(true);
+    setSelectedIds((prev) => new Set(prev).add(tag.id));
+  };
+
+  const submitBatchDelete = async () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    try {
+      await deleteTags(ids);
+      toast.success("Tags deleted", `${formatCount(ids.length, "tag")} removed.`);
+      await queryClient.invalidateQueries({ queryKey: qk.tags.list() });
+      clearSelection();
+      setBatchDeleteOpen(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      // Some tags may already be gone; refetch so the view reflects reality.
+      await queryClient.invalidateQueries({ queryKey: qk.tags.list() });
+      toast.error("Could not delete tags", message);
+      // Leave the dialog open; ConfirmDialog re-enables its buttons.
+    }
+  };
+
   /* ------------------------------ page body ------------------------------ */
 
   const tagCountLabel = useMemo(() => {
@@ -317,6 +378,10 @@ export function TagManagementPage(): JSX.Element {
             onEditTag={openEdit}
             onDeleteTag={openDelete}
             onSearchTag={(tag) => navigate(`/search?tag=${tag.id}`)}
+            selectMode={selectMode}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect}
+            onLongPressTag={handleLongPress}
           />
         ))}
       </Stack>
@@ -361,10 +426,21 @@ export function TagManagementPage(): JSX.Element {
             <Heading as="h1" fontWeight="600" fontSize="md" color="fg" lineHeight="1.2">
               Tags
             </Heading>
-            {tagCountLabel && (
-              <Text fontSize="xs" color="fg.muted">
-                {tagCountLabel}
+            {selectMode ? (
+              <Text
+                fontSize="xs"
+                color="fg.muted"
+                data-testid="tag-selection-count"
+                aria-live="polite"
+              >
+                {formatCount(selectedIds.size, "tag")} selected
               </Text>
+            ) : (
+              tagCountLabel && (
+                <Text fontSize="xs" color="fg.muted">
+                  {tagCountLabel}
+                </Text>
+              )
             )}
           </Flex>
 
@@ -377,19 +453,56 @@ export function TagManagementPage(): JSX.Element {
             />
           </Box>
 
-          <Button
-            type="button"
-            size="sm"
-            bg="primary"
-            color="bg.surface"
-            _hover={{ bg: "primary.hover" }}
-            onClick={() => openCreate()}
-            data-testid="tag-management-new"
-            ml="auto"
-          >
-            <Plus size={16} aria-hidden="true" />
-            New tag
-          </Button>
+          {selectMode ? (
+            <Flex align="center" gap="2" ml="auto" shrink={0}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={clearSelection}
+                disabled={selectedIds.size === 0}
+                data-testid="tag-selection-clear"
+              >
+                Clear
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                bg="danger.solid"
+                color="bg.surface"
+                _hover={{ bg: "danger.solidHover" }}
+                onClick={() => setBatchDeleteOpen(true)}
+                disabled={selectedIds.size === 0}
+                data-testid="tag-selection-delete"
+              >
+                <Trash2 size={14} aria-hidden="true" />
+                Delete
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={exitSelectMode}
+                data-testid="tag-selection-done"
+              >
+                Done
+              </Button>
+            </Flex>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              bg="primary"
+              color="bg.surface"
+              _hover={{ bg: "primary.hover" }}
+              onClick={() => openCreate()}
+              data-testid="tag-management-new"
+              ml="auto"
+            >
+              <Plus size={16} aria-hidden="true" />
+              New tag
+            </Button>
+          )}
         </Flex>
       </Box>
 
@@ -422,6 +535,20 @@ export function TagManagementPage(): JSX.Element {
         cancelLabel="Cancel"
         variant="danger"
       />
+
+      <ConfirmDialog
+        open={batchDeleteOpen}
+        onClose={() => setBatchDeleteOpen(false)}
+        onConfirm={submitBatchDelete}
+        title={`Delete ${formatCount(selectedIds.size, "tag")}?`}
+        description={`Delete ${formatCount(
+          selectedIds.size,
+          "tag",
+        )}? This also removes them from any tagged images and can't be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+      />
     </Box>
   );
 }
@@ -434,6 +561,7 @@ export { TagRow } from "./tag-row";
 export {
   createTag,
   deleteTag,
+  deleteTags,
   getTagFileCount,
   updateTag,
 } from "./tag-mutations";

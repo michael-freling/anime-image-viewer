@@ -36,6 +36,7 @@ import { TagFrontendService } from "../../../src/lib/api";
 import {
   createTag,
   deleteTag,
+  deleteTags,
   getTagFileCount,
   updateTag,
 } from "../../../src/pages/tags/tag-mutations";
@@ -133,6 +134,32 @@ describe("tag-mutations (against the real TagFrontendService binding)", () => {
     await expect(deleteTag(1)).rejects.toThrow("boom");
   });
 
+  test("deleteTags issues one DeleteTag per id, in order", async () => {
+    nextResolves(undefined);
+    nextResolves(undefined);
+    nextResolves(undefined);
+
+    await deleteTags([5, 6, 7]);
+
+    expect(transportCalls()).toEqual([
+      { method: "DeleteTag", args: [5] },
+      { method: "DeleteTag", args: [6] },
+      { method: "DeleteTag", args: [7] },
+    ]);
+  });
+
+  test("deleteTags propagates a mid-way failure", async () => {
+    nextResolves(undefined); // id 5 ok
+    nextRejects(new Error("nope")); // id 6 fails
+
+    await expect(deleteTags([5, 6, 7])).rejects.toThrow("nope");
+    // Stopped at the failure: only two transport calls were made.
+    expect(transportCalls()).toEqual([
+      { method: "DeleteTag", args: [5] },
+      { method: "DeleteTag", args: [6] },
+    ]);
+  });
+
   test("getTagFileCount returns the numeric value from GetTagFileCount", async () => {
     nextResolves(42);
 
@@ -159,5 +186,13 @@ describe("tag-mutations (against the real TagFrontendService binding)", () => {
     const n = await getTagFileCount(4);
 
     expect(n).toBe(0);
+  });
+
+  test("getTagFileCount returns null for a non-finite backend response", async () => {
+    nextResolves(Number.NaN);
+
+    const n = await getTagFileCount(9);
+
+    expect(n).toBeNull();
   });
 });

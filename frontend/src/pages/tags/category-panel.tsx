@@ -29,6 +29,14 @@ export interface CategoryPanelProps {
   onEditTag: (tag: Tag) => void;
   onDeleteTag: (tag: Tag) => void;
   onSearchTag?: (tag: Tag) => void;
+  /** When true, rows show a selection checkbox and chip taps toggle selection. */
+  selectMode?: boolean;
+  /** Ids of tags currently selected for a batch action. */
+  selectedIds?: Set<number>;
+  /** Toggle a tag's selection. */
+  onToggleSelect?: (tag: Tag) => void;
+  /** Long-press (hold) a tag — enters select mode. */
+  onLongPressTag?: (tag: Tag) => void;
 }
 
 export function CategoryPanel({
@@ -40,6 +48,10 @@ export function CategoryPanel({
   onEditTag,
   onDeleteTag,
   onSearchTag,
+  selectMode = false,
+  selectedIds,
+  onToggleSelect,
+  onLongPressTag,
 }: CategoryPanelProps): JSX.Element {
   const label = CATEGORY_LABELS[categoryKey];
   const color = TAG_CATEGORY_TOKENS[categoryKey].fg;
@@ -94,6 +106,10 @@ export function CategoryPanel({
               onEdit={onEditTag}
               onDelete={onDeleteTag}
               onSearch={onSearchTag}
+              selectMode={selectMode}
+              selected={selectedIds?.has(tag.id) ?? false}
+              onToggleSelect={onToggleSelect}
+              onLongPress={onLongPressTag}
             />
           ))}
         </Flex>
