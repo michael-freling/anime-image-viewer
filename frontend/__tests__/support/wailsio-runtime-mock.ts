@@ -16,12 +16,47 @@
  * `__tests__/pages/tags/tag-mutations.test.ts`.
  */
 
-/** The single transport seam. Tests drive/inspect this jest mock. */
+// The real Call.ByID returns a CancellablePromise — a promise with a `.cancel`
+// method. Generated bindings do `$resultPromise.cancel.bind($resultPromise)`, so
+// the stand-in must attach `.cancel` or those bindings throw. `mockResolvedValue`
+// can't do that (it returns a bare Promise), so responses are driven by a queue.
+type Queued = { reject: boolean; value: unknown };
+const queue: Queued[] = [];
+
+function cancellable<T>(promise: Promise<T>): Promise<T> {
+  (promise as unknown as { cancel: () => void }).cancel = () => {};
+  return promise;
+}
+
+/** The single transport seam. Tests drive it via next*(); assert on its calls. */
 export const Call = {
-  // jest.fn records the arguments the binding forwards regardless of this impl.
-  ByID: jest.fn(() => Promise.resolve(undefined as unknown)),
-  ByName: jest.fn(() => Promise.resolve(undefined as unknown)),
+  // jest.fn records the arguments the binding forwards; the impl returns a
+  // cancellable promise resolving/rejecting with the next queued response.
+  ByID: jest.fn((): Promise<unknown> => {
+    const next = queue.shift() ?? { reject: false, value: undefined };
+    return cancellable(
+      next.reject ? Promise.reject(next.value) : Promise.resolve(next.value),
+    );
+  }),
+  ByName: jest.fn((): Promise<unknown> => cancellable(Promise.resolve(undefined))),
 };
+
+/** Queue the value the next transport call resolves with. */
+export function nextResolves(value: unknown): void {
+  queue.push({ reject: false, value });
+}
+
+/** Queue the error the next transport call rejects with. */
+export function nextRejects(error: unknown): void {
+  queue.push({ reject: true, value: error });
+}
+
+/** Clear queued responses and recorded calls (call between tests). */
+export function resetTransport(): void {
+  queue.length = 0;
+  (Call.ByID as jest.Mock).mockClear();
+  (Call.ByName as jest.Mock).mockClear();
+}
 
 /** Bindings annotate return types with this; only used as a value in imports. */
 export class CancellablePromise<T> extends Promise<T> {}

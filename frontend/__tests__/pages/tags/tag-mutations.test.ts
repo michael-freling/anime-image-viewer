@@ -26,7 +26,12 @@
 // in jest's resolver.)
 jest.mock("@wailsio/runtime", () => require("../../support/wailsio-runtime-mock"));
 
-import { Call } from "../../support/wailsio-runtime-mock";
+import {
+  Call,
+  nextRejects,
+  nextResolves,
+  resetTransport,
+} from "../../support/wailsio-runtime-mock";
 import { TagFrontendService } from "../../../src/lib/api";
 import {
   createTag,
@@ -41,7 +46,6 @@ const byID = Call.ByID as jest.Mock;
 // real binding once. This is what lets assertions read in terms of method names.
 const idToName = new Map<number, string>();
 beforeAll(() => {
-  byID.mockReturnValue(Promise.resolve({}));
   for (const [name, fn] of Object.entries(TagFrontendService)) {
     if (typeof fn !== "function") continue;
     byID.mockClear();
@@ -50,7 +54,7 @@ beforeAll(() => {
     const id = byID.mock.calls[0]?.[0];
     if (typeof id === "number") idToName.set(id, name);
   }
-  byID.mockReset();
+  resetTransport();
 });
 
 /** The transport calls made so far, as readable `{ method, args }` records. */
@@ -63,13 +67,12 @@ function transportCalls(): Array<{ method: string; args: unknown[] }> {
 
 describe("tag-mutations (against the real TagFrontendService binding)", () => {
   beforeEach(() => {
-    byID.mockReset();
+    resetTransport();
   });
 
   test("createTag with a category calls CreateTopTag then UpdateCategory", async () => {
-    byID
-      .mockResolvedValueOnce({ id: 7, name: "Sunset", category: "" }) // CreateTopTag
-      .mockResolvedValueOnce({ id: 7, name: "Sunset", category: "scene" }); // UpdateCategory
+    nextResolves({ id: 7, name: "Sunset", category: "" }); // CreateTopTag
+    nextResolves({ id: 7, name: "Sunset", category: "scene" }); // UpdateCategory
 
     const result = await createTag({ name: "Sunset", category: "scene" });
 
@@ -81,7 +84,7 @@ describe("tag-mutations (against the real TagFrontendService binding)", () => {
   });
 
   test("createTag for an uncategorized tag skips the UpdateCategory round-trip", async () => {
-    byID.mockResolvedValueOnce({ id: 3, name: "z", category: "" });
+    nextResolves({ id: 3, name: "z", category: "" });
 
     const result = await createTag({ name: "z", category: "uncategorized", parentId: 99 });
 
@@ -91,9 +94,8 @@ describe("tag-mutations (against the real TagFrontendService binding)", () => {
   });
 
   test("updateTag calls UpdateName then UpdateCategory in order", async () => {
-    byID
-      .mockResolvedValueOnce({ id: 1, name: "Rain", category: "nature" }) // UpdateName
-      .mockResolvedValueOnce({ id: 1, name: "Rain", category: "nature" }); // UpdateCategory
+    nextResolves({ id: 1, name: "Rain", category: "nature" }); // UpdateName
+    nextResolves({ id: 1, name: "Rain", category: "nature" }); // UpdateCategory
 
     const result = await updateTag(1, { name: "Rain", category: "nature" });
 
@@ -106,9 +108,8 @@ describe("tag-mutations (against the real TagFrontendService binding)", () => {
   });
 
   test("updateTag maps the uncategorized sentinel to an empty category string", async () => {
-    byID
-      .mockResolvedValueOnce({ id: 2, name: "x", category: "" })
-      .mockResolvedValueOnce({ id: 2, name: "x", category: "" });
+    nextResolves({ id: 2, name: "x", category: "" });
+    nextResolves({ id: 2, name: "x", category: "" });
 
     await updateTag(2, { name: "x", category: "uncategorized" });
 
@@ -119,7 +120,7 @@ describe("tag-mutations (against the real TagFrontendService binding)", () => {
   });
 
   test("deleteTag forwards the tag id to DeleteTag", async () => {
-    byID.mockResolvedValueOnce(undefined);
+    nextResolves(undefined);
 
     await deleteTag(55);
 
@@ -127,13 +128,13 @@ describe("tag-mutations (against the real TagFrontendService binding)", () => {
   });
 
   test("deleteTag surfaces backend errors instead of swallowing them", async () => {
-    byID.mockRejectedValueOnce(new Error("boom"));
+    nextRejects(new Error("boom"));
 
     await expect(deleteTag(1)).rejects.toThrow("boom");
   });
 
   test("getTagFileCount returns the numeric value from GetTagFileCount", async () => {
-    byID.mockResolvedValueOnce(42);
+    nextResolves(42);
 
     const n = await getTagFileCount(3);
 
@@ -143,7 +144,7 @@ describe("tag-mutations (against the real TagFrontendService binding)", () => {
 
   test("getTagFileCount swallows errors and returns null", async () => {
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
-    byID.mockRejectedValueOnce(new Error("boom"));
+    nextRejects(new Error("boom"));
 
     const n = await getTagFileCount(4);
 
@@ -153,7 +154,7 @@ describe("tag-mutations (against the real TagFrontendService binding)", () => {
   });
 
   test("getTagFileCount coerces a falsy backend response to 0", async () => {
-    byID.mockResolvedValueOnce(undefined);
+    nextResolves(undefined);
 
     const n = await getTagFileCount(4);
 
