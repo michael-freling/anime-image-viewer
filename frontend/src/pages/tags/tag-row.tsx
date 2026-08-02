@@ -15,6 +15,7 @@ import { Box, IconButton, chakra } from "@chakra-ui/react";
 import { Check, Search, X } from "lucide-react";
 
 import { TagChip } from "../../components/shared/tag-chip";
+import { useLongPress } from "../../hooks/use-long-press";
 import { formatCount } from "../../lib/format";
 import type { Tag } from "../../types";
 
@@ -34,6 +35,8 @@ export interface TagRowProps {
   selected?: boolean;
   /** Toggle this tag's selection. */
   onToggleSelect?: (tag: Tag) => void;
+  /** Long-press (hold) the tag — used to enter select mode, like the image grid. */
+  onLongPress?: (tag: Tag) => void;
 }
 
 export function TagRow({
@@ -45,22 +48,36 @@ export function TagRow({
   selectMode = false,
   selected = false,
   onToggleSelect,
+  onLongPress,
 }: TagRowProps): JSX.Element {
   // Reveal the Search/Delete actions on hover or keyboard focus so the resting
   // row is just the chip. React's onFocus/onBlur bubble, so focusing either
   // action button flips this on.
   const [active, setActive] = useState(false);
 
+  // Hold the tag to enter select mode (mirrors the image grid). firedRef lets
+  // us swallow the click that a long-press releases into, so a hold never also
+  // edits/toggles.
+  const { firedRef, ...longPressHandlers } = useLongPress({
+    onLongPress: () => onLongPress?.(tag),
+  });
+
   const handleChipClick = () => {
+    if (firedRef.current) {
+      firedRef.current = false;
+      return;
+    }
     if (selectMode) onToggleSelect?.(tag);
     else onEdit(tag);
   };
 
   return (
     <Box
+      {...longPressHandlers}
       data-testid="tag-row"
       data-tag-id={tag.id}
       data-selected={selected ? "true" : undefined}
+      style={{ touchAction: "none" }}
       onMouseEnter={() => setActive(true)}
       onMouseLeave={() => setActive(false)}
       onFocus={() => setActive(true)}

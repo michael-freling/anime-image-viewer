@@ -270,6 +270,13 @@ export function TagManagementPage(): JSX.Element {
     clearSelection();
   };
 
+  // Hold a tag to enter select mode with that tag selected (mirrors the image
+  // grid's long-press). If already selecting, it just adds the held tag.
+  const handleLongPress = (tag: Tag) => {
+    setSelectMode(true);
+    setSelectedIds((prev) => new Set(prev).add(tag.id));
+  };
+
   const submitBatchDelete = async () => {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
@@ -374,6 +381,7 @@ export function TagManagementPage(): JSX.Element {
             selectMode={selectMode}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
+            onLongPressTag={handleLongPress}
           />
         ))}
       </Stack>
@@ -481,31 +489,19 @@ export function TagManagementPage(): JSX.Element {
               </Button>
             </Flex>
           ) : (
-            <Flex align="center" gap="2" ml="auto" shrink={0}>
-              {tags.length > 0 && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setSelectMode(true)}
-                  data-testid="tag-select-mode"
-                >
-                  Select
-                </Button>
-              )}
-              <Button
-                type="button"
-                size="sm"
-                bg="primary"
-                color="bg.surface"
-                _hover={{ bg: "primary.hover" }}
-                onClick={() => openCreate()}
-                data-testid="tag-management-new"
-              >
-                <Plus size={16} aria-hidden="true" />
-                New tag
-              </Button>
-            </Flex>
+            <Button
+              type="button"
+              size="sm"
+              bg="primary"
+              color="bg.surface"
+              _hover={{ bg: "primary.hover" }}
+              onClick={() => openCreate()}
+              data-testid="tag-management-new"
+              ml="auto"
+            >
+              <Plus size={16} aria-hidden="true" />
+              New tag
+            </Button>
           )}
         </Flex>
       </Box>

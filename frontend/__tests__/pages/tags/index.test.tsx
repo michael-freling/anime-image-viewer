@@ -603,12 +603,22 @@ describe("TagManagementPage", () => {
     }
   });
 
-  /** Enter select mode by clicking the header's "Select" button. */
-  function enterSelectMode(container: HTMLElement) {
+  /**
+   * Hold (long-press) the row whose text includes `name` to enter select mode
+   * with that tag selected — the only way in now (no Select button). Uses real
+   * timers: a pointerdown starts the 500ms hold, which we wait past.
+   */
+  async function longPressRow(container: HTMLElement, name: string) {
+    const row = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-testid='tag-row']"),
+    ).find((r) => r.textContent?.includes(name))!;
     act(() => {
-      container
-        .querySelector<HTMLButtonElement>("[data-testid='tag-select-mode']")!
-        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      row.dispatchEvent(
+        new MouseEvent("pointerdown", { bubbles: true, clientX: 5, clientY: 5 }),
+      );
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 560));
     });
   }
 
@@ -624,7 +634,7 @@ describe("TagManagementPage", () => {
     });
   }
 
-  test("Select enters select mode; Clear empties it; Done exits", async () => {
+  test("long-pressing a tag enters select mode; Clear empties it; Done exits", async () => {
     getAllTagsMock.mockResolvedValue(TAGS);
     const { container, unmount } = renderWithClient(<TagManagementPage />);
     try {
@@ -632,7 +642,7 @@ describe("TagManagementPage", () => {
         container.querySelector("[data-testid='tag-management-categories']") !==
           null,
       );
-      // No checkboxes or count until select mode is entered.
+      // No checkboxes or count in the resting view.
       expect(
         container.querySelector("[data-testid='tag-row-select']"),
       ).toBeNull();
@@ -640,11 +650,15 @@ describe("TagManagementPage", () => {
         container.querySelector("[data-testid='tag-selection-count']"),
       ).toBeNull();
 
-      enterSelectMode(container);
+      // Holding a tag enters select mode with that tag already selected.
+      await longPressRow(container, "Outdoor");
       await waitFor(
         () => container.querySelector("[data-testid='tag-row-select']") !== null,
       );
-      selectRowByName(container, "Outdoor");
+      expect(
+        container.querySelector("[data-testid='tag-selection-count']")?.textContent,
+      ).toContain("1 tag");
+
       selectRowByName(container, "Rain");
       await waitFor(() =>
         (container.querySelector("[data-testid='tag-selection-count']")
@@ -662,14 +676,14 @@ describe("TagManagementPage", () => {
           ?.textContent ?? "").includes("0 tags"),
       );
 
-      // Done exits select mode entirely.
+      // Done exits select mode entirely — back to the New tag header.
       act(() => {
         container
           .querySelector<HTMLButtonElement>("[data-testid='tag-selection-done']")!
           .dispatchEvent(new MouseEvent("click", { bubbles: true }));
       });
       await waitFor(
-        () => container.querySelector("[data-testid='tag-select-mode']") !== null,
+        () => container.querySelector("[data-testid='tag-management-new']") !== null,
       );
       expect(
         container.querySelector("[data-testid='tag-row-select']"),
@@ -691,11 +705,10 @@ describe("TagManagementPage", () => {
         container.querySelector("[data-testid='tag-management-categories']") !==
           null,
       );
-      enterSelectMode(container);
+      await longPressRow(container, "Outdoor"); // id 1 — enters select mode
       await waitFor(
         () => container.querySelector("[data-testid='tag-row-select']") !== null,
       );
-      selectRowByName(container, "Outdoor"); // id 1
       selectRowByName(container, "Rain"); // id 2
 
       act(() => {
@@ -736,11 +749,10 @@ describe("TagManagementPage", () => {
         container.querySelector("[data-testid='tag-management-categories']") !==
           null,
       );
-      enterSelectMode(container);
+      await longPressRow(container, "Outdoor");
       await waitFor(
         () => container.querySelector("[data-testid='tag-row-select']") !== null,
       );
-      selectRowByName(container, "Outdoor");
       act(() => {
         container
           .querySelector<HTMLButtonElement>("[data-testid='tag-selection-delete']")!
@@ -782,11 +794,10 @@ describe("TagManagementPage", () => {
         container.querySelector("[data-testid='tag-management-categories']") !==
           null,
       );
-      enterSelectMode(container);
+      await longPressRow(container, "Outdoor"); // id 1 — enters select mode
       await waitFor(
         () => container.querySelector("[data-testid='tag-row-select']") !== null,
       );
-      selectRowByName(container, "Outdoor"); // id 1
       selectRowByName(container, "Rain"); // id 2
 
       act(() => {

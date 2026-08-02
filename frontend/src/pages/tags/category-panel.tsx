@@ -35,6 +35,8 @@ export interface CategoryPanelProps {
   selectedIds?: Set<number>;
   /** Toggle a tag's selection. */
   onToggleSelect?: (tag: Tag) => void;
+  /** Long-press (hold) a tag — enters select mode. */
+  onLongPressTag?: (tag: Tag) => void;
 }
 
 export function CategoryPanel({
@@ -49,6 +51,7 @@ export function CategoryPanel({
   selectMode = false,
   selectedIds,
   onToggleSelect,
+  onLongPressTag,
 }: CategoryPanelProps): JSX.Element {
   const label = CATEGORY_LABELS[categoryKey];
   const color = TAG_CATEGORY_TOKENS[categoryKey].fg;
@@ -106,6 +109,7 @@ export function CategoryPanel({
               selectMode={selectMode}
               selected={selectedIds?.has(tag.id) ?? false}
               onToggleSelect={onToggleSelect}
+              onLongPress={onLongPressTag}
             />
           ))}
         </Flex>

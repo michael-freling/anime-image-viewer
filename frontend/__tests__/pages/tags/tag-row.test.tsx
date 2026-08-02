@@ -149,6 +149,44 @@ describe("TagRow", () => {
     r.unmount();
   });
 
+  test("holding a tag fires onLongPress and swallows the release click", () => {
+    jest.useFakeTimers();
+    try {
+      const onEdit = jest.fn();
+      const onLongPress = jest.fn();
+      const r = render(
+        createElement(TagRow, {
+          tag: TAG,
+          onEdit,
+          onDelete: jest.fn(),
+          onLongPress,
+        }),
+      );
+      const row = r.container.querySelector<HTMLElement>(
+        "[data-testid='tag-row']",
+      )!;
+      act(() => {
+        row.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+      });
+      act(() => {
+        jest.advanceTimersByTime(600);
+      });
+      expect(onLongPress).toHaveBeenCalledWith(TAG);
+
+      // The click a real hold releases into must NOT also edit.
+      const chip = r.container.querySelector<HTMLElement>(
+        "[data-testid='tag-chip']",
+      )!;
+      act(() => {
+        chip.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      expect(onEdit).not.toHaveBeenCalled();
+      r.unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   test("select mode: tapping the chip toggles selection instead of editing", () => {
     const onEdit = jest.fn();
     const onToggleSelect = jest.fn();
