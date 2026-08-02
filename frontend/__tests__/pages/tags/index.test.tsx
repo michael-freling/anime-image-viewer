@@ -2,17 +2,24 @@
  * Integration tests for the Tag Management page (ui-design §3.5 / wireframe
  * `05-tag-management-desktop.svg`).
  *
- * We mock the TagService binding so the page's `useTags` + mutation wrappers
- * can run deterministically in jsdom. The full Chakra runtime is retained so
- * we exercise the real theme + dialog components; this mirrors the approach
- * used by the Search page tests.
+ * This is a page-render test, so it mocks the `lib/api` bindings for
+ * deterministic data in jsdom. The full Chakra runtime is retained so we
+ * exercise the real theme + dialog components; this mirrors the Search page
+ * tests. The *binding contract* the mutation wrappers depend on (that the real
+ * `TagFrontendService` actually exposes CreateTopTag/UpdateName/… — the seam
+ * that broke) is verified separately in `tag-mutations.test.ts`, which runs
+ * against the genuine generated binding over a mocked transport.
  */
 
 // ---- Mocks (hoisted) -----------------------------------------------------
 
+// Reads go through the `TagService` binding (internal/frontend); mutations go
+// through the `TagFrontendService` binding (internal/tag). Mock both so the
+// page's `useTags` and mutation wrappers run deterministically in jsdom.
 const getAllTagsMock = jest.fn();
-const createTagMock = jest.fn();
-const updateTagMock = jest.fn();
+const createTopTagMock = jest.fn();
+const updateNameMock = jest.fn();
+const updateCategoryMock = jest.fn();
 const deleteTagMock = jest.fn();
 const getTagFileCountMock = jest.fn();
 
@@ -20,8 +27,11 @@ jest.mock("../../../src/lib/api", () => ({
   __esModule: true,
   TagService: {
     GetAll: (...args: unknown[]) => getAllTagsMock(...args),
-    CreateTag: (...args: unknown[]) => createTagMock(...args),
-    UpdateTag: (...args: unknown[]) => updateTagMock(...args),
+  },
+  TagFrontendService: {
+    CreateTopTag: (...args: unknown[]) => createTopTagMock(...args),
+    UpdateName: (...args: unknown[]) => updateNameMock(...args),
+    UpdateCategory: (...args: unknown[]) => updateCategoryMock(...args),
     DeleteTag: (...args: unknown[]) => deleteTagMock(...args),
     GetTagFileCount: (...args: unknown[]) => getTagFileCountMock(...args),
   },
@@ -73,8 +83,9 @@ function setInputValue(input: HTMLInputElement, value: string) {
 describe("TagManagementPage", () => {
   beforeEach(() => {
     getAllTagsMock.mockReset();
-    createTagMock.mockReset();
-    updateTagMock.mockReset();
+    createTopTagMock.mockReset();
+    updateNameMock.mockReset();
+    updateCategoryMock.mockReset();
     deleteTagMock.mockReset();
     getTagFileCountMock.mockReset();
     toastSuccessMock.mockReset();
@@ -228,16 +239,16 @@ describe("TagManagementPage", () => {
     }
   });
 
-  test("submitting the create dialog calls TagService.CreateTag and refreshes the list", async () => {
+  test("submitting the create dialog calls TagFrontendService.CreateTopTag and refreshes the list", async () => {
     // First call: initial list. Second call: after invalidation we want an
     // updated shape to prove the refetch actually fired.
     getAllTagsMock
       .mockResolvedValueOnce(TAGS)
       .mockResolvedValueOnce([
         ...TAGS,
-        { id: 99, name: "Sunset", category: "scene" },
+        { id: 99, name: "Sunset", category: "" },
       ]);
-    createTagMock.mockResolvedValue({ id: 99, name: "Sunset", category: "scene" });
+    createTopTagMock.mockResolvedValue({ id: 99, name: "Sunset", category: "" });
 
     const { container, unmount } = renderWithClient(<TagManagementPage />);
     try {
@@ -265,12 +276,12 @@ describe("TagManagementPage", () => {
         await Promise.resolve();
       });
 
-      expect(createTagMock).toHaveBeenCalledTimes(1);
-      expect(createTagMock).toHaveBeenCalledWith({
-        name: "Sunset",
-        category: "uncategorized",
-        parentId: undefined,
-      });
+      // The create dialog defaults to the "uncategorized" category, which the
+      // backend represents as an empty string — so only CreateTopTag fires and
+      // no follow-up UpdateCategory call is made.
+      expect(createTopTagMock).toHaveBeenCalledTimes(1);
+      expect(createTopTagMock).toHaveBeenCalledWith("Sunset");
+      expect(updateCategoryMock).not.toHaveBeenCalled();
       expect(toastSuccessMock).toHaveBeenCalled();
 
       // The invalidation should have triggered a second GetAll.
@@ -282,7 +293,7 @@ describe("TagManagementPage", () => {
 
   test("a create error surfaces an inline error + toast and leaves the dialog open", async () => {
     getAllTagsMock.mockResolvedValue(TAGS);
-    createTagMock.mockRejectedValue(new Error("name taken"));
+    createTopTagMock.mockRejectedValue(new Error("name taken"));
 
     const { container, unmount } = renderWithClient(<TagManagementPage />);
     try {
@@ -490,20 +501,25 @@ describe("TagManagementPage", () => {
             ?.textContent ?? "").includes("required"),
       );
       // The mutation never fires.
-      expect(createTagMock).not.toHaveBeenCalled();
+      expect(createTopTagMock).not.toHaveBeenCalled();
     } finally {
       unmount();
     }
   });
 
-  test("editing a tag and submitting calls TagService.UpdateTag and refreshes", async () => {
+  test("editing a tag and submitting calls UpdateName + UpdateCategory and refreshes", async () => {
     getAllTagsMock
       .mockResolvedValueOnce(TAGS)
       .mockResolvedValueOnce([
         { id: 1, name: "Outdoor renamed", category: "scene" },
         ...TAGS.filter((t) => t.id !== 1),
       ]);
-    updateTagMock.mockResolvedValue({
+    updateNameMock.mockResolvedValue({
+      id: 1,
+      name: "Outdoor renamed",
+      category: "scene",
+    });
+    updateCategoryMock.mockResolvedValue({
       id: 1,
       name: "Outdoor renamed",
       category: "scene",
@@ -537,11 +553,8 @@ describe("TagManagementPage", () => {
         submit.dispatchEvent(new MouseEvent("click", { bubbles: true }));
         await Promise.resolve();
       });
-      expect(updateTagMock).toHaveBeenCalledWith(1, {
-        name: "Outdoor renamed",
-        category: "scene",
-        parentId: undefined,
-      });
+      expect(updateNameMock).toHaveBeenCalledWith(1, "Outdoor renamed");
+      expect(updateCategoryMock).toHaveBeenCalledWith(1, "scene");
       expect(toastSuccessMock).toHaveBeenCalled();
       await waitFor(() => getAllTagsMock.mock.calls.length >= 2);
     } finally {

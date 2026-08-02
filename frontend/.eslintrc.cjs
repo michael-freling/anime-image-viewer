@@ -12,5 +12,8 @@ module.exports = {
     'react-hooks/exhaustive-deps': 'off',
     // Encourage Chakra UI token usage over raw CSS values
     'no-raw-css-values': 'warn',
+    // Forbid laundering a Wails binding through `as unknown as` (the type-erasure
+    // that hid the tag create/update/delete no-op bug). See eslint-rules/.
+    'no-binding-cast': 'error',
   },
 }
