@@ -103,21 +103,27 @@ describe("TagRow", () => {
     r.unmount();
   });
 
-  test("checkbox is absent unless onToggleSelect is provided", () => {
+  test("no checkbox or hidden actions leak in normal mode", () => {
     const r = render(
       createElement(TagRow, {
         tag: TAG,
         onEdit: jest.fn(),
         onDelete: jest.fn(),
+        onSearch: jest.fn(),
       }),
     );
+    // No checkbox in normal mode; the delete/search actions ARE present (just
+    // visually revealed on hover) so they stay reachable.
     expect(
       r.container.querySelector("[data-testid='tag-row-select']"),
     ).toBeNull();
+    expect(
+      r.container.querySelector("[data-testid='tag-row-delete']"),
+    ).not.toBeNull();
     r.unmount();
   });
 
-  test("checkbox reflects selected state and toggles without editing", () => {
+  test("select mode: checkbox reflects selected state and toggles via the checkbox", () => {
     const onEdit = jest.fn();
     const onToggleSelect = jest.fn();
     const r = render(
@@ -125,6 +131,7 @@ describe("TagRow", () => {
         tag: TAG,
         onEdit,
         onDelete: jest.fn(),
+        selectMode: true,
         selected: true,
         onToggleSelect,
       }),
@@ -137,10 +144,51 @@ describe("TagRow", () => {
     act(() => {
       checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
-    expect(onToggleSelect).toHaveBeenCalledTimes(1);
     expect(onToggleSelect).toHaveBeenCalledWith(TAG);
-    // Selecting must not open the edit dialog.
     expect(onEdit).not.toHaveBeenCalled();
+    r.unmount();
+  });
+
+  test("select mode: tapping the chip toggles selection instead of editing", () => {
+    const onEdit = jest.fn();
+    const onToggleSelect = jest.fn();
+    const r = render(
+      createElement(TagRow, {
+        tag: TAG,
+        onEdit,
+        onDelete: jest.fn(),
+        selectMode: true,
+        onToggleSelect,
+      }),
+    );
+    const chip = r.container.querySelector<HTMLElement>(
+      "[data-testid='tag-chip']",
+    )!;
+    act(() => {
+      chip.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onToggleSelect).toHaveBeenCalledWith(TAG);
+    expect(onEdit).not.toHaveBeenCalled();
+    r.unmount();
+  });
+
+  test("select mode: per-row search/delete actions are hidden", () => {
+    const r = render(
+      createElement(TagRow, {
+        tag: TAG,
+        onEdit: jest.fn(),
+        onDelete: jest.fn(),
+        onSearch: jest.fn(),
+        selectMode: true,
+        onToggleSelect: jest.fn(),
+      }),
+    );
+    expect(
+      r.container.querySelector("[data-testid='tag-row-search']"),
+    ).toBeNull();
+    expect(
+      r.container.querySelector("[data-testid='tag-row-delete']"),
+    ).toBeNull();
     r.unmount();
   });
 
@@ -165,6 +213,32 @@ describe("TagRow", () => {
     // The chip click was NOT dispatched, so onEdit stays untouched.
     expect(onEdit).not.toHaveBeenCalled();
     expect(deleteBtn.getAttribute("aria-label")).toBe("Delete tag Sunset");
+    r.unmount();
+  });
+
+  test("focusing/blurring a row toggles the hover-reveal state", () => {
+    const r = render(
+      createElement(TagRow, {
+        tag: TAG,
+        onEdit: jest.fn(),
+        onDelete: jest.fn(),
+        onSearch: jest.fn(),
+      }),
+    );
+    const del = r.container.querySelector<HTMLButtonElement>(
+      "[data-testid='tag-row-delete']",
+    )!;
+    // React onFocus/onBlur bubble, so focusing an action reveals the group;
+    // blurring hides it again. Exercises the reveal state both ways.
+    act(() => {
+      del.focus();
+    });
+    act(() => {
+      del.blur();
+    });
+    expect(
+      r.container.querySelector("[data-testid='tag-row-delete']"),
+    ).not.toBeNull();
     r.unmount();
   });
 

@@ -170,6 +170,7 @@ describe("CategoryPanel", () => {
         onAddInCategory: jest.fn(),
         onEditTag: jest.fn(),
         onDeleteTag: jest.fn(),
+        selectMode: true,
         selectedIds: new Set<number>([2]),
         onToggleSelect,
       }),

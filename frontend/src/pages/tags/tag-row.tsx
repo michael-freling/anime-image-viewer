@@ -1,14 +1,16 @@
 /**
  * Tag row rendered inside a `CategoryPanel`.
  *
- * Visual layout (ui-design §3.5):
- *   [ select ] [ TagChip ] [usage count] [ search ] [ delete X ]
- *
- * Tapping the chip opens the edit dialog — there is no separate edit button
- * (the chip itself is the edit affordance). The leading checkbox selects the
- * tag for batch actions (e.g. multi-delete); it and the trailing icon buttons
- * `stopPropagation` so they never trigger the chip's edit click.
+ * Two interaction modes keep the click target unambiguous:
+ *   - Normal mode: the row is just the tag chip. Tapping it opens the edit
+ *     dialog (the chip is the edit affordance). The Search / Delete icon
+ *     buttons stay hidden until the row is hovered or focused, so the default
+ *     view is uncluttered.
+ *   - Select mode: a leading checkbox appears and tapping the chip toggles
+ *     selection instead of editing. The per-row action icons are hidden —
+ *     deletion happens through the batch action in the page header.
  */
+import { useState } from "react";
 import { Box, IconButton, chakra } from "@chakra-ui/react";
 import { Check, Search, X } from "lucide-react";
 
@@ -26,9 +28,11 @@ export interface TagRowProps {
   onDelete: (tag: Tag) => void;
   /** Navigate to search filtered by this tag. */
   onSearch?: (tag: Tag) => void;
-  /** Whether this tag is currently selected for a batch action. */
+  /** When true, the chip toggles selection and the checkbox is shown. */
+  selectMode?: boolean;
+  /** Whether this tag is currently selected (select mode only). */
   selected?: boolean;
-  /** Toggle this tag's selection. When omitted, the checkbox is not rendered. */
+  /** Toggle this tag's selection. */
   onToggleSelect?: (tag: Tag) => void;
 }
 
@@ -38,31 +42,41 @@ export function TagRow({
   onEdit,
   onDelete,
   onSearch,
+  selectMode = false,
   selected = false,
   onToggleSelect,
 }: TagRowProps): JSX.Element {
-  const handleEdit = () => onEdit(tag);
-  const handleDelete = () => onDelete(tag);
-  const handleSearch = () => onSearch?.(tag);
-  const handleToggleSelect = () => onToggleSelect?.(tag);
+  // Reveal the Search/Delete actions on hover or keyboard focus so the resting
+  // row is just the chip. React's onFocus/onBlur bubble, so focusing either
+  // action button flips this on.
+  const [active, setActive] = useState(false);
+
+  const handleChipClick = () => {
+    if (selectMode) onToggleSelect?.(tag);
+    else onEdit(tag);
+  };
 
   return (
     <Box
       data-testid="tag-row"
       data-tag-id={tag.id}
       data-selected={selected ? "true" : undefined}
+      onMouseEnter={() => setActive(true)}
+      onMouseLeave={() => setActive(false)}
+      onFocus={() => setActive(true)}
+      onBlur={() => setActive(false)}
       display="inline-flex"
       alignItems="center"
       gap="8px"
       px="2"
       py="1"
       borderRadius="md"
-      bg={selected ? "primary.subtle" : "bg.surface"}
+      bg={selectMode && selected ? "primary.subtle" : "bg.surface"}
       borderWidth="1px"
-      borderColor={selected ? "primary" : "border"}
+      borderColor={selectMode && selected ? "primary" : "border"}
       _hover={{ borderColor: "primary" }}
     >
-      {onToggleSelect && (
+      {selectMode && (
         <ChakraButton
           type="button"
           role="checkbox"
@@ -71,7 +85,7 @@ export function TagRow({
           data-testid="tag-row-select"
           onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
             event.stopPropagation();
-            handleToggleSelect();
+            onToggleSelect?.(tag);
           }}
           display="flex"
           alignItems="center"
@@ -97,7 +111,7 @@ export function TagRow({
         tag={tag}
         active
         size="sm"
-        onClick={handleEdit}
+        onClick={handleChipClick}
       />
       {typeof usageCount === "number" && (
         <Box
@@ -109,38 +123,49 @@ export function TagRow({
           {formatCount(usageCount, "image")}
         </Box>
       )}
-      {onSearch && (
-        <IconButton
-          type="button"
-          size="xs"
-          variant="ghost"
-          aria-label={`Search images with tag ${tag.name}`}
-          data-testid="tag-row-search"
-          onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
-            event.stopPropagation();
-            handleSearch();
-          }}
-          color="fg.secondary"
-          _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
+      {!selectMode && (
+        <Box
+          display="inline-flex"
+          alignItems="center"
+          gap="1"
+          opacity={active ? 1 : 0}
+          pointerEvents={active ? "auto" : "none"}
+          transition="opacity 120ms ease"
         >
-          <Search size={12} aria-hidden="true" />
-        </IconButton>
+          {onSearch && (
+            <IconButton
+              type="button"
+              size="xs"
+              variant="ghost"
+              aria-label={`Search images with tag ${tag.name}`}
+              data-testid="tag-row-search"
+              onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
+                event.stopPropagation();
+                onSearch(tag);
+              }}
+              color="fg.secondary"
+              _hover={{ color: "fg", bg: "bg.surfaceAlt" }}
+            >
+              <Search size={12} aria-hidden="true" />
+            </IconButton>
+          )}
+          <IconButton
+            type="button"
+            size="xs"
+            variant="ghost"
+            aria-label={`Delete tag ${tag.name}`}
+            data-testid="tag-row-delete"
+            onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
+              event.stopPropagation();
+              onDelete(tag);
+            }}
+            color="danger"
+            _hover={{ color: "danger", bg: "danger.bg" }}
+          >
+            <X size={12} aria-hidden="true" />
+          </IconButton>
+        </Box>
       )}
-      <IconButton
-        type="button"
-        size="xs"
-        variant="ghost"
-        aria-label={`Delete tag ${tag.name}`}
-        data-testid="tag-row-delete"
-        onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
-          event.stopPropagation();
-          handleDelete();
-        }}
-        color="danger"
-        _hover={{ color: "danger", bg: "danger.bg" }}
-      >
-        <X size={12} aria-hidden="true" />
-      </IconButton>
     </Box>
   );
 }

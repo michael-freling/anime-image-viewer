@@ -603,20 +603,28 @@ describe("TagManagementPage", () => {
     }
   });
 
-  /** Click the selection checkbox on the row whose text includes `name`. */
+  /** Enter select mode by clicking the header's "Select" button. */
+  function enterSelectMode(container: HTMLElement) {
+    act(() => {
+      container
+        .querySelector<HTMLButtonElement>("[data-testid='tag-select-mode']")!
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+  }
+
+  /** In select mode, toggle the row whose text includes `name` via its checkbox. */
   function selectRowByName(container: HTMLElement, name: string) {
     const row = Array.from(
       container.querySelectorAll<HTMLElement>("[data-testid='tag-row']"),
     ).find((r) => r.textContent?.includes(name))!;
-    const checkbox = row.querySelector<HTMLButtonElement>(
-      "[data-testid='tag-row-select']",
-    )!;
     act(() => {
-      checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      row
+        .querySelector<HTMLButtonElement>("[data-testid='tag-row-select']")!
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
   }
 
-  test("selecting tags shows the action bar with a count", async () => {
+  test("Select enters select mode; Clear empties it; Done exits", async () => {
     getAllTagsMock.mockResolvedValue(TAGS);
     const { container, unmount } = renderWithClient(<TagManagementPage />);
     try {
@@ -624,31 +632,48 @@ describe("TagManagementPage", () => {
         container.querySelector("[data-testid='tag-management-categories']") !==
           null,
       );
-      // No bar until something is selected.
+      // No checkboxes or count until select mode is entered.
       expect(
-        container.querySelector("[data-testid='tag-selection-bar']"),
+        container.querySelector("[data-testid='tag-row-select']"),
+      ).toBeNull();
+      expect(
+        container.querySelector("[data-testid='tag-selection-count']"),
       ).toBeNull();
 
+      enterSelectMode(container);
+      await waitFor(
+        () => container.querySelector("[data-testid='tag-row-select']") !== null,
+      );
       selectRowByName(container, "Outdoor");
       selectRowByName(container, "Rain");
-
-      await waitFor(
-        () => container.querySelector("[data-testid='tag-selection-bar']") !== null,
+      await waitFor(() =>
+        (container.querySelector("[data-testid='tag-selection-count']")
+          ?.textContent ?? "").includes("2 tags"),
       );
-      expect(
-        container.querySelector("[data-testid='tag-selection-count']")?.textContent,
-      ).toContain("2 tags");
 
-      // Clear dismisses the bar.
-      const clear = container.querySelector<HTMLButtonElement>(
-        "[data-testid='tag-selection-clear']",
-      )!;
+      // Clear empties the selection but stays in select mode.
       act(() => {
-        clear.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        container
+          .querySelector<HTMLButtonElement>("[data-testid='tag-selection-clear']")!
+          .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      await waitFor(() =>
+        (container.querySelector("[data-testid='tag-selection-count']")
+          ?.textContent ?? "").includes("0 tags"),
+      );
+
+      // Done exits select mode entirely.
+      act(() => {
+        container
+          .querySelector<HTMLButtonElement>("[data-testid='tag-selection-done']")!
+          .dispatchEvent(new MouseEvent("click", { bubbles: true }));
       });
       await waitFor(
-        () => container.querySelector("[data-testid='tag-selection-bar']") === null,
+        () => container.querySelector("[data-testid='tag-select-mode']") !== null,
       );
+      expect(
+        container.querySelector("[data-testid='tag-row-select']"),
+      ).toBeNull();
     } finally {
       unmount();
     }
@@ -666,72 +691,16 @@ describe("TagManagementPage", () => {
         container.querySelector("[data-testid='tag-management-categories']") !==
           null,
       );
+      enterSelectMode(container);
+      await waitFor(
+        () => container.querySelector("[data-testid='tag-row-select']") !== null,
+      );
       selectRowByName(container, "Outdoor"); // id 1
       selectRowByName(container, "Rain"); // id 2
 
-      await waitFor(
-        () => container.querySelector("[data-testid='tag-selection-delete']") !== null,
-      );
-      const del = container.querySelector<HTMLButtonElement>(
-        "[data-testid='tag-selection-delete']",
-      )!;
       act(() => {
-        del.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      });
-
-      await waitFor(
-        () => document.querySelector("[data-testid='confirm-dialog']") !== null,
-      );
-      const confirmBtn = document.querySelector<HTMLButtonElement>(
-        "[data-testid='confirm-dialog-confirm']",
-      )!;
-      await act(async () => {
-        confirmBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-        await Promise.resolve();
-      });
-
-      expect(deleteTagMock).toHaveBeenCalledWith(1);
-      expect(deleteTagMock).toHaveBeenCalledWith(2);
-      expect(deleteTagMock).toHaveBeenCalledTimes(2);
-      expect(toastSuccessMock).toHaveBeenCalled();
-      await waitFor(() => getAllTagsMock.mock.calls.length >= 2);
-      // The bar clears once the selected tags are gone.
-      await waitFor(
-        () => container.querySelector("[data-testid='tag-selection-bar']") === null,
-      );
-    } finally {
-      unmount();
-    }
-  });
-
-  test("deleting a selected tag prunes it from the selection", async () => {
-    getAllTagsMock
-      .mockResolvedValueOnce(TAGS)
-      .mockResolvedValueOnce(TAGS.filter((t) => t.id !== 1)); // Outdoor removed
-    getTagFileCountMock.mockResolvedValue(0);
-    deleteTagMock.mockResolvedValue(undefined);
-
-    const { container, unmount } = renderWithClient(<TagManagementPage />);
-    try {
-      await waitFor(() =>
-        container.querySelector("[data-testid='tag-management-categories']") !==
-          null,
-      );
-      selectRowByName(container, "Outdoor"); // id 1
-      selectRowByName(container, "Rain"); // id 2
-      await waitFor(() =>
-        (container.querySelector("[data-testid='tag-selection-count']")
-          ?.textContent ?? "").includes("2 tags"),
-      );
-
-      // Single-delete Outdoor via its row X; after the refetch it's gone, so the
-      // selection prunes down to just Rain.
-      const outdoor = Array.from(
-        container.querySelectorAll<HTMLElement>("[data-testid='tag-row']"),
-      ).find((row) => row.textContent?.includes("Outdoor"))!;
-      act(() => {
-        outdoor
-          .querySelector<HTMLButtonElement>("[data-testid='tag-row-delete']")!
+        container
+          .querySelector<HTMLButtonElement>("[data-testid='tag-selection-delete']")!
           .dispatchEvent(new MouseEvent("click", { bubbles: true }));
       });
       await waitFor(
@@ -744,10 +713,15 @@ describe("TagManagementPage", () => {
         await Promise.resolve();
       });
 
+      expect(deleteTagMock).toHaveBeenCalledWith(1);
+      expect(deleteTagMock).toHaveBeenCalledWith(2);
+      expect(deleteTagMock).toHaveBeenCalledTimes(2);
+      expect(toastSuccessMock).toHaveBeenCalled();
       await waitFor(() => getAllTagsMock.mock.calls.length >= 2);
+      // Selection empties once the tags are gone.
       await waitFor(() =>
         (container.querySelector("[data-testid='tag-selection-count']")
-          ?.textContent ?? "").includes("1 tag"),
+          ?.textContent ?? "").includes("0 tags"),
       );
     } finally {
       unmount();
@@ -761,6 +735,10 @@ describe("TagManagementPage", () => {
       await waitFor(() =>
         container.querySelector("[data-testid='tag-management-categories']") !==
           null,
+      );
+      enterSelectMode(container);
+      await waitFor(
+        () => container.querySelector("[data-testid='tag-row-select']") !== null,
       );
       selectRowByName(container, "Outdoor");
       act(() => {
@@ -779,19 +757,24 @@ describe("TagManagementPage", () => {
       await waitFor(
         () => document.querySelector("[data-testid='confirm-dialog']") === null,
       );
-      // The selection bar is untouched by cancelling.
+      // Still in select mode with the tag selected.
       expect(
-        container.querySelector("[data-testid='tag-selection-bar']"),
-      ).not.toBeNull();
+        container.querySelector("[data-testid='tag-selection-count']")?.textContent,
+      ).toContain("1 tag");
       expect(deleteTagMock).not.toHaveBeenCalled();
     } finally {
       unmount();
     }
   });
 
-  test("batch delete failure surfaces an error toast and keeps the selection", async () => {
-    getAllTagsMock.mockResolvedValue(TAGS);
-    deleteTagMock.mockRejectedValue(new Error("batch-failed"));
+  test("a partial batch-delete failure toasts and prunes the deleted tag", async () => {
+    getAllTagsMock
+      .mockResolvedValueOnce(TAGS)
+      // After the failed batch, Outdoor (id 1) is gone but Rain (id 2) remains.
+      .mockResolvedValueOnce(TAGS.filter((t) => t.id !== 1));
+    deleteTagMock
+      .mockResolvedValueOnce(undefined) // id 1 deleted
+      .mockRejectedValueOnce(new Error("batch-failed")); // id 2 fails
 
     const { container, unmount } = renderWithClient(<TagManagementPage />);
     try {
@@ -799,22 +782,25 @@ describe("TagManagementPage", () => {
         container.querySelector("[data-testid='tag-management-categories']") !==
           null,
       );
-      selectRowByName(container, "Outdoor");
+      enterSelectMode(container);
+      await waitFor(
+        () => container.querySelector("[data-testid='tag-row-select']") !== null,
+      );
+      selectRowByName(container, "Outdoor"); // id 1
+      selectRowByName(container, "Rain"); // id 2
 
-      const del = container.querySelector<HTMLButtonElement>(
-        "[data-testid='tag-selection-delete']",
-      )!;
       act(() => {
-        del.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        container
+          .querySelector<HTMLButtonElement>("[data-testid='tag-selection-delete']")!
+          .dispatchEvent(new MouseEvent("click", { bubbles: true }));
       });
       await waitFor(
         () => document.querySelector("[data-testid='confirm-dialog']") !== null,
       );
-      const confirmBtn = document.querySelector<HTMLButtonElement>(
-        "[data-testid='confirm-dialog-confirm']",
-      )!;
       await act(async () => {
-        confirmBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        document
+          .querySelector<HTMLButtonElement>("[data-testid='confirm-dialog-confirm']")!
+          .dispatchEvent(new MouseEvent("click", { bubbles: true }));
         await Promise.resolve();
         await Promise.resolve();
       });
@@ -823,10 +809,12 @@ describe("TagManagementPage", () => {
         "Could not delete tags",
         "batch-failed",
       );
-      // Selection persists so the user can retry.
-      expect(
-        container.querySelector("[data-testid='tag-selection-bar']"),
-      ).not.toBeNull();
+      // The refetch drops the deleted tag, so the selection prunes to just Rain.
+      await waitFor(() => getAllTagsMock.mock.calls.length >= 2);
+      await waitFor(() =>
+        (container.querySelector("[data-testid='tag-selection-count']")
+          ?.textContent ?? "").includes("1 tag"),
+      );
     } finally {
       unmount();
     }

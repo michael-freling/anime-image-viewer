@@ -29,9 +29,11 @@ export interface CategoryPanelProps {
   onEditTag: (tag: Tag) => void;
   onDeleteTag: (tag: Tag) => void;
   onSearchTag?: (tag: Tag) => void;
+  /** When true, rows show a selection checkbox and chip taps toggle selection. */
+  selectMode?: boolean;
   /** Ids of tags currently selected for a batch action. */
   selectedIds?: Set<number>;
-  /** Toggle a tag's selection. When omitted, row checkboxes are not rendered. */
+  /** Toggle a tag's selection. */
   onToggleSelect?: (tag: Tag) => void;
 }
 
@@ -44,6 +46,7 @@ export function CategoryPanel({
   onEditTag,
   onDeleteTag,
   onSearchTag,
+  selectMode = false,
   selectedIds,
   onToggleSelect,
 }: CategoryPanelProps): JSX.Element {
@@ -100,6 +103,7 @@ export function CategoryPanel({
               onEdit={onEditTag}
               onDelete={onDeleteTag}
               onSearch={onSearchTag}
+              selectMode={selectMode}
               selected={selectedIds?.has(tag.id) ?? false}
               onToggleSelect={onToggleSelect}
             />

@@ -114,7 +114,9 @@ export function TagManagementPage(): JSX.Element {
     fileCount: null,
     submitting: false,
   });
-  // Ids selected for a batch action (multi-delete). Persists across searches.
+  // Select mode: chips toggle selection instead of editing, and a checkbox +
+  // batch actions appear. Ids selected persist across searches.
+  const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
 
@@ -263,6 +265,11 @@ export function TagManagementPage(): JSX.Element {
 
   const clearSelection = () => setSelectedIds(new Set());
 
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    clearSelection();
+  };
+
   const submitBatchDelete = async () => {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
@@ -364,6 +371,7 @@ export function TagManagementPage(): JSX.Element {
             onEditTag={openEdit}
             onDeleteTag={openDelete}
             onSearchTag={(tag) => navigate(`/search?tag=${tag.id}`)}
+            selectMode={selectMode}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
           />
@@ -410,10 +418,21 @@ export function TagManagementPage(): JSX.Element {
             <Heading as="h1" fontWeight="600" fontSize="md" color="fg" lineHeight="1.2">
               Tags
             </Heading>
-            {tagCountLabel && (
-              <Text fontSize="xs" color="fg.muted">
-                {tagCountLabel}
+            {selectMode ? (
+              <Text
+                fontSize="xs"
+                color="fg.muted"
+                data-testid="tag-selection-count"
+                aria-live="polite"
+              >
+                {formatCount(selectedIds.size, "tag")} selected
               </Text>
+            ) : (
+              tagCountLabel && (
+                <Text fontSize="xs" color="fg.muted">
+                  {tagCountLabel}
+                </Text>
+              )
             )}
           </Flex>
 
@@ -426,75 +445,74 @@ export function TagManagementPage(): JSX.Element {
             />
           </Box>
 
-          <Button
-            type="button"
-            size="sm"
-            bg="primary"
-            color="bg.surface"
-            _hover={{ bg: "primary.hover" }}
-            onClick={() => openCreate()}
-            data-testid="tag-management-new"
-            ml="auto"
-          >
-            <Plus size={16} aria-hidden="true" />
-            New tag
-          </Button>
+          {selectMode ? (
+            <Flex align="center" gap="2" ml="auto" shrink={0}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={clearSelection}
+                disabled={selectedIds.size === 0}
+                data-testid="tag-selection-clear"
+              >
+                Clear
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                bg="danger.solid"
+                color="bg.surface"
+                _hover={{ bg: "danger.solidHover" }}
+                onClick={() => setBatchDeleteOpen(true)}
+                disabled={selectedIds.size === 0}
+                data-testid="tag-selection-delete"
+              >
+                <Trash2 size={14} aria-hidden="true" />
+                Delete
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={exitSelectMode}
+                data-testid="tag-selection-done"
+              >
+                Done
+              </Button>
+            </Flex>
+          ) : (
+            <Flex align="center" gap="2" ml="auto" shrink={0}>
+              {tags.length > 0 && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSelectMode(true)}
+                  data-testid="tag-select-mode"
+                >
+                  Select
+                </Button>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                bg="primary"
+                color="bg.surface"
+                _hover={{ bg: "primary.hover" }}
+                onClick={() => openCreate()}
+                data-testid="tag-management-new"
+              >
+                <Plus size={16} aria-hidden="true" />
+                New tag
+              </Button>
+            </Flex>
+          )}
         </Flex>
       </Box>
 
       <Stack gap="4" pt="4">
         {body}
       </Stack>
-
-      {selectedIds.size > 0 && (
-        <Box
-          data-testid="tag-selection-bar"
-          role="toolbar"
-          aria-label="Tag selection actions"
-          position="sticky"
-          bottom="0"
-          zIndex="sticky"
-          bg="primary.subtle"
-          borderTopWidth="1px"
-          borderTopColor="border"
-          px={{ base: "4", md: "6" }}
-          py="3"
-        >
-          <Flex align="center" gap="3">
-            <Text
-              fontSize="sm"
-              fontWeight="600"
-              color="fg"
-              data-testid="tag-selection-count"
-              aria-live="polite"
-            >
-              {formatCount(selectedIds.size, "tag")} selected
-            </Text>
-            <Box flex="1" />
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={clearSelection}
-              data-testid="tag-selection-clear"
-            >
-              Clear
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              bg="danger.solid"
-              color="bg.surface"
-              _hover={{ bg: "danger.solidHover" }}
-              onClick={() => setBatchDeleteOpen(true)}
-              data-testid="tag-selection-delete"
-            >
-              <Trash2 size={14} aria-hidden="true" />
-              Delete
-            </Button>
-          </Flex>
-        </Box>
-      )}
 
       <TagDialog
         open={dialog.mode !== "closed"}
