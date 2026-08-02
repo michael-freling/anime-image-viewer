@@ -262,6 +262,29 @@ func TestHTTPClient_Errors(t *testing.T) {
 		assert.Contains(t, err.Error(), "failed to parse Search response")
 	})
 
+	t.Run("an unusable endpoint fails before the request is sent", func(t *testing.T) {
+		// A control character cannot appear in a URL, so building the request
+		// fails rather than the request itself.
+		_, err := NewHTTPClient("http://exa\x7fmple.invalid").Search(context.Background(), "fate", 10)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create Search request")
+	})
+
+	t.Run("a truncated response body is reported as a read failure", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			// Promise more bytes than are written, then return. The server
+			// closes the connection short, so the client's read fails.
+			w.Header().Set("Content-Length", "512")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"results":`))
+		}))
+		defer server.Close()
+
+		_, err := NewHTTPClient(server.URL).Search(context.Background(), "fate", 10)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read Search response")
+	})
+
 	t.Run("a transport failure is wrapped", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 		server.Close() // nothing is listening any more

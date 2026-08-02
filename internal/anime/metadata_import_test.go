@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/michael-freling/anime-image-viewer/internal/animemetadata"
@@ -50,6 +52,20 @@ func seasonNames(seasons []AnimeSeason) []string {
 		}
 	}
 	return names
+}
+
+// makeUnwritable makes dir read-only for the rest of the test, so that
+// creating a folder inside it fails. Permissions do not constrain root, so the
+// test is skipped there.
+func makeUnwritable(t *testing.T, dir string) {
+	t.Helper()
+	if os.Geteuid() == 0 {
+		t.Skip("file permissions do not apply to root")
+	}
+	info, err := os.Stat(dir)
+	require.NoError(t, err)
+	require.NoError(t, os.Chmod(dir, 0o555))
+	t.Cleanup(func() { _ = os.Chmod(dir, info.Mode()) })
 }
 
 func findSeason(t *testing.T, seasons []AnimeSeason, name string) AnimeSeason {
@@ -729,6 +745,130 @@ func TestService_ImportFromMetadata(t *testing.T) {
 		assert.Equal(t, db.SeasonTypeMovie, seasons[0].SeasonType)
 		require.NotNil(t, seasons[0].SeasonNumber)
 		assert.Equal(t, uint(2015), *seasons[0].SeasonNumber)
+	})
+
+	t.Run("numbers an untagged cour by its position among tagged ones", func(t *testing.T) {
+		te := newTester(t)
+		// The dataset can carry a split season where only some entries have an
+		// explicit part. The untagged one takes the slot it sorts into.
+		mock := &mockMetadataClient{
+			series: map[string]*animemetadata.Series{
+				"partial-parts": {
+					ID: "partial-parts",
+					Seasons: []animemetadata.Season{
+						{ID: "a", Number: 1, Title: "Split Season"},
+						{ID: "b", Number: 1, Part: intPtr(2)},
+					},
+				},
+			},
+		}
+		service := te.serviceWithMetadata(mock)
+
+		anime, err := service.Create(ctx, "Partial Parts")
+		require.NoError(t, err)
+
+		result, err := service.ImportFromMetadata(ctx, anime.ID, "partial-parts")
+		require.NoError(t, err)
+		assert.Equal(t, 3, result.SeasonsCreated)
+
+		seasons, err := service.GetAnimeSeasons(anime.ID)
+		require.NoError(t, err)
+		assert.Equal(t, []string{
+			"Split Season", "Split Season/Part 1", "Split Season/Part 2",
+		}, seasonNames(seasons))
+	})
+
+	t.Run("surfaces a season folder that cannot be created on disk", func(t *testing.T) {
+		te := newTester(t)
+		mock := &mockMetadataClient{
+			series: map[string]*animemetadata.Series{
+				"unwritable": {
+					ID:      "unwritable",
+					Seasons: []animemetadata.Season{{ID: "s1", Number: 1}},
+				},
+			},
+		}
+		service := te.serviceWithMetadata(mock)
+
+		anime, err := service.Create(ctx, "Unwritable Show")
+		require.NoError(t, err)
+		makeUnwritable(t, filepath.Join(te.config.ImageRootDirectory, "Unwritable Show"))
+
+		_, err = service.ImportFromMetadata(ctx, anime.ID, "unwritable")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CreateSeason")
+	})
+
+	t.Run("surfaces a movie folder that cannot be created on disk", func(t *testing.T) {
+		te := newTester(t)
+		mock := &mockMetadataClient{
+			series: map[string]*animemetadata.Series{
+				"unwritable-movie": {
+					ID:     "unwritable-movie",
+					Movies: []animemetadata.Movie{{ID: "m", Title: "A Film", ReleaseYear: 2020}},
+				},
+			},
+		}
+		service := te.serviceWithMetadata(mock)
+
+		anime, err := service.Create(ctx, "Unwritable Movie Show")
+		require.NoError(t, err)
+		makeUnwritable(t, filepath.Join(te.config.ImageRootDirectory, "Unwritable Movie Show"))
+
+		_, err = service.ImportFromMetadata(ctx, anime.ID, "unwritable-movie")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CreateSeason movie")
+	})
+
+	t.Run("surfaces a special folder that cannot be created on disk", func(t *testing.T) {
+		te := newTester(t)
+		mock := &mockMetadataClient{
+			series: map[string]*animemetadata.Series{
+				"unwritable-special": {
+					ID:       "unwritable-special",
+					Specials: []animemetadata.Special{{ID: "o", Title: "An OVA", ReleaseYear: 2020}},
+				},
+			},
+		}
+		service := te.serviceWithMetadata(mock)
+
+		anime, err := service.Create(ctx, "Unwritable Special Show")
+		require.NoError(t, err)
+		makeUnwritable(t, filepath.Join(te.config.ImageRootDirectory, "Unwritable Special Show"))
+
+		_, err = service.ImportFromMetadata(ctx, anime.ID, "unwritable-special")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CreateSeason other")
+	})
+
+	t.Run("surfaces a part folder that cannot be created on disk", func(t *testing.T) {
+		te := newTester(t)
+		mock := &mockMetadataClient{
+			series: map[string]*animemetadata.Series{
+				"unwritable-part": {
+					ID: "unwritable-part",
+					Seasons: []animemetadata.Season{
+						{ID: "a", Number: 1, Title: "Split", Part: intPtr(1)},
+						{ID: "b", Number: 1, Part: intPtr(2)},
+					},
+				},
+			},
+		}
+		service := te.serviceWithMetadata(mock)
+
+		anime, err := service.Create(ctx, "Unwritable Part Show")
+		require.NoError(t, err)
+
+		// The season folder already exists, so the import reuses it — but its
+		// contents cannot be written, so creating the part folders fails.
+		season, err := service.CreateSeason(ctx, anime.ID, db.SeasonTypeSeason, nil, "Split")
+		require.NoError(t, err)
+		require.NotZero(t, season.ID)
+		makeUnwritable(t, filepath.Join(te.config.ImageRootDirectory, "Unwritable Part Show", "Split"))
+
+		_, err = service.ImportFromMetadata(ctx, anime.ID, "unwritable-part")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CreateSubSeason Part 1")
 	})
 
 	t.Run("errors for an anime that does not exist", func(t *testing.T) {

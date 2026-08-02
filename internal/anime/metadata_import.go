@@ -447,11 +447,10 @@ func (s *Service) importCharacters(
 			continue
 		}
 
+		// Characters carry no unique constraint, so existingNames above is what
+		// keeps a re-import from duplicating them.
 		row := db.Character{Name: name, AnimeID: animeID}
 		if err := s.dbClient.Character().Create(ctx, &row); err != nil {
-			if isUniqueViolation(err) {
-				continue
-			}
 			return fmt.Errorf("Character.Create for %q: %w", name, err)
 		}
 		existingNames[name] = true
