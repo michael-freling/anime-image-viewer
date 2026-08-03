@@ -2,7 +2,7 @@
  * Shared TypeScript interfaces for the app layer.
  *
  * These are stubs derived from the Go Wails services in `internal/frontend/*.go`
- * and `internal/anilist/types.go`. They intentionally only cover what the
+ * and `internal/animemetadata/types.go`. They intentionally only cover what the
  * redesigned UI needs; fields are added as pages consume them.
  *
  * Where the backend exposes a type directly (e.g. `AnimeListItem`), we keep
@@ -39,6 +39,7 @@ export interface AnimeSummary {
 export interface Anime {
   id: number;
   name: string;
+  metadataSeriesId: string | null;
   aniListId: number | null;
 }
 

@@ -18,6 +18,7 @@ declare module "*/bindings/github.com/michael-freling/anime-image-viewer/interna
   export interface Anime {
     id: number;
     name: string;
+    metadataSeriesId: string | null;
     aniListId: number | null;
   }
 
@@ -73,20 +74,13 @@ declare module "*/bindings/github.com/michael-freling/anime-image-viewer/interna
     inherited: boolean;
   }
 
-  export interface AniListSearchResult {
-    id: number;
-    titleRomaji: string;
-    titleEnglish: string;
-    titleNative: string;
-    format: string;
-    status: string;
-    season: string;
-    seasonYear: number;
-    episodes: number;
-    coverImageUrl: string;
+  export interface MetadataSearchResult {
+    id: string;
+    title: string;
+    franchiseId: string;
   }
 
-  export interface AniListImportResult {
+  export interface MetadataImportResult {
     seasonsCreated: number;
     charactersCreated: number;
   }

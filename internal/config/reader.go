@@ -11,10 +11,11 @@ import (
 
 // writableConfig contains only user-editable fields (excludes Environment).
 type writableConfig struct {
-	ImageRootDirectory string       `toml:"image_root_directory"`
-	ConfigDirectory    string       `toml:"config_directory"`
-	LogDirectory       string       `toml:"log_directory"`
-	Backup             BackupConfig `toml:"backup"`
+	ImageRootDirectory       string       `toml:"image_root_directory"`
+	ConfigDirectory          string       `toml:"config_directory"`
+	LogDirectory             string       `toml:"log_directory"`
+	AnimeMetadataAPIEndpoint string       `toml:"anime_metadata_api_endpoint"`
+	Backup                   BackupConfig `toml:"backup"`
 }
 
 type env string
@@ -33,11 +34,15 @@ type BackupConfig struct {
 }
 
 type Config struct {
-	ImageRootDirectory string       `toml:"image_root_directory"`
-	ConfigDirectory    string       `toml:"config_directory"`
-	LogDirectory       string       `toml:"log_directory"`
-	Backup             BackupConfig `toml:"backup"`
-	Environment        env
+	ImageRootDirectory string `toml:"image_root_directory"`
+	ConfigDirectory    string `toml:"config_directory"`
+	LogDirectory       string `toml:"log_directory"`
+	// AnimeMetadataAPIEndpoint overrides the anime metadata database the app
+	// reads from, e.g. a locally running `go run ./cmd/api`. Empty uses
+	// animemetadata.DefaultEndpoint.
+	AnimeMetadataAPIEndpoint string       `toml:"anime_metadata_api_endpoint"`
+	Backup                   BackupConfig `toml:"backup"`
+	Environment              env
 }
 
 // WriteConfig writes the config to a TOML file.
@@ -62,10 +67,11 @@ func WriteConfig(configFile string, conf Config) error {
 	defer file.Close()
 
 	writable := writableConfig{
-		ImageRootDirectory: conf.ImageRootDirectory,
-		ConfigDirectory:    conf.ConfigDirectory,
-		LogDirectory:       conf.LogDirectory,
-		Backup:             conf.Backup,
+		ImageRootDirectory:       conf.ImageRootDirectory,
+		ConfigDirectory:          conf.ConfigDirectory,
+		LogDirectory:             conf.LogDirectory,
+		AnimeMetadataAPIEndpoint: conf.AnimeMetadataAPIEndpoint,
+		Backup:                   conf.Backup,
 	}
 	encoder := toml.NewEncoder(file)
 	if err := encoder.Encode(writable); err != nil {

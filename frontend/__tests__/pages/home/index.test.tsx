@@ -16,7 +16,7 @@
 const listAnimeMock = jest.fn();
 const listUnassignedMock = jest.fn();
 const importFoldersMock = jest.fn();
-const searchAniListMock = jest.fn();
+const searchMetadataMock = jest.fn();
 
 jest.mock("../../../src/lib/api", () => ({
   __esModule: true,
@@ -26,7 +26,7 @@ jest.mock("../../../src/lib/api", () => ({
       listUnassignedMock(...args),
     ImportMultipleFoldersAsAnime: (...args: unknown[]) =>
       importFoldersMock(...args),
-    SearchAniList: (...args: unknown[]) => searchAniListMock(...args),
+    SearchMetadata: (...args: unknown[]) => searchMetadataMock(...args),
   },
 }));
 
@@ -91,13 +91,13 @@ describe("HomePage", () => {
     listAnimeMock.mockReset();
     listUnassignedMock.mockReset();
     importFoldersMock.mockReset();
-    searchAniListMock.mockReset();
+    searchMetadataMock.mockReset();
     toastSuccess.mockReset();
     toastError.mockReset();
     navigateMock.mockReset();
     resetStores();
-    // Default: no AniList search results.
-    searchAniListMock.mockResolvedValue([]);
+    // Default: no series search results.
+    searchMetadataMock.mockResolvedValue([]);
   });
 
   test("renders the page header with a search bar (no title)", async () => {

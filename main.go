@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/michael-freling/anime-image-viewer/internal/anilist"
 	"github.com/michael-freling/anime-image-viewer/internal/anime"
+	"github.com/michael-freling/anime-image-viewer/internal/animemetadata"
 	"github.com/michael-freling/anime-image-viewer/internal/backup"
 	"github.com/michael-freling/anime-image-viewer/internal/config"
 	"github.com/michael-freling/anime-image-viewer/internal/db"
@@ -147,8 +147,8 @@ func runMain(conf config.Config, logger *slog.Logger) error {
 	backupFrontendService := frontend.NewBackupFrontendService(logger, conf)
 	configFrontendService := frontend.NewConfigFrontendService(logger, conf)
 
-	anilistClient := anilist.NewHTTPClient()
-	animeCoreService := anime.NewService(dbClient, directoryReader, conf, anilistClient)
+	metadataClient := animemetadata.NewHTTPClient(conf.AnimeMetadataAPIEndpoint)
+	animeCoreService := anime.NewService(dbClient, directoryReader, conf, metadataClient)
 	animeFrontendService := frontend.NewAnimeService(
 		animeCoreService,
 		dbClient,

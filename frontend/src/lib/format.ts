@@ -38,8 +38,8 @@ function defaultPlural(word: string): string {
 }
 
 /**
- * Normalise a season string returned from AniList (`SPRING`, `FALL`, ...)
- * into Title Case. Ported from AnimeListPage.tsx.
+ * Normalise a release season string (`SPRING`, `FALL`, ...) into Title Case.
+ * Ported from AnimeListPage.tsx.
  *
  *   formatSeason("SPRING")  -> "Spring"
  *   formatSeason("fall")    -> "Fall"

@@ -1,3 +1,9 @@
 config_directory = "/home/user/.config/anime-image-viewer"
 image_root_directory = "/home/user/Pictures/anime-image-viewer"
 log_directory = "/tmp/anime-image-viewer/logs"
+
+# The anime metadata database (github.com/michael-freling/anime-metadata-db)
+# used to search for and import series. Leave unset to use the hosted
+# deployment; point it at "http://localhost:8080" to run `go run ./cmd/api`
+# from that repository locally.
+# anime_metadata_api_endpoint = "https://anime-metadata-db.vercel.app"

@@ -92,10 +92,10 @@ describe("query-keys", () => {
     });
   });
 
-  describe("aniList", () => {
+  describe("metadata", () => {
     test("search includes the query string verbatim", () => {
-      expect(qk.aniList.search("naruto")).toEqual([
-        "aniList",
+      expect(qk.metadata.search("naruto")).toEqual([
+        "metadata",
         "search",
         "naruto",
       ]);

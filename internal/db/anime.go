@@ -8,11 +8,18 @@ import (
 // from the images in its folder tree. The name has a UNIQUE constraint at the
 // DB level so that no two anime can share the same name.
 type Anime struct {
-	ID        uint   `gorm:"primarykey"`
-	Name      string `gorm:"uniqueIndex"`
-	AniListID *int   `gorm:"index"`
-	CreatedAt uint   `gorm:"autoCreateTime"`
-	UpdatedAt uint   `gorm:"autoUpdateTime"`
+	ID   uint   `gorm:"primarykey"`
+	Name string `gorm:"uniqueIndex"`
+	// MetadataSeriesID is the series id in the anime metadata database
+	// (github.com/michael-freling/anime-metadata-db), e.g. "fate-zero". It is
+	// the identity an anime is linked and re-imported by.
+	MetadataSeriesID *string `gorm:"index"`
+	// AniListID is kept only so the UI can deep-link to anilist.co. It is
+	// backfilled from the metadata database's externalIds; the AniList API is
+	// never called.
+	AniListID *int `gorm:"index"`
+	CreatedAt uint `gorm:"autoCreateTime"`
+	UpdatedAt uint `gorm:"autoUpdateTime"`
 }
 
 type AnimeList []Anime
