@@ -10,8 +10,11 @@ type MetadataSearchResult struct {
 }
 
 // MetadataImportResult is the outcome of importing from the anime metadata
-// database.
+// database. A re-import of an unchanged series reports all zeroes, since
+// entries are matched by their upstream id rather than recreated.
 type MetadataImportResult struct {
 	SeasonsCreated    int `json:"seasonsCreated"`
+	SeasonsUpdated    int `json:"seasonsUpdated"`
 	CharactersCreated int `json:"charactersCreated"`
+	CharactersUpdated int `json:"charactersUpdated"`
 }

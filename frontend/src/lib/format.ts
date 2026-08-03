@@ -69,3 +69,46 @@ export function formatDate(iso: string): string {
     day: "numeric",
   });
 }
+
+/**
+ * Summarise an import from the anime metadata database for a toast.
+ *
+ * Entries and characters are matched by their upstream id, so re-importing an
+ * unchanged series legitimately changes nothing — say so plainly rather than
+ * reporting a row of zeroes.
+ *
+ *   summarizeMetadataImport({seasonsCreated: 2, ...})  -> "Added 2 entries."
+ *   summarizeMetadataImport({})                        -> "Already up to date."
+ */
+export function summarizeMetadataImport(result: {
+  seasonsCreated?: number;
+  seasonsUpdated?: number;
+  charactersCreated?: number;
+  charactersUpdated?: number;
+}): string {
+  const plural = (n: number, one: string, many: string) =>
+    `${n} ${n === 1 ? one : many}`;
+
+  const parts: string[] = [];
+  if (result.seasonsCreated) {
+    parts.push(`Added ${plural(result.seasonsCreated, "entry", "entries")}`);
+  }
+  if (result.seasonsUpdated) {
+    parts.push(`updated ${plural(result.seasonsUpdated, "entry", "entries")}`);
+  }
+  if (result.charactersCreated) {
+    parts.push(
+      `added ${plural(result.charactersCreated, "character", "characters")}`,
+    );
+  }
+  if (result.charactersUpdated) {
+    parts.push(
+      `updated ${plural(result.charactersUpdated, "character", "characters")}`,
+    );
+  }
+
+  if (parts.length === 0) return "Already up to date.";
+  // Only the first fragment is capitalised, so fix it up when it is not "Added".
+  const sentence = parts.join(", ");
+  return `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}.`;
+}

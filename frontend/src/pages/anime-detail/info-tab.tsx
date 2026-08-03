@@ -22,7 +22,7 @@ import { useAnimeDetail } from "../../hooks/use-anime-detail";
 import { useMetadataSearch } from "../../hooks/use-metadata-search";
 import { AnimeService } from "../../lib/api";
 import type { MetadataImportResult, MetadataSearchResult } from "../../lib/api";
-import { formatCount } from "../../lib/format";
+import { formatCount, summarizeMetadataImport } from "../../lib/format";
 import { qk } from "../../lib/query-keys";
 
 const ChakraInput = chakra("input");
@@ -166,7 +166,7 @@ export function InfoTab(): JSX.Element {
                       await queryClient.invalidateQueries({ queryKey: qk.anime.detail(animeId) });
                       toast.success(
                         "Import complete",
-                        `Created ${result.seasonsCreated} entry(s), ${result.charactersCreated} character(s).`,
+                        summarizeMetadataImport(result),
                       );
                     } catch (err) {
                       toast.error("Import failed", err instanceof Error ? err.message : String(err));
@@ -312,10 +312,7 @@ export function InfoTab(): JSX.Element {
           try {
             const importResult = await AnimeService.ImportFromMetadata(animeId, result.id) as MetadataImportResult;
             await queryClient.invalidateQueries({ queryKey: qk.anime.detail(animeId) });
-            toast.success(
-              "Series linked",
-              `Created ${importResult.seasonsCreated} entry(s), ${importResult.charactersCreated} character(s).`,
-            );
+            toast.success("Series linked", summarizeMetadataImport(importResult));
             setSeriesDialogOpen(false);
             setSeriesQuery("");
           } catch (err) {
