@@ -5,9 +5,21 @@ import (
 )
 
 type Character struct {
-	ID        uint   `gorm:"primarykey"`
-	Name      string `gorm:"not null"`
-	AnimeID   uint   `gorm:"index;not null"`
+	ID      uint   `gorm:"primarykey"`
+	Name    string `gorm:"not null"`
+	AnimeID uint   `gorm:"index;not null"`
+
+	// MetadataCharacterID is the id this character was imported under from the
+	// anime metadata database (e.g. "artoria-pendragon"). It is the identity a
+	// re-import matches on, so a character renamed upstream updates this row —
+	// keeping its FileCharacter image links — instead of creating a second one.
+	// NULL for characters the user created or that predate the import.
+	MetadataCharacterID *string `gorm:"column:metadata_character_id;index"`
+
+	// MetadataName is the upstream name as of the last import, used to tell an
+	// untouched row from one the user has renamed.
+	MetadataName *string `gorm:"column:metadata_name"`
+
 	CreatedAt uint
 	UpdatedAt uint
 }

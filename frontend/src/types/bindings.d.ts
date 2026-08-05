@@ -82,7 +82,9 @@ declare module "*/bindings/github.com/michael-freling/anime-image-viewer/interna
 
   export interface MetadataImportResult {
     seasonsCreated: number;
+    seasonsUpdated: number;
     charactersCreated: number;
+    charactersUpdated: number;
   }
 
   export interface AnimeCharacterInfo {

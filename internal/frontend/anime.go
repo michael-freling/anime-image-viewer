@@ -852,7 +852,9 @@ func (s *AnimeService) ImportFromMetadata(ctx context.Context, animeID uint, ser
 	}
 	return MetadataImportResult{
 		SeasonsCreated:    result.SeasonsCreated,
+		SeasonsUpdated:    result.SeasonsUpdated,
 		CharactersCreated: result.CharactersCreated,
+		CharactersUpdated: result.CharactersUpdated,
 	}, nil
 }
 

@@ -68,6 +68,41 @@ func makeUnwritable(t *testing.T, dir string) {
 	t.Cleanup(func() { _ = os.Chmod(dir, info.Mode()) })
 }
 
+// metadataIDsByPath maps each imported folder ("name", or "parent/child" for a
+// part) to the upstream entry id recorded on it.
+func metadataIDsByPath(t *testing.T, te tester, service *Service, animeID uint) map[string]string {
+	t.Helper()
+	root, err := service.FindAnimeRootFolder(animeID)
+	require.NoError(t, err)
+	require.NotNil(t, root)
+
+	out := make(map[string]string)
+	children, err := te.dbClient.Client.File().FindDirectChildDirectories(root.ID)
+	require.NoError(t, err)
+	for _, child := range children {
+		if child.MetadataEntryID != nil {
+			out[child.Name] = *child.MetadataEntryID
+		}
+		grandchildren, err := te.dbClient.Client.File().FindDirectChildDirectories(child.ID)
+		require.NoError(t, err)
+		for _, grandchild := range grandchildren {
+			if grandchild.MetadataEntryID != nil {
+				out[child.Name+"/"+grandchild.Name] = *grandchild.MetadataEntryID
+			}
+		}
+	}
+	return out
+}
+
+// assertFolderOnDisk checks that a rename moved the directory, not just the row.
+func assertFolderOnDisk(t *testing.T, te tester, animeName, folderName string) {
+	t.Helper()
+	path := filepath.Join(te.config.ImageRootDirectory, sanitizeFolderName(animeName), sanitizeFolderName(folderName))
+	info, err := os.Stat(path)
+	require.NoError(t, err, "expected a folder on disk at %s", path)
+	assert.True(t, info.IsDir())
+}
+
 func findSeason(t *testing.T, seasons []AnimeSeason, name string) AnimeSeason {
 	t.Helper()
 	for _, season := range seasons {
@@ -652,8 +687,9 @@ func TestService_ImportFromMetadata(t *testing.T) {
 	t.Run("two titles that sanitize to the same folder name collapse into one", func(t *testing.T) {
 		te := newTester(t)
 		// ":" is not valid in a folder name and is replaced with "-", so both
-		// titles resolve to "Film- One". The second create hits a unique
-		// violation and is recovered rather than failing the import.
+		// titles resolve to "Film- One". The first movie claims the folder and
+		// is linked to it; the second cannot have its own, and is skipped
+		// rather than overwriting the first entry's data.
 		mock := &mockMetadataClient{
 			series: map[string]*animemetadata.Series{
 				"collide": {
@@ -678,9 +714,9 @@ func TestService_ImportFromMetadata(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, seasons, 1)
 		assert.Equal(t, "Film- One", seasons[0].Name)
-		// The second movie's year wins, since it updates the existing folder.
+		// The folder belongs to the first movie, so its year is kept.
 		require.NotNil(t, seasons[0].AiringYear)
-		assert.Equal(t, uint(2002), *seasons[0].AiringYear)
+		assert.Equal(t, uint(2001), *seasons[0].AiringYear)
 	})
 
 	t.Run("skips a season whose folder name collides with an earlier one", func(t *testing.T) {
@@ -882,6 +918,39 @@ func TestService_ImportFromMetadata(t *testing.T) {
 		assert.ErrorIs(t, err, ErrAnimeNotFound)
 	})
 
+	t.Run("records the upstream id on everything it creates", func(t *testing.T) {
+		te := newTester(t)
+		mock := &mockMetadataClient{
+			series: map[string]*animemetadata.Series{
+				"ids": {
+					ID: "ids",
+					Seasons: []animemetadata.Season{
+						{ID: "ids-s1", Number: 1, Title: "First"},
+						{ID: "ids-s2a", Number: 2, Part: intPtr(1), Title: "Second"},
+						{ID: "ids-s2b", Number: 2, Part: intPtr(2)},
+					},
+					Movies:   []animemetadata.Movie{{ID: "ids-film", Title: "A Film", ReleaseYear: 2020}},
+					Specials: []animemetadata.Special{{ID: "ids-ova", Title: "An OVA", ReleaseYear: 2021}},
+				},
+			},
+		}
+		service := te.serviceWithMetadata(mock)
+
+		anime, err := service.Create(ctx, "Identified Show")
+		require.NoError(t, err)
+		_, err = service.ImportFromMetadata(ctx, anime.ID, "ids")
+		require.NoError(t, err)
+
+		assert.Equal(t, map[string]string{
+			"First":         "ids-s1",
+			"Second":        "ids-s2a",
+			"Second/Part 1": "ids-s2a",
+			"Second/Part 2": "ids-s2b",
+			"A Film":        "ids-film",
+			"An OVA":        "ids-ova",
+		}, metadataIDsByPath(t, te, service, anime.ID))
+	})
+
 	t.Run("errors for a series that does not exist", func(t *testing.T) {
 		te := newTester(t)
 		mock := &mockMetadataClient{series: map[string]*animemetadata.Series{}}
@@ -922,6 +991,266 @@ func TestService_ImportFromMetadata(t *testing.T) {
 		_, err := te.service().ImportFromMetadata(ctx, 1, "x")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "anime metadata client is not configured")
+	})
+}
+
+// TestService_ImportFromMetadata_Upsert covers re-importing after the upstream
+// dataset changed — the cases that used to create a second folder or row.
+func TestService_ImportFromMetadata_Upsert(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("a retitled movie renames its folder instead of duplicating it", func(t *testing.T) {
+		te := newTester(t)
+		mock := &mockMetadataClient{
+			series: map[string]*animemetadata.Series{
+				"ds": {
+					ID:     "ds",
+					Movies: []animemetadata.Movie{{ID: "ds-film", Title: "Mugen Train", ReleaseYear: 2020}},
+				},
+			},
+		}
+		service := te.serviceWithMetadata(mock)
+
+		anime, err := service.Create(ctx, "Retitled Movie")
+		require.NoError(t, err)
+		_, err = service.ImportFromMetadata(ctx, anime.ID, "ds")
+		require.NoError(t, err)
+
+		// Upstream retitles the same entry.
+		mock.series["ds"].Movies[0].Title = "Mugen Train (2020)"
+
+		result, err := service.ImportFromMetadata(ctx, anime.ID, "ds")
+		require.NoError(t, err)
+		assert.Equal(t, 0, result.SeasonsCreated)
+		assert.Equal(t, 1, result.SeasonsUpdated)
+
+		seasons, err := service.GetAnimeSeasons(anime.ID)
+		require.NoError(t, err)
+		assert.Equal(t, []string{"Mugen Train (2020)"}, seasonNames(seasons))
+		assertFolderOnDisk(t, te, anime.Name, "Mugen Train (2020)")
+	})
+
+	t.Run("a renumbered season moves rather than duplicating", func(t *testing.T) {
+		te := newTester(t)
+		mock := &mockMetadataClient{
+			series: map[string]*animemetadata.Series{
+				"rn": {
+					ID:      "rn",
+					Seasons: []animemetadata.Season{{ID: "rn-s1", Number: 1, Title: "Origins"}},
+				},
+			},
+		}
+		service := te.serviceWithMetadata(mock)
+
+		anime, err := service.Create(ctx, "Renumbered Show")
+		require.NoError(t, err)
+		_, err = service.ImportFromMetadata(ctx, anime.ID, "rn")
+		require.NoError(t, err)
+
+		// Upstream inserts a new first season, pushing the original to 2.
+		mock.series["rn"].Seasons = []animemetadata.Season{
+			{ID: "rn-s0", Number: 1, Title: "Prequel"},
+			{ID: "rn-s1", Number: 2, Title: "Origins"},
+		}
+
+		result, err := service.ImportFromMetadata(ctx, anime.ID, "rn")
+		require.NoError(t, err)
+		assert.Equal(t, 1, result.SeasonsCreated, "only the newly inserted season is created")
+
+		seasons, err := service.GetAnimeSeasons(anime.ID)
+		require.NoError(t, err)
+		require.Len(t, seasons, 2, "the original season moved instead of duplicating")
+
+		origins := findSeason(t, seasons, "Origins")
+		require.NotNil(t, origins.SeasonNumber)
+		assert.Equal(t, uint(2), *origins.SeasonNumber, "the original season was renumbered in place")
+		prequel := findSeason(t, seasons, "Prequel")
+		require.NotNil(t, prequel.SeasonNumber)
+		assert.Equal(t, uint(1), *prequel.SeasonNumber)
+	})
+
+	t.Run("a folder the user renamed keeps their name", func(t *testing.T) {
+		te := newTester(t)
+		mock := &mockMetadataClient{
+			series: map[string]*animemetadata.Series{
+				"ur": {
+					ID:      "ur",
+					Seasons: []animemetadata.Season{{ID: "ur-s1", Number: 1, Title: "Original"}},
+				},
+			},
+		}
+		service := te.serviceWithMetadata(mock)
+
+		anime, err := service.Create(ctx, "User Renamed")
+		require.NoError(t, err)
+		_, err = service.ImportFromMetadata(ctx, anime.ID, "ur")
+		require.NoError(t, err)
+
+		seasons, err := service.GetAnimeSeasons(anime.ID)
+		require.NoError(t, err)
+		require.NoError(t, service.RenameSeason(ctx, seasons[0].ID, "My Name For It"))
+
+		// Upstream retitles it; the user's name wins.
+		mock.series["ur"].Seasons[0].Title = "Upstream's New Title"
+
+		_, err = service.ImportFromMetadata(ctx, anime.ID, "ur")
+		require.NoError(t, err)
+
+		seasons, err = service.GetAnimeSeasons(anime.ID)
+		require.NoError(t, err)
+		assert.Equal(t, []string{"My Name For It"}, seasonNames(seasons),
+			"a rename moves images on disk, so the user's intent wins over staying in sync")
+	})
+
+	t.Run("a character renamed upstream keeps its row and image links", func(t *testing.T) {
+		te := newTester(t)
+		mock := &mockMetadataClient{
+			series: map[string]*animemetadata.Series{
+				"fz": {
+					ID:         "fz",
+					Characters: []animemetadata.Character{{ID: "artoria-pendragon", Name: "Saber"}},
+				},
+			},
+		}
+		service := te.serviceWithMetadata(mock)
+
+		anime, err := service.Create(ctx, "Fate Cast")
+		require.NoError(t, err)
+		_, err = service.ImportFromMetadata(ctx, anime.ID, "fz")
+		require.NoError(t, err)
+
+		before, err := te.dbClient.Client.Character().FindByAnimeID(anime.ID)
+		require.NoError(t, err)
+		require.Len(t, before, 1)
+		originalID := before[0].ID
+
+		// Upstream resolves the same character under its full name.
+		mock.series["fz"].Characters[0].Name = "Artoria Pendragon"
+
+		result, err := service.ImportFromMetadata(ctx, anime.ID, "fz")
+		require.NoError(t, err)
+		assert.Equal(t, 0, result.CharactersCreated)
+		assert.Equal(t, 1, result.CharactersUpdated)
+
+		after, err := te.dbClient.Client.Character().FindByAnimeID(anime.ID)
+		require.NoError(t, err)
+		require.Len(t, after, 1, "the character was updated, not duplicated")
+		assert.Equal(t, originalID, after[0].ID, "the row id is stable, so FileCharacter links survive")
+		assert.Equal(t, "Artoria Pendragon", after[0].Name)
+	})
+
+	t.Run("a character the user renamed keeps their name", func(t *testing.T) {
+		te := newTester(t)
+		mock := &mockMetadataClient{
+			series: map[string]*animemetadata.Series{
+				"cr": {
+					ID:         "cr",
+					Characters: []animemetadata.Character{{ID: "saber", Name: "Saber"}},
+				},
+			},
+		}
+		service := te.serviceWithMetadata(mock)
+
+		anime, err := service.Create(ctx, "Renamed Cast")
+		require.NoError(t, err)
+		_, err = service.ImportFromMetadata(ctx, anime.ID, "cr")
+		require.NoError(t, err)
+
+		rows, err := te.dbClient.Client.Character().FindByAnimeID(anime.ID)
+		require.NoError(t, err)
+		require.Len(t, rows, 1)
+		rows[0].Name = "My Saber"
+		require.NoError(t, te.dbClient.Client.Character().Update(ctx, &rows[0]))
+
+		mock.series["cr"].Characters[0].Name = "Artoria"
+
+		_, err = service.ImportFromMetadata(ctx, anime.ID, "cr")
+		require.NoError(t, err)
+
+		after, err := te.dbClient.Client.Character().FindByAnimeID(anime.ID)
+		require.NoError(t, err)
+		require.Len(t, after, 1)
+		assert.Equal(t, "My Saber", after[0].Name)
+	})
+
+	t.Run("adopts folders and characters created before ids were stored", func(t *testing.T) {
+		te := newTester(t)
+		mock := &mockMetadataClient{
+			series: map[string]*animemetadata.Series{
+				"legacy": {
+					ID:         "legacy",
+					Seasons:    []animemetadata.Season{{ID: "legacy-s1", Number: 1, Title: "Season 1"}},
+					Movies:     []animemetadata.Movie{{ID: "legacy-film", Title: "A Film", ReleaseYear: 2019}},
+					Characters: []animemetadata.Character{{ID: "hero", Name: "Hero"}},
+				},
+			},
+		}
+		service := te.serviceWithMetadata(mock)
+
+		anime, err := service.Create(ctx, "Pre-Id Install")
+		require.NoError(t, err)
+
+		// Stand in for rows written by the previous release: correct names and
+		// numbers, but no upstream id.
+		seasonNumber := uint(1)
+		_, err = service.CreateSeason(ctx, anime.ID, db.SeasonTypeSeason, &seasonNumber, "Season 1")
+		require.NoError(t, err)
+		_, err = service.CreateSeason(ctx, anime.ID, db.SeasonTypeMovie, nil, "A Film")
+		require.NoError(t, err)
+		require.NoError(t, te.dbClient.Client.Character().Create(ctx, &db.Character{Name: "Hero", AnimeID: anime.ID}))
+
+		result, err := service.ImportFromMetadata(ctx, anime.ID, "legacy")
+		require.NoError(t, err)
+		assert.Equal(t, 0, result.SeasonsCreated, "the existing folders are adopted, not duplicated")
+		assert.Equal(t, 0, result.CharactersCreated, "the existing character is adopted, not duplicated")
+
+		seasons, err := service.GetAnimeSeasons(anime.ID)
+		require.NoError(t, err)
+		assert.ElementsMatch(t, []string{"Season 1", "A Film"}, seasonNames(seasons))
+
+		// Having been adopted, they now carry the id and re-import cleanly.
+		assert.Equal(t, map[string]string{
+			"Season 1": "legacy-s1",
+			"A Film":   "legacy-film",
+		}, metadataIDsByPath(t, te, service, anime.ID))
+
+		again, err := service.ImportFromMetadata(ctx, anime.ID, "legacy")
+		require.NoError(t, err)
+		assert.Equal(t, MetadataImportResult{}, *again, "a settled re-import changes nothing")
+	})
+
+	t.Run("never takes a folder that belongs to another entry", func(t *testing.T) {
+		te := newTester(t)
+		mock := &mockMetadataClient{
+			series: map[string]*animemetadata.Series{
+				"steal": {
+					ID: "steal",
+					Seasons: []animemetadata.Season{
+						{ID: "steal-s1", Number: 1, Title: "Alpha"},
+					},
+				},
+			},
+		}
+		service := te.serviceWithMetadata(mock)
+
+		anime, err := service.Create(ctx, "No Stealing")
+		require.NoError(t, err)
+		_, err = service.ImportFromMetadata(ctx, anime.ID, "steal")
+		require.NoError(t, err)
+
+		// A different entry takes over season number 1; the existing folder is
+		// linked to steal-s1, so it must not be reused for steal-s2.
+		mock.series["steal"].Seasons = []animemetadata.Season{
+			{ID: "steal-s2", Number: 1, Title: "Beta"},
+		}
+
+		result, err := service.ImportFromMetadata(ctx, anime.ID, "steal")
+		require.NoError(t, err)
+		assert.Equal(t, 1, result.SeasonsCreated)
+
+		seasons, err := service.GetAnimeSeasons(anime.ID)
+		require.NoError(t, err)
+		assert.ElementsMatch(t, []string{"Alpha", "Beta"}, seasonNames(seasons))
 	})
 }
 

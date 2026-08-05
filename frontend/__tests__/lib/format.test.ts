@@ -1,4 +1,9 @@
-import { formatCount, formatSeason, formatDate } from "../../src/lib/format";
+import {
+  formatCount,
+  formatSeason,
+  formatDate,
+  summarizeMetadataImport,
+} from "../../src/lib/format";
 
 describe("formatCount", () => {
   test("singular form for 1", () => {
@@ -66,5 +71,56 @@ describe("formatDate", () => {
 
   test("empty string returns empty string", () => {
     expect(formatDate("")).toBe("");
+  });
+});
+
+describe("summarizeMetadataImport", () => {
+  test("an unchanged re-import says so instead of listing zeroes", () => {
+    expect(summarizeMetadataImport({})).toBe("Already up to date.");
+    expect(
+      summarizeMetadataImport({
+        seasonsCreated: 0,
+        seasonsUpdated: 0,
+        charactersCreated: 0,
+        charactersUpdated: 0,
+      }),
+    ).toBe("Already up to date.");
+  });
+
+  test("reports only the counts that are non-zero", () => {
+    expect(summarizeMetadataImport({ seasonsCreated: 2 })).toBe(
+      "Added 2 entries.",
+    );
+    expect(summarizeMetadataImport({ seasonsUpdated: 3 })).toBe(
+      "Updated 3 entries.",
+    );
+    expect(summarizeMetadataImport({ charactersCreated: 4 })).toBe(
+      "Added 4 characters.",
+    );
+    expect(summarizeMetadataImport({ charactersUpdated: 5 })).toBe(
+      "Updated 5 characters.",
+    );
+  });
+
+  test("uses singular wording for a count of one", () => {
+    expect(summarizeMetadataImport({ seasonsCreated: 1 })).toBe(
+      "Added 1 entry.",
+    );
+    expect(summarizeMetadataImport({ charactersUpdated: 1 })).toBe(
+      "Updated 1 character.",
+    );
+  });
+
+  test("joins every non-zero count into one sentence", () => {
+    expect(
+      summarizeMetadataImport({
+        seasonsCreated: 1,
+        seasonsUpdated: 2,
+        charactersCreated: 3,
+        charactersUpdated: 4,
+      }),
+    ).toBe(
+      "Added 1 entry, updated 2 entries, added 3 characters, updated 4 characters.",
+    );
   });
 });

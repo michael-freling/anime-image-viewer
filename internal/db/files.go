@@ -56,6 +56,19 @@ type File struct {
 	// AiringYear is the year the season aired. NULL when not applicable.
 	AiringYear *uint `gorm:"column:airing_year"`
 
+	// MetadataEntryID is the id of the season, movie or special this folder was
+	// imported from in the anime metadata database (e.g. "demon-slayer-s1").
+	// It is the identity a re-import matches on, so an entry that is retitled
+	// or renumbered upstream updates this folder instead of creating a second
+	// one. NULL for folders the user made or that predate the import.
+	MetadataEntryID *string `gorm:"column:metadata_entry_id;index"`
+
+	// MetadataTitle is the upstream title as of the last import. Comparing it
+	// with Name tells a re-import whether the folder still carries the name the
+	// import gave it, or whether the user has since renamed it — in which case
+	// their name is left alone.
+	MetadataTitle *string `gorm:"column:metadata_title"`
+
 	// ContentHash stores a hex-encoded SHA256 hash of the image file content.
 	// It is computed on import and used for fast corruption detection.
 	ContentHash string
@@ -207,6 +220,21 @@ func (client *FileClient) UpdateSeasonFields(ctx context.Context, fileID uint, s
 	updates := map[string]any{
 		"entry_type":   seasonType,
 		"entry_number": seasonNumber,
+	}
+	return client.getTransaction(ctx).
+		Model(&File{}).
+		Where("id = ?", fileID).
+		Updates(updates).
+		Error
+}
+
+// UpdateMetadataFields records which anime-metadata-db entry a folder was
+// imported from, and the upstream title it carried at the time. Uses a map so
+// that nil values are written as NULL rather than skipped.
+func (client *FileClient) UpdateMetadataFields(ctx context.Context, fileID uint, entryID *string, title *string) error {
+	updates := map[string]any{
+		"metadata_entry_id": entryID,
+		"metadata_title":    title,
 	}
 	return client.getTransaction(ctx).
 		Model(&File{}).
