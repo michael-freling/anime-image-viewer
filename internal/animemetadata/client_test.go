@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -64,8 +65,8 @@ func TestHTTPClient_Search(t *testing.T) {
 
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"results":[
-				{"kind":"ENTRY_KIND_SERIES","id":"fate-zero","title":"Fate/Zero","franchiseId":"fate"},
-				{"kind":"ENTRY_KIND_FRANCHISE","id":"fate","title":"Fate"}
+				{"kind":"SERIES","id":"fate-zero","title":"Fate/Zero","franchiseId":"fate"},
+				{"kind":"FRANCHISE","id":"fate","title":"Fate"}
 			]}`))
 		}))
 		defer server.Close()
@@ -130,11 +131,11 @@ func TestHTTPClient_GetSeries(t *testing.T) {
 				"title":"Fate/Zero",
 				"seasons":[
 					{"id":"fate-zero-s1","number":1,"part":1,"releaseYear":2011,
-					 "releaseSeason":"RELEASE_SEASON_FALL",
+					 "releaseSeason":"FALL",
 					 "externalIds":{"anilistId":10087,"anidbId":8160,"tvdbId":275798},
 					 "episodes":[{"absoluteNumber":1,"airedNumber":1}]},
 					{"id":"fate-zero-s2","number":1,"part":2,"releaseYear":2012,
-					 "releaseSeason":"RELEASE_SEASON_SPRING","externalIds":{"anilistId":11741}}
+					 "releaseSeason":"SPRING","externalIds":{"anilistId":11741}}
 				],
 				"movies":[
 					{"id":"dsm","title":"Mugen Train","releaseYear":2020,
@@ -142,7 +143,7 @@ func TestHTTPClient_GetSeries(t *testing.T) {
 					 "alternateCutOf":{"seasonId":"demon-slayer-s2"}}
 				],
 				"specials":[
-					{"id":"ova","title":"An OVA","format":"SPECIAL_FORMAT_OVA","releaseYear":2013}
+					{"id":"ova","title":"An OVA","format":"FORMAT_OVA","releaseYear":2013}
 				],
 				"characters":[
 					{"id":"artoria-pendragon","name":"Saber",
@@ -306,5 +307,278 @@ func TestHTTPClient_Errors(t *testing.T) {
 		_, err := NewHTTPClient(server.URL).Search(ctx, "fate", 10)
 		require.Error(t, err)
 		assert.True(t, errors.Is(err, context.Canceled))
+	})
+}
+
+// routeByMethod serves a Connect endpoint from a map of RPC method name to
+// response body, failing the test on any method it was not given.
+func routeByMethod(t *testing.T, bodies map[string]func(req map[string]any) string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		method := r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:]
+		handler, ok := bodies[method]
+		if !ok {
+			t.Errorf("unexpected RPC %q", method)
+			w.WriteHeader(http.StatusNotImplemented)
+			return
+		}
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		var req map[string]any
+		require.NoError(t, json.Unmarshal(body, &req))
+		_, _ = w.Write([]byte(handler(req)))
+	}))
+}
+
+func TestHTTPClient_SearchPaging(t *testing.T) {
+	t.Run("follows page tokens until the limit is filled", func(t *testing.T) {
+		var gotLimits []int
+		var gotTokens []string
+		server := routeByMethod(t, map[string]func(map[string]any) string{
+			"Search": func(req map[string]any) string {
+				gotLimits = append(gotLimits, int(req["limit"].(float64)))
+				token, _ := req["pageToken"].(string)
+				gotTokens = append(gotTokens, token)
+				if token == "" {
+					return `{"results":[
+						{"kind":"SERIES","id":"a"},{"kind":"SERIES","id":"b"}
+					],"nextPageToken":"p2","totalSize":3}`
+				}
+				return `{"results":[{"kind":"SERIES","id":"c"}],"totalSize":3}`
+			},
+		})
+		defer server.Close()
+
+		results, err := NewHTTPClient(server.URL).Search(context.Background(), "x", 3)
+		require.NoError(t, err)
+		require.Len(t, results, 3)
+		assert.Equal(t, "c", results[2].ID)
+
+		// The second page asks only for what is still missing.
+		assert.Equal(t, []int{3, 1}, gotLimits)
+		assert.Equal(t, []string{"", "p2"}, gotTokens)
+	})
+
+	t.Run("stops at the limit even if a page overshoots it", func(t *testing.T) {
+		server := routeByMethod(t, map[string]func(map[string]any) string{
+			"Search": func(map[string]any) string {
+				return `{"results":[
+					{"kind":"SERIES","id":"a"},{"kind":"SERIES","id":"b"},{"kind":"SERIES","id":"c"}
+				],"nextPageToken":"more"}`
+			},
+		})
+		defer server.Close()
+
+		results, err := NewHTTPClient(server.URL).Search(context.Background(), "x", 2)
+		require.NoError(t, err)
+		assert.Len(t, results, 2)
+	})
+
+	t.Run("an empty page ends the walk even with a page token", func(t *testing.T) {
+		calls := 0
+		server := routeByMethod(t, map[string]func(map[string]any) string{
+			"Search": func(map[string]any) string {
+				calls++
+				return `{"results":[],"nextPageToken":"forever"}`
+			},
+		})
+		defer server.Close()
+
+		results, err := NewHTTPClient(server.URL).Search(context.Background(), "x", 10)
+		require.NoError(t, err)
+		assert.Empty(t, results)
+		assert.Equal(t, 1, calls)
+	})
+
+	t.Run("an error on a later page fails the whole search", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			if !strings.Contains(string(body), "pageToken") {
+				_, _ = w.Write([]byte(`{"results":[{"kind":"SERIES","id":"a"}],"nextPageToken":"p2"}`))
+				return
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"code":"internal","message":"boom"}`))
+		}))
+		defer server.Close()
+
+		_, err := NewHTTPClient(server.URL).Search(context.Background(), "x", 10)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "boom")
+	})
+}
+
+func TestHTTPClient_GetSeriesFillsCappedCollections(t *testing.T) {
+	t.Run("pages the cast when it is truncated", func(t *testing.T) {
+		var gotSeriesIDs []string
+		var gotTokens []string
+		server := routeByMethod(t, map[string]func(map[string]any) string{
+			"GetSeries": func(map[string]any) string {
+				return `{"series":{"id":"slime","title":"Slime",
+					"characters":[{"id":"c1","name":"Rimuru"}],"charactersTotal":3}}`
+			},
+			"ListCharacters": func(req map[string]any) string {
+				gotSeriesIDs = append(gotSeriesIDs, req["seriesId"].(string))
+				token, _ := req["pageToken"].(string)
+				gotTokens = append(gotTokens, token)
+				if token == "" {
+					return `{"characters":[{"id":"c1","name":"Rimuru"},{"id":"c2","name":"Shion"}],
+						"nextPageToken":"p2","totalSize":3}`
+				}
+				return `{"characters":[{"id":"c3","name":"Shuna"}],"totalSize":3}`
+			},
+		})
+		defer server.Close()
+
+		series, err := NewHTTPClient(server.URL).GetSeries(context.Background(), "slime")
+		require.NoError(t, err)
+
+		require.Len(t, series.Characters, 3)
+		assert.Equal(t, "Shuna", series.Characters[2].Name)
+		assert.Equal(t, []string{"slime", "slime"}, gotSeriesIDs)
+		assert.Equal(t, []string{"", "p2"}, gotTokens)
+	})
+
+	t.Run("does not page when the embedded cast is complete", func(t *testing.T) {
+		server := routeByMethod(t, map[string]func(map[string]any) string{
+			// ListCharacters is deliberately absent: calling it fails the test.
+			"GetSeries": func(map[string]any) string {
+				return `{"series":{"id":"x","characters":[{"id":"c1","name":"A"}],"charactersTotal":1}}`
+			},
+		})
+		defer server.Close()
+
+		series, err := NewHTTPClient(server.URL).GetSeries(context.Background(), "x")
+		require.NoError(t, err)
+		assert.Len(t, series.Characters, 1)
+	})
+
+	t.Run("keeps the embedded cast when paging returns less", func(t *testing.T) {
+		server := routeByMethod(t, map[string]func(map[string]any) string{
+			"GetSeries": func(map[string]any) string {
+				return `{"series":{"id":"x",
+					"characters":[{"id":"c1","name":"A"},{"id":"c2","name":"B"}],"charactersTotal":9}}`
+			},
+			"ListCharacters": func(map[string]any) string {
+				return `{"characters":[{"id":"c1","name":"A"}],"totalSize":9}`
+			},
+		})
+		defer server.Close()
+
+		series, err := NewHTTPClient(server.URL).GetSeries(context.Background(), "x")
+		require.NoError(t, err)
+		assert.Len(t, series.Characters, 2)
+	})
+
+	t.Run("a paging failure fails the call", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasSuffix(r.URL.Path, "GetSeries") {
+				_, _ = w.Write([]byte(`{"series":{"id":"x","characters":[],"charactersTotal":5}}`))
+				return
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"code":"internal","message":"cast unavailable"}`))
+		}))
+		defer server.Close()
+
+		_, err := NewHTTPClient(server.URL).GetSeries(context.Background(), "x")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `ListCharacters("x")`)
+		assert.Contains(t, err.Error(), "cast unavailable")
+	})
+
+	t.Run("appends the works that did not fit, keeping the embedded ones", func(t *testing.T) {
+		server := routeByMethod(t, map[string]func(map[string]any) string{
+			"GetSeries": func(map[string]any) string {
+				return `{"series":{"id":"x",
+					"seasons":[{"id":"x-s1","number":1,"part":1,"releaseSeason":"WINTER"}],"seasonsTotal":2,
+					"movies":[],"moviesTotal":1,
+					"specials":[],"specialsTotal":1}}`
+			},
+			"ListWorks": func(req map[string]any) string {
+				assert.Equal(t, "x", req["seriesId"])
+				return `{"works":[
+					{"kind":"WORK_SEASON","id":"x-s1","number":1},
+					{"kind":"WORK_SEASON","id":"x-s2","title":"Second","number":2,
+					 "releaseYear":2024,"releaseSeason":"FALL","episodeCount":12,
+					 "externalIds":{"anilistId":42}},
+					{"kind":"WORK_MOVIE","id":"x-m1","title":"A Movie","releaseYear":2025},
+					{"kind":"WORK_SPECIAL","id":"x-ova","title":"An OVA","format":"FORMAT_OVA"},
+					{"kind":"WORK_UNSPECIFIED","id":"x-huh"},
+					{"kind":"WORK_SEASON","id":""}
+				],"totalSize":4}`
+			},
+		})
+		defer server.Close()
+
+		series, err := NewHTTPClient(server.URL).GetSeries(context.Background(), "x")
+		require.NoError(t, err)
+
+		// The embedded season is kept whole — including Part, which the
+		// flattened WorkSummary does not carry — and is not duplicated.
+		require.Len(t, series.Seasons, 2)
+		require.NotNil(t, series.Seasons[0].Part)
+		assert.Equal(t, 1, *series.Seasons[0].Part)
+		assert.Equal(t, "x-s2", series.Seasons[1].ID)
+		assert.Equal(t, "Second", series.Seasons[1].Title)
+		assert.Equal(t, ReleaseSeasonFall, series.Seasons[1].ReleaseSeason)
+		assert.Equal(t, 12, series.Seasons[1].EpisodesTotal)
+		assert.Equal(t, 42, series.Seasons[1].ExternalIDs.AniListID)
+		assert.Nil(t, series.Seasons[1].Part)
+
+		require.Len(t, series.Movies, 1)
+		assert.Equal(t, "A Movie", series.Movies[0].Title)
+		require.Len(t, series.Specials, 1)
+		assert.Equal(t, SpecialFormatOVA, series.Specials[0].Format)
+	})
+
+	t.Run("does not page works when every collection is complete", func(t *testing.T) {
+		server := routeByMethod(t, map[string]func(map[string]any) string{
+			// ListWorks is deliberately absent: calling it fails the test.
+			"GetSeries": func(map[string]any) string {
+				return `{"series":{"id":"x","seasons":[{"id":"x-s1"}],"seasonsTotal":1}}`
+			},
+		})
+		defer server.Close()
+
+		series, err := NewHTTPClient(server.URL).GetSeries(context.Background(), "x")
+		require.NoError(t, err)
+		assert.Len(t, series.Seasons, 1)
+	})
+
+	t.Run("a works paging failure fails the call", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasSuffix(r.URL.Path, "GetSeries") {
+				_, _ = w.Write([]byte(`{"series":{"id":"x","seasons":[],"seasonsTotal":5}}`))
+				return
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"code":"internal","message":"works unavailable"}`))
+		}))
+		defer server.Close()
+
+		_, err := NewHTTPClient(server.URL).GetSeries(context.Background(), "x")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `ListWorks("x")`)
+	})
+
+	t.Run("an empty works page ends the walk even with a page token", func(t *testing.T) {
+		calls := 0
+		server := routeByMethod(t, map[string]func(map[string]any) string{
+			"GetSeries": func(map[string]any) string {
+				return `{"series":{"id":"x","seasons":[],"seasonsTotal":5}}`
+			},
+			"ListWorks": func(map[string]any) string {
+				calls++
+				return `{"works":[],"nextPageToken":"forever"}`
+			},
+		})
+		defer server.Close()
+
+		series, err := NewHTTPClient(server.URL).GetSeries(context.Background(), "x")
+		require.NoError(t, err)
+		assert.Empty(t, series.Seasons)
+		assert.Equal(t, 1, calls)
 	})
 }
