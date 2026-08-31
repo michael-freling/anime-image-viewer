@@ -1,0 +1,40 @@
+# Runs the anime-metadata-db contract tests against the live API.
+#
+# These are deliberately not part of the PR gate: they need the network and a
+# third-party deployment, so a failure there would block unrelated work. They
+# run on a schedule instead, because the failure they exist to catch is not
+# caused by our commits — it is caused by upstream changing its wire format
+# underneath us, which has happened twice and both times broke the app silently.
+name: Metadata API Contract
+
+on:
+  schedule:
+    # Daily. The dataset and API are regenerated frequently upstream.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+  # Also run when the client that encodes the contract changes.
+  pull_request:
+    paths:
+      - "internal/animemetadata/**"
+      - ".github/workflows/metadata-contract.yml"
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+
+      - name: Create frontend dist placeholder
+        run: mkdir -p frontend/dist && touch frontend/dist/placeholder
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run contract tests against the live API
+        env:
+          ANIME_METADATA_CONTRACT: "1"
+        run: go test -v -count=1 -run TestContract ./internal/animemetadata/
