@@ -13,14 +13,16 @@ import (
 // These are contract tests: they run against the real anime-metadata-db
 // deployment and assert the parts of its wire format this package depends on.
 //
-// They exist because that API has twice changed underneath us without anything
-// failing loudly. Both breaks were string comparisons that simply stopped
-// matching: the enum values lost their prefixes ("ENTRY_KIND_SERIES" became
-// "SERIES"), which made every search return nothing, and the embedded
-// collections became capped first pages, which silently truncated an import to
-// 25 characters. Neither the compiler nor the hermetic tests in client_test.go
-// can catch that class of change, because those tests assert against fixtures
-// written by hand from the same stale assumption as the code.
+// They exist because that API has repeatedly changed underneath us without
+// anything failing loudly. The enum values lost their prefixes
+// ("ENTRY_KIND_SERIES" became "SERIES"), which made every search return
+// nothing; the embedded collections became capped first pages, which silently
+// truncated an import to 25 characters; and then the search RPC was renamed and
+// reshaped (Search -> SearchSeries, "results" -> "series") while the companion
+// paging RPCs were removed outright. Only the last of those failed loudly, and
+// only because a removed RPC 404s. Neither the compiler nor the hermetic tests
+// in client_test.go can catch that class of change, because those tests assert
+// against fixtures written by hand from the same assumption as the code.
 //
 // They are skipped unless ANIME_METADATA_CONTRACT=1, so the normal test run and
 // the PR gate stay hermetic and offline. They still compile on every run, so
@@ -28,24 +30,10 @@ import (
 // API — see .github/workflows/metadata-contract.yml.
 const contractEnvVar = "ANIME_METADATA_CONTRACT"
 
-// ListCatalog is used only to discover test candidates, so its request and
-// response live here rather than in the production client.
-type listCatalogRequest struct {
-	Kind      string `json:"kind,omitempty"`
-	Limit     int    `json:"limit"`
-	PageToken string `json:"pageToken,omitempty"`
-}
-
-type catalogEntry struct {
-	Kind string `json:"kind"`
-	ID   string `json:"id"`
-}
-
-type listCatalogResponse struct {
-	Entries       []catalogEntry `json:"entries"`
-	NextPageToken string         `json:"nextPageToken"`
-	TotalSize     int            `json:"totalSize"`
-}
+// oldEmbeddedCap is the page size the API used to cap each embedded collection
+// at, before it began serializing a series whole. It is the size a silently
+// re-introduced cap would most likely reappear at.
+const oldEmbeddedCap = 25
 
 // contractClient returns a client for the live API, or skips the test.
 func contractClient(t *testing.T) *HTTPClient {
@@ -64,37 +52,47 @@ func contractContext(t *testing.T) context.Context {
 	return ctx
 }
 
-// TestContractSearchEntryKinds guards the enum spelling that broke search.
+// TestContractSearchSeriesEnvelope guards the RPC name and the response field
+// that carries the hits.
 //
-// SearchMetadata keeps only results whose Kind equals EntryKindSeries, so if
-// upstream respells that value every search silently returns nothing and no
-// anime can be linked. Asserting the constant against live data is the only
-// thing that catches it.
-func TestContractSearchEntryKinds(t *testing.T) {
+// Both have changed before: the call was renamed from Search, and its results
+// moved from "results" to "series". A rename 404s, but a re-shaped envelope
+// decodes to an empty slice, which reaches the user as a search box that
+// matches nothing no matter what they type.
+func TestContractSearchSeriesEnvelope(t *testing.T) {
 	client := contractClient(t)
 
-	results, err := client.Search(contractContext(t), "a", 50)
+	results, err := client.SearchSeries(contractContext(t), "a", 50)
 	require.NoError(t, err)
-	require.NotEmpty(t, results, "a one-letter substring should match something in any non-empty dataset")
+	require.NotEmpty(t, results,
+		"a one-letter substring should match something in any non-empty dataset; "+
+			"the SearchSeries response envelope may have been reshaped again")
 
-	known := map[string]bool{
-		EntryKindFranchise:   true,
-		EntryKindSeries:      true,
-		EntryKindUnspecified: true,
-	}
-	seriesCount := 0
 	for _, result := range results {
-		assert.Truef(t, known[result.Kind],
-			"unknown EntryKind %q for %q — upstream respelled the enum and the constants in types.go are stale",
-			result.Kind, result.ID)
-		if result.Kind == EntryKindSeries {
-			seriesCount++
-		}
+		assert.NotEmptyf(t, result.ID, "a search hit carried no id: %+v", result)
+		assert.NotEmptyf(t, result.Title, "series %q carried no title", result.ID)
 	}
+}
 
-	// This is exactly the filter SearchMetadata applies. Zero here means the
-	// application's search box is empty no matter what the user types.
-	assert.NotZero(t, seriesCount, "no result had Kind == EntryKindSeries; SearchMetadata would return nothing")
+// TestContractSearchHitsAreImportable walks the whole flow the application
+// puts a user through — search for a series, then open the one they picked.
+//
+// The id a hit carries is the id GetSeries takes. If the two ever drift apart,
+// every search still looks fine and every import fails.
+func TestContractSearchHitsAreImportable(t *testing.T) {
+	client := contractClient(t)
+	ctx := contractContext(t)
+
+	results, err := client.SearchSeries(ctx, "a", 5)
+	require.NoError(t, err)
+	require.NotEmpty(t, results)
+
+	for _, result := range results {
+		series, err := client.GetSeries(ctx, result.ID)
+		require.NoErrorf(t, err, "GetSeries rejected the id search returned for %q", result.Title)
+		assert.Equalf(t, result.ID, series.ID,
+			"GetSeries(%q) came back as a different series", result.ID)
+	}
 }
 
 // TestContractReleaseSeasons guards the enum spelling that silently cleared the
@@ -111,15 +109,12 @@ func TestContractReleaseSeasons(t *testing.T) {
 		ReleaseSeasonUnspecified: true,
 	}
 
-	results, err := client.Search(ctx, "a", 25)
+	results, err := client.SearchSeries(ctx, "a", 25)
 	require.NoError(t, err)
 
 	recognised := 0
 	checked := 0
 	for _, result := range results {
-		if result.Kind != EntryKindSeries {
-			continue
-		}
 		if checked >= 5 {
 			break
 		}
@@ -149,100 +144,121 @@ func TestContractReleaseSeasons(t *testing.T) {
 		"no season carried a recognised release season; the releaseSeason field may have been renamed")
 }
 
-// TestContractPaginationEnvelope asserts the paging fields this client steers
-// by are still there and still work. If nextPageToken or totalSize is renamed,
-// they decode as zero values, paging stops after one page and imports truncate
-// without any error.
-func TestContractPaginationEnvelope(t *testing.T) {
+// TestContractSearchPaginationEnvelope asserts the paging fields SearchSeries
+// steers by are still there and still work.
+//
+// Search is the one call that still pages — a series is served whole, but a
+// page of results is not. If nextPageToken or totalSize is renamed they decode
+// as zero values, paging stops after the first page, and a search quietly
+// returns fewer matches than the user asked for.
+func TestContractSearchPaginationEnvelope(t *testing.T) {
 	client := contractClient(t)
 	ctx := contractContext(t)
 
-	var first listCharactersResponse
-	require.NoError(t, client.call(ctx, "ListCharacters", listCharactersRequest{Limit: 2}, &first))
+	// An empty query walks the catalogue, so this does not depend on any
+	// particular title surviving a dataset regeneration.
+	var first searchSeriesResponse
+	require.NoError(t, client.call(ctx, "SearchSeries", searchSeriesRequest{Limit: 2}, &first))
 
-	require.NotEmpty(t, first.Characters, "the dataset should have characters")
-	require.Greaterf(t, first.TotalSize, len(first.Characters),
+	require.NotEmpty(t, first.Series, "the catalogue should not be empty")
+	require.Greaterf(t, first.TotalSize, len(first.Series),
 		"totalSize (%d) should exceed a 2-item page; the field may have been renamed", first.TotalSize)
 	require.NotEmpty(t, first.NextPageToken, "nextPageToken should be set when more pages remain")
 
 	// The token must actually advance, not replay the first page.
-	var second listCharactersResponse
-	require.NoError(t, client.call(ctx, "ListCharacters",
-		listCharactersRequest{Limit: 2, PageToken: first.NextPageToken}, &second))
-	require.NotEmpty(t, second.Characters)
-	assert.NotEqual(t, first.Characters[0].ID, second.Characters[0].ID,
+	var second searchSeriesResponse
+	require.NoError(t, client.call(ctx, "SearchSeries",
+		searchSeriesRequest{Limit: 2, PageToken: first.NextPageToken}, &second))
+	require.NotEmpty(t, second.Series)
+	assert.NotEqual(t, first.Series[0].ID, second.Series[0].ID,
 		"the second page repeated the first; pageToken is not being honoured")
 }
 
-// TestContractGetSeriesReturnsWholeCast is the regression test for the
-// truncation bug: it finds a series the API actually truncates and asserts
-// GetSeries hands back the whole cast anyway.
+// TestContractGetSeriesIsComplete is the regression test for the truncation
+// bug, rewritten for an API that no longer publishes the counts it used to
+// truncate against.
+//
+// The check that a series comes back whole now cross-references the search
+// summary: works is seasons + movies + specials, and episodes is the total
+// across them. Those two numbers are computed upstream from the dataset rather
+// than from the response being checked, so a capped collection shows up as a
+// disagreement between them.
+func TestContractGetSeriesIsComplete(t *testing.T) {
+	client := contractClient(t)
+	ctx := contractContext(t)
+
+	summaries, err := client.SearchSeries(ctx, "", 20)
+	require.NoError(t, err)
+	require.NotEmpty(t, summaries)
+
+	for _, summary := range summaries {
+		series, err := client.GetSeries(ctx, summary.ID)
+		require.NoError(t, err)
+
+		works := len(series.Seasons) + len(series.Movies) + len(series.Specials)
+		assert.Equalf(t, summary.Works, works,
+			"series %q: search reports %d works but GetSeries returned %d; a collection is being truncated",
+			summary.ID, summary.Works, works)
+
+		episodes := 0
+		for _, season := range series.Seasons {
+			episodes += len(season.Episodes)
+		}
+		for _, special := range series.Specials {
+			episodes += len(special.Episodes)
+		}
+		assert.Equalf(t, summary.Episodes, episodes,
+			"series %q: search reports %d episodes but GetSeries returned %d; episodes are being truncated",
+			summary.ID, summary.Episodes, episodes)
+	}
+}
+
+// TestContractGetSeriesReturnsWholeCast covers the one collection the summary
+// counts say nothing about.
+//
+// Nothing upstream publishes a cast size, so this looks for a series whose cast
+// is larger than the cap the API used to apply and asserts it arrives whole. A
+// re-introduced cap would land on exactly that boundary.
 func TestContractGetSeriesReturnsWholeCast(t *testing.T) {
 	client := contractClient(t)
 	ctx := contractContext(t)
 
-	seriesID, embedded, total := findTruncatedSeries(ctx, t, client)
-	if seriesID == "" {
-		t.Skip("no series in the dataset currently exceeds the embedded cast cap; nothing to exercise")
+	seriesID, cast := findLargestCast(ctx, t, client)
+	require.NotEmpty(t, seriesID, "no series in the catalogue carries a cast at all")
+	t.Logf("largest cast found: %q with %d characters", seriesID, cast)
+
+	if cast <= oldEmbeddedCap {
+		t.Skipf("no series currently exceeds the old %d-character cap; nothing to exercise", oldEmbeddedCap)
 	}
-	t.Logf("series %q embeds %d of %d characters", seriesID, embedded, total)
-
-	series, err := client.GetSeries(ctx, seriesID)
-	require.NoError(t, err)
-	assert.Lenf(t, series.Characters, total,
-		"GetSeries returned %d of %d characters for %q; the cast is being truncated again",
-		len(series.Characters), total, seriesID)
-
-	// Every collection GetSeries hands out should be complete, not just the
-	// cast — the same cap applies to seasons, movies and specials.
-	assert.GreaterOrEqual(t, len(series.Seasons), series.SeasonsTotal, "seasons truncated")
-	assert.GreaterOrEqual(t, len(series.Movies), series.MoviesTotal, "movies truncated")
-	assert.GreaterOrEqual(t, len(series.Specials), series.SpecialsTotal, "specials truncated")
+	assert.NotEqual(t, oldEmbeddedCap, cast,
+		"series %q came back with exactly %d characters, the old embedded cap; the cast is being truncated again",
+		seriesID, oldEmbeddedCap)
 }
 
-// findTruncatedSeries scans the catalog for a series whose cast does not fit in
-// the page GetSeries embeds, returning its id and the embedded/total counts. It
-// returns an empty id when the dataset has no such series.
+// findLargestCast scans the catalogue for the series with the most characters,
+// returning its id and cast size.
 //
 // The scan is deliberately not a hardcoded id: the dataset is regenerated
 // upstream and any particular series can be renamed or removed, which would
 // turn this into a false failure rather than a real one.
-func findTruncatedSeries(ctx context.Context, t *testing.T, client *HTTPClient) (string, int, int) {
+func findLargestCast(ctx context.Context, t *testing.T, client *HTTPClient) (string, int) {
 	t.Helper()
 
 	const maxCandidates = 60
-	var pageToken string
-	scanned := 0
+	summaries, err := client.SearchSeries(ctx, "", maxCandidates)
+	require.NoError(t, err)
 
-	for scanned < maxCandidates {
-		var catalog listCatalogResponse
-		req := listCatalogRequest{Kind: EntryKindSeries, Limit: 50, PageToken: pageToken}
-		require.NoError(t, client.call(ctx, "ListCatalog", req, &catalog))
-		if len(catalog.Entries) == 0 {
-			return "", 0, 0
+	bestID := ""
+	best := 0
+	for _, summary := range summaries {
+		series, err := client.GetSeries(ctx, summary.ID)
+		if err != nil {
+			continue
 		}
-
-		for _, entry := range catalog.Entries {
-			if scanned >= maxCandidates {
-				break
-			}
-			scanned++
-
-			// The raw response, not client.GetSeries, which fills the gap
-			// this is looking for.
-			var raw getSeriesResponse
-			if err := client.call(ctx, "GetSeries", getSeriesRequest{ID: entry.ID}, &raw); err != nil {
-				continue
-			}
-			if raw.Series != nil && raw.Series.CharactersTotal > len(raw.Series.Characters) {
-				return entry.ID, len(raw.Series.Characters), raw.Series.CharactersTotal
-			}
+		if len(series.Characters) > best {
+			best = len(series.Characters)
+			bestID = summary.ID
 		}
-
-		if catalog.NextPageToken == "" {
-			break
-		}
-		pageToken = catalog.NextPageToken
 	}
-	return "", 0, 0
+	return bestID, best
 }

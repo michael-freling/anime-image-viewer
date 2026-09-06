@@ -4,7 +4,9 @@
 # third-party deployment, so a failure there would block unrelated work. They
 # run on a schedule instead, because the failure they exist to catch is not
 # caused by our commits — it is caused by upstream changing its wire format
-# underneath us, which has happened twice and both times broke the app silently.
+# underneath us, which has now happened three times: respelled enums and capped
+# collections, both of which broke the app silently, and then a renamed and
+# reshaped search RPC.
 name: Metadata API Contract
 
 on:
