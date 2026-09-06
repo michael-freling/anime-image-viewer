@@ -41,26 +41,18 @@ func equalUintPtr(a, b *uint) bool {
 	return *a == *b
 }
 
-// SearchMetadata proxies a search to the anime metadata database, keeping only
-// series entries. One anime maps to one storyline, so a franchise — which
-// groups several series — is not a valid import target.
-func (s *Service) SearchMetadata(ctx context.Context, query string) ([]animemetadata.SearchResult, error) {
+// SearchMetadata proxies a search to the anime metadata database.
+//
+// One anime maps to one storyline, which is exactly what the database's search
+// returns: it matches series only. Franchises group several series and are not
+// a valid import target, and the API no longer offers them as results, so
+// there is nothing to filter here.
+func (s *Service) SearchMetadata(ctx context.Context, query string) ([]animemetadata.SeriesSummary, error) {
 	if s.metadataClient == nil {
 		return nil, fmt.Errorf("anime metadata client is not configured")
 	}
 
-	results, err := s.metadataClient.Search(ctx, query, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	series := make([]animemetadata.SearchResult, 0, len(results))
-	for _, result := range results {
-		if result.Kind == animemetadata.EntryKindSeries {
-			series = append(series, result)
-		}
-	}
-	return series, nil
+	return s.metadataClient.SearchSeries(ctx, query, 0)
 }
 
 // LinkMetadataSeries records the metadata database's series id on an anime

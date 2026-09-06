@@ -16,14 +16,14 @@ import (
 
 // mockMetadataClient implements animemetadata.Client for testing.
 type mockMetadataClient struct {
-	searchResults  []animemetadata.SearchResult
+	searchResults  []animemetadata.SeriesSummary
 	searchErr      error
 	series         map[string]*animemetadata.Series
 	seriesErr      error
 	getSeriesCalls int
 }
 
-func (m *mockMetadataClient) Search(_ context.Context, _ string, _ int) ([]animemetadata.SearchResult, error) {
+func (m *mockMetadataClient) SearchSeries(_ context.Context, _ string, _ int) ([]animemetadata.SeriesSummary, error) {
 	return m.searchResults, m.searchErr
 }
 
@@ -118,12 +118,13 @@ func TestService_SearchMetadata(t *testing.T) {
 	te := newTester(t)
 	ctx := context.Background()
 
-	t.Run("returns only series entries", func(t *testing.T) {
+	// The database's search matches series only, so every hit is importable
+	// and there is nothing for the service to filter out.
+	t.Run("passes the matched series through", func(t *testing.T) {
 		mock := &mockMetadataClient{
-			searchResults: []animemetadata.SearchResult{
-				{Kind: animemetadata.EntryKindFranchise, ID: "fate", Title: "Fate"},
-				{Kind: animemetadata.EntryKindSeries, ID: "fate-zero", Title: "Fate/Zero", FranchiseID: "fate"},
-				{Kind: animemetadata.EntryKindSeries, ID: "fate-stay-night", Title: "Fate/stay night", FranchiseID: "fate"},
+			searchResults: []animemetadata.SeriesSummary{
+				{ID: "fate-zero", Title: "Fate/Zero", FranchiseID: "fate", Works: 2, Episodes: 25},
+				{ID: "fate-stay-night", Title: "Fate/stay night", FranchiseID: "fate", Works: 3, Episodes: 36},
 			},
 		}
 
@@ -133,16 +134,13 @@ func TestService_SearchMetadata(t *testing.T) {
 		require.Len(t, results, 2)
 		assert.Equal(t, "fate-zero", results[0].ID)
 		assert.Equal(t, "fate-stay-night", results[1].ID)
+		assert.Equal(t, 25, results[0].Episodes)
 	})
 
-	t.Run("returns an empty slice when only franchises match", func(t *testing.T) {
-		mock := &mockMetadataClient{
-			searchResults: []animemetadata.SearchResult{
-				{Kind: animemetadata.EntryKindFranchise, ID: "fate", Title: "Fate"},
-			},
-		}
+	t.Run("returns an empty slice when nothing matches", func(t *testing.T) {
+		mock := &mockMetadataClient{searchResults: nil}
 
-		results, err := te.serviceWithMetadata(mock).SearchMetadata(ctx, "fate")
+		results, err := te.serviceWithMetadata(mock).SearchMetadata(ctx, "nothing")
 		require.NoError(t, err)
 		assert.Empty(t, results)
 	})
